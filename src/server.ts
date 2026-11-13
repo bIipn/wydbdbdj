@@ -199,7 +199,14 @@ async function serverless() {
   if (!env('DATABASE_URL')) throw new Error('DATABASE_URL is required on a serverless host: the embedded database does not survive between requests');
   const { app, ctx } = await boot({ plainStatic: true });
   startRealtime(ctx); // stores alerts for what a scan publishes; the stream and push hang off the same bus
-  await app.listen({ port: Number(env('PORT') ?? 3000), host: '0.0.0.0' });
+  await app.ready(); // every route is registered before the host sends the first request
+  // NOT awaited, on purpose. Vercel takes over the server's listen() and feeds it requests itself;
+  // the "now listening" answer never comes back there, so awaiting it hung every request until the
+  // host gave up after 60 s. (Its own Fastify example calls listen() without awaiting it, too.)
+  app.listen({ port: Number(env('PORT') ?? 3000) }).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
 }
 
 if (process.env.VERCEL) {

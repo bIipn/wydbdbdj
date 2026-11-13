@@ -260,7 +260,7 @@ describe('NGEM fetch(): paging by postback', () => {
     const { bids, calls, logs } = await scan({ pages: { 1: p1, 2: p2, 3: p3 }, cookies: ['ASP.NET_SessionId'] });
     expect(bids).toHaveLength(20);
     expect(sent(calls)).toEqual(['session GET']);
-    expect(logs).toEqual(['ngem: 20 of 46 listed (pages 1/3) — stopped: the server set no session cookies']);
+    expect(logs).toEqual(['ngem: 20 of 46 listed (pages 1/3) — stopped: session cookies missing']);
   });
 
   it('never posts when the page has no postback pager (browser-saved shape)', async () => {
@@ -268,6 +268,15 @@ describe('NGEM fetch(): paging by postback', () => {
     expect(bids).toHaveLength(9);
     expect(sent(calls)).toEqual(['session GET']);
     expect(logs).toEqual(['ngem: 9 of 50 listed (pages 1/3) — stopped: no postback link for page 2']);
+  });
+
+  it('says which columns it had to read by position', async () => {
+    const { bids, logs } = await scan({ pages: { 1: edit(p1, ($) => $(`${GRID} thead th`).empty()), 2: p2, 3: p3 } });
+    expect(bids).toHaveLength(46);
+    expect(logs).toEqual([
+      'ngem: header does not name colBidNumber, colTitle, colTypeTitle, colWorkGroupName, colOpenDate, colCloseDate — read by position',
+      'ngem: 46 of 46 listed (pages 3/3)',
+    ]);
   });
 
   it('says so when the pager is missing', async () => {
@@ -408,7 +417,7 @@ describe('createHttp().session(): cookie jar', () => {
     const out = stubFetch((n) => {
       if (n === 1) return answer(['sid=one; Path=/', 'tmp=x']);
       if (n === 2) return answer(['sid=two; Path=/', 'tmp=; expires=Thu, 01 Jan 1970 00:00:00 GMT']);
-      if (n === 3) return answer(['sid=bye; Max-Age=0', 'not a cookie']);
+      if (n === 3) return answer(['sid=bye; Max-Age=0', 'not a cookie', 'odd=caf\u00e9']);
       return answer();
     });
     const session = quick().session!();

@@ -198,7 +198,7 @@ async function postForPage(
   if (want > MAX_PAGES) return `${MAX_PAGES}-page cap`;
   if (!session?.cookieNames) return 'no cookie session';
   const held = session.cookieNames(NGEM_URL);
-  if (!SESSION_COOKIES.every((c) => held.includes(c))) return 'the server set no session cookies';
+  if (!SESSION_COOKIES.every((c) => held.includes(c))) return 'session cookies missing';
   const target = prev.targets[want];
   const body = target ? buildNgemPostback(prevHtml, target) : null;
   if (!body) return `no postback link for page ${want}`;

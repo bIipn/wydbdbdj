@@ -48,7 +48,8 @@ function storeCookies(jar: CookieJar, origin: string, setCookie: string[]): void
     const [pair = '', ...attrs] = line.split(';');
     const eq = pair.indexOf('=');
     const name = pair.slice(0, Math.max(eq, 0)).trim();
-    if (!name) continue;
+    // Printable ASCII only, so a stored value can never be refused as a header (and end up quoted in an error).
+    if (!name || /[^\x20-\x7e]/.test(pair)) continue;
     const value = pair.slice(eq + 1).trim();
     const cookies = jar.get(origin) ?? new Map<string, string>();
     jar.set(origin, cookies);
@@ -84,8 +85,8 @@ export function createHttp(opts: HttpOptions): FetchLike {
   /** jar = null for the plain helper, a session's jar otherwise. */
   async function text(jar: CookieJar | null, url: string, init: RequestInit = {}): Promise<string> {
     // Only GET and HEAD are safe to repeat. Anything else (a form postback) gets ONE attempt: after a
-    // timeout or a 5xx we cannot know whether the server acted on it, and replaying a stale form only
-    // makes things worse on the other side.
+    // timeout or a 5xx we cannot know whether the server acted on it, and a replayed form with stale
+    // state is one more error on their side.
     const method = (init.method ?? 'GET').toUpperCase();
     const attempts = method === 'GET' || method === 'HEAD' ? retries + 1 : 1;
     let lastErr: unknown;

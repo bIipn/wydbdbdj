@@ -20,30 +20,42 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (108 tests as of 2026-11-13, ~5s)
+npm test                   # vitest (1025 tests in 35 files as of 2026-11-13, ~30s)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
 npm run scan -- --source=ngem        # one source
 npm run dev                # http://localhost:8787 (tsx watch)
+npm run market:refresh -- --states=NV,CA   # USAspending awards + BLS wages/indexes (network; --skip-bls etc.)
 npm run demo:snapshot      # rebuild web/demo-data.json + out/bidswipe-demo.html
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
-`POST /api/admin/scan` on the running server.
+`POST /api/admin/scan` on the running server. Modes (env): `AUTH_MODE=single` (default, the pilot: one
+config profile, optional `ACCESS_CODE`) · `AUTH_MODE=accounts` (sign-up, onboarding, a profile per account)
+· `DEMO_MODE=1` (everyone gets plan "pilot", all features on) · `SOURCES=fixtures` (scan the saved pages).
 
 ## Map
 ```
 src/sources/*.ts   one file per bid board: pure parse…() + small fetch() — see .claude/skills/add-source
-src/geo/           gazetteer (places.ts) + locate(): city → ZIP → county → town in text → agency → region → state
+src/sources/flags.ts  the flag strings, program-contract terms and SAM set-aside codes parsers write and
+                   score.ts reads — ONE copy (test/federal-chain.test.ts guards it)
+src/sources/dedupe.ts SAM: one card per solicitation (samgov:<sol number>), newest notice wins
+src/geo/           gazetteer (places.ts) + nationwide ZIP table (zip.ts) + locate(): gazetteer town → ZIP →
+                   nationwide ZIP / city+state → county → town in text → agency → region → state; a listed
+                   address it can't place stays unplaced (no guess)
 src/score/score.ts fit score + plain-English reasons (the product's brain)
 config/<id>.json   a contractor profile (keywords, radius, value range…) — tune scoring HERE, not in code
 src/scan.ts        fetch all sources → finalizeBid → upsert → score per profile → record report
 src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here)
-src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts)
+src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
+src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
+src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push
+src/market/        USAspending awards, BLS wages + material indexes, NV prevailing wage (config/prevailing-wage)
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
-web/               index.html, styles.css, app.js (swipe deck, browse, saved, detail sheet)
+web/               index.html, styles.css, sw.js, js/*.js (ES modules, no build: main → views/ swipe, browse,
+                   sheet + price check, market, alerts, sign-in, onboarding, settings); demo:snapshot bundles them
 test/fixtures/     REAL responses, raw as the scanner receives them: HTML captured 2026-11-13, QuestCDN JSON
-                   2026-11-11 (except samgov-search.json = synthetic, TEST- ids)
+                   2026-11-11, SAM.gov JSON (samgov-*.json) 2026-11-13 04:01 UTC, trimmed; BLS JSON 2026-11-13
 test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
                    · http.test.ts (cookie session) · pipeline / score / server / util · helpers.ts
 ```
@@ -65,12 +77,15 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - **Times:** boards list Pacific wall-clock times with no offset — always go through `util/time.ts`
   (`parseUsDateTime`, `findDueInText`), never `new Date(string)` on board text. Store ISO UTC.
 - **Scoring:** reasons are user-facing copy; keep them short and specific. Behavior changes need a test
-  in `test/score.test.ts`. Prefer editing `config/lm-electric.json` over code.
+  in `test/score.test.ts` (or `score-audit.test.ts` on real bids). Prefer editing `config/lm-electric.json`
+  over code; the pilot's keyword lists must stay equal to the catalog's electrical template
+  (`test/profile.test.ts`). A new flag or set-aside code goes in `src/sources/flags.ts`, never retyped.
 - **Codes & payments:** never add an in-app "enter a code to unlock Pro" box to the iOS build (App Store
   guideline 3.1.1). Use Apple Offer Codes / Google Play promo codes / RevenueCat promotional
   entitlements; the web app may keep `ACCESS_CODE` for the pilot. See `docs/PRODUCT.md` §4.
-- **Never fabricate bids.** Demo data comes from captured real pages; the SAM.gov fixture is synthetic
-  and must never ship in a demo.
+- **Never fabricate bids, awards, wages or prices.** Demo data comes from captured real pages. The SAM.gov
+  fixtures are real (trimmed) but not in fixture mode or the demo yet; anything synthetic in tests says
+  so (TEST- ids, example.com, "(simulated)").
 - **Secrets** live in `.env` (gitignored). Never print or commit keys.
 - **Front end:** build DOM with the `h()` helper (text nodes only) — no `innerHTML` with data. Only
   `http(s)` links (`safeUrl`). Keep it dependency-free and mobile-first; Ev cares that it looks neat.
@@ -93,6 +108,12 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - Douglas County's Open/Close status is not in the HTML (a script stamps it in the browser), so
   `parseDouglasPage` decides it from `now`: the due time in the legal ad if there is one, else the county's
   rule (open until the day before `td.deadline-date`, Pacific). Raw page without `now` → it throws.
+- Every state-changing `/api` request needs the header `x-bidswipe: 1` (CSRF guard, `src/auth/guard.ts`) or
+  it gets 403 `csrf` — `curl` POSTs to `/api/admin/scan` included.
+- SAM.gov card ids are `samgov:<solicitation number>` since 2026-11-13 (were `samgov:<noticeId>`); rows
+  stored under the old ids are not cleaned up and sit beside the new ones until they close.
+- Each scan re-scores every still-open stored bid, but only bids fetched in that scan can raise 'match'
+  alerts. `POST /api/estimate` (cost engine) is a stub that answers 501.
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

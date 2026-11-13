@@ -3,6 +3,7 @@ import type { BidDraft, FetchLike, Source } from '../types.js';
 import { absolutize } from '../util/http.js';
 import { clean, cleanOrNull, slugify, unescapeLeftover } from '../util/text.js';
 import { parseUsDateTime } from '../util/time.js';
+import { FLAGS } from './flags.js';
 
 /**
  * Nevada Government eMarketplace (NGEM), hosted on IonWave. One public list covers
@@ -145,7 +146,7 @@ export function parseNgemPage(html: string, pageUrl = NGEM_URL): NgemPage {
     const link = $(tr).find('a[href*="SourceEvent"], a[href*="Event.aspx"]').first().attr('href');
     const flags: string[] = [];
     if (addendum) flags.push(`Addendum ${addendum[1]} posted`);
-    if (/^rfi\b/i.test(type)) flags.push('RFI — info only, not a bid');
+    if (/^rfi\b/i.test(type)) flags.push(FLAGS.rfi);
 
     bids.push({
       source: 'ngem',

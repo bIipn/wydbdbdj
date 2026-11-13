@@ -66,6 +66,10 @@ a { color: inherit; }
 .profile-chip #profileName { color: var(--text); font-weight: 600; flex: 0 1 auto; }
 .profile-chip #profileBase { flex: 0 100 auto; } /* the town gives way before the business name */
 .profile-chip .dot { flex: none; }
+/* On a phone with the bell showing there is room for one thing: the business name, not two half-words. */
+@media (max-width: 430px) {
+  .bell:not([hidden]) + .profile-chip #profileBase, .bell:not([hidden]) + .profile-chip .dot { display: none; }
+}
 .profile-chip:disabled { opacity: 1; }
 .profile-chip.is-link { cursor: pointer; }
 .profile-chip.is-link::after {

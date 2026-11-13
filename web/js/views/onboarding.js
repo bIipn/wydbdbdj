@@ -70,7 +70,8 @@ async function finish(button) {
     resetOnboarding();
     await enterApp();
     const fits = deck().length;
-    showToast(fits ? `All set — ${fits} bid${fits === 1 ? '' : 's'} fit you right now` : `All set — we checked ${res.scored} open bids`);
+    showToast(fits ? `All set — ${fits} bid${fits === 1 ? '' : 's'} fit you right now`
+      : res.scored ? `All set — none of the ${res.scored} open bids fit yet` : 'All set — new bids arrive with the morning scan');
   } catch (err) {
     ui.busy = false;
     const fields = err.body?.fields ?? { form: err.message || 'That did not save. Try again.' };

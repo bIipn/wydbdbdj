@@ -2,6 +2,7 @@ import type { BidDraft, Source } from '../types.js';
 import { parseUsDateTime, samDate } from '../util/time.js';
 import { clean, cleanOrNull, titleCaseIfShouting } from '../util/text.js';
 import { mergeDrafts, samKey } from './dedupe.js';
+import { FLAGS, PROGRAM_CONTRACT_TERMS } from './flags.js';
 
 /** Official SAM.gov Get Opportunities API v2 — https://open.gsa.gov/api/get-opportunities-public-api/ */
 export const SAM_API = 'https://api.sam.gov/opportunities/v2/search';
@@ -50,12 +51,12 @@ export const SAM_QUERIES: Array<{ state: string; ncode?: string }> = [
   { state: 'CA', ncode: '236220' },
 ];
 
-/** The exact flag strings the scorer acts on. Change them here and in score.ts together. */
+/** The exact flag strings the scorer acts on (one copy, in flags.ts). */
 export const SAM_FLAGS = {
   /** An advance notice: the bid package is not out yet (or SAM still lists the notice that announced it). */
-  presolicitation: 'Presolicitation',
+  presolicitation: FLAGS.presolicitation,
   /** A multi-year vehicle (IDIQ, JOC, MATOC, BPA, OTA…) that hands out task orders, not one job. */
-  programContract: 'Program contract',
+  programContract: FLAGS.programContract,
 } as const;
 
 export function buildSamUrl(p: { apiKey: string; state: string; ncode?: string; from: Date; to: Date; limit?: number }): string {
@@ -181,12 +182,9 @@ export function setAsideFromText(text: string | null | undefined): string | null
   return null;
 }
 
-/** Contract vehicles: one award that hands out task orders for years. Whole words only. */
-const PROGRAM =
-  /\b(?:IDIQ|ID\/IQ|JOC|MATOC|SATOC|MACC|BPA|OTA)s?\b|\bindefinite[- ]delivery\b|\bindefinite[- ]quantity\b|\bjob order contracts?\b|\bmultiple[- ]award (?:task order|construction|contract)s?\b|\bsingle[- ]award task order\b|\bblanket purchase agreements?\b|\bother transaction (?:authority|agreement)\b/i;
-
+/** Contract vehicles: one award that hands out task orders for years. Whole words only (shared with score.ts). */
 export function isProgramContract(text: string | null | undefined): boolean {
-  return !!text && PROGRAM.test(text);
+  return !!text && PROGRAM_CONTRACT_TERMS.test(text);
 }
 
 /** The notice is an advance notice, not the bid package (SAM's own type, or a title that says so). */

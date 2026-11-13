@@ -1,4 +1,5 @@
 import { milesBetween } from '../geo/locate.js';
+import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, SET_ASIDES } from '../sources/flags.js';
 import { tradeNoun } from '../trades/catalog.js';
 import type { Bid, Profile, Reason, ScoreResult, SpendLimits, Verdict } from '../types.js';
 import { formatMoneyShort, formatRange } from '../util/money.js';
@@ -111,47 +112,10 @@ function matchers(p: Profile): Compiled {
   return c;
 }
 
-const SET_ASIDE_LABELS: Record<string, string> = {
-  SBA: 'Small business', SBP: 'Partial small business', '8A': '8(a)', '8AN': '8(a) sole source',
-  HZC: 'HUBZone', HZS: 'HUBZone sole source', SDVOSBC: 'Service-disabled veteran', SDVOSBS: 'SDVOSB sole source',
-  WOSB: 'Women-owned', WOSBSS: 'WOSB sole source', EDWOSB: 'Economically disadvantaged WOSB', VSA: 'Veteran-owned',
-  ISBEE: 'Indian small business',
-};
-
-/**
- * Set-asides only a certified firm can win. An offer from anyone else cannot be awarded, so a profile
- * that does not list the code gets a hard no. Size-standard set-asides (SBA, SBP) and codes not listed
- * here stay a "check you qualify" penalty.
- */
-const RESERVED_FOR: Record<string, string> = {
-  '8A': 'Reserved for 8(a) firms',
-  '8AN': 'Sole source to an 8(a) firm',
-  HZC: 'Reserved for HUBZone firms',
-  HZS: 'Sole source to a HUBZone firm',
-  SDVOSBC: 'Reserved for service-disabled veteran-owned firms',
-  SDVOSBS: 'Sole source to a service-disabled veteran-owned firm',
-  WOSB: 'Reserved for women-owned small businesses',
-  WOSBSS: 'Sole source to a women-owned small business',
-  EDWOSB: 'Reserved for economically disadvantaged women-owned small businesses',
-  EDWOSBSS: 'Sole source to an economically disadvantaged women-owned small business',
-  VSA: 'Reserved for veteran-owned small businesses',
-  VSS: 'Sole source to a veteran-owned small business',
-  ISBEE: 'Reserved for Indian small business economic enterprises',
-  IEE: 'Reserved for Indian economic enterprises',
-  BICiv: 'Reserved for Indian-owned firms (Buy Indian)',
-};
-
-/** A contract vehicle: a seat on a multi-site, multi-order contract, not one job. Whole words, any case. */
-const PROGRAM_WORDS = /(?<![a-z0-9])(idiq|joc|matoc|macc|satoc|job order contract|multiple award|indefinite delivery|other transaction authority)(?![a-z0-9])/i;
-const ACRONYMS = new Set(['idiq', 'joc', 'matoc', 'macc', 'satoc']);
-
-/** The flag the federal parser sets, e.g. "Program contract (IDIQ)". */
-const PROGRAM_FLAG = /^program contract\b(?:\s*\(([^)]+)\))?/i;
-/** Not biddable yet: SAM.gov presolicitations and NGEM requests for information. */
-const NOT_OPEN_FLAGS: ReadonlyArray<{ re: RegExp; text: string }> = [
-  { re: /^presolicitation\b/i, text: 'Presolicitation — not open for bids yet' },
-  { re: /^rfi\b/i, text: 'RFI — info only, not a bid' },
-];
+// Set-aside codes, flag strings and program-contract terms come from src/sources/flags.ts, the same table the
+// parsers write from. A certification set-aside (8(a), HUBZone, SDVOSB, WOSB…) the profile does not list is a
+// hard no: an offer from anyone else cannot be awarded. Size standards (SBA, SBP) and unknown codes stay a
+// "check you qualify" penalty.
 
 /**
  * The title names work, not just a thing: tells a job (an install, a repair, a maintenance contract) from a
@@ -177,13 +141,10 @@ export function titleAmount(title: string | null | undefined): number | null {
 
 /** The program-contract term for a bid ("IDIQ", "Job order contract"), from the parser's flag or the title. */
 export function programTerm(bid: Pick<Bid, 'title' | 'flags'>): string | null {
-  for (const f of bid.flags) {
-    const m = PROGRAM_FLAG.exec(f);
-    if (m) return m[1]?.trim() || (PROGRAM_WORDS.exec(bid.title)?.[1] ?? 'program').replace(/^./, (c) => c.toUpperCase());
-  }
-  const w = PROGRAM_WORDS.exec(bid.title)?.[1];
-  if (!w) return null;
-  if (ACRONYMS.has(w.toLowerCase())) return w.toUpperCase();
+  const flagged = bid.flags.some((f) => f === FLAGS.programContract);
+  const w = PROGRAM_CONTRACT_TERMS.exec(bid.title)?.[1];
+  if (!w) return flagged ? FLAGS.programContract : null; // the parser saw the term in the description
+  if (PROGRAM_ACRONYMS.has(w.toLowerCase())) return w.toUpperCase();
   const words = w === w.toUpperCase() ? w.toLowerCase() : w; // a shouting title reads in sentence case
   return words[0]!.toUpperCase() + words.slice(1);
 }
@@ -273,7 +234,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const amount = titleAmount(title);
   if (program) {
     const big = amount !== null && amount > profile.valueRange.max ? `, ${formatMoneyShort(amount)}` : '';
-    reject(`Program contract (“${program}”${big}) — not a single job`);
+    reject(program === FLAGS.programContract ? `Program contract${big ? ` (${big.slice(2)})` : ''} — not a single job` : `Program contract (“${program}”${big}) — not a single job`);
   }
 
   const excluded = m.exclude.test(title) ?? m.exclude.test(bid.category);
@@ -356,7 +317,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   }
 
   // ---- time to bid ------------------------------------------------------
-  const notOpen = NOT_OPEN_FLAGS.find(({ re }) => bid.flags.some((f) => re.test(f)));
+  const notOpen = NOT_OPEN_FLAGS.find(({ flag }) => bid.flags.includes(flag));
   let runway = 7;
   if (bid.dueAt) {
     const days = (Date.parse(bid.dueAt) - now.getTime()) / 86_400_000;
@@ -391,11 +352,11 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
 
   // ---- set-asides & requirements -----------------------------------------
   if (bid.setAside && !profile.setAsidesEligible.includes(bid.setAside)) {
-    const reserved = RESERVED_FOR[bid.setAside];
-    if (reserved) reject(reserved);
+    const known = SET_ASIDES[bid.setAside];
+    if (known?.reserved) reject(known.reserved);
     else {
       penalty += 15;
-      minus.push({ kind: 'minus', text: `${SET_ASIDE_LABELS[bid.setAside] ?? bid.setAside} set-aside — check you qualify` });
+      minus.push({ kind: 'minus', text: `${known?.label ?? bid.setAside} set-aside — check you qualify` });
     }
   }
   // A supply board lists purchases and installs alike. A title that names no work is most likely a purchase.
@@ -406,7 +367,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   } else if (bid.flags.includes('May be supply-only')) penalty += 5;
   for (const f of bid.flags) {
     if (supplyOnly && f === 'May be supply-only') continue; // said by the minus above
-    if (NOT_OPEN_FLAGS.some(({ re }) => re.test(f)) || PROGRAM_FLAG.test(f)) continue; // said above
+    if (f === FLAGS.programContract || NOT_OPEN_FLAGS.some(({ flag }) => flag === f)) continue; // said above
     info.push({ kind: 'info', text: f });
   }
 

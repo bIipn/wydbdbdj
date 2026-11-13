@@ -106,7 +106,7 @@ describe('eligibility is a gate: a certification set-aside is a hard no', () => 
     const open = scoreBid({ ...J061, setAside: null }, pilot, SCAN);
     expect(s.rejected).toBeNull();
     expect(s.score).toBe(open.score - 15);
-    expect(s.reasons).toContainEqual({ kind: 'minus', text: 'LAS set-aside — check you qualify' });
+    expect(s.reasons).toContainEqual({ kind: 'minus', text: 'Local-area set-aside — check you qualify' });
   });
 });
 

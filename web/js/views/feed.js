@@ -13,10 +13,13 @@ import { browseList, deck, savedList, state } from '../state.js';
 
 // ------------------------------------------------------------- swipe ---
 
-/** "Next up": the API's pick (fit + how soon it is due) with its reasons. Hidden once it is swiped. */
-function nextUp() {
+/**
+ * "Next up": the API's pick (fit + how soon it is due) with its reasons. Hidden once it is swiped, and while it
+ * is the deck's top card anyway (the same bid twice only pushes the swipe buttons off a phone screen).
+ */
+function nextUp(topId) {
   const item = state.next?.item;
-  if (!item || item.swipe || item.overLimit) return null;
+  if (!item || item.swipe || item.overLimit || item.id === topId) return null;
   return h('button', { class: `next verdict-${item.verdict}`, type: 'button', onclick: () => openSheet(item), 'aria-label': `Next up: ${item.title}` },
     h('div', { class: 'next-top' },
       h('span', { class: 'next-label' }, 'Next up'),
@@ -29,7 +32,7 @@ function nextUp() {
 
 function renderSwipe() {
   const items = deck();
-  const next = nextUp();
+  const next = nextUp(items[0]?.id);
   if (items.length === 0) {
     return h('div', { class: 'swipe-view' },
       next,
@@ -72,7 +75,7 @@ const ui = { input: null, timer: null, hadFocus: false };
 function searchInput() {
   if (!ui.input) {
     ui.input = h('input', {
-      class: 'input search-input', type: 'search', placeholder: 'Search bids, towns, bid #', 'aria-label': 'Search bids',
+      class: 'input search-input', type: 'search', placeholder: 'Search bids', 'aria-label': 'Search bids',
       enterkeyhint: 'search', autocomplete: 'off', maxlength: '200',
     });
     ui.input.addEventListener('input', () => {
@@ -126,12 +129,16 @@ function valueNote(list) {
 function noResults() {
   const f = state.browse;
   const q = f.q.trim();
+  // Say which choice most likely emptied the list, in the order people trip over them.
+  const hint = f.hasValue ? 'Most public notices don’t list a job value, so “Value listed” leaves very few. Remove it to see the rest.'
+    : q ? 'Try fewer or different words — the search looks at the title, agency, town and bid number.'
+      : f.maxDistance != null ? 'Bids we couldn’t place on the map drop out when you pick a distance. Try a wider one.'
+        : isFiltered(f) ? 'Remove a filter to see more.'
+          : 'There are no open bids right now. New ones are pulled every morning.';
   return h('div', { class: 'empty compact' },
     h('h3', {}, q ? `No bids match “${q}”` : 'No bids match these filters'),
-    h('p', {}, isFiltered(f)
-      ? 'Try fewer words or remove a filter. Bids with no listed value or distance drop out when you filter on those.'
-      : 'There are no open bids right now. New ones are pulled every morning.'),
-    isFiltered(f) ? h('button', { class: 'cta ghost', type: 'button', onclick: () => { ui.input && (ui.input.value = ''); refilter((x) => Object.assign(x, defaultFilters())); } }, 'Clear search and filters') : null,
+    h('p', {}, hint),
+    isFiltered(f) ? h('button', { class: 'cta ghost', type: 'button', onclick: () => { if (ui.input) ui.input.value = ''; refilter((x) => Object.assign(x, defaultFilters())); } }, q ? 'Clear search and filters' : 'Clear filters') : null,
   );
 }
 

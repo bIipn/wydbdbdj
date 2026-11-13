@@ -1,4 +1,4 @@
-# BidSwipe — handoff notes (v0, 2026-11-12)
+# BidSwipe — handoff notes (v1, updated 2026-11-13)
 
 Everything learned while building v0, so nobody has to re-research it. The product vision (price
 action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
@@ -7,28 +7,32 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 
 | Area | Status |
 |---|---|
-| 5 source connectors | ✅ built · ✅ parsers tested on the raw server responses · ⚠️ first live scan 2026-11-13: three sources came back short with no error — fixed offline against the pages saved that day, **live re-scan still to confirm** |
-| Location + distance | ✅ tested (gazetteer covers N. Nevada, Tahoe, CA side; recognizes far-away places to reject them) |
-| Fit scoring + reasons | ✅ tested, sane on real data (see §4) |
+| 5 source connectors | ✅ parsers tested on raw responses · ✅ live scan 2026-11-13 read every board (107 open bids) · ⚠️ the three source fixes made after it (Douglas, NevadaEPro, NGEM paging) are tested on that day's pages, not yet re-run live |
+| Location + distance | ✅ gazetteer + nationwide ZIP table; SAM places parsed from every shape in the real responses; a listed address we can't place stays unplaced (no guess) |
+| Fit scoring + reasons | ✅ audited on the 107 live bids (see §4); certification set-asides and program contracts are hard no's, presolicitations/RFIs never alert |
+| Accounts, onboarding, settings | ✅ tested + checked in a phone-size browser (`AUTH_MODE=accounts`); OAuth (Supabase) written, never run |
+| Search, filters, next up, spend limits | ✅ tested; no captured bid lists a value, so limits/value filters were only seen on a simulated row |
+| Live alerts (inbox + SSE) | ✅ tested + seen in the browser; web push wired, never delivered end to end |
+| Price check (awards, wages, indexes, NV prevailing wage) | ✅ tested; real USAspending pull (NV 266, CA 2078 awards) and real BLS responses (fixtures) seen in the browser. Prevailing-wage rates were typed from the state PDF, not double-checked |
+| Cost engine (`POST /api/estimate`) | ❌ not built, answers 501 |
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
-| API (Fastify) | ✅ tested with `inject`, plus a real server checked in Chrome |
-| Swipe app (web/) | ✅ checked in headless Chrome at 390×844: swipe, buttons, keyboard, undo, browse, saved, details |
-| Daily scheduler + digest | ✅ unit tested; Resend send path written, not yet sent for real |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 
-**First live scan (2026-11-13):** `douglascounty` 0 bids (1 expected), `nevadaepro` 0 (25 expected), `ngem`
-20 from 1 page (46 on 3 pages) — and no error from any of them. One cause behind all three: the fixtures
-had been saved from a browser *after* page JavaScript ran, while the scanner gets the raw server HTML,
-which is shaped differently (details per source in §2). What changed:
-- `test/fixtures/` now holds the raw responses (HTML captured 2026-11-13; QuestCDN JSON 2026-11-11).
-- Each of the three sources throws when it can't read its page (→ FAILED in the scan report) instead of
-  returning 0, and logs what it read next to what the board lists.
-- The http helper has an opt-in cookie session (`ctx.http.session()`) for NGEM's paging.
+**Final check, 2026-11-13** (commit "v1: reconciled core…"): typecheck, 1025 tests and build pass. The
+built server (`node dist/server.js`, `SOURCES=fixtures`) was driven in Chromium at 390×844: sign-up,
+onboarding, a live scan raising 2 alerts, swipe + next up, browse search/filters, bid sheet with price
+check, market, alerts inbox, settings, sign-out (accounts + `DEMO_MODE=1`), and the pilot's single mode.
 
-**Next:** re-run `npm run scan -- --no-notify` (`.claude/skills/live-scan`). Against the pages saved on
-2026-11-13 the log reads `douglascounty: 1 open of 90 rows`, `nevadaepro: 25 of 29 listed (first page
-only)` and `ngem: 46 of 46 listed (pages 3/3)`; the counts move daily. The fixes have only been run
-against those saved pages, not against the live boards.
+**Live data, 2026-11-13:** SAM.gov answered 3 queries (32 notices, saved trimmed in
+`test/fixtures/samgov-*.json` — real data now; the old synthetic `samgov-search.json` is gone). The 107
+open bids of that scan, re-scored with the final code at the scan's clock: great 3 → 2, good 3 → 0,
+maybe 10 → 6, skip 91 → 96; 3 duplicate SAM cards merged (104 cards); federal cards with a distance 7 of
+22 → 17 of 19. Alerts (55+) went from 6 to 2 (Cell Doors 82, Fire Sprinkler/Fire Alarm 77): both IDIQ
+JOCs and the $465M MATOC are program contracts, the J061 breaker testing is SDVOSB-only, "Generator" names
+no work (supply board). Both remaining alerts need SPWD bidder qualification — ask L&M (§5).
+
+**Next:** re-run `npm run scan -- --no-notify` live (`.claude/skills/live-scan`) to confirm the source
+fixes; answer the §5 questions; deploy.
 
 ## 2. Sources — what we found
 
@@ -128,8 +132,14 @@ against those saved pages, not against the live boards.
   (MM/dd/yyyy, required), `ptype`, `state`, `ncode`, `limit` (≤1000), `offset`.
 - Key: sam.gov → Account Details → Public API Key. Personal keys can have a very low daily request cap,
   so v0 makes only **3 calls/day**: NV (all), CA + NAICS 238210, CA + 236220; scoring filters the rest.
-- ⚠️ Verify on first live run: that `ptype=o,k,p` (comma list) is accepted. If not, loop per type.
-- Set-asides are scored against `setAsidesEligible` (L&M: SBA, SBP).
+- `ptype=o,k,p` (comma list) was accepted on the 2026-11-13 live run. Raw responses (trimmed, contacts and
+  links removed) are `test/fixtures/samgov-nv.json`, `samgov-ca-238210.json`, `samgov-ca-236220.json`.
+- One card per solicitation (`samgov:<sol number>`): amendments, presolicitations and repeats across the
+  3 queries merge, newest notice wins. Place of performance comes in many shapes (ZIP only, street text,
+  city "0", state by name, several sites) — `parseSamPlace` reads them all; never the office address.
+- Flags `Presolicitation` and `Program contract` (IDIQ/JOC/MATOC/MACC/BPA/OTA) and the set-aside codes are
+  shared with the scorer in `src/sources/flags.ts`. Certification set-asides (8(a), HUBZone, SDVOSB,
+  WOSB…) are a hard no unless listed in `setAsidesEligible` (L&M: SBA, SBP — an assumption, see §5).
 
 ### Looked at, not built yet (next sources, in order of value for L&M)
 1. **Douglas County School District** — posts bid docs on its website + legal ads in The Record-Courier
@@ -155,7 +165,7 @@ Never: PlanHub, BuildingConnected, ConstructConnect, Dodge (login-walled / ToS).
 - **Free first, paid later:** free = swipe + daily digest; paid = instant push alerts, AI bid summaries,
   bid drafting, more regions. Bill on the web (Stripe), not in-app.
 
-## 4. Scoring on real data (2026-11-11, 31 open bids)
+## 4. Scoring on real data (2026-11-11, 31 open bids — v0, superseded by §1's 2026-11-13 re-score)
 great 2 · good 1 · maybe 5 · skip 23. Top: 82 SPWD cell doors/intercoms/controls (Carson City, 15 mi) ·
 77 SPWD fire sprinkler + fire alarm (Yerington, 32 mi) · 60 NevadaEPro "Generator" (supply-only flag) ·
 53 elevator modernizations (related) · 45 HVAC maintenance (N. Nevada) · 40 fire suppression (Reno).
@@ -163,7 +173,8 @@ Correctly rejected: janitorial, furniture, traffic-control services, strategic p
 
 ## 5. Open questions for L&M (tune `config/lm-electric.json` with their answers)
 - Real service radius? (now 90 mi straight-line) · Will they do CA-side Tahoe work (C-10 license)?
-- Bonding capacity? (affects public jobs > $100K) · SPWD-qualified? NGEM / NevadaEPro registered?
+- Bonding capacity? (affects public jobs > $100K) · **SPWD-qualified?** (both current alerts need it) ·
+  NGEM / NevadaEPro registered? · Certified for any federal set-aside (SDVOSB, 8(a), HUBZone, WOSB)?
 - Job types they want more/less of (service calls, TI, lighting retrofits, generators, solar, EV)?
 - Who gets the digest email, and what time?
 - Many $10K–$50K jobs are informal quotes that are never posted → get L&M onto agency vendor lists.
@@ -183,5 +194,6 @@ Correctly rejected: janitorial, furniture, traffic-control services, strategic p
    (push, saved list offline) beyond a web wrapper. 9. Paid tier (Stripe on the web). 10. More states.
 
 ## 7. Files that matter most
-`src/score/score.ts` · `config/lm-electric.json` · `src/sources/*` · `src/geo/places.ts` ·
-`web/app.js` · `test/score.test.ts` · `test/sources.test.ts`
+`src/score/score.ts` · `config/lm-electric.json` · `src/sources/*` (incl. `flags.ts`, `dedupe.ts`) ·
+`src/geo/places.ts` + `locate.ts` · `src/routes/*` · `web/js/*` · `test/score.test.ts` ·
+`test/score-audit.test.ts` · `test/federal-chain.test.ts` · `test/sources.test.ts`

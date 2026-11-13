@@ -55,10 +55,20 @@ notes, decisions and roadmap; `docs/KICKOFF_PROMPT.md` is the first message to p
 
 ```bash
 npm install
-npm test                       # 108 tests
+npm test                       # 1025 tests (vitest)
 npm run scan -- --fixtures     # load the captured real bids (no network needed)
 npm run dev                    # http://localhost:8787
 ```
+
+Modes, set in `.env`: `AUTH_MODE=single` (default) is the pilot — one profile from `config/`, no sign-in,
+optional `ACCESS_CODE`. `AUTH_MODE=accounts` is the multi-company app: email + password sign-up (Google /
+Apple / Microsoft buttons appear only when `SUPABASE_URL` is set — never run for real yet), a 5-step
+onboarding (business, trades, ZIP + radius, job sizes and spend limits, alerts) and a profile per account.
+`DEMO_MODE=1` puts everyone on plan "pilot" (all features on, nothing billed). `SOURCES=fixtures` makes
+scans read the saved pages instead of the boards. Phone alerts need `VAPID_*` keys (`npm run push:keys`).
+
+`npm run market:refresh -- --states=NV,CA` pulls federal award prices (USAspending) and BLS wages +
+material indexes into the database for the price check; `--skip-bls` / `--skip-awards` limit it.
 
 `npm run scan` (no flag) hits the live boards. `npm run demo:snapshot` rebuilds `web/demo-data.json`
 and `out/bidswipe-demo.html` (a single-file, no-server demo of the app).
@@ -87,16 +97,24 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 
 | | |
 |---|---|
-| `GET /api/feed?all=1&minScore=0` | scored bids (swipe deck + browse list) |
+| `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort |
+| `GET /api/bids/:id`, `GET /api/next` | one bid · the "next up" pick with its reasons |
 | `POST /api/swipe {bidId, action}` | `save` · `pass` · `bid` |
 | `DELETE /api/swipe/:bidId` | undo |
 | `GET /api/saved` | saved, soonest deadline first |
-| `GET /api/me`, `GET /api/health` | profile, status |
-| `POST /api/admin/scan` | run a scan now (`x-admin-token`) |
+| `GET /api/me`, `GET /api/health` | who/what profile (401 `sign_in_required`, 409 `onboarding_required` in accounts mode), status |
+| `GET /api/auth/config`, `POST /api/auth/{signup,login,logout,oauth}` | accounts mode sign-in (cookie session) |
+| `GET /api/trades`, `GET /api/geo/zip/:zip`, `PUT /api/profile` | onboarding / settings |
+| `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox, live events (SSE) |
+| `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts |
+| `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
+| `POST /api/estimate`, `GET /api/estimates` | cost engine — not built, answers 501 |
+| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan` | operator routes (`x-admin-token`) |
 
-If `ACCESS_CODE` is set, the app asks for it once and sends it as `x-access-code`.
+Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
+mode), the app asks for it once and sends it as `x-access-code`.
 
-## Honest limits (v0)
+## Honest limits
 
 - Small jobs ($10K–$50K) are often handled by quote, not posted publicly — L&M should also get on
   vendor lists (Douglas County, DCSD, Carson City, GIDs). The scanner finds the public ones.
@@ -104,6 +122,10 @@ If `ACCESS_CODE` is set, the app asks for it once and sends it as `x-access-code
   project/bid number.
 - NevadaEPro is mostly supply purchases — those cards are flagged "May be supply-only".
 - Distances are straight-line miles.
+- SAM.gov needs `SAM_API_KEY`; without it the federal source is skipped. Its saved responses are in
+  `test/fixtures/samgov-*.json` but not in `--fixtures` mode or the demo yet.
+- None of the bids captured so far lists an estimated value, so spend limits and the value filter rarely bite.
+- Phone push has never been delivered end to end; the cost engine is not built.
 
 ## Road to the App Store
 

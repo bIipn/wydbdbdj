@@ -390,8 +390,10 @@ describe('overLimit', () => {
 describe('filters together', () => {
   it('every filter narrows the others', async () => {
     const got = await expectFilter(
-      'source=questcdn&verdict=great,maybe&maxDistance=20&dueWithinDays=30&q=elevator',
-      (b) => b.source === 'questcdn' && (b.verdict === 'great' || b.verdict === 'maybe') && b.distanceMi !== null && b.distanceMi <= 20 &&
+      // The elevator modernizations score as another trade's work (config/lm-electric.json lists "elevator*"
+      // under otherTrades), so they are "skip" bids: asking for great + skip still finds both.
+      'source=questcdn&verdict=great,skip&maxDistance=20&dueWithinDays=30&q=elevator',
+      (b) => b.source === 'questcdn' && (b.verdict === 'great' || b.verdict === 'skip') && b.distanceMi !== null && b.distanceMi <= 20 &&
         b.dueAt !== null && Date.parse(b.dueAt) <= NOW.getTime() + 30 * 86_400_000 && /elevator/i.test(b.title),
     );
     expect(got.map((b) => b.title)).toEqual([expect.stringMatching(/^Elevator Modernization/), expect.stringMatching(/^Elevator Modernization/)]);

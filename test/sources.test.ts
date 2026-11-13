@@ -5,7 +5,7 @@ import { fixtureSources } from '../src/sources/fixtures.js';
 import { parseNevadaEproOpenBids, parseNevadaEproPage, parseNevadaEproTotal } from '../src/sources/nevadaepro.js';
 import { buildNgemPostback, isNgemErrorPage, NGEM_URL, parseNgemPage, parseNgemPager } from '../src/sources/ngem.js';
 import { parseQuestJson, QUEST_BOARDS } from '../src/sources/questcdn.js';
-import { buildSamUrl, parseSamResponse } from '../src/sources/samgov.js';
+import { buildSamUrl, parseSamResponse, type SamResponse } from '../src/sources/samgov.js';
 import { browserSavedNgem, CAPTURED, edit, fakeCtx, FIXTURE_DIR, fx, NGEM_GRID, ngemTarget } from './helpers.js';
 
 // Parsers only. What each source's fetch() does with a page (log lines, loud failures, NGEM paging)
@@ -457,18 +457,42 @@ describe('SAM.gov', () => {
     expect(url.searchParams.get('state')).toBe('NV');
     expect(url.searchParams.get('ptype')).toBe('o,k,p');
   });
-  it('maps the response shape', () => {
-    const bids = parseSamResponse(JSON.parse(fx('samgov-search.json')));
-    expect(bids).toHaveLength(3);
-    expect(bids[0]).toMatchObject({
-      sourceId: 'TEST-0001',
-      agency: 'General Services Administration · PBS R9',
+  it('maps a real response (CA electrical query, captured 2026-11-13)', () => {
+    const bids = parseSamResponse(JSON.parse(fx('samgov-ca-238210.json')));
+    expect(bids.map((b) => b.sourceId)).toEqual(['N6247324R2610', 'N6247327R0014', '36C26127Q0067', 'N6600126Q6298', 'W9123826RA002']);
+    expect(bids[2]).toEqual({
+      source: 'samgov',
+      sourceId: '36C26127Q0067',
+      sourceName: 'SAM.gov (federal)',
+      title: 'J061--Triennial Circuit Breaker and Feeder Testing',
+      agency: 'Veterans Affairs, Department of · 261-network Contract Office 21 (36c261)', // prettyAgency's title case
+      description: 'Solicitation · Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14) · Sol. 36C26127Q0067',
+      category: 'Solicitation',
+      location: { city: 'Reno', state: 'NV', zip: '89502', label: null },
+      postedAt: '2026-11-06T16:00:00.000Z',
+      dueAt: '2026-11-20T20:00:00.000Z',
+      estValue: null,
       naics: '238210',
-      setAside: 'SBA',
-      dueAt: '2026-12-01T22:00:00.000Z',
-      url: 'https://sam.gov/opp/TEST-0001/view',
-      location: { city: 'Carson City', state: 'NV', zip: '89701' },
+      setAside: 'SDVOSBC',
+      url: 'https://sam.gov/workspace/contract/opp/0219242e57b54ac1bf223aaa8c9edc6c/view', // SAM's own uiLink
+      flags: [],
+      solNumber: '36C26127Q0067',
     });
+  });
+
+  it('reads all three real responses (NV, CA 238210, CA 236220) without losing a notice', () => {
+    const files = ['samgov-nv.json', 'samgov-ca-238210.json', 'samgov-ca-236220.json'];
+    const notices = files.flatMap((f) => (JSON.parse(fx(f)) as SamResponse).opportunitiesData ?? []);
+    const bids = files.flatMap((f) => parseSamResponse(JSON.parse(fx(f))));
+    expect(notices).toHaveLength(32);
+    // 32 notices, 26 jobs: 3 + 3 + 2 + 2 notices of the same solicitation are one card each.
+    expect(bids).toHaveLength(26);
+    expect(new Set(bids.map((b) => b.sourceId)).size).toBe(26);
+    for (const b of bids) {
+      expect(b.url).toMatch(/^https:\/\/sam\.gov\/(?:workspace\/contract\/)?opp\/[0-9a-f]{32}\/view$/);
+      expect(b.location?.zip ?? null).not.toBe(''); // SAM's "" is no ZIP
+      expect(b.location?.city ?? null).not.toBe('0'); // nor is its city "0"
+    }
   });
 });
 

@@ -65,11 +65,12 @@ const SPECS: TradeSpec[] = [
       'switchboard*', 'panelboard*', 'electrical panel*', 'transformer*', 'generator*', 'standby power',
       'ev charg*', 'charging station*', 'fire alarm*', 'low voltage', 'plc', 'scada', 'motor control*', 'conduit',
       'service upgrade', 'power distribution', 'solar', 'photovoltaic', 'street light*', 'traffic signal*',
-      'intercom*', 'sports lighting', 'field lighting', 'emergency power',
+      'intercom*', 'sports lighting', 'field lighting', 'emergency power', 'circuit breaker*', 'streetlight*',
     ],
     related: [
+      // No "elevator*": an elevator modernization is bid by an elevator contractor (NV class C-7), not an electrician.
       'hvac', 'controls', 'pump station*', 'lift station*', 'well repair', 'booster pump*', 'boiler*', 'chiller*',
-      'elevator*', 'camera*', 'cctv', 'surveillance', 'access control', 'pa system', 'public address',
+      'camera*', 'cctv', 'surveillance', 'access control', 'pa system', 'public address',
       'data cabling', 'cabling', 'fiber', 'metering', 'water heater*', 'fire protection', 'fire detection',
       'security system*', 'door operator*',
     ],
@@ -296,7 +297,7 @@ const GENERAL = [
 
 /**
  * Words that put a job in someone else's trade → points off. Each is tagged with the trade it belongs to;
- * untagged words are civil work no trade here does. The first 26 are the pilot's list, in its order.
+ * untagged words are work no trade here does (civil work, elevators). The first 27 are the pilot's list, in its order.
  * The rest mark the building-systems trades, so a roofer or a paver is not sent "HVAC replacement".
  */
 const OTHER_TRADE_WORDS: ReadonlyArray<readonly [word: string, trade?: string]> = [
@@ -313,9 +314,10 @@ const OTHER_TRADE_WORDS: ReadonlyArray<readonly [word: string, trade?: string]> 
   ['sidewalk*', 'concrete-paving'],
   ['ada site'], ['spillway'],
   ['pipeline', 'sitework'], ['culvert', 'sitework'],
+  ['elevator*'],
   ['electric*', 'electrical'], ['lighting', 'electrical'], ['wiring', 'electrical'], ['generator*', 'electrical'],
   ['switchgear', 'electrical'], ['transformer*', 'electrical'], ['fire alarm*', 'electrical'],
-  ['street light*', 'electrical'], ['traffic signal*', 'electrical'],
+  ['street light*', 'electrical'], ['streetlight*', 'electrical'], ['traffic signal*', 'electrical'],
   ['plumbing', 'plumbing'], ['water heater*', 'plumbing'], ['backflow', 'plumbing'],
   ['hvac', 'hvac'], ['boiler*', 'hvac'], ['chiller*', 'hvac'], ['air condition*', 'hvac'], ['cooling tower*', 'hvac'],
   ['fire sprinkler*', 'fire-protection'], ['fire suppression', 'fire-protection'],
@@ -341,7 +343,7 @@ const EXCLUDE = [
   'software', 'saas', 'website', 'internet service*', 'telephone service*', 'study', 'feasibility',
   'strategic plan*', 'master plan*', 'surveying', 'architectural services', 'engineering services',
   'design services', 'exhibit design', 'technical assistance', 'traffic control services', 'mowing', 'weed control',
-  'snow removal', 'trash collection', 'waste collection', 'scale calibration',
+  'snow removal', 'trash collection', 'waste collection', 'scale calibration', 'maintenance service*',
   // goods
   'furniture', 'uniform*', 'apparel', 'clothing', 'office supplies', 'medical supplies', 'pharmaceutical*',
   'food products', 'food supplies', 'groceries', 'meat', 'dairy products', 'produce', 'bread', 'milk',

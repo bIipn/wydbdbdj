@@ -6,10 +6,10 @@
  *   npm run demo:snapshot -- --now=2026-11-13T12:00:00-08:00   # as of the capture day
  *
  * The pages themselves are always read as of the capture day (see sources/fixtures.ts).
- * The SAM.gov fixture is synthetic test data, so it is deliberately left out.
+ * SAM.gov is left out: its fixtures (test/fixtures/samgov-*.json) are real but trimmed responses, used by tests.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { posix, resolve } from 'node:path';
 import { loadProfile } from '../profiles.js';
 import { finalizeBid } from '../scan.js';
 import { scoreBid } from '../score/score.js';
@@ -48,13 +48,54 @@ for (const i of items.slice(0, 12)) console.log(`${String(i.score).padStart(3)} 
 // ---- single-file demo page (for sharing a link / phone preview) ----
 // Inlines CSS + JS + data so it runs anywhere with no server.
 const web = (f: string) => readFileSync(resolve(process.cwd(), 'web', f), 'utf8');
+
+/**
+ * The app is plain ES modules under web/js/ (entry js/main.js). A single file cannot import siblings, so
+ * this joins them into one script: each module becomes a function scope that returns its exports, in
+ * dependency order. It understands only what web/js uses — `import { a, b as c } from './x.js'`,
+ * `import './x.js'`, and `export function|async function|const|class` — and throws on anything else
+ * (export default / export { } / import cycles), so a new pattern fails here instead of in the browser.
+ */
+function bundleWeb(entry: string): string {
+  const order: string[] = [];
+  const seen = new Map<string, 'visiting' | 'done'>();
+  const code = new Map<string, string>();
+  const ident = (file: string) => `__m_${file.replace(/[^A-Za-z0-9]/g, '_')}`;
+  const visit = (file: string) => {
+    if (seen.get(file) === 'done') return;
+    if (seen.get(file) === 'visiting') throw new Error(`bundleWeb: import cycle through web/${file}`);
+    seen.set(file, 'visiting');
+    const exports: string[] = [];
+    const body = web(file)
+      // import { a, b as c } from './x.js';  (may span lines)   ·   import './x.js';
+      .replace(/^import\s+(?:\{([^}]*)\}\s+from\s+)?'(\.{1,2}\/[^']+)';[ \t]*$/gm, (_m, names: string | undefined, spec: string) => {
+        const dep = posix.normalize(posix.join(posix.dirname(file), spec));
+        visit(dep);
+        if (!names) return '';
+        const list = names.split(',').map((n) => n.trim()).filter(Boolean).map((n) => n.replace(/\s+as\s+/, ': '));
+        return `const { ${list.join(', ')} } = ${ident(dep)};`;
+      })
+      .replace(/^export\s+((?:async\s+)?function\*?|const|class)\s+([A-Za-z_$][\w$]*)/gm, (_m, kind: string, name: string) => {
+        exports.push(name);
+        return `${kind} ${name}`;
+      });
+    const odd = /^\s*(?:import\b|export\b).*$/m.exec(body);
+    if (odd) throw new Error(`bundleWeb: web/${file} uses an import/export form the demo bundler does not handle: ${odd[0].trim()}`);
+    code.set(file, `const ${ident(file)} = (() => {\n${body}\nreturn { ${exports.join(', ')} };\n})();`);
+    seen.set(file, 'done');
+    order.push(file);
+  };
+  visit(entry);
+  return order.map((f) => `// ---- web/${f}\n${code.get(f)}`).join('\n');
+}
 const safeJson = JSON.stringify(out).replace(/</g, '\\u003c'); // can't close the <script> early
 const html = web('index.html')
   .split('\n')
   .filter((line) => !line.includes('data-demo-strip'))
   .join('\n')
   .replace('<link rel="stylesheet" href="styles.css" />', () => `<style>\n${web('styles.css')}\n</style>`)
-  .replace('<script type="module" src="app.js"></script>', () => `<script>window.BIDSWIPE_DEMO = ${safeJson};</script>\n  <script type="module">\n${web('app.js')}\n</script>`);
+  .replace('<script type="module" src="js/main.js"></script>', () => `<script>window.BIDSWIPE_DEMO = ${safeJson};</script>\n  <script type="module">\n${bundleWeb('js/main.js').replace(/<\/script/gi, '<\\/script')}\n</script>`);
+if (!html.includes('window.BIDSWIPE_DEMO')) throw new Error('snapshot: web/index.html no longer loads js/main.js — update the demo builder');
 mkdirSync(resolve(process.cwd(), 'out'), { recursive: true });
 const demoFile = resolve(process.cwd(), 'out/bidswipe-demo.html');
 writeFileSync(demoFile, html);

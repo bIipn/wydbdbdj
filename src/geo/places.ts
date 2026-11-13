@@ -119,19 +119,33 @@ export const COUNTY_SEATS: Record<string, string> = {
   'CA:sacramento': 'Sacramento',
 };
 
-/** Vague regional phrases that still tell us roughly where the work is. */
-export const REGIONS: Array<{ re: RegExp; label: string; state: 'NV' | 'CA'; lat: number; lng: number }> = [
+/**
+ * Vague regional phrases that still tell us roughly where the work is. A region is never a town (city stays
+ * null, precision 'region', and a distance to it reads "(approx.)"). Only a region small enough to measure
+ * from gets a point. "Northern Nevada"
+ * runs from Carson City (15 mi) to Elko (250 mi), so it has none: the bid stays in Nevada, distance unknown.
+ */
+export const REGIONS: Array<{ re: RegExp; label: string; state: 'NV' | 'CA'; lat?: number; lng?: number }> = [
   { re: /\bcarson valley\b/i, label: 'Carson Valley, NV', state: 'NV', lat: 38.95, lng: -119.76 },
-  { re: /\bnorthern nevada\b|\bnorth(?:ern)? nv\b/i, label: 'Northern Nevada', state: 'NV', lat: 39.4, lng: -119.75 },
+  { re: /\bnorthern nevada\b|\bnorth(?:ern)? nv\b/i, label: 'Northern Nevada (approx.) — sites not listed', state: 'NV' },
   { re: /\b(?:lake )?tahoe(?: basin)?\b/i, label: 'Lake Tahoe', state: 'NV', lat: 39.05, lng: -119.98 },
   { re: /\btruckee meadows\b/i, label: 'Reno area, NV', state: 'NV', lat: 39.53, lng: -119.81 },
   { re: /\bsouthern nevada\b|\bsouth(?:ern)? nv\b/i, label: 'Southern Nevada', state: 'NV', lat: 36.17, lng: -115.14 },
 ];
 
-/** Agencies whose name tells us where they work. Checked after explicit fields. */
-export const AGENCY_PLACES: Array<{ re: RegExp; place: string }> = [
+/**
+ * Agencies whose name tells us where they work. Checked after explicit fields, in order: the first row
+ * whose agency pattern (and title pattern, when it has one) matches wins. A title pattern narrows a buyer
+ * that serves several towns, e.g. BCN Purchasing buys for UNR and TMCC in Reno and for WNC in Carson City.
+ */
+export const AGENCY_PLACES: Array<{ re: RegExp; title?: RegExp; place: string }> = [
   { re: /douglas county|tahoe[- ]douglas|minden[- ]gardnerville|east fork/i, place: 'Minden' },
   { re: /carson city/i, place: 'Carson City' },
+  // Western Nevada College's main campus is in Carson City (2201 W College Pkwy); its jobs say "WNC - …".
+  { re: /bcn purchasing|business center north/i, title: /^\s*WNC\b|western nevada college/i, place: 'Carson City' },
+  // The Office of the Adjutant General (OTAG) and Emergency Management (DEM) sit on Fairview Dr, Carson City.
+  // Other Guard work ("Northern Nevada - HVAC Maintenance Services") is left to the region or the state.
+  { re: /adjutant general/i, title: /\bOTAG\b|^\s*DEM\b|emergency management/i, place: 'Carson City' },
   { re: /reno[- ]tahoe airport|city of reno|washoe county|truckee meadows|\btmcc\b|\bunr\b|university of nevada,? reno|bcn purchasing|business center north/i, place: 'Reno' },
   { re: /city of sparks/i, place: 'Sparks' },
   { re: /lyon county/i, place: 'Yerington' },
@@ -143,7 +157,8 @@ export const AGENCY_PLACES: Array<{ re: RegExp; place: string }> = [
   { re: /city of henderson/i, place: 'Henderson' },
   { re: /boulder city/i, place: 'Boulder City' },
   { re: /mesquite/i, place: 'Mesquite' },
-  { re: /clark county|las vegas|\blvcva\b|\blvmpd\b|\bunlv\b|business center south|college of southern nevada|\bcsn\b|nellis/i, place: 'Las Vegas' },
+  // University Medical Center is Clark County's public hospital, in Las Vegas.
+  { re: /clark county|las vegas|\blvcva\b|\blvmpd\b|\bunlv\b|business center south|college of southern nevada|\bcsn\b|nellis|university medical center|\bumc\b/i, place: 'Las Vegas' },
   { re: /elko county|city of elko/i, place: 'Elko' },
 ];
 

@@ -74,11 +74,16 @@ describe('fit score', () => {
     expect(roof.score).toBeLessThan(15);
   });
 
-  it('flags set-asides L&M may not qualify for', () => {
+  // Changed after the 2026-11-13 scoring audit: this used to be a 15-point "check you qualify" penalty, which
+  // let a veteran-only VA job alert as "good" (58). A certification set-aside is a hard no, said plainly.
+  it('rejects set-asides for programs L&M is not certified in, and keeps eligible ones penalty-free', () => {
     const s = score({ title: 'Repair Electrical Distribution', naics: '238210', setAside: 'SDVOSBC', location: { city: 'Reno', state: 'NV' } });
-    expect(s.reasons.some((r) => r.text.startsWith('Service-disabled veteran set-aside'))).toBe(true);
+    expect(s.score).toBe(0);
+    expect(s.rejected).toBe('Reserved for service-disabled veteran-owned firms');
     const sb = score({ title: 'Repair Electrical Distribution', naics: '238210', setAside: 'SBA', location: { city: 'Reno', state: 'NV' } });
-    expect(sb.score).toBeGreaterThan(s.score);
+    const open = score({ title: 'Repair Electrical Distribution', naics: '238210', setAside: null, location: { city: 'Reno', state: 'NV' } });
+    expect(sb.score).toBe(open.score);
+    expect(sb.reasons.some((r) => /set-aside|Reserved/.test(r.text))).toBe(false);
   });
 
   it('marks tight deadlines and big jobs', () => {
@@ -90,5 +95,34 @@ describe('fit score', () => {
       { kind: 'minus', text: 'Only 3 days to bid' },
       { kind: 'minus', text: 'Est. $1.2M — large job; sub to the GC?' },
     ]));
+  });
+
+  it('ranks a job known to be over the range below one of unknown size', () => {
+    const at = (estValue: BidDraft['estValue']) => score({ title: 'Electrical Repairs', location: { city: 'Carson City', state: 'NV' }, estValue }).score;
+    const unknown = at(null);
+    expect(at({ min: 30_000, max: 30_000 })).toBeGreaterThan(unknown);
+    expect(at({ min: 120_000, max: 120_000 })).toBeLessThan(unknown); // up to 3× the top of the range
+    expect(at({ min: 1_200_000, max: 1_200_000 })).toBeLessThan(at({ min: 120_000, max: 120_000 }));
+  });
+
+  it('says when the job size is not stated', () => {
+    expect(score({ title: 'Electrical Repairs', location: { city: 'Carson City', state: 'NV' } }).reasons).toContainEqual({ kind: 'info', text: 'Job size not stated' });
+  });
+});
+
+describe('score range', () => {
+  it('a bid held below the alert line never scores below 0, even when the alert lines are at 0', () => {
+    const base = loadProfile('lm-electric');
+    const anything = { ...base, notify: { ...base.notify, minScore: 0 }, alerts: { ...base.alerts, minScore: 0 } };
+    // No town, ZIP, state or agency: nobody can tell where the job is, so its score is held below the alert line.
+    const nowhere = finalizeBid({
+      source: 'samgov', sourceId: 'TEST-score-floor', sourceName: 'TEST source', title: 'TEST electrical panel upgrade (synthetic)',
+      agency: null, description: null, category: null, location: {}, postedAt: null, dueAt: '2026-12-02T22:00:00.000Z',
+      estValue: null, naics: null, setAside: null, url: 'https://example.com/test-bid',
+    });
+    const r = scoreBid(nowhere, anything, new Date('2026-11-11T20:00:00Z'));
+    expect(r.reasons).toContainEqual({ kind: 'info', text: `Work location not listed — can't confirm it's within ${base.maxDistanceMi} mi` });
+    expect(r.score).toBe(0); // was -1: the cap is "one under the alert line"
+    expect(r.verdict).toBe('skip');
   });
 });

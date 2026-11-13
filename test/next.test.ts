@@ -268,7 +268,9 @@ describe('GET /api/next', () => {
     await swipe(SPRINKLER, 'save');
     const third = (await next()).item!;
     expect([CELL_DOORS, SPRINKLER]).not.toContain(third.id);
-    expect(third.score).toBe(53); // the elevator modernizations are next best
+    // Next best: the Army Aviation fire suppression job (40). The elevator modernizations (53 in v0)
+    // score as another trade's work since config/lm-electric.json lists "elevator*" under otherTrades.
+    expect(third.score).toBe(40);
     await app.inject({ method: 'DELETE', url: `/api/swipe/${encodeURIComponent(CELL_DOORS)}` });
     await app.inject({ method: 'DELETE', url: `/api/swipe/${encodeURIComponent(SPRINKLER)}` });
     expect((await next()).item!.id).toBe(CELL_DOORS);
@@ -300,12 +302,19 @@ describe('GET /api/next', () => {
     expect((await next(cappedApp)).item!.id).toBe(CELL_DOORS);
   });
 
-  it('follows the clock: a week later the Nov 18 bids have closed', async () => {
-    const later = await buildServer({ db, profile: capped }, { now: () => new Date('2026-11-19T00:00:00Z') });
-    const { item: picked } = (await later.inject('/api/next')).json() as { item: FeedItem | null };
-    await later.close();
-    expect(picked).not.toBeNull();
-    expect(picked!.dueAt! > '2026-11-19').toBe(true);
-    expect(picked!.overLimit).toBe(false);
+  it('follows the clock: a bid stops being the pick when it closes', async () => {
+    const at = async (iso: string) => {
+      const later = await buildServer({ db, profile: capped }, { now: () => new Date(iso) });
+      const res = (await later.inject('/api/next')).json() as { item: FeedItem | null; why: string[] };
+      await later.close();
+      return res;
+    };
+    // The cell doors job closes 2026-11-18 at 2:00 PM Pacific (22:00Z): the pick an hour before, never after.
+    expect((await at('2026-11-18T21:00:00Z')).item).toMatchObject({ id: CELL_DOORS, overLimit: false });
+    expect((await at('2026-11-18T22:00:01Z')).item?.id).not.toBe(CELL_DOORS);
+    // A day later every Nov 18 bid has closed. What is left on this board is another trade's work (the
+    // elevator modernizations score 9 since "elevator*" moved to otherTrades) or over this profile's
+    // limit (the $30K TEST job): nothing to suggest, said as null rather than a closed or over-limit bid.
+    expect(await at('2026-11-19T00:00:00Z')).toEqual({ item: null, why: [] });
   });
 });

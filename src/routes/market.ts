@@ -14,6 +14,7 @@ import {
   type AwardLevel, type CoverageSpan, type LadderStep, type SimilarAwards, type SimilarWhere, type ZipLookup,
 } from '../market/stats.js';
 import { awardWindow, NATIONWIDE, type FederalAward } from '../market/usaspending.js';
+import { pacificDay, prevailingWageHint, prevailingWageTables } from '../market/prevailing.js';
 import { featuresFor } from '../plans.js';
 import type { Bid, Profile } from '../types.js';
 import { requireAdmin } from './shared.js';
@@ -138,6 +139,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
   const statesWithin = deps.statesWithin ?? defaultStatesWithin;
   const env = deps.env ?? processEnv;
   const zipLookup: ZipLookup = (zip) => lookupZip(zip);
+  // Read the owner-maintained tables once: a broken file stops the boot instead of reading as "none on file".
+  const prevailingTables = prevailingWageTables();
 
   // ------------------------------------------------------------ area --
   // Wages for the area (with the level and survey period used) and national material price trends.
@@ -342,6 +345,21 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
       recent: (result?.awards ?? []).slice(0, RECENT_LIMIT).map((a) => ({ ...a, inStats: hasPriceAtAward(a) })),
       ...common,
     };
+  });
+
+  // ------------------------------------------------------- prevailing --
+  // What to tell a contractor about prevailing wage on one bid (cautious copy, see src/market/prevailing.ts).
+  // On every plan: it is a rule of the job, not price history.
+  app.get('/api/market/prevailing', async (req, reply) => {
+    const id = await ctx.requireProfile(req, reply);
+    if (!id) return reply;
+    const bidId = single(req.query as Query, 'bidId', 'invalid_bid_id');
+    if (!bidId.ok) return fail(reply, bidId);
+    if (!bidId.value) return fail(reply, { error: 'bid_id_required', message: 'Give a bidId.' });
+    if (bidId.value.length > 200) return fail(reply, { error: 'invalid_bid_id', message: 'bidId is too long' });
+    const bid = await getBid(ctx.db, bidId.value);
+    if (!bid) return fail(reply, { error: 'bid_not_found', message: 'No such bid.' }, 404);
+    return { bidId: bid.id, ...prevailingWageHint(bid, prevailingTables, pacificDay(ctx.now())) };
   });
 
   // ----------------------------------------------------------- admin --

@@ -1,0 +1,983 @@
+{
+ "_comment": "REAL SAM.gov data, trimmed. Response of GET https://api.sam.gov/opportunities/v2/search?postedFrom=09/13/2026&postedTo=11/13/2026&ptype=o,k,p&state=CA&ncode=236220&limit=1000&offset=0 captured 2026-11-13 04:01 UTC (api_key removed from the request; the response never contains it). Trimmed: 22 of the 28 notices kept; pointOfContact (named people), resourceLinks and links removed from each notice; every other field is verbatim. totalRecords is the server's count for the full response.",
+ "totalRecords": 28,
+ "limit": 1000,
+ "offset": 0,
+ "opportunitiesData": [
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-20",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Solicitation",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=ebf23d8ba096416d9f5bca7efe0819ee",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "ebf23d8ba096416d9f5bca7efe0819ee",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-11-12",
+   "responseDeadLine": "2026-11-20T15:00:00-08:00",
+   "solicitationNumber": "36C26126Q1297",
+   "title": "Z2DA--654-24-004 | Remediate Old Parking Garage",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/ebf23d8ba096416d9f5bca7efe0819ee/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-03-25",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Sources Sought",
+   "classificationCode": "Z1DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=319573e715c74310b898bd157ccc1377",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "319573e715c74310b898bd157ccc1377",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "VA Northern California Health Care System Sacramento VA Medical Center",
+    "streetAddress2": " 10535 Hospital Way",
+    "city": {
+     "name": "Mather"
+    },
+    "state": {
+     "name": "CA"
+    },
+    "zip": "95655",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-12",
+   "responseDeadLine": "2026-12-16T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0112",
+   "title": "Z1DA--FY27 NRM - Correct Mather Loop Road and Install Speed Bumps",
+   "type": "Presolicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/319573e715c74310b898bd157ccc1377/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-02-28",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Z1DZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=1a5811f6c2cb4c5d887f8b4b9ad3c664",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "1a5811f6c2cb4c5d887f8b4b9ad3c664",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "46870",
+     "name": "Menlo Park"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "zip": "94025",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-12",
+   "responseDeadLine": "2026-12-01T13:00:00-08:00",
+   "solicitationNumber": "36C26127Q0082",
+   "title": "Z1DZ--Project No. 640A0-27-104, Replace Roof at Building 347  - Menlo Park",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/1a5811f6c2cb4c5d887f8b4b9ad3c664/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-02",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Z1DZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=f6bc57b042f6453ab4505db2899fc670",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "f6bc57b042f6453ab4505db2899fc670",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Department of Veteran Affairs VA Sierra Pacific Network (VISN 5)",
+    "streetAddress2": "Southern Nevada VA Healthcare System (SNVAHCS) 6900 North Pecos Blvd.",
+    "city": {
+     "code": "40000",
+     "name": "Las Vegas"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89086",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-10",
+   "responseDeadLine": "2026-11-17T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0072_1",
+   "title": "Z1DZ--Replace Dental Vacuum Piping",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/f6bc57b042f6453ab4505db2899fc670/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-31",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Z1AZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=def2d19916684484b1124c4881e53737",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "def2d19916684484b1124c4881e53737",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "0",
+     "name": "0"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "zip": "95652",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-10",
+   "responseDeadLine": "2026-12-02T15:00:00-08:00",
+   "solicitationNumber": "36C26127Q0047",
+   "title": "FY27 NRM  Replace Flooring in McClellan  VA Northern California Health Care System  McClellan CA  Project 612A4 27 020",
+   "type": "Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/def2d19916684484b1124c4881e53737/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-03",
+   "archiveType": "auto15",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Z1FB",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=705abfc6d1564a89bfe4e40f52b9e2f6",
+   "fullParentPathCode": "012.12C2.129A51",
+   "fullParentPathName": "AGRICULTURE, DEPARTMENT OF.FOREST SERVICE.INYO NATIONAL FOREST",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "705abfc6d1564a89bfe4e40f52b9e2f6",
+   "officeAddress": {
+    "zipcode": "93546",
+    "city": "MAMMOTH LAKES",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "42580",
+     "name": "Lone Pine"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-10",
+   "responseDeadLine": "2026-11-18T12:00:00-08:00",
+   "solicitationNumber": "1240BH26Q0078",
+   "title": "GAOA  Facilities, Barracks Inyo NF",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/705abfc6d1564a89bfe4e40f52b9e2f6/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-15",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1FC",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=05be123fb71c4956bbe8e75a27210ab7",
+   "fullParentPathCode": "017.1700.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SW.N62473",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SOUTHWEST SW.NAVFACSYSCOM SOUTHWEST",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "05be123fb71c4956bbe8e75a27210ab7",
+   "officeAddress": {
+    "zipcode": "92132-0001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "750 Pacific Highway, San Diego, CA 92132",
+    "zip": "92132"
+   },
+   "postedDate": "2026-11-09",
+   "responseDeadLine": "2026-12-10T14:00:00-08:00",
+   "solicitationNumber": "N6247327R0012",
+   "title": "MCI West Barracks Industrialized Construction Projects for Barracks via Other Transaction Authority (10 USC 2808a)",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/05be123fb71c4956bbe8e75a27210ab7/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-05",
+   "archiveType": "auto15",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Solicitation",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=f2679d302225400abd198d1f2f0fb719",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "f2679d302225400abd198d1f2f0fb719",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "91920",
+     "name": "Mather"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-04",
+   "responseDeadLine": "2026-11-20T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q00260001",
+   "title": "Z2DA--612A4-27-018 | Replace B650 3rd and 2nd Flooring",
+   "type": "Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/f2679d302225400abd198d1f2f0fb719/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-10-28",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1AZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=e323b5748db4496680bee238d37b6fdd",
+   "fullParentPathCode": "021.2100.NGB.JFHQ USPFO CA.USPFO CA PROC.W50S8X",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE ARMY.NATIONAL GUARD BUREAU.JFHQ USPFO CA.USPFO CA PROCUREMENT.W7MX USPFO ACTIVITY CAANG 129",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "e323b5748db4496680bee238d37b6fdd",
+   "officeAddress": {
+    "zipcode": "94035-0103",
+    "city": "MOFFETT FIELD",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Moffett ANGB, Santa Clara County, California",
+    "city": {
+     "code": "0",
+     "name": "0"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "zip": "94035",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-02",
+   "responseDeadLine": "2026-11-27T12:00:00-08:00",
+   "solicitationNumber": "W50S8X26BA011",
+   "title": "Solicitation:  Construct Combat Rescue Helicopter Flight Simulator Facility at Moffett ANGB",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/e323b5748db4496680bee238d37b6fdd/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-11-17",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Presolicitation",
+   "classificationCode": "Z2AZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=cd18dd2030e947909760bcdaf48edf3e",
+   "fullParentPathCode": "017.1700.SPAWAR.SPAWAR PACIFIC.N66001",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.SPAWAR.SPAWAR PACIFIC.NIWC PACIFIC",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "cd18dd2030e947909760bcdaf48edf3e",
+   "officeAddress": {
+    "zipcode": "92152-5001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "66000",
+     "name": "San Diego"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "zip": "92152",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-28",
+   "responseDeadLine": "2026-11-04T14:00:00-08:00",
+   "solicitationNumber": "N6600127R0059",
+   "title": "General Construction Job Order Contract (JOC)",
+   "type": "Presolicitation",
+   "typeOfSetAside": "8A",
+   "typeOfSetAsideDescription": "8(a) Set-Aside (FAR 19.8)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/cd18dd2030e947909760bcdaf48edf3e/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-10-27",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1EZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=b008a0332dd94b96a6e816686bb43369",
+   "fullParentPathCode": "021.2100.USACE.SPD.SPL.W912PL",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE ARMY.US ARMY CORPS OF ENGINEERS.ENGINEER DIVISION SOUTH PACIFIC.ENDIST LOS ANGELES.W075 ENDIST LOS ANGELES",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "b008a0332dd94b96a6e816686bb43369",
+   "officeAddress": {
+    "zipcode": "90017-3409",
+    "city": "LOS ANGELES",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Yuma Proving Ground (YPG) in Yuma, Arizona",
+    "zip": ""
+   },
+   "postedDate": "2026-10-27",
+   "responseDeadLine": "2026-10-29T14:00:00-07:00",
+   "solicitationNumber": "W912PL26RA046",
+   "title": "PRESOLICITATION NOTICE (SYNOPSIS): DESIGN-BUILD TO BUDGET (DB2B) Airborne Equipment Parachute Repair Shop, Yuma Proving Ground, Yuma, Arizona ",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/b008a0332dd94b96a6e816686bb43369/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-20",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Solicitation",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=a8e68b4242524f199e3e0495464119de",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "a8e68b4242524f199e3e0495464119de",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-10-27",
+   "responseDeadLine": "2026-11-20T15:00:00-08:00",
+   "solicitationNumber": "36C26126Q1295",
+   "title": "Z2DA--Project: 459-27-004 ACC MOD 2 Renovation",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/a8e68b4242524f199e3e0495464119de/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-11-15",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Presolicitation",
+   "classificationCode": "Y1JZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=f3a59bd0dc084b30855e2f3a4e4dc84e",
+   "fullParentPathCode": "021.2100.USACE.SPD.SPK.W91238",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE ARMY.US ARMY CORPS OF ENGINEERS.ENGINEER DIVISION SOUTH PACIFIC.ENDIST SACRAMENTO.W075 ENDIST SACRAMENTO",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "f3a59bd0dc084b30855e2f3a4e4dc84e",
+   "officeAddress": {
+    "zipcode": "95814-2922",
+    "city": "SACRAMENTO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "64000",
+     "name": "Sacramento"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-26",
+   "responseDeadLine": null,
+   "solicitationNumber": "W9123826RA014",
+   "title": "USACE Sacramento District DB/DBB Construction – $465M Small Business MATOC",
+   "type": "Presolicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/f3a59bd0dc084b30855e2f3a4e4dc84e/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-10-26",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1JZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=a1860dddf22441c1801a6085cab1412e",
+   "fullParentPathCode": "021.2100.USACE.SPD.SPK.W91238",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE ARMY.US ARMY CORPS OF ENGINEERS.ENGINEER DIVISION SOUTH PACIFIC.ENDIST SACRAMENTO.W075 ENDIST SACRAMENTO",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "a1860dddf22441c1801a6085cab1412e",
+   "officeAddress": {
+    "zipcode": "95814-2922",
+    "city": "SACRAMENTO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "USACE Sacramento District 1325 J Street Sacramento, CA 95814",
+    "zip": "95814"
+   },
+   "postedDate": "2026-10-26",
+   "responseDeadLine": "2026-12-02T10:00:00-08:00",
+   "solicitationNumber": "W9123827RA005",
+   "title": "$465M SPK SMALL BUSINESS MATOC FOR DBB/DB CONSTRUCTION ",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/a1860dddf22441c1801a6085cab1412e/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-02",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Z1DZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=b494949bc2684d028ff9f14aa4ae6c17",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "b494949bc2684d028ff9f14aa4ae6c17",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Department of Veteran Affairs VA Sierra Pacific Network (VISN 5)",
+    "streetAddress2": "Southern Nevada VA Healthcare System (SNVAHCS) 6900 North Pecos Blvd.",
+    "city": {
+     "code": "51800",
+     "name": "North Las Vegas"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89086-4400",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-19",
+   "responseDeadLine": "2026-11-17T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0072",
+   "title": "Z1DZ--Replace Dental Vacuum Piping",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/b494949bc2684d028ff9f14aa4ae6c17/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-02",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Z1DZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=1fec7c173e494cad820af5202590b6f4",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "1fec7c173e494cad820af5202590b6f4",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Department of Veteran Affairs VA Sierra Pacific Network (VISN 5)",
+    "streetAddress2": "Southern Nevada VA Healthcare System (SNVAHCS) 6900 North Pecos Blvd.",
+    "city": {
+     "code": "51800",
+     "name": "North Las Vegas"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89086-4400",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-19",
+   "responseDeadLine": "2026-11-17T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0072",
+   "title": "Z1DZ--Replace Dental Vacuum Piping",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/1fec7c173e494cad820af5202590b6f4/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-14",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Presolicitation",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=eb5f5f3800d740e2ade69bba6a4d1ff4",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "eb5f5f3800d740e2ade69bba6a4d1ff4",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "VA Pacific Islands Health Care System Spark M. Matsunaga Department of Veterans Affairs",
+    "streetAddress2": "Medical Center 459 Patterson Road",
+    "city": {
+     "name": "Honolulu"
+    },
+    "state": {
+     "name": "Hawaii"
+    },
+    "zip": "96819",
+    "country": {}
+   },
+   "postedDate": "2026-10-16",
+   "responseDeadLine": "2026-11-20T15:00:00-08:00",
+   "solicitationNumber": "36C26126Q1295",
+   "title": "Z2DA--Project: 459-27-004 ACC MOD 2 Renovation",
+   "type": "Presolicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/eb5f5f3800d740e2ade69bba6a4d1ff4/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-19",
+   "archiveType": "auto15",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1DZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=2c624d0668744bc89d37e48ea7fb7fd4",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "2c624d0668744bc89d37e48ea7fb7fd4",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "26028",
+     "name": "French Camp"
+    },
+    "state": {
+     "code": "CA",
+     "name": "California"
+    },
+    "zip": "95231",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-15",
+   "responseDeadLine": "2026-12-04T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0029",
+   "title": "Amendment 0002 Y1DZ--36C261-28-AP-0022 | 612-27-1-6009-0001 | Construct Modular  Imaging Center in Stockton | 612A4-CSI-002",
+   "type": "Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/2c624d0668744bc89d37e48ea7fb7fd4/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-16",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Sources Sought",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=3d44351edee849afaa1f760e8bc14c87",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "3d44351edee849afaa1f760e8bc14c87",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-10-13",
+   "responseDeadLine": "2026-10-09T12:00:00-07:00",
+   "solicitationNumber": "36C26127Q0026",
+   "title": "Z2DA--612A4-27-018 | Replace B650 3rd and 2nd Flooring",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/3d44351edee849afaa1f760e8bc14c87/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-16",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Sources Sought",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=304446a9cb4346ddab24eebf44519ea9",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "304446a9cb4346ddab24eebf44519ea9",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-10-13",
+   "responseDeadLine": "2026-10-09T12:00:00-07:00",
+   "solicitationNumber": "36C26127Q0026",
+   "title": "Z2DA--612A4-27-018 | Replace B650 3rd and 2nd Flooring",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/304446a9cb4346ddab24eebf44519ea9/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-14",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Sources Sought",
+   "classificationCode": "Z2DA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=2c8dcb329add427baf4445d552844a7c",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "2c8dcb329add427baf4445d552844a7c",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "VA Sierra Nevada Health Care System Ioannis A. Lougaris Veterans' Administration",
+    "streetAddress2": "Medical Center 975 Kirman Ave",
+    "city": {
+     "code": "60600",
+     "name": "Reno"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89502",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-07",
+   "responseDeadLine": "2026-10-16T13:00:00-07:00",
+   "solicitationNumber": "36C26126Q1297",
+   "title": "Z2DA--654-24-004 | Remediate Old Parking Garage",
+   "type": "Presolicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/2c8dcb329add427baf4445d552844a7c/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-09-14",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Y1JZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=562387fb231744c5a801648a35a79b66",
+   "fullParentPathCode": "017.1700.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SW.N62473",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SOUTHWEST SW.NAVFACSYSCOM SOUTHWEST",
+   "naicsCode": "236220",
+   "naicsCodes": [
+    "236220"
+   ],
+   "noticeId": "562387fb231744c5a801648a35a79b66",
+   "officeAddress": {
+    "zipcode": "92132-0001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "Northern and Central California and Nevada",
+    "zip": ""
+   },
+   "postedDate": "2026-09-14",
+   "responseDeadLine": "2026-09-22T14:00:00-07:00",
+   "solicitationNumber": "N6247326R0007",
+   "title": "IDIQ MACC Commercial and Institutional Building Construction, Northern and Central California and Nevada",
+   "type": "Solicitation",
+   "typeOfSetAside": "HZC",
+   "typeOfSetAsideDescription": "Historically Underutilized Business (HUBZone) Set-Aside (FAR 19.13)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/562387fb231744c5a801648a35a79b66/view"
+  }
+ ]
+}

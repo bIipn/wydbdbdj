@@ -520,6 +520,30 @@ describe('GET /api/market/area', () => {
   });
 });
 
+describe('GET /api/market/prevailing', () => {
+  let app: FastifyInstance;
+  beforeAll(async () => {
+    app = await build();
+  });
+
+  it('a Nevada public works bid gets the state table\'s cautious hint with its source; never a picked classification', async () => {
+    const res = await app.inject('/api/market/prevailing?bidId=questcdn%3A1903611%3A10393520');
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body).toMatchObject({ bidId: 'questcdn:1903611:10393520', basis: 'state' });
+    expect(body.lines.join(' ')).toContain('The wage determination in the bid documents controls.');
+    expect(body.links.length).toBeGreaterThan(0);
+    for (const link of body.links) expect(link.url).toMatch(/^https:\/\//);
+  });
+
+  it('asks for a bid, and says when there is no such bid', async () => {
+    expect((await app.inject('/api/market/prevailing')).json()).toMatchObject({ error: 'bid_id_required' });
+    const missing = await app.inject('/api/market/prevailing?bidId=TEST-none');
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json().error).toBe('bid_not_found');
+  });
+});
+
 describe('POST /api/admin/market/refresh', () => {
   const admin = { 'x-admin-token': 'TEST-admin' };
   const post = (app: FastifyInstance, payload?: unknown, headers: Record<string, string> = admin) =>

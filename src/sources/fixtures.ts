@@ -25,7 +25,9 @@ export interface FixtureReader {
 
 /**
  * The real responses captured in test/fixtures (raw server HTML/JSON, as the scanner receives them),
- * one reader per source. The SAM.gov fixture is synthetic test data, so it isn't included.
+ * one reader per source. SAM.gov is not among them yet: its fixtures (samgov-*.json) are real responses too,
+ * captured 2026-11-13, but trimmed, and they reach back 60 days, so most of their notices are past due. They
+ * are used by the parser and location tests.
  */
 export function fixtureReaders(dir = resolve(process.cwd(), 'test/fixtures')): FixtureReader[] {
   const fx = (f: string) => readFileSync(resolve(dir, f), 'utf8');

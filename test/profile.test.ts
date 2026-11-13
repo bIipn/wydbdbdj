@@ -252,16 +252,11 @@ describe('buildProfile', () => {
       expect(!!mine.rejected, b.title).toBe(!!theirs.rejected);
       if (JSON.stringify(mine) !== JSON.stringify(theirs)) differentWording.push(b.title);
     }
-    // Only rejected bids may be worded differently, and only in why: the pilot's config names them by
-    // words tuned to the captured sample ("kiosk", "customer portal", "jackets", "elderly"…) where the
-    // generic list just finds no construction scope. Same 0, same skip.
-    expect(differentWording.length).toBeGreaterThan(0);
-    expect(differentWording).toContain('Customer Portal & AMI Technology');
-    for (const title of differentWording) {
-      const b = real.find((bid) => bid.title === title)!;
-      expect(scoreBid(b, pilot, CAPTURED).rejected, title).toMatch(/^Not your trade/);
-      expect(scoreBid(b, twin, CAPTURED).rejected, title).toMatch(/No .*scope found/);
-    }
+    // config/lm-electric.json and the electrical trade template now carry the same keyword lists, exclude
+    // list included (the pilot's sample-tuned words such as "kiosk" and "customer portal" were replaced by
+    // the shared list), so every bid, rejected ones too, is worded the same way.
+    expect(twin.keywords).toEqual(pilot.keywords);
+    expect(differentWording).toEqual([]);
   });
 
   it('from ZIP 89410 itself, scores a real bid the same as the pilot whenever it lands in the same distance band', () => {
@@ -283,7 +278,8 @@ describe('buildProfile', () => {
     for (const title of [/^Generator$/, /^Replace Cell Doors, Locks, Intercoms/, /^Elevator Modernization \(Bryan/, /^Water Well Repair$/, /^Roofing Replacement, State Museum/]) {
       expect(score(title, twin), String(title)).toBe(score(title, pilot));
     }
-    expect(score(/^Generator$/, twin)).toBe(60);
+    // 40, not v0's 60: a NevadaEPro title that names no work ("Generator") is likely a purchase (-25).
+    expect(score(/^Generator$/, twin)).toBe(40);
     expect(score(/^Replace Cell Doors, Locks, Intercoms/, twin)).toBe(82);
   });
 

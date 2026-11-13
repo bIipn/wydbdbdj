@@ -14,21 +14,28 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app" id="app">
+  <div class="app" id="app" data-chrome="tabs">
     <header class="topbar">
       <div class="brand">
         <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6.1L9.8 22l8.7-11.5h-6.1z" /></svg>
         <span>BidSwipe</span>
       </div>
-      <button class="profile-chip" id="profileChip" type="button" aria-label="Profile">
-        <span id="profileName">Loading…</span><span class="dot">·</span><span id="profileBase"></span>
-      </button>
+      <div class="top-actions">
+        <button class="bell" id="bell" type="button" aria-label="Alerts" hidden>
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+          <span class="bell-count" id="bellCount"></span>
+        </button>
+        <button class="profile-chip" id="profileChip" type="button" aria-label="Profile">
+          <span id="profileName">Loading…</span><span class="dot">·</span><span id="profileBase"></span>
+        </button>
+      </div>
     </header>
 
     <nav class="tabs" role="tablist" aria-label="Views">
       <button role="tab" class="tab is-active" data-view="swipe" aria-selected="true">Swipe <span class="count" id="countSwipe"></span></button>
       <button role="tab" class="tab" data-view="browse" aria-selected="false">Browse <span class="count" id="countBrowse"></span></button>
       <button role="tab" class="tab" data-view="saved" aria-selected="false">Saved <span class="count" id="countSaved"></span></button>
+      <button role="tab" class="tab" data-view="market" id="marketTab" aria-selected="false" hidden>Market</button>
     </nav>
 
     <main class="view" id="view" aria-live="polite"></main>
@@ -43,6 +50,6 @@
 
   <div class="toast" id="toast" role="status" hidden></div>
 
-  <script type="module" src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -273,9 +273,10 @@ describe('real notices (Douglas County, captured 2026-11-13)', () => {
     const quest = parseQuestJson(JSON.parse(fx('questcdn-spwd.json')), QUEST_BOARDS[0]!).map(finalizeBid);
     expect(pilot.limits).toBeUndefined();
     for (const b of [...quest, ...bids]) expect(scoreBid(b, pilot, NOW), b.id).toEqual(scoreFit(b, pilot, NOW));
-    // The v0 scores for the 13 State Public Works bids, in board order, on the day that JSON was captured
-    // (2026-11-11 = NOW; it is the one fixture the 2026-11-13 re-capture did not replace).
-    expect(quest.map((b) => scoreBid(b, pilot, NOW).score)).toEqual([7, 7, 7, 77, 40, 82, 27, 2, 53, 53, 0, 0, 7]);
+    // The scores for the 13 State Public Works bids, in board order, on the day that JSON was captured
+    // (2026-11-11 = NOW; it is the one fixture the 2026-11-13 re-capture did not replace). The two elevator
+    // modernizations (53 in v0) are 9 since config/lm-electric.json lists "elevator*" as another trade.
+    expect(quest.map((b) => scoreBid(b, pilot, NOW).score)).toEqual([7, 7, 7, 77, 40, 82, 27, 2, 9, 9, 0, 0, 7]);
     // No estimates on that board, so even a $1 limit changes nothing there.
     const strict = testProfile('lm-electric', { limits: { maxJobSize: 1, bondingCapacity: 1 } });
     for (const b of quest) expect(scoreBid(b, strict, NOW), b.id).toEqual(scoreFit(b, pilot, NOW));

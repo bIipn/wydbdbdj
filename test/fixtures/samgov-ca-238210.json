@@ -1,0 +1,203 @@
+{
+ "_comment": "REAL SAM.gov data, trimmed. Response of GET https://api.sam.gov/opportunities/v2/search?postedFrom=09/13/2026&postedTo=11/13/2026&ptype=o,k,p&state=CA&ncode=238210&limit=1000&offset=0 captured 2026-11-13 04:01 UTC (api_key removed from the request; the response never contains it). Trimmed: all notices kept; pointOfContact (named people), resourceLinks and links removed from each notice; every other field is verbatim. totalRecords is the server's count for the full response.",
+ "totalRecords": 5,
+ "limit": 1000,
+ "offset": 0,
+ "opportunitiesData": [
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-09-01",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Solicitation",
+   "classificationCode": "Z2AZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=c2d76e017c6246ff97d33d5dcc0a3453",
+   "fullParentPathCode": "017.1700.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SW.N62473",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SOUTHWEST SW.NAVFACSYSCOM SOUTHWEST",
+   "naicsCode": "238210",
+   "naicsCodes": [
+    "238210"
+   ],
+   "noticeId": "c2d76e017c6246ff97d33d5dcc0a3453",
+   "officeAddress": {
+    "zipcode": "92132-0001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "VARIOUS GOVERNMENT FACILITIES LOCATED WITHIN THE MARINE CORPS LOGISTICS BASE BARSTOW, MARINE CORPS AIR-GROUND COMBAT CENTER 29 PALMS, MARINE CORPS MOUNTAIN WARFARE TRAINING CENTERBRIDGEPORT, AND NAVAL AIR WEAPONS STATION CHINA LAKE, CALIFORNIA AREA OF RESPONSIBILITY (AOR) AND OTHER LOCATIONS AS APPROVED",
+    "zip": ""
+   },
+   "postedDate": "2026-11-12",
+   "responseDeadLine": "2026-11-19T14:00:00-08:00",
+   "solicitationNumber": "N6247324R2610",
+   "title": "IDIQ JOC TOTAL SMALL-BUSINESS SET-ASIDE FOR ELECTRICAL AND OTHER WIRING INSTALLATION PROJECTS AT VARIOUS GOVERNMENT FACILITIES LOCATED WITHIN THE MARINE CORPS LOGISTICS BASE BARSTOW, MARINE CO",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/c2d76e017c6246ff97d33d5dcc0a3453/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-11-10",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Z2AZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=9e36b34d0e1d48d494fcd19d70cdcbcf",
+   "fullParentPathCode": "017.1700.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SW.N62473",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.NAVFAC.NAVFAC PACIFIC CMD.NAVFAC SOUTHWEST SW.NAVFACSYSCOM SOUTHWEST",
+   "naicsCode": "238210",
+   "naicsCodes": [
+    "238210"
+   ],
+   "noticeId": "9e36b34d0e1d48d494fcd19d70cdcbcf",
+   "officeAddress": {
+    "zipcode": "92132-0001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "MARINE CORPS AIR GROUND COMBAT CENTER TWENTYNINE PALMS, CALIFORNIA 92278",
+    "zip": "92278"
+   },
+   "postedDate": "2026-11-10",
+   "responseDeadLine": "2026-12-09T10:00:00-08:00",
+   "solicitationNumber": "N6247327R0014",
+   "title": "IDIQ JOC 8(a) SMALL BUSINESS SET-ASIDE UNDER NAICS 238210 FOR ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS AT VARIOUS GOVERNMENT FACILITIES LOCATED WITHIN THE MCAGCC 29 PALMS AOR",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/9e36b34d0e1d48d494fcd19d70cdcbcf/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-20",
+   "archiveType": "autocustom",
+   "award": {
+    "awardee": {}
+   },
+   "baseType": "Solicitation",
+   "classificationCode": "J061",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=0219242e57b54ac1bf223aaa8c9edc6c",
+   "fullParentPathCode": "036.3600.36C261",
+   "fullParentPathName": "VETERANS AFFAIRS, DEPARTMENT OF.VETERANS AFFAIRS, DEPARTMENT OF.261-NETWORK CONTRACT OFFICE 21 (36C261)",
+   "naicsCode": "238210",
+   "naicsCodes": [
+    "238210"
+   ],
+   "noticeId": "0219242e57b54ac1bf223aaa8c9edc6c",
+   "officeAddress": {
+    "zipcode": "95655",
+    "city": "MATHER",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "60600",
+     "name": "Reno"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89502",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-06",
+   "responseDeadLine": "2026-11-20T12:00:00-08:00",
+   "solicitationNumber": "36C26127Q0067",
+   "title": "J061--Triennial Circuit Breaker and Feeder Testing",
+   "type": "Solicitation",
+   "typeOfSetAside": "SDVOSBC",
+   "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+   "uiLink": "https://sam.gov/workspace/contract/opp/0219242e57b54ac1bf223aaa8c9edc6c/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-10-14",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "N061",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=1ed4c9c9ad904467bc8bd8e9e661d7e9",
+   "fullParentPathCode": "017.1700.SPAWAR.SPAWAR PACIFIC.N66001",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE NAVY.SPAWAR.SPAWAR PACIFIC.NIWC PACIFIC",
+   "naicsCode": "238210",
+   "naicsCodes": [
+    "238210"
+   ],
+   "noticeId": "1ed4c9c9ad904467bc8bd8e9e661d7e9",
+   "officeAddress": {
+    "zipcode": "92152-5001",
+    "city": "SAN DIEGO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "",
+    "zip": ""
+   },
+   "postedDate": "2026-10-14",
+   "responseDeadLine": "2026-10-14T23:55:00-08:00",
+   "solicitationNumber": "N6600126Q6298",
+   "title": "Fire System Installation Preparation",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/1ed4c9c9ad904467bc8bd8e9e661d7e9/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-10-07",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "Z1JZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=80e66104550e4146a10dd4fd264bf795",
+   "fullParentPathCode": "021.2100.USACE.SPD.SPK.W91238",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE ARMY.US ARMY CORPS OF ENGINEERS.ENGINEER DIVISION SOUTH PACIFIC.ENDIST SACRAMENTO.W075 ENDIST SACRAMENTO",
+   "naicsCode": "238210",
+   "naicsCodes": [
+    "238210"
+   ],
+   "noticeId": "80e66104550e4146a10dd4fd264bf795",
+   "officeAddress": {
+    "zipcode": "95814-2922",
+    "city": "SACRAMENTO",
+    "countryCode": "USA",
+    "state": "CA"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "streetAddress": "25600 S. Chrisman Rd.Tracy, CA 95304",
+    "zip": "95304"
+   },
+   "postedDate": "2026-10-07",
+   "responseDeadLine": "2026-10-13T10:00:00-07:00",
+   "solicitationNumber": "W9123826RA002",
+   "title": "Fire Alarm and Mass Notification System Upgrades for DDJC, Tracy, CA",
+   "type": "Solicitation",
+   "typeOfSetAside": null,
+   "typeOfSetAsideDescription": null,
+   "uiLink": "https://sam.gov/workspace/contract/opp/80e66104550e4146a10dd4fd264bf795/view"
+  }
+ ]
+}

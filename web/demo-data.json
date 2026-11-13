@@ -1,7 +1,7 @@
 {
-  "generatedAt": "2026-11-12T02:12:09.387Z",
-  "capturedAt": "2026-11-11",
-  "note": "Real public bid listings captured from Douglas County NV, NV State Public Works (QuestCDN), NGEM and NevadaEPro on 2026-11-11. Trimmed sample, not a full feed.",
+  "generatedAt": "2026-11-13T06:52:12.193Z",
+  "capturedAt": "2026-11-13",
+  "note": "Real public bid listings captured from Douglas County NV, NGEM and NevadaEPro on 2026-11-13, and from NV State Public Works (QuestCDN) on 2026-11-11. A saved snapshot, not a live feed.",
   "profile": {
     "id": "lm-electric",
     "name": "L&M Electric",
@@ -56,7 +56,11 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -69,7 +73,8 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -113,7 +118,11 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -126,225 +135,126 @@
       ],
       "distanceMi": 32,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
-      "sourceId": "55AGR-S4066",
+      "sourceId": "43ADG-S4055",
       "sourceName": "NevadaEPro (State Purchasing)",
-      "title": "Generator",
-      "agency": "Department of Agriculture",
-      "description": "Buyer: Christian Armas · Bid 55AGR-S4066",
-      "category": "State purchase",
-      "location": {
-        "city": null,
-        "county": null,
-        "state": "NV",
-        "zip": null,
-        "lat": null,
-        "lng": null,
-        "precision": "state",
-        "label": "Nevada (location not listed)"
-      },
-      "postedAt": null,
-      "dueAt": "2026-11-25T01:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=55AGR-S4066&external=true&parentUrl=close",
-      "flags": [
-        "May be supply-only"
-      ],
-      "id": "nevadaepro:55AGR-S4066",
-      "score": 60,
-      "verdict": "good",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "Electrical scope: “generator”"
-        },
-        {
-          "kind": "info",
-          "text": "Work location not listed — check the bid"
-        },
-        {
-          "kind": "info",
-          "text": "12 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "May be supply-only"
-        }
-      ],
-      "distanceMi": null,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "questcdn",
-      "sourceId": "1903611:10437077",
-      "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Elevator Modernization, Building 17 (Stewart Facil…",
-      "agency": "Nevada State Public Works Division",
-      "description": "Quest #10437077 · Design: Berger Hannafin Ar… · Construction Project",
-      "category": "Miscellaneous",
-      "location": {
-        "city": "Carson City",
-        "county": "Carson City",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.1638,
-        "lng": -119.7674,
-        "precision": "city",
-        "label": "Carson City, NV"
-      },
-      "postedAt": "2026-11-05T16:00:00.000Z",
-      "dueAt": "2026-12-02T18:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
-      "flags": [
-        "SPWD bidder qualification",
-        "Prevailing wage likely"
-      ],
-      "id": "questcdn:1903611:10437077",
-      "score": 53,
-      "verdict": "maybe",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "Related trade: “elevator”"
-        },
-        {
-          "kind": "plus",
-          "text": "15 mi from Gardnerville, NV"
-        },
-        {
-          "kind": "plus",
-          "text": "20 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "SPWD bidder qualification"
-        },
-        {
-          "kind": "info",
-          "text": "Prevailing wage likely"
-        }
-      ],
-      "distanceMi": 15,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "questcdn",
-      "sourceId": "1903611:10414269",
-      "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Elevator Modernization (Bryan Building) (25-S07-2…",
-      "agency": "Nevada State Public Works Division",
-      "description": "Quest #10414269 · Design: Frame Architecture… · Construction Project",
-      "category": "Miscellaneous",
-      "location": {
-        "city": "Carson City",
-        "county": "Carson City",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.1638,
-        "lng": -119.7674,
-        "precision": "city",
-        "label": "Carson City, NV"
-      },
-      "postedAt": "2026-10-15T15:00:00.000Z",
-      "dueAt": "2026-12-02T19:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
-      "flags": [
-        "SPWD bidder qualification",
-        "Prevailing wage likely"
-      ],
-      "id": "questcdn:1903611:10414269",
-      "score": 53,
-      "verdict": "maybe",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "Related trade: “elevator”"
-        },
-        {
-          "kind": "plus",
-          "text": "15 mi from Gardnerville, NV"
-        },
-        {
-          "kind": "plus",
-          "text": "20 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "SPWD bidder qualification"
-        },
-        {
-          "kind": "info",
-          "text": "Prevailing wage likely"
-        }
-      ],
-      "distanceMi": 15,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "nevadaepro",
-      "sourceId": "43ADG-S4069",
-      "sourceName": "NevadaEPro (State Purchasing)",
-      "title": "Northern Nevada - HVAC Maintenance Services",
+      "title": "OTAG Water Heater Replacement",
       "agency": "Adjutant General",
-      "description": "Buyer: Theresa Sianez · Bid 43ADG-S4069",
+      "description": "Buyer: Paul Toups · Bid 43ADG-S4055",
       "category": "State purchase",
       "location": {
-        "city": null,
-        "county": null,
+        "city": "Carson City",
+        "county": "Carson City",
         "state": "NV",
         "zip": null,
-        "lat": 39.4,
-        "lng": -119.75,
-        "precision": "region",
-        "label": "Northern Nevada"
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "agency",
+        "label": "Carson City, NV"
       },
       "postedAt": null,
-      "dueAt": "2026-12-05T00:59:00.000Z",
+      "dueAt": "2026-11-24T18:00:00.000Z",
       "estValue": null,
       "naics": null,
       "setAside": null,
-      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=43ADG-S4069&external=true&parentUrl=close",
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=43ADG-S4055&external=true&parentUrl=close",
       "flags": [
         "May be supply-only"
       ],
-      "id": "nevadaepro:43ADG-S4069",
+      "id": "nevadaepro:43ADG-S4055",
       "score": 45,
       "verdict": "maybe",
       "reasons": [
         {
           "kind": "plus",
-          "text": "Related trade: “hvac”"
+          "text": "Related trade: “water heater”"
         },
         {
           "kind": "plus",
-          "text": "32 mi from Gardnerville, NV (approx.)"
+          "text": "15 mi from Gardnerville, NV (approx.)"
         },
         {
-          "kind": "plus",
-          "text": "22 days to bid"
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "11 days to bid"
         },
         {
           "kind": "info",
           "text": "May be supply-only"
         }
       ],
-      "distanceMi": 32,
+      "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "bcn-purchasing:itb-9136",
+      "sourceName": "NGEM (local agencies)",
+      "title": "WNC - Dini Library South Restroom Improvements",
+      "agency": "BCN Purchasing",
+      "description": "BID · ITB 9136 Addendum 1",
+      "category": "BID",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "agency",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-10-08T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:bcn-purchasing:itb-9136",
+      "score": 44,
+      "verdict": "maybe",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Building work (“restroom”) — often has a sub scope"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -388,7 +298,11 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -401,7 +315,65 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "55AGR-S4066",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Generator",
+      "agency": "Department of Agriculture",
+      "description": "Buyer: Christian Armas · Bid 55AGR-S4066",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-25T01:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=55AGR-S4066&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:55AGR-S4066",
+      "score": 40,
+      "verdict": "maybe",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "Electrical scope: “generator”"
+        },
+        {
+          "kind": "minus",
+          "text": "No work named in the title — may be a purchase, not a job"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "11 days to bid"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
@@ -440,11 +412,15 @@
         },
         {
           "kind": "plus",
-          "text": "25 days to bid"
+          "text": "24 days to bid"
         },
         {
           "kind": "info",
           "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -453,59 +429,8 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "nevadaepro",
-      "sourceId": "43ADG-S4055",
-      "sourceName": "NevadaEPro (State Purchasing)",
-      "title": "OTAG Water Heater Replacement",
-      "agency": "Adjutant General",
-      "description": "Buyer: Paul Toups · Bid 43ADG-S4055",
-      "category": "State purchase",
-      "location": {
-        "city": null,
-        "county": null,
-        "state": "NV",
-        "zip": null,
-        "lat": null,
-        "lng": null,
-        "precision": "state",
-        "label": "Nevada (location not listed)"
-      },
-      "postedAt": null,
-      "dueAt": "2026-11-24T18:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=43ADG-S4055&external=true&parentUrl=close",
-      "flags": [
-        "May be supply-only"
-      ],
-      "id": "nevadaepro:43ADG-S4055",
-      "score": 32,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "Related trade: “water heater”"
-        },
-        {
-          "kind": "info",
-          "text": "Work location not listed — check the bid"
-        },
-        {
-          "kind": "info",
-          "text": "12 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "May be supply-only"
-        }
-      ],
-      "distanceMi": null,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -545,11 +470,15 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -562,7 +491,122 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "bcn-purchasing:itb-9139",
+      "sourceName": "NGEM (local agencies)",
+      "title": "UNR - Install Replacement Heat Exchanger and Control Valves in Mackay Science",
+      "agency": "BCN Purchasing",
+      "description": "BID · ITB 9139 Addendum 2",
+      "category": "BID",
+      "location": {
+        "city": "Reno",
+        "county": "Washoe",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.5296,
+        "lng": -119.8138,
+        "precision": "agency",
+        "label": "Reno, NV"
+      },
+      "postedAt": "2026-10-15T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:bcn-purchasing:itb-9139",
+      "score": 25,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "41 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 41,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "truckee-meadows-water-authority:pwp-wa-2027-049",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Marsh Avenue Main Replacement",
+      "agency": "Truckee Meadows Water Authority",
+      "description": "BID · PWP-WA-2027-049 Addendum 1",
+      "category": "BID",
+      "location": {
+        "city": "Reno",
+        "county": "Washoe",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.5296,
+        "lng": -119.8138,
+        "precision": "agency",
+        "label": "Reno, NV"
+      },
+      "postedAt": "2026-11-03T16:00:00.000Z",
+      "dueAt": "2026-11-24T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:truckee-meadows-water-authority:pwp-wa-2027-049",
+      "score": 25,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "41 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "11 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 41,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
@@ -573,14 +617,14 @@
       "description": "Buyer: Theresa Sianez · Bid 43ADG-S4061",
       "category": "State purchase",
       "location": {
-        "city": null,
-        "county": null,
+        "city": "Carson City",
+        "county": "Carson City",
         "state": "NV",
         "zip": null,
-        "lat": null,
-        "lng": null,
-        "precision": "state",
-        "label": "Nevada (location not listed)"
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "agency",
+        "label": "Carson City, NV"
       },
       "postedAt": null,
       "dueAt": "2026-11-26T00:59:00.000Z",
@@ -592,38 +636,43 @@
         "May be supply-only"
       ],
       "id": "nevadaepro:43ADG-S4061",
-      "score": 14,
+      "score": 22,
       "verdict": "skip",
       "reasons": [
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV (approx.)"
+        },
         {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
         },
         {
           "kind": "info",
-          "text": "Work location not listed — check the bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
-          "text": "13 days to bid"
+          "text": "12 days to bid"
         },
         {
           "kind": "info",
           "text": "May be supply-only"
         }
       ],
-      "distanceMi": null,
+      "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
-      "sourceId": "1903611:10393527",
+      "sourceId": "1903611:10437077",
       "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Roofing Replacement, State Museum, North Annex FIB…",
+      "title": "Elevator Modernization, Building 17 (Stewart Facil…",
       "agency": "Nevada State Public Works Division",
-      "description": "Quest #10393527 · Design: Frame Architecture… · Construction Project",
-      "category": "Roofing",
+      "description": "Quest #10437077 · Design: Berger Hannafin Ar… · Construction Project",
+      "category": "Miscellaneous",
       "location": {
         "city": "Carson City",
         "county": "Carson City",
@@ -634,8 +683,8 @@
         "precision": "city",
         "label": "Carson City, NV"
       },
-      "postedAt": "2026-09-29T15:00:00.000Z",
-      "dueAt": "2026-11-17T18:30:00.000Z",
+      "postedAt": "2026-11-05T16:00:00.000Z",
+      "dueAt": "2026-12-02T18:00:00.000Z",
       "estValue": null,
       "naics": null,
       "setAside": null,
@@ -644,8 +693,8 @@
         "SPWD bidder qualification",
         "Prevailing wage likely"
       ],
-      "id": "questcdn:1903611:10393527",
-      "score": 7,
+      "id": "questcdn:1903611:10437077",
+      "score": 9,
       "verdict": "skip",
       "reasons": [
         {
@@ -653,8 +702,12 @@
           "text": "15 mi from Gardnerville, NV"
         },
         {
+          "kind": "plus",
+          "text": "19 days to bid"
+        },
+        {
           "kind": "minus",
-          "text": "Mostly another trade (“roofing”)"
+          "text": "Mostly another trade (“elevator”)"
         },
         {
           "kind": "info",
@@ -662,7 +715,7 @@
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -675,77 +728,17 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
-      "sourceId": "1903611:10393533",
+      "sourceId": "1903611:10414269",
       "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Roofing Replacement, CSMS, NVNG, Carson City (25…",
+      "title": "Elevator Modernization (Bryan Building) (25-S07-2…",
       "agency": "Nevada State Public Works Division",
-      "description": "Quest #10393533 · Design: Paul Cavin Archite… · Construction Project",
-      "category": "Roofing",
-      "location": {
-        "city": "Carson City",
-        "county": "Carson City",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.1638,
-        "lng": -119.7674,
-        "precision": "city",
-        "label": "Carson City, NV"
-      },
-      "postedAt": "2026-09-29T15:00:00.000Z",
-      "dueAt": "2026-11-17T19:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
-      "flags": [
-        "SPWD bidder qualification",
-        "Prevailing wage likely"
-      ],
-      "id": "questcdn:1903611:10393533",
-      "score": 7,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "15 mi from Gardnerville, NV"
-        },
-        {
-          "kind": "minus",
-          "text": "Mostly another trade (“roofing”)"
-        },
-        {
-          "kind": "info",
-          "text": "General construction — check the specs for electrical"
-        },
-        {
-          "kind": "info",
-          "text": "5 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "SPWD bidder qualification"
-        },
-        {
-          "kind": "info",
-          "text": "Prevailing wage likely"
-        }
-      ],
-      "distanceMi": 15,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "questcdn",
-      "sourceId": "1903611:10414275",
-      "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Roofing Replacement, Non-profit Fish House (25-S01…",
-      "agency": "Nevada State Public Works Division",
-      "description": "Quest #10414275 · Design: Frame Architecture… · Construction Project",
-      "category": "Roofing",
+      "description": "Quest #10414269 · Design: Frame Architecture… · Construction Project",
+      "category": "Miscellaneous",
       "location": {
         "city": "Carson City",
         "county": "Carson City",
@@ -757,7 +750,7 @@
         "label": "Carson City, NV"
       },
       "postedAt": "2026-10-15T15:00:00.000Z",
-      "dueAt": "2026-11-17T19:30:00.000Z",
+      "dueAt": "2026-12-02T19:00:00.000Z",
       "estValue": null,
       "naics": null,
       "setAside": null,
@@ -766,8 +759,8 @@
         "SPWD bidder qualification",
         "Prevailing wage likely"
       ],
-      "id": "questcdn:1903611:10414275",
-      "score": 7,
+      "id": "questcdn:1903611:10414269",
+      "score": 9,
       "verdict": "skip",
       "reasons": [
         {
@@ -775,8 +768,12 @@
           "text": "15 mi from Gardnerville, NV"
         },
         {
+          "kind": "plus",
+          "text": "19 days to bid"
+        },
+        {
           "kind": "minus",
-          "text": "Mostly another trade (“roofing”)"
+          "text": "Mostly another trade (“elevator”)"
         },
         {
           "kind": "info",
@@ -784,7 +781,7 @@
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -797,7 +794,8 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -837,7 +835,7 @@
         },
         {
           "kind": "plus",
-          "text": "76 days to bid"
+          "text": "75 days to bid"
         },
         {
           "kind": "minus",
@@ -846,6 +844,10 @@
         {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -858,7 +860,206 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "questcdn",
+      "sourceId": "1903611:10393527",
+      "sourceName": "NV Public Works (QuestCDN)",
+      "title": "Roofing Replacement, State Museum, North Annex FIB…",
+      "agency": "Nevada State Public Works Division",
+      "description": "Quest #10393527 · Design: Frame Architecture… · Construction Project",
+      "category": "Roofing",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "city",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-09-29T15:00:00.000Z",
+      "dueAt": "2026-11-17T18:30:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
+      "flags": [
+        "SPWD bidder qualification",
+        "Prevailing wage likely"
+      ],
+      "id": "questcdn:1903611:10393527",
+      "score": 4,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“roofing”)"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "SPWD bidder qualification"
+        },
+        {
+          "kind": "info",
+          "text": "Prevailing wage likely"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "questcdn",
+      "sourceId": "1903611:10393533",
+      "sourceName": "NV Public Works (QuestCDN)",
+      "title": "Roofing Replacement, CSMS, NVNG, Carson City (25…",
+      "agency": "Nevada State Public Works Division",
+      "description": "Quest #10393533 · Design: Paul Cavin Archite… · Construction Project",
+      "category": "Roofing",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "city",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-09-29T15:00:00.000Z",
+      "dueAt": "2026-11-17T19:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
+      "flags": [
+        "SPWD bidder qualification",
+        "Prevailing wage likely"
+      ],
+      "id": "questcdn:1903611:10393533",
+      "score": 4,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“roofing”)"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "SPWD bidder qualification"
+        },
+        {
+          "kind": "info",
+          "text": "Prevailing wage likely"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "questcdn",
+      "sourceId": "1903611:10414275",
+      "sourceName": "NV Public Works (QuestCDN)",
+      "title": "Roofing Replacement, Non-profit Fish House (25-S01…",
+      "agency": "Nevada State Public Works Division",
+      "description": "Quest #10414275 · Design: Frame Architecture… · Construction Project",
+      "category": "Roofing",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "city",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-10-15T15:00:00.000Z",
+      "dueAt": "2026-11-17T19:30:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
+      "flags": [
+        "SPWD bidder qualification",
+        "Prevailing wage likely"
+      ],
+      "id": "questcdn:1903611:10414275",
+      "score": 4,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“roofing”)"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "SPWD bidder qualification"
+        },
+        {
+          "kind": "info",
+          "text": "Prevailing wage likely"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -894,7 +1095,7 @@
       "reasons": [
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "minus",
@@ -910,6 +1111,10 @@
         },
         {
           "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
           "text": "SPWD bidder qualification"
         },
         {
@@ -919,68 +1124,17 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "ngem",
-      "sourceId": "city-of-north-las-vegas:1797",
+      "sourceId": "las-vegas-clark-county-library-district:27-02",
       "sourceName": "NGEM (local agencies)",
-      "title": "4040 Losee Road Parkway Fire Alarm Upgrade",
-      "agency": "City of North Las Vegas",
-      "description": "BID · 1797 Addendum 2",
-      "category": "BID",
-      "location": {
-        "city": "North Las Vegas",
-        "county": "Clark",
-        "state": "NV",
-        "zip": null,
-        "lat": 36.1989,
-        "lng": -115.1175,
-        "precision": "agency",
-        "label": "North Las Vegas, NV"
-      },
-      "postedAt": "2026-10-21T15:00:00.000Z",
-      "dueAt": "2026-11-12T19:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [
-        "Addendum 2 posted"
-      ],
-      "id": "ngem:city-of-north-las-vegas:1797",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "317 mi away — outside your 90 mi range"
-        },
-        {
-          "kind": "plus",
-          "text": "Electrical scope: “fire alarm”"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "Addendum 2 posted"
-        }
-      ],
-      "distanceMi": 317,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "ngem",
-      "sourceId": "clark-county-water-reclamation-district:26505",
-      "sourceName": "NGEM (local agencies)",
-      "title": "RAPID RESPONSE CONSTRUCTION SERVICES 2026",
-      "agency": "Clark County Water Reclamation District",
-      "description": "BID · 26505",
-      "category": "BID",
+      "title": "Security Officer Services",
+      "agency": "Las Vegas-Clark County Library District",
+      "description": "RFP · 27-02",
+      "category": "RFP",
       "location": {
         "city": "Las Vegas",
         "county": "Clark",
@@ -991,20 +1145,20 @@
         "precision": "agency",
         "label": "Las Vegas, NV"
       },
-      "postedAt": "2026-10-06T15:00:00.000Z",
-      "dueAt": "2026-11-12T22:00:00.000Z",
+      "postedAt": "2026-10-19T15:00:00.000Z",
+      "dueAt": "2026-11-13T22:00:00.000Z",
       "estValue": null,
       "naics": null,
       "setAside": null,
       "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
       "flags": [],
-      "id": "ngem:clark-county-water-reclamation-district:26505",
+      "id": "ngem:las-vegas-clark-county-library-district:27-02",
       "score": 0,
       "verdict": "skip",
       "reasons": [
         {
           "kind": "minus",
-          "text": "317 mi away — outside your 90 mi range"
+          "text": "Not your trade (“security officer”)"
         },
         {
           "kind": "minus",
@@ -1012,168 +1166,13 @@
         },
         {
           "kind": "info",
-          "text": "General construction — check the specs for electrical"
+          "text": "Job size not stated"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "ngem",
-      "sourceId": "unlv-nshe-business-center-south:5587-gs",
-      "sourceName": "NGEM (local agencies)",
-      "title": "UNLV Greenspun College of Urban Affairs (GUA) Cooling Tower Repairs",
-      "agency": "UNLV (NSHE-Business Center South)",
-      "description": "BID · 5587-GS Addendum 2",
-      "category": "BID",
-      "location": {
-        "city": "Las Vegas",
-        "county": "Clark",
-        "state": "NV",
-        "zip": null,
-        "lat": 36.1699,
-        "lng": -115.1398,
-        "precision": "agency",
-        "label": "Las Vegas, NV"
-      },
-      "postedAt": "2026-09-21T15:00:00.000Z",
-      "dueAt": "2026-11-12T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [
-        "Addendum 2 posted"
-      ],
-      "id": "ngem:unlv-nshe-business-center-south:5587-gs",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "317 mi away — outside your 90 mi range"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "General construction — check the specs for electrical"
-        },
-        {
-          "kind": "info",
-          "text": "Addendum 2 posted"
-        }
-      ],
-      "distanceMi": 317,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "ngem",
-      "sourceId": "bcn-purchasing:rfp-9141",
-      "sourceName": "NGEM (local agencies)",
-      "title": "TMCC - Learning Commons Furniture Walls",
-      "agency": "BCN Purchasing",
-      "description": "RFP · RFP 9141 Addendum 2",
-      "category": "RFP",
-      "location": {
-        "city": "Reno",
-        "county": "Washoe",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.5296,
-        "lng": -119.8138,
-        "precision": "agency",
-        "label": "Reno, NV"
-      },
-      "postedAt": "2026-10-22T15:00:00.000Z",
-      "dueAt": "2026-11-12T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [
-        "Addendum 2 posted"
-      ],
-      "id": "ngem:bcn-purchasing:rfp-9141",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "Not your trade (“furniture”)"
-        },
-        {
-          "kind": "plus",
-          "text": "41 mi from Gardnerville, NV (approx.)"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "Addendum 2 posted"
-        }
-      ],
-      "distanceMi": 41,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
-    },
-    {
-      "source": "nevadaepro",
-      "sourceId": "70CNR-S4044",
-      "sourceName": "NevadaEPro (State Purchasing)",
-      "title": "NDSP Wifi Services",
-      "agency": "Department of Conservation and Natural Resources",
-      "description": "Buyer: Nocoasha Henry · Bid 70CNR-S4044",
-      "category": "State purchase",
-      "location": {
-        "city": null,
-        "county": null,
-        "state": "NV",
-        "zip": null,
-        "lat": null,
-        "lng": null,
-        "precision": "state",
-        "label": "Nevada (location not listed)"
-      },
-      "postedAt": null,
-      "dueAt": "2026-11-12T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=70CNR-S4044&external=true&parentUrl=close",
-      "flags": [
-        "May be supply-only"
-      ],
-      "id": "nevadaepro:70CNR-S4044",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "Not your trade (“wifi services”)"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "Work location not listed — check the bid"
-        },
-        {
-          "kind": "info",
-          "text": "May be supply-only"
-        }
-      ],
-      "distanceMi": null,
-      "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "ngem",
@@ -1214,12 +1213,170 @@
         },
         {
           "kind": "minus",
-          "text": "Only 1 day to bid"
+          "text": "Due within 24 hours"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         }
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-department-of-aviation:ccdoa-bid-27-100145",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Sale of Multi-Use Embross V-Series Kiosks",
+      "agency": "Clark County Department of Aviation",
+      "description": "CC Dept of Aviation - Purchasing: Request for Bid · CCDOA BID: 27-100145",
+      "category": "CC Dept of Aviation - Purchasing: Request for Bid",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-24T15:00:00.000Z",
+      "dueAt": "2026-11-16T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-department-of-aviation:ccdoa-bid-27-100145",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 3 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "31PCSA-S4046",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Document Draft, Consulting, and Project Management",
+      "agency": "State Public Charter School Authority",
+      "description": "Buyer: Miriam Garcia · Bid 31PCSA-S4046",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-16T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=31PCSA-S4046&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:31PCSA-S4046",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“consulting”)"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 3 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "80DOT-S4043",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Impact Attenuators",
+      "agency": "Department of Transportation",
+      "description": "Buyer: Miriam Garcia · Alt ID NDEQ027396 · Bid 80DOT-S4043",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-16T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=80DOT-S4043&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:80DOT-S4043",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 3 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "ngem",
@@ -1256,12 +1413,17 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "ngem",
@@ -1299,12 +1461,16 @@
           "text": "329 mi away — outside your 90 mi range"
         },
         {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1313,16 +1479,390 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "ngem",
-      "sourceId": "city-of-north-las-vegas:rfp-2026-024",
+      "sourceId": "las-vegas-metropolitan-police:608088",
       "sourceName": "NGEM (local agencies)",
-      "title": "Customer Portal & AMI Technology",
-      "agency": "City of North Las Vegas",
-      "description": "RFP · RFP 2026-024 Addendum 3",
+      "title": "LVMPD SNCTC Audio/Visual Equipment Modernization",
+      "agency": "Las Vegas Metropolitan Police",
+      "description": "RFP · 608088 Addendum 3",
       "category": "RFP",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-05T15:00:00.000Z",
+      "dueAt": "2026-11-17T18:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 3 posted"
+      ],
+      "id": "ngem:las-vegas-metropolitan-police:608088",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 3 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:260232-dg",
+      "sourceName": "NGEM (local agencies)",
+      "title": "RCC and Health and Wellness Center",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP · 260232-DG Addendum 2",
+      "category": "RFP",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-07T15:00:00.000Z",
+      "dueAt": "2026-11-17T21:30:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:city-of-las-vegas-nevada:260232-dg",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "72DOW-S4047",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Hatchery Fish Food",
+      "agency": "Department of Wildlife",
+      "description": "Buyer: Joel Wixon · Bid 72DOW-S4047",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-17T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=72DOW-S4047&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:72DOW-S4047",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608087-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "LAS VEGAS BOULEVARD - FLAMINGO ROAD TO SPRING MOUNTAIN ROAD (PHASE G) AND FLAMINGO ROAD - I-15 TO KOVAL LANE",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608087-26 Addendum 5",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "city",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-14T15:00:00.000Z",
+      "dueAt": "2026-11-17T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 5 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608087-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 5 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608084-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "ANNUAL REQUIREMENTS CONTRACT FOR SAND, SILT & DECORATIVE ROCKS COUNTYWIDE",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608084-26 Addendum 1",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-29T15:00:00.000Z",
+      "dueAt": "2026-11-17T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608084-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608147-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "ANNUAL REQUIREMENTS CONTRACT FOR PREVENTATIVE MAINTENANCE, REPAIR AND REPLACEMENT OF SECTIONAL OVERHEAD, ROLLING STEEL (COIL), FOUR-FOLD AND HIGH-SPEED ROLLING DOORS COUNTYWIDE",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608147-26 Addendum 1",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-28T15:00:00.000Z",
+      "dueAt": "2026-11-17T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608147-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "las-vegas-valley-water-district:015169",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Resilient Seated Gate Valves",
+      "agency": "Las Vegas Valley Water District",
+      "description": "BID · 015169",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-27T15:00:00.000Z",
+      "dueAt": "2026-11-18T18:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:las-vegas-valley-water-district:015169",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-north-las-vegas:1794",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Range Wash - Beltway Conveyance and Collection System at Pecos Road Project",
+      "agency": "City of North Las Vegas",
+      "description": "BID · 1794 Addendum 1",
+      "category": "BID",
       "location": {
         "city": "North Las Vegas",
         "county": "Clark",
@@ -1333,35 +1873,413 @@
         "precision": "agency",
         "label": "North Las Vegas, NV"
       },
-      "postedAt": "2026-09-21T15:00:00.000Z",
-      "dueAt": "2026-11-19T21:00:00.000Z",
+      "postedAt": "2026-10-19T15:00:00.000Z",
+      "dueAt": "2026-11-18T18:00:00.000Z",
       "estValue": null,
       "naics": null,
       "setAside": null,
       "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
       "flags": [
-        "Addendum 3 posted"
+        "Addendum 1 posted"
       ],
-      "id": "ngem:city-of-north-las-vegas:rfp-2026-024",
+      "id": "ngem:city-of-north-las-vegas:1794",
       "score": 0,
       "verdict": "skip",
       "reasons": [
         {
           "kind": "minus",
-          "text": "Not your trade (“customer portal”)"
+          "text": "No electrical or construction scope found"
         },
         {
           "kind": "info",
-          "text": "7 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
-          "text": "Addendum 3 posted"
+          "text": "5 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "55AGR-S4052",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Truck with Boom",
+      "agency": "Department of Agriculture",
+      "description": "Buyer: Ed kochendarfer · Bid 55AGR-S4052",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-18T20:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=55AGR-S4052&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:55AGR-S4052",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-department-of-aviation:request-for-quote-fy27-0053",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Sale of Surplus Trespa Panels",
+      "agency": "Clark County Department of Aviation",
+      "description": "CC Dept of Aviation - Purchasing: Request for Quote · REQUEST FOR QUOTE: FY27-0053",
+      "category": "CC Dept of Aviation - Purchasing: Request for Quote",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-04T16:00:00.000Z",
+      "dueAt": "2026-11-19T07:59:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-department-of-aviation:request-for-quote-fy27-0053",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“surplus”)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-water-reclamation-district:26505",
+      "sourceName": "NGEM (local agencies)",
+      "title": "RAPID RESPONSE CONSTRUCTION SERVICES 2026",
+      "agency": "Clark County Water Reclamation District",
+      "description": "BID · 26505",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-06T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-water-reclamation-district:26505",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-department-of-aviation:ccdoa-rfp-27-001",
+      "sourceName": "NGEM (local agencies)",
+      "title": "RFP for Cybersecurity Managed Detection & Response",
+      "agency": "Clark County Department of Aviation",
+      "description": "CC Dept of Aviation - Purchasing: Request for Proposal / Request for Qualifications · CCDOA RFP: 27-001",
+      "category": "CC Dept of Aviation - Purchasing: Request for Proposal / Request for Qualifications",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-02T16:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-department-of-aviation:ccdoa-rfp-27-001",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "bcn-purchasing:rfp-9143",
+      "sourceName": "NGEM (local agencies)",
+      "title": "UNR - Printing and Mailing Services for Silver & Blue Magazine",
+      "agency": "BCN Purchasing",
+      "description": "RFP · RFP 9143 Addendum 1",
+      "category": "RFP",
+      "location": {
+        "city": "Reno",
+        "county": "Washoe",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.5296,
+        "lng": -119.8138,
+        "precision": "agency",
+        "label": "Reno, NV"
+      },
+      "postedAt": "2026-10-29T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:bcn-purchasing:rfp-9143",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "41 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 41,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "bcn-purchasing:rfq-9142",
+      "sourceName": "NGEM (local agencies)",
+      "title": "TMCC - Professional Services - Edison Way Extension",
+      "agency": "BCN Purchasing",
+      "description": "RFQ-BCN · RFQ 9142 Addendum 1",
+      "category": "RFQ-BCN",
+      "location": {
+        "city": "Reno",
+        "county": "Washoe",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.5296,
+        "lng": -119.8138,
+        "precision": "agency",
+        "label": "Reno, NV"
+      },
+      "postedAt": "2026-10-22T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:bcn-purchasing:rfq-9142",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "41 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 41,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608083-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Desert Breeze Aquatic Center - Pool Tile & Plaster Replacement and Restroom/Locker Room Remodel",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608083-26 Addendum 2",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-12T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608083-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Building work (“remodel”) — often has a sub scope"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "6 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "douglascounty",
@@ -1369,7 +2287,7 @@
       "sourceName": "Douglas County, NV",
       "title": "RFP Library 5-year Strategic Plan",
       "agency": "Douglas County, NV",
-      "description": "RFP- Douglas County Public Library, A New Five-Year Strategic Plan 2028 to 2033\n\nPosted- 11/2/2026\n\nBids due- 11/20/2026\n\nLooking for a company or organization to help with the planning process of a new library strategic plan for the Douglas County Public Library.\n\nDescription: Planning process\n\nEarly 2027- help with the development process of a new strategic plan including the following starting in January 2027\n\n1. Internal and External Stakeholder- small group interviews\n\n2. Community survey- digital and paper. Use of the 2022 Survey as a “Base Comparison” with new questions as needed. Data input of surveys and summary analysis of the information.\n\n3. Collection and analysis of various socio-demographic, economic, and housing characteristics,\n\n4. Up to three strategic planning workshops (if needed) conduction of workshops with summary and analysis\n\na. Workshop 1- community and organizational assessment with the development of draft key elements (core values, mission/vision, goals, etc.)\n\nb. Workshop 2 & Workshop 3 (if needed) Refinement and development of the final key elements\n\n5. Development/Completion of a technical report\n\n6. Create a 2028 plan for implementation\n\nFour separate annual evaluations and updates:\n\n2029, 2030, 2031, 2032\n\nDevelopment/completion of four technical reports (summaries)\n\nProposal based on services provided\n\nContact information\n\nTimothy DeGhelder- Library Director\n\nQuestions and proposals can be emailed to the following address Timothy.deghelder@douglas.lib.nv.us\n\nThe current strategic plan can be viewed at the current webpage: https://shorturl.at/60Fiz\n\nReview and Download the Full RFP Here",
+      "description": "RFP- Douglas County Public Library, A New Five-Year Strategic Plan 2028 to 2033\n\nPosted- 11/2/2026\n\nBids due- 11/20/2026\n\nLooking for a company or organization to help with the planning process of a new library strategic plan for the Douglas County Public Library.\n\nDescription: Planning process\n\nEarly 2027- help with the development process of a new strategic plan including the following starting in January 2027\n\n1. Internal and External Stakeholder- small group interviews\n\n2. Community survey- digital and paper. Use of the 2022 Survey as a “Base Comparison” with new questions as needed. Data input of surveys and summary analysis of the information.\n\n3. Collection and analysis of various socio-demographic, economic, and housing characteristics,\n\n4. Up to three strategic planning workshops (if needed) conduction of workshops with summary and analysis\n\na. Workshop 1- community and organizational assessment with the development of draft key elements (core values, mission/vision, goals, etc.)\n\nb. Workshop 2 & Workshop 3 (if needed) Refinement and development of the final key elements\n\n5. Development/Completion of a technical report\n\n6. Create a 2028 plan for implementation\n\nFour separate annual evaluations and updates:\n\n2029, 2030, 2031, 2032\n\nDevelopment/completion of four technical reports (summaries)\n\nProposal based on services provided\n\nContact information\n\nTimothy DeGhelder- Library Director\n\nQuestions and proposals can be emailed to the following address (e-mail address on the county page)\n\nThe current strategic plan can be viewed at the current webpage: https://shorturl.at/60Fiz\n\nReview and Download the Full RFP Here",
       "category": "County bid",
       "location": {
         "city": null,
@@ -1402,12 +2320,602 @@
         },
         {
           "kind": "info",
-          "text": "8 days to bid"
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "7 days to bid"
         }
       ],
       "distanceMi": 1,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608021-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "PARADISE PARK TENNIS COURT CONVERSION PARADISE PARK DOG RUNS",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608021-26 Addendum 2",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-14T15:00:00.000Z",
+      "dueAt": "2026-11-24T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608021-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "11 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "unlv-nshe-business-center-south:5588-ss",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Charter Bus Services",
+      "agency": "UNLV (NSHE-Business Center South)",
+      "description": "BID · 5588-SS Addendum 1",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-20T15:00:00.000Z",
+      "dueAt": "2026-11-24T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:unlv-nshe-business-center-south:5588-ss",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "11 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "70CNR-S4062",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "FY27 FRO Fire Jackets",
+      "agency": "Department of Conservation and Natural Resources",
+      "description": "Buyer: Annette Morfin · Bid 70CNR-S4062",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-25T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=70CNR-S4062&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:70CNR-S4062",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "12 days to bid"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "65DPS-S4060",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Commercial Portable Scale Calibration/Repair",
+      "agency": "Department of Public Safety",
+      "description": "Buyer: Kasen Cornmesser · Bid 65DPS-S4060",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-30T17:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=65DPS-S4060&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:65DPS-S4060",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“scale calibration”)"
+        },
+        {
+          "kind": "plus",
+          "text": "17 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "May be supply-only"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "41NHA-S4031",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Rural Value Acceleration Network (RVAN) Vendor",
+      "agency": "Nevada Health Authority",
+      "description": "Buyer: Heather Moon · Bid 41NHA-S4031",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-11-30T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=41NHA-S4031&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:41NHA-S4031",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "17 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:bid-no-608079-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "ANNUAL REQUIREMENTS CONTRACT FOR LANDSCAPE AND GROUNDS MAINTENANCE FOR SEARCHLIGHT & LAUGHLIN PARKS & FACILITIES",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · BID NO. 608079-26",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Laughlin",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 35.1678,
+        "lng": -114.573,
+        "precision": "city",
+        "label": "Laughlin, NV"
+      },
+      "postedAt": "2026-11-05T16:00:00.000Z",
+      "dueAt": "2026-11-30T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-nevada:bid-no-608079-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "17 days to bid"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“landscap”)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 386,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "las-vegas-valley-water-district:010895",
+      "sourceName": "NGEM (local agencies)",
+      "title": "3304L Meranto Pumping Station Sewer Lateral Installation",
+      "agency": "Las Vegas Valley Water District",
+      "description": "BID · 010895",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-10T16:00:00.000Z",
+      "dueAt": "2026-12-01T18:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:las-vegas-valley-water-district:010895",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "18 days to bid"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“sewer”)"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "80DOT-S4075",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "PLOWS",
+      "agency": "Department of Transportation",
+      "description": "Buyer: Heather Moon · Alt ID NDEQ027422 · Bid 80DOT-S4075",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-01T20:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=80DOT-S4075&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:80DOT-S4075",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "18 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "72DOW-S4085",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Roof Decking for Habitat Structures",
+      "agency": "Department of Wildlife",
+      "description": "Buyer: Annette Morfin · Bid 72DOW-S4085",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-01T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=72DOW-S4085&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:72DOW-S4085",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "18 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608108-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "WARM SPRINGS ROAD - LAS VEGAS BOULEVARD TO PECOS ROAD",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608108-26",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "city",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-10T16:00:00.000Z",
+      "dueAt": "2026-12-01T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-nevada:608108-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "18 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "unlv-nshe-business-center-south:rfp-916-cm",
+      "sourceName": "NGEM (local agencies)",
+      "title": "CORPORATE REAL ESTATE ADVISORY FIRM SERVICES",
+      "agency": "UNLV (NSHE-Business Center South)",
+      "description": "RFP · RFP 916-CM Addendum 1",
+      "category": "RFP",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-20T15:00:00.000Z",
+      "dueAt": "2026-12-01T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:unlv-nshe-business-center-south:rfp-916-cm",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "18 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
@@ -1450,7 +2958,11 @@
         },
         {
           "kind": "plus",
-          "text": "20 days to bid"
+          "text": "19 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1459,7 +2971,556 @@
       ],
       "distanceMi": 44,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "80DOT-S4076",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "35 TON DETACHABLE GOOSENECK TRAILER",
+      "agency": "Department of Transportation",
+      "description": "Buyer: Heather Moon · Alt ID NDEQ027423 · Bid 80DOT-S4076",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-02T20:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=80DOT-S4076&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:80DOT-S4076",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "19 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "unlv-nshe-business-center-south:5590-cb",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Exclusive Non-Alcoholic Beverage Provider For UNLV Events Centers",
+      "agency": "UNLV (NSHE-Business Center South)",
+      "description": "BID · 5590-CB Addendum 1",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-21T15:00:00.000Z",
+      "dueAt": "2026-12-02T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:unlv-nshe-business-center-south:5590-cb",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "19 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-school-district-purchasing:rfp27015tcg",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Solutions for Students with Significant Cognitive Disabilities",
+      "agency": "Clark County School District Purchasing",
+      "description": "CCSD Opportunities · RFP27015TCG",
+      "category": "CCSD Opportunities",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-15T15:00:00.000Z",
+      "dueAt": "2026-12-03T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-school-district-purchasing:rfp27015tcg",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "20 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "carson-city-nevada:27300240",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Carson River Trail System Phase IV Riverview Trailhead",
+      "agency": "Carson City, Nevada",
+      "description": "BID · 27300240",
+      "category": "BID",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "city",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-11-03T16:00:00.000Z",
+      "dueAt": "2026-12-03T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:carson-city-nevada:27300240",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV"
+        },
+        {
+          "kind": "plus",
+          "text": "20 days to bid"
+        },
+        {
+          "kind": "minus",
+          "text": "Mostly another trade (“trail”)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:607998-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Fire Station 71 Bunkerville Emergency Generator Connection",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 607998-26 Addendum 1",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-26T15:00:00.000Z",
+      "dueAt": "2026-12-03T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:clark-county-nevada:607998-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "Electrical scope: “generator”"
+        },
+        {
+          "kind": "plus",
+          "text": "20 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "43ADG-S4069",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Northern Nevada - HVAC Maintenance Services",
+      "agency": "Adjutant General",
+      "description": "Buyer: Theresa Sianez · Bid 43ADG-S4069",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "region",
+        "label": "Northern Nevada (approx.) — sites not listed"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-05T00:59:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=43ADG-S4069&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:43ADG-S4069",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“maintenance service”)"
+        },
+        {
+          "kind": "plus",
+          "text": "Related trade: “hvac”"
+        },
+        {
+          "kind": "plus",
+          "text": "21 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Northern Nevada (approx.) — sites not listed"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "May be supply-only"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "65DPS-S4081",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "NEW VEHICLE BUILDS",
+      "agency": "Department of Public Safety",
+      "description": "Buyer: Heather Moon · Bid 65DPS-S4081",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-07T20:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=65DPS-S4081&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:65DPS-S4081",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "24 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "10TCA-S4032",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "HVAC Maintenance Service",
+      "agency": "Department of Tourism And Cultural Affairs",
+      "description": "Buyer: Annette Morfin · Bid 10TCA-S4032",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-07T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=10TCA-S4032&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:10TCA-S4032",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“maintenance service”)"
+        },
+        {
+          "kind": "plus",
+          "text": "Related trade: “hvac”"
+        },
+        {
+          "kind": "plus",
+          "text": "24 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "May be supply-only"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "30DOE-S4073",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Anonymous School Safety & Tip Management Platform",
+      "agency": "Department of Education",
+      "description": "Buyer: Ed kochendarfer · Bid 30DOE-S4073",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-07T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=30DOE-S4073&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:30DOE-S4073",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "24 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-department-of-aviation:3019",
+      "sourceName": "NGEM (local agencies)",
+      "title": "CONSTRUCTION CONTRACTS - TSA Innovation Checkpoint Renovation",
+      "agency": "Clark County Department of Aviation",
+      "description": "CC Dept of Aviation - Construction/Engineering: Request for Bid · 3019",
+      "category": "CC Dept of Aviation - Construction/Engineering: Request for Bid",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-10T16:00:00.000Z",
+      "dueAt": "2026-12-08T21:30:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-department-of-aviation:3019",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "25 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Building work (“renovation”) — often has a sub scope"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
@@ -1498,7 +3559,7 @@
         },
         {
           "kind": "plus",
-          "text": "26 days to bid"
+          "text": "25 days to bid"
         },
         {
           "kind": "info",
@@ -1506,12 +3567,66 @@
         },
         {
           "kind": "info",
-          "text": "May be supply-only"
+          "text": "Job size not stated"
         }
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "70CNR-S4064",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Sustainable Materials Management Digital Workbooks and Learning Material",
+      "agency": "Department of Conservation and Natural Resources",
+      "description": "Buyer: Mason Bondi · Bid 70CNR-S4064",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-08T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=70CNR-S4064&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:70CNR-S4064",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "25 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -1551,11 +3666,15 @@
         },
         {
           "kind": "plus",
-          "text": "28 days to bid"
+          "text": "27 days to bid"
         },
         {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1568,7 +3687,161 @@
       ],
       "distanceMi": 338,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "41NHA-S4038",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Program of All Inclusive Care for the Elderly (PACE)",
+      "agency": "Nevada Health Authority",
+      "description": "Buyer: Heather Moon · Bid 41NHA-S4038",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-10T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=41NHA-S4038&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:41NHA-S4038",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "27 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "40DHHS-S4071",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Nevada Youth Training Center Quarterly Meat Solicitation",
+      "agency": "Department of Human Services",
+      "description": "Buyer: Annette Morfin · Bid 40DHHS-S4071",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-14T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=40DHHS-S4071&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:40DHHS-S4071",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“meat”)"
+        },
+        {
+          "kind": "plus",
+          "text": "31 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:26-mwa154-c1-sk",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Cheyenne Avenue Bus Turnouts",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "BID · 26.MWA154.C1-SK",
+      "category": "BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-10T16:00:00.000Z",
+      "dueAt": "2026-12-14T21:30:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:26-mwa154-c1-sk",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "31 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "questcdn",
@@ -1608,7 +3881,7 @@
         },
         {
           "kind": "plus",
-          "text": "33 days to bid"
+          "text": "32 days to bid"
         },
         {
           "kind": "minus",
@@ -1617,6 +3890,10 @@
         {
           "kind": "info",
           "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1629,7 +3906,8 @@
       ],
       "distanceMi": 253,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     },
     {
       "source": "nevadaepro",
@@ -1668,11 +3946,15 @@
         },
         {
           "kind": "plus",
-          "text": "34 days to bid"
+          "text": "33 days to bid"
         },
         {
           "kind": "info",
           "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1681,7 +3963,706 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-12T02:12:09.387Z"
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "nevadaepro",
+      "sourceId": "44DOC-S4058",
+      "sourceName": "NevadaEPro (State Purchasing)",
+      "title": "Vending Services",
+      "agency": "Department of Corrections",
+      "description": "Buyer: Joel Wixon · Bid 44DOC-S4058",
+      "category": "State purchase",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": null,
+        "lng": null,
+        "precision": "state",
+        "label": "Nevada (location not listed)"
+      },
+      "postedAt": null,
+      "dueAt": "2026-12-16T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevadaepro.com/bso/external/bidDetail.sda?docId=44DOC-S4058&external=true&parentUrl=close",
+      "flags": [
+        "May be supply-only"
+      ],
+      "id": "nevadaepro:44DOC-S4058",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“vending”)"
+        },
+        {
+          "kind": "plus",
+          "text": "33 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Work location not listed — check the bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "May be supply-only"
+        }
+      ],
+      "distanceMi": null,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-henderson:ifb-119-27-black-mountain-nature-preserve",
+      "sourceName": "NGEM (local agencies)",
+      "title": "IFB 119-27 Black Mountain Nature Preserve",
+      "agency": "City of Henderson",
+      "description": "BID · IFB 119-27 Black Mountain Nature Preserve",
+      "category": "BID",
+      "location": {
+        "city": "Henderson",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.0395,
+        "lng": -114.9817,
+        "precision": "agency",
+        "label": "Henderson, NV"
+      },
+      "postedAt": "2026-11-12T16:00:00.000Z",
+      "dueAt": "2026-12-16T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-henderson:ifb-119-27-black-mountain-nature-preserve",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "33 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 329,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:rfp-eud-08-06-2026",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Request for Development Proposals: Downtown Core Assemblage",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP-I · RFP-EUD 08/06/2026",
+      "category": "RFP-I",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-08-06T15:00:00.000Z",
+      "dueAt": "2026-12-17T01:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:rfp-eud-08-06-2026",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "33 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-north-las-vegas:rfp-2026-024",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Customer Portal & AMI Technology",
+      "agency": "City of North Las Vegas",
+      "description": "RFP · RFP 2026-024 Addendum 4",
+      "category": "RFP",
+      "location": {
+        "city": "North Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1989,
+        "lng": -115.1175,
+        "precision": "agency",
+        "label": "North Las Vegas, NV"
+      },
+      "postedAt": "2026-09-21T15:00:00.000Z",
+      "dueAt": "2026-12-17T21:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 4 posted"
+      ],
+      "id": "ngem:city-of-north-las-vegas:rfp-2026-024",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "34 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 4 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608032-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Custody Services",
+      "agency": "Clark County, Nevada",
+      "description": "RFR · 608032-26",
+      "category": "RFR",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-10T16:00:00.000Z",
+      "dueAt": "2026-12-17T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:clark-county-nevada:608032-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "34 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:rfp-eud-10-2026",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Request for Development Proposals: Ice Hockey Facility - Primary Development Area + Conditional Expansion Opportunity",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP-I · RFP- EUD 10//2026",
+      "category": "RFP-I",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-21T15:00:00.000Z",
+      "dueAt": "2026-12-18T01:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:rfp-eud-10-2026",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "34 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "southern-nevada-regional-housing-authority:b27012",
+      "sourceName": "NGEM (local agencies)",
+      "title": "COMPLETE REHABILITATION FOR 3 SCATTERED SITE HOMES",
+      "agency": "Southern Nevada Regional Housing Authority",
+      "description": "Construction · B27012",
+      "category": "Construction",
+      "location": {
+        "city": null,
+        "county": null,
+        "state": "NV",
+        "zip": null,
+        "lat": 36.17,
+        "lng": -115.14,
+        "precision": "region",
+        "label": "Southern Nevada"
+      },
+      "postedAt": "2026-11-04T16:00:00.000Z",
+      "dueAt": "2026-12-21T18:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:southern-nevada-regional-housing-authority:b27012",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "38 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "General construction — check the specs for electrical"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:rfp-dns-10-26-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Redevelopment of M Street & Madison Ave.",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP-I · RFP-DNS 10/26/26",
+      "category": "RFP-I",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-10-26T15:00:00.000Z",
+      "dueAt": "2026-12-22T01:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:rfp-dns-10-26-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "38 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "clark-county-nevada:608039-26",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Federal Project Number: CM-0003-(372) Streetlight LED Upgrades Phase 6",
+      "agency": "Clark County, Nevada",
+      "description": "Clark County BID · 608039-26 Addendum 2",
+      "category": "Clark County BID",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-09-24T15:00:00.000Z",
+      "dueAt": "2026-12-31T22:15:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:clark-county-nevada:608039-26",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "Electrical scope: “led”"
+        },
+        {
+          "kind": "plus",
+          "text": "48 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:250247-ph",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Municipal Court Housing Rentals",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP-I · 250247-PH",
+      "category": "RFP-I",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-01-02T16:00:00.000Z",
+      "dueAt": "2027-01-01T07:59:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:250247-ph",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "49 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "unlv-nshe-business-center-south:919-he",
+      "sourceName": "NGEM (local agencies)",
+      "title": "RFQ for Nevada State University Infrastructure Inventory and Atlas: Utility Mapping, Capacity Analysis, Surveying, and CAD/GIS Services",
+      "agency": "UNLV (NSHE-Business Center South)",
+      "description": "RFQ · 919-HE",
+      "category": "RFQ",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-09T16:00:00.000Z",
+      "dueAt": "2027-01-12T23:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:unlv-nshe-business-center-south:919-he",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "Not your trade (“surveying”)"
+        },
+        {
+          "kind": "plus",
+          "text": "60 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "university-medical-center:2026-12",
+      "sourceName": "NGEM (local agencies)",
+      "title": "UMC's Video Surveillance and Security Management System",
+      "agency": "University Medical Center",
+      "description": "RFP · 2026-12",
+      "category": "RFP",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2026-11-09T16:00:00.000Z",
+      "dueAt": "2027-01-29T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:university-medical-center:2026-12",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "317 mi away — outside your 90 mi range"
+        },
+        {
+          "kind": "plus",
+          "text": "Related trade: “surveillance”"
+        },
+        {
+          "kind": "plus",
+          "text": "77 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-las-vegas-nevada:250245-ph",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Public Attorneys for Indigent Defendants",
+      "agency": "City of Las Vegas, Nevada",
+      "description": "RFP-I · 250245-PH",
+      "category": "RFP-I",
+      "location": {
+        "city": "Las Vegas",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.1699,
+        "lng": -115.1398,
+        "precision": "agency",
+        "label": "Las Vegas, NV"
+      },
+      "postedAt": "2025-07-23T15:00:00.000Z",
+      "dueAt": "2027-03-01T07:59:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [],
+      "id": "ngem:city-of-las-vegas-nevada:250245-ph",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "108 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        }
+      ],
+      "distanceMi": 317,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
+    },
+    {
+      "source": "ngem",
+      "sourceId": "city-of-henderson:rfq-172-20-professional-services",
+      "sourceName": "NGEM (local agencies)",
+      "title": "Professional Services - Continuous Submittals",
+      "agency": "City of Henderson",
+      "description": "SOQ-I · RFQ 172-20 Professional Services Addendum 2",
+      "category": "SOQ-I",
+      "location": {
+        "city": "Henderson",
+        "county": "Clark",
+        "state": "NV",
+        "zip": null,
+        "lat": 36.0395,
+        "lng": -114.9817,
+        "precision": "agency",
+        "label": "Henderson, NV"
+      },
+      "postedAt": "2020-06-17T15:00:00.000Z",
+      "dueAt": "2027-07-01T00:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 2 posted"
+      ],
+      "id": "ngem:city-of-henderson:rfq-172-20-professional-services",
+      "score": 0,
+      "verdict": "skip",
+      "reasons": [
+        {
+          "kind": "minus",
+          "text": "No electrical or construction scope found"
+        },
+        {
+          "kind": "plus",
+          "text": "229 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 2 posted"
+        }
+      ],
+      "distanceMi": 329,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T06:52:12.193Z",
+      "overLimit": false
     }
   ]
 }

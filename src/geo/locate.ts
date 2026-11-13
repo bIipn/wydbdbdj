@@ -67,35 +67,44 @@ function nationwide(city: string | null | undefined, state: string | null, zip: 
 
 /**
  * Work out where a bid's work happens, from best evidence to worst:
- * explicit city → ZIP → county → place named in the text → agency name → region → state.
- * City and ZIP try the hand-checked gazetteer first, then the nationwide ZIP table. Free text is only ever
- * searched for gazetteer towns, never for every US city name.
+ * explicit point → gazetteer town → ZIP → city + state → county → place named in the text → agency → region → state.
+ * ZIP and city try the hand-checked gazetteer first, then the nationwide ZIP table (federal notices name places
+ * anywhere in the US). Free text is only ever searched for gazetteer towns, never for every US city name.
+ *
+ * When the listing named a place of its own (a ZIP or an address line, as SAM.gov gives) and none of it could be
+ * placed, we stop: no guess from the title, agency or region, coordinates stay null and the label repeats what
+ * the listing said. A guess would put a Marine Corps base in Bridgeport because the title lists four bases.
  */
 export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'>): BidLocation {
   const given = draft.location ?? {};
   const state = given.state?.toUpperCase() ?? null;
-  const zip = given.zip ?? null;
+  const zip = given.zip?.trim() || null;
+  const label = given.label?.trim() || null;
 
   if (given.lat != null && given.lng != null) {
     return {
       city: given.city ?? null, county: given.county ?? null, state, zip,
       lat: given.lat, lng: given.lng, precision: 'exact',
-      label: given.label ?? ([given.city, state].filter(Boolean).join(', ') || null),
+      label: label ?? ([given.city, state].filter(Boolean).join(', ') || null),
     };
   }
 
+  // A gazetteer town named with its state keeps its hand-checked centre, whatever ZIP comes with it.
   const city = findPlace(given.city);
   if (city && (!state || city.state === state)) return placeLoc(city, 'city', zip);
 
   const nearHome = zip ? findPlace(ZIP_PLACES[zip.slice(0, 5)]) : null;
   if (nearHome) return placeLoc(nearHome, 'city', zip);
 
+  // Anywhere else in the US: the ZIP first, then city + state (SAM's city field is sometimes "0" or a base name).
   const us = nationwide(given.city, state, zip);
   if (us) return us;
 
   // A metro prefix ("891" = Las Vegas) is only a guess, so it waits until the table that knows exact ZIPs has passed.
   const metro = zip ? findPlace(ZIP_PLACES[zip.slice(0, 3)]) : null;
   if (metro) return placeLoc(metro, 'city', zip);
+
+  if (zip || label) return unplaced(given, state, zip, label);
 
   const home = !state || HOME_STATES.has(state);
   const text = [draft.title, draft.description].filter(Boolean).join(' \n ');
@@ -115,8 +124,8 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   if (named) return placeLoc(named, 'city', zip); // Tahoe-area work crosses the state line, so accept either state
 
   if (home && draft.agency) {
-    for (const { re, place } of AGENCY_PLACES) {
-      if (re.test(draft.agency)) {
+    for (const { re, title, place } of AGENCY_PLACES) {
+      if (re.test(draft.agency) && (!title || title.test(draft.title ?? ''))) {
         const p = findPlace(place);
         if (p) return placeLoc(p, 'agency', zip);
       }
@@ -126,14 +135,23 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   const regionText = [text, draft.agency].filter(Boolean).join(' ');
   for (const r of home ? REGIONS : []) {
     if (r.re.test(regionText)) {
-      return { city: null, county: null, state: state ?? r.state, zip, lat: r.lat, lng: r.lng, precision: 'region', label: r.label };
+      return {
+        city: null, county: null, state: state ?? r.state, zip,
+        lat: r.lat ?? null, lng: r.lng ?? null, precision: 'region', label: r.label,
+      };
     }
   }
 
+  return unplaced(given, state, zip, label);
+}
+
+/** Nothing we could put on the map: keep what the listing said, never a made-up point. */
+function unplaced(given: Partial<BidLocation>, state: string | null, zip: string | null, label: string | null): BidLocation {
   return {
     city: given.city ?? null, county: given.county ?? null, state, zip,
     lat: null, lng: null,
     precision: state ? 'state' : 'unknown',
-    label: state ? (state === 'NV' ? 'Nevada (location not listed)' : `${state} (location not listed)`) : null,
+    // The listing's own address words when it gave some (SAM.gov), else the plain fallback.
+    label: label ?? (state ? (state === 'NV' ? 'Nevada (location not listed)' : `${state} (location not listed)`) : null),
   };
 }

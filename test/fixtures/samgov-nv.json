@@ -1,0 +1,219 @@
+{
+ "_comment": "REAL SAM.gov data, trimmed. Response of GET https://api.sam.gov/opportunities/v2/search?postedFrom=09/13/2026&postedTo=11/13/2026&ptype=o,k,p&state=NV&limit=1000&offset=0 captured 2026-11-13 04:01 UTC (api_key removed from the request; the response never contains it). Trimmed: all notices kept; pointOfContact (named people), resourceLinks and links removed from each notice; every other field is verbatim. totalRecords is the server's count for the full response.",
+ "totalRecords": 5,
+ "limit": 1000,
+ "offset": 0,
+ "opportunitiesData": [
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-05",
+   "archiveType": "auto15",
+   "award": null,
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "DA10",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=73d918da3ba340a28a2d7e5d23c270b1",
+   "fullParentPathCode": "057.5700.ACC.FA4861",
+   "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE AIR FORCE.AIR COMBAT COMMAND.FA4861  99 CONS LGC",
+   "naicsCode": "541511",
+   "naicsCodes": [
+    "541511"
+   ],
+   "noticeId": "73d918da3ba340a28a2d7e5d23c270b1",
+   "officeAddress": {
+    "zipcode": "89191-7063",
+    "city": "NELLIS AFB",
+    "countryCode": "USA",
+    "state": "NV"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89149",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-09",
+   "responseDeadLine": "2026-11-20T10:00:00-08:00",
+   "solicitationNumber": "F3G1EB6257AG01",
+   "title": "30 RS Mission Planning Software Tool (MPST)",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/73d918da3ba340a28a2d7e5d23c270b1/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2027-01-04",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Y1PZ",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=21d31a2408dd4c2892c106c12736b7f7",
+   "fullParentPathCode": "012.12C2.129360",
+   "fullParentPathName": "AGRICULTURE, DEPARTMENT OF.FOREST SERVICE.HUMBOLDT-TOIYABE NATIONAL FOREST",
+   "naicsCode": "238990",
+   "naicsCodes": [
+    "238990"
+   ],
+   "noticeId": "21d31a2408dd4c2892c106c12736b7f7",
+   "officeAddress": {
+    "zipcode": "89431",
+    "city": "SPARKS",
+    "countryCode": "USA",
+    "state": "NV"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "23500",
+     "name": "Ely"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89301",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-11-05",
+   "responseDeadLine": "2026-12-04T17:00:00-07:00",
+   "solicitationNumber": "1240LT27Q0025",
+   "title": "SNPLMA Kalamazoo Fence",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/21d31a2408dd4c2892c106c12736b7f7/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-05",
+   "archiveType": "autocustom",
+   "award": null,
+   "baseType": "Combined Synopsis/Solicitation",
+   "classificationCode": "Z1PA",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=a5b88794671c44a989b574e1251e3a34",
+   "fullParentPathCode": "012.12C2.129360",
+   "fullParentPathName": "AGRICULTURE, DEPARTMENT OF.FOREST SERVICE.HUMBOLDT-TOIYABE NATIONAL FOREST",
+   "naicsCode": "237990",
+   "naicsCodes": [
+    "237990"
+   ],
+   "noticeId": "a5b88794671c44a989b574e1251e3a34",
+   "officeAddress": {
+    "zipcode": "89431",
+    "city": "SPARKS",
+    "countryCode": "USA",
+    "state": "NV"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {
+     "code": "68400",
+     "name": "Sparks"
+    },
+    "state": {
+     "code": "NV",
+     "name": "Nevada"
+    },
+    "zip": "89431",
+    "country": {
+     "code": "USA",
+     "name": "UNITED STATES"
+    }
+   },
+   "postedDate": "2026-10-29",
+   "responseDeadLine": "2026-11-05T17:00:00-08:00",
+   "solicitationNumber": "127EAX27Q0009",
+   "title": "GAOA Pine Creek Vault Toilet HTNF",
+   "type": "Combined Synopsis/Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/a5b88794671c44a989b574e1251e3a34/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-12-01",
+   "archiveType": "auto15",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "S201",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=0602507394964d76986220e4c04c2194",
+   "fullParentPathCode": "014.1422.140L20",
+   "fullParentPathName": "INTERIOR, DEPARTMENT OF THE.BUREAU OF LAND MANAGEMENT.ELY DISTRICT OFFICE",
+   "naicsCode": "561720",
+   "naicsCodes": [
+    "561720"
+   ],
+   "noticeId": "0602507394964d76986220e4c04c2194",
+   "officeAddress": {
+    "zipcode": "89301",
+    "city": "ELY",
+    "countryCode": "USA",
+    "state": "NV"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-10-22",
+   "responseDeadLine": "2026-11-16T11:00:00-08:00",
+   "solicitationNumber": "140L3926Q0031",
+   "title": "CFO JANITORIAL SERVICES (5 YEAR)",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/0602507394964d76986220e4c04c2194/view"
+  },
+  {
+   "active": "Yes",
+   "additionalInfoLink": null,
+   "archiveDate": "2026-11-14",
+   "archiveType": "auto15",
+   "award": null,
+   "baseType": "Solicitation",
+   "classificationCode": "9905",
+   "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=8f2d6a5c065a439b9f2a8c4bbbc6209a",
+   "fullParentPathCode": "014.1422.140L39",
+   "fullParentPathName": "INTERIOR, DEPARTMENT OF THE.BUREAU OF LAND MANAGEMENT.NEVADA STATE OFFICE",
+   "naicsCode": "541430",
+   "naicsCodes": [
+    "541430"
+   ],
+   "noticeId": "8f2d6a5c065a439b9f2a8c4bbbc6209a",
+   "officeAddress": {
+    "zipcode": "89502",
+    "city": "RENO",
+    "countryCode": "USA",
+    "state": "NV"
+   },
+   "organizationType": "OFFICE",
+   "placeOfPerformance": {
+    "city": {},
+    "state": {},
+    "country": {}
+   },
+   "postedDate": "2026-10-15",
+   "responseDeadLine": "2026-10-30T17:00:00-07:00",
+   "solicitationNumber": "140LL027Q0005",
+   "title": "Signage Project for Garnet Hill Recreation Area",
+   "type": "Solicitation",
+   "typeOfSetAside": "SBA",
+   "typeOfSetAsideDescription": "Small Business Set Aside - Total",
+   "uiLink": "https://sam.gov/workspace/contract/opp/8f2d6a5c065a439b9f2a8c4bbbc6209a/view"
+  }
+ ]
+}

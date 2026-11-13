@@ -45,27 +45,38 @@ and the owner won't trust anything he can't see the reasoning for. Every design 
 *Ev's term. Read as: what a job is worth, what similar jobs actually went for, and what moves your
 costs — so you can decide fast whether it's worth bidding and at what price. Confirm/adjust.*
 - ✅ **What it's worth:** estimate pulled from the notice ("Engineer's estimate … $81,000").
-- ⬜ **What similar jobs went for:** bid results / tabulations / award letters (QuestCDN boards have a
-  results page; NV Public Works posts Recommendation to Award letters; NGEM posts results). Show
-  "jobs like this were won at $X–$Y, N bidders" and the trend over time.
-- ⬜ **Cost swings:** material prices that move electrical bids (copper wire, conduit, steel) with an
-  alert when they jump — "copper +8% this month, re-check open quotes". Data source TBD.
-- ⬜ **Margin check (Pro):** the bot's rough cost range vs. the estimate → "room" / "tight" / "skip".
+- 🟡 **What similar jobs went for:** federal award prices from USAspending.gov are in (Price check +
+  Market, Pro for the full history). State/local bid results (QuestCDN results pages, NV Public Works
+  Recommendation to Award letters, NGEM results) are not read yet.
+- ✅ **Cost swings (Pro):** BLS material price indexes (copper wire, conduit, switchgear…) and the trade's
+  BLS wage, checked once a day (`MARKET_REFRESH_AT`); a new month that moves past the threshold sends a
+  price alert ("Conduit and conduit fittings up 2% · Oct 2026 (preliminary) vs Sep 2026"). Indexes, not dollar prices.
+- ✅ **Cost check (Pro):** your hours, wage, quotes and markups → a bid price, how it builds up, the cash you
+  carry before the owner pays, whether it fits your limits, and every public figure behind it. It never
+  guesses: anything it needs and does not have, it asks for.
+- **What "underbid" and award alerts mean here:** bids are sealed. Nobody — us included — can see a
+  competitor's price before the opening. An award alert is a result posted *after* the fact (who won, for
+  how much, from the public record), useful for pricing the next one; it is never a live view of other bids.
 
-### 3.3 Spend limit — never chase work you can't carry ⬜ (🟡 today: soft size range)
+### 3.3 Spend limit — never chase work you can't carry ✅ (needs a notice that states a value to bite)
 - Settings: **max job size**, **max up-front cost** you can float (materials + payroll before the first
   pay app), **bonding capacity**, and optionally a **monthly bid-prep budget** (hours or $).
 - Jobs over the limit: **no alerts**, marked "Over your limit" in Browse, and the bot will not prep a
   bid for them. Under-limit jobs that need bonds show the bond math ("5% bid bond ≈ $4,050").
-- Today v0 only has a preferred size range in the profile (bigger jobs score lower, with a "sub to the
-  GC?" hint). The hard limit + bonding fields are the next step.
+- Built in v1: max job size, max up-front cash and bonding capacity in onboarding and settings; over-limit
+  bids get no alert and an "Over your limit" tag. None of the 111 bids captured so far states a value, so
+  on today's boards the limit rarely has anything to stop; the cost check applies the same limits to your price.
 - Same spirit for the subscription: **flat monthly price, no surprise charges**; the bot's AI usage is
   capped on our side.
 
-### 3.4 Alerts to your phone ⬜ (🟡 today: daily email digest)
+### 3.4 Alerts to your phone 🟡 (inbox + live in-app stream + email digest; web push wired, not yet delivered end to end)
 - Push for: new great/good matches (instant on Pro, daily summary on Free), deadline reminders for
   saved bids (3 days / 1 day / morning-of), addendum posted on a saved bid, results posted on a bid
   you bid on, price-action alerts (Pro).
+- **What "real time" means:** an alert goes out the moment *our scan* finds a new bid, or the moment the
+  daily market refresh finds a new price figure or award. The scan runs once a day by default, so a bid
+  posted on a board reaches you up to a day later — not the second the agency posts it. (Today: inbox +
+  live in-app stream work; web push is wired but has not been delivered end to end.)
 - Quiet hours + per-type toggles. Never alert on over-limit jobs.
 - Delivery: web push for the pilot web app, then APNs/FCM in the store apps. Email digest stays.
 
@@ -87,8 +98,11 @@ costs — so you can decide fast whether it's worth bidding and at what price. C
 | Feed: swipe, browse, saved | ✅ 1 trade, 1 area | ✅ multiple trades/areas |
 | Fit score + reasons | ✅ | ✅ |
 | Alerts | daily digest | **instant push** + deadline reminders |
-| Price action | estimate only | award history, trends, cost-swing alerts |
-| Spend limit filtering | ✅ | ✅ + bond math |
+| Price action | the notice's estimate, prevailing-wage hint, award count | award history, BLS wages and price trends |
+| Cost check (bid price, cash carried, limits) | — (shows what it is, locked) | ✅ |
+| Cost settings (saved labor rate, burden, markups) | — | ✅ |
+| Price + award watch (daily price and award alerts) | — | ✅ |
+| Spend limit filtering | ✅ | ✅ + bond math in the cost check |
 | The bot (summaries, checklists, drafts) | — | ✅ |
 | Team seats | — | ✅ (later) |
 

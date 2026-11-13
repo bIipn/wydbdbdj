@@ -11,10 +11,12 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Location + distance | ✅ gazetteer + nationwide ZIP table; SAM places parsed from every shape in the real responses; a listed address we can't place stays unplaced (no guess) |
 | Fit scoring + reasons | ✅ audited on the 107 live bids (see §4); certification set-asides and program contracts are hard no's, presolicitations/RFIs never alert |
 | Accounts, onboarding, settings | ✅ tested + checked in a phone-size browser (`AUTH_MODE=accounts`); OAuth (Supabase) written, never run |
-| Search, filters, next up, spend limits | ✅ tested; no captured bid lists a value, so limits/value filters were only seen on a simulated row |
-| Live alerts (inbox + SSE) | ✅ tested + seen in the browser; web push wired, never delivered end to end |
+| Search, filters, next up, spend limits | ✅ tested; no captured bid lists a value, so limits/value filters were only seen on a simulated row (the simulation reports them as "not exercised") |
+| Live alerts (inbox + SSE) | ✅ tested + seen in the browser; frames now leave as each alert is stored (the scan yields), measured ~0.4 ms stored→stream in the simulation; web push wired, never delivered end to end |
+| Price + award watch (`MARKET_REFRESH_AT`) | ✅ tested on replays of the real BLS/USAspending captures with labelled synthetic "after" data; one live NV award pull (36 awards) by its builder. Not yet run on a schedule against the live APIs. Award matching works for SAM.gov bids only (solicitation numbers) |
 | Price check (awards, wages, indexes, NV prevailing wage) | ✅ tested; real USAspending pull (NV 266, CA 2078 awards) and real BLS responses (fixtures) seen in the browser. Prevailing-wage rates were typed from the state PDF, not double-checked |
-| Cost engine (`POST /api/estimate`) | ❌ not built, answers 501 |
+| Cost engine (`POST /api/estimate`) | ✅ built (src/cost, integer cents), proven by a second implementation (test/cost-oracle) and `npm run simulate:cost`; Pro only (402 otherwise). Screen in web/js/views/cost.js, checked at 390×844 |
+| Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the 111 real captured bids, all checks pass, same seed same hash, 10 of 10 mutations caught (+1 checker self-test) |
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 
@@ -30,6 +32,17 @@ maybe 10 → 6, skip 91 → 96; 3 duplicate SAM cards merged (104 cards); federa
 22 → 17 of 19. Alerts (55+) went from 6 to 2 (Cell Doors 82, Fire Sprinkler/Fire Alarm 77): both IDIQ
 JOCs and the $465M MATOC are program contracts, the J061 breaker testing is SDVOSB-only, "Generator" names
 no work (supply board). Both remaining alerts need SPWD bidder qualification — ask L&M (§5).
+
+**Final check, v1 (2026-11-13, commit "v1: premium cost check, price and award watcher, multi-company test on real
+bids"):** typecheck, the full test suite and build pass. `npm run simulate -- --seed 20261113`: all checks pass,
+spend-limit and price-filter checks not exercised (no captured bid states a value), report repeats, 10 of 10
+mutations caught. `npm run simulate:cost -- --companies 2000 --seed 4242`: 6000 jobs priced, 0 refused, 0
+invariant violations. Browser (Playwright 390×844, built server, `SOURCES=fixtures`): accounts + `DEMO_MODE=1`
+(sign-up, onboarding, deck, search + filters, price check, cost check for a small job and a bonded job,
+saved checks, Market with the price watch card, alerts, settings with cost settings / set-asides / alert
+kinds, unsaved-changes guard, sign-out), a free account (every Pro screen locked, no code box) and the
+pilot's single mode. Market data was empty on that server (no network), so the price watch was only seen
+"not scheduled" and the wage/award hints only as "not loaded".
 
 **Next:** re-run `npm run scan -- --no-notify` live (`.claude/skills/live-scan`) to confirm the source
 fixes; answer the §5 questions; deploy.
@@ -184,16 +197,22 @@ Correctly rejected: janitorial, furniture, traffic-control services, strategic p
 1. First live scan; fix sources; refresh fixtures. 2. `.env` + deploy to the VPS (PM2 + Caddy, README).
 3. Add DCSD + Douglas County QuestCDN board. 4. Two weeks of real use with L&M → tune keywords.
 
+**Done in v1 (2026-11-13):** accounts + onboarding + a profile per account (email/password; Supabase OAuth
+written, not run) · per-account scoring · live alert inbox + SSE + web push wiring · price check · the Pro
+cost check · the daily price and award watch · the multi-company simulation.
+
 **Next (multi-user)**
-5. Supabase Auth + `profiles` per business; onboarding (trade, home base, radius, value range).
-6. Per-user scoring is already supported (`matches` is keyed by profile) — wire profile selection to auth.
-7. Push notifications for new great/good matches (web push first).
+5. Run Supabase (auth + `DATABASE_URL`) for real; deliver one web push end to end.
+6. Set `MARKET_REFRESH_AT` on the server and watch a week of real price/award alerts.
+7. A California state/local source (Cal eProcure) and a source that states job values, so spend limits bite.
+8. Cost check: load a saved check's inputs back into the form; bid history for the bid range.
 
 **Then (stores)**
-8. Wrap with Capacitor (fastest) or rebuild the deck in Expo; App Store review needs real native value
-   (push, saved list offline) beyond a web wrapper. 9. Paid tier (Stripe on the web). 10. More states.
+9. Wrap with Capacitor (fastest) or rebuild the deck in Expo; App Store review needs real native value
+   (push, saved list offline) beyond a web wrapper. 10. Paid tier (Stripe on the web). 11. More states.
 
 ## 7. Files that matter most
 `src/score/score.ts` · `config/lm-electric.json` · `src/sources/*` (incl. `flags.ts`, `dedupe.ts`) ·
-`src/geo/places.ts` + `locate.ts` · `src/routes/*` · `web/js/*` · `test/score.test.ts` ·
+`src/geo/places.ts` + `locate.ts` · `src/routes/*` · `src/cost/estimate.ts` · `src/market/watch.ts` +
+`watcher.ts` · `src/sim/*` · `web/js/*` · `test/score.test.ts` ·
 `test/score-audit.test.ts` · `test/federal-chain.test.ts` · `test/sources.test.ts`

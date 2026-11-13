@@ -19,6 +19,8 @@ import {
   releasePushClaim, savedBidsDueWithin, seriesLabel, subscriptionsForProfile, type AlertTarget,
 } from '../db/alerts.js';
 import { getBid } from '../db/repo.js';
+import { PPI_SERIES } from '../market/bls.js';
+import { watchedSeries } from '../market/watch.js';
 import { effectivePlan } from '../plans.js';
 import {
   DEADLINE_LOOKAHEAD_HOURS, decideAward, decideDeadline, decideMatch, decidePrice, pushDecision, type AlertDecision,
@@ -149,11 +151,17 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
     if (decision) await store(e.profileId, decision);
   }
 
-  /** A price move is about no one profile: everyone whose plan and settings want it gets the alert. */
+  /**
+   * A price move is about no one profile: everyone who watches that series (every price index; the
+   * median wage of their trade in their home state) and whose plan and settings want it gets the alert.
+   */
   async function onPrice(e: BusEventOf<'price'>): Promise<void> {
-    const label = await seriesLabel(db, e.seriesId);
-    if (!label) return void ctx.log(`realtime: no alert for series ${e.seriesId}: it has no title and source on record`);
+    const stored = await seriesLabel(db, e.seriesId);
+    if (!stored) return void ctx.log(`realtime: no alert for series ${e.seriesId}: it has no title and source on record`);
+    const short = PPI_SERIES.find((p) => p.seriesId === e.seriesId)?.label;
+    const label = { title: short ?? `${stored.title}${stored.area ? `, ${stored.area}` : ''}`, source: stored.source, sourceUrl: stored.sourceUrl };
     for (const target of await listAlertTargets(db)) {
+      if (watchedSeries(target.profile, [{ seriesId: e.seriesId, kind: stored.kind }]).length === 0) continue;
       const decision = decidePrice(e, label, target.profile, planOf(target), ctx.now());
       if (decision) await store(target.profile.id, decision);
     }

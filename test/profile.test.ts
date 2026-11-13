@@ -618,12 +618,16 @@ describe('profile routes', () => {
   it('GET /api/trades lists every trade in catalog order plus the set-aside codes, signed in or not', async () => {
     const body = (await app.inject('/api/trades')).json() as {
       trades: Array<{ id: string; label: string; blurb: string; naics: string[] }>;
-      setAsides: Array<{ code: string; label: string }>;
+      setAsides: Array<{ code: string; label: string; pair: string | null }>;
     };
     expect(body.trades.map((t) => t.id)).toEqual(TRADE_IDS);
     for (const t of body.trades) expect(Object.keys(t).sort(), t.id).toEqual(['blurb', 'id', 'label', 'naics']);
     expect(body.trades[0]).toEqual({ id: 'electrical', label: 'Electrical', blurb: 'Power, lighting, fire alarm, low voltage, controls', naics: ['238210'] });
-    expect(body.setAsides).toEqual(SET_ASIDES);
+    expect(body.setAsides.map(({ pair: _pair, ...s }) => s)).toEqual(SET_ASIDES);
+    // Each code names its program partner, so the form ticks both: saving one stores both anyway.
+    const pairOf = Object.fromEntries(body.setAsides.map((s) => [s.code, s.pair]));
+    expect([pairOf.SBA, pairOf.SBP, pairOf['8A'], pairOf['8AN'], pairOf.HZC, pairOf.ISBEE]).toEqual(['SBP', 'SBA', '8AN', '8A', 'HZS', null]);
+    for (const s of body.setAsides) if (s.pair) expect(pairOf[s.pair], s.code).toBe(s.code);
     expect(body.setAsides.map((s) => s.code)).toEqual(expect.arrayContaining(['SBA', 'SBP', '8A', 'HZC', 'SDVOSBC', 'WOSB', 'EDWOSB']));
     // Every id and code the form can offer is one the save accepts.
     who = await seedAccount(db);

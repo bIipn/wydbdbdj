@@ -387,3 +387,42 @@ export async function seriesCounts(db: Db): Promise<Array<{ kind: string; series
   );
   return rows.map((r) => ({ kind: r.kind, series: Number(r.series), withData: Number(r.with_data), observations: Number(r.observations) }));
 }
+
+// ------------------------------------------------------------------ watch --
+// What the price and award watcher (src/market/watcher.ts) reads before and after a refresh.
+
+/** Every stored award: its id and the solicitation number known for it now (null = none yet). */
+export async function awardSolicitations(db: Db): Promise<Map<string, string | null>> {
+  const rows = await db.query<{ id: string; sol_number: string | null }>('select id, sol_number from awards where source = $1', [SOURCE]);
+  return new Map(rows.map((r) => [r.id, r.sol_number]));
+}
+
+/** Stored awards by id (ids we hold nothing for are left out), newest first. */
+export async function awardsByIds(db: Db, ids: readonly string[]): Promise<FederalAward[]> {
+  const out: FederalAward[] = [];
+  for (const part of chunks(ids, 500)) {
+    const rows = await db.query<AwardDbRow>(
+      `${AWARD_SELECT} where id in (select jsonb_array_elements_text($1::jsonb)) order by action_date desc nulls last, id`,
+      [JSON.stringify(part)],
+    );
+    out.push(...rows.map(toAward));
+  }
+  return out;
+}
+
+/** Every stored series of these kinds with its observations (oldest first), keyed by series id. */
+export async function seriesOfKinds(db: Db, kinds: readonly string[]): Promise<Map<string, StoredSeries>> {
+  const metas = (await Promise.all(kinds.map((k) => listSeriesMeta(db, k)))).flat();
+  return getSeries(db, metas.map((m) => m.seriesId));
+}
+
+/** When any market data was last retrieved (ISO): awards, award coverage or a series. null = never. */
+export async function marketFetchedAt(db: Db): Promise<string | null> {
+  const rows = await db.query<{ at: Date | string | null }>(
+    `select greatest(
+       (select max(fetched_at) from awards),
+       (select max(refreshed_at) from award_coverage),
+       (select max(fetched_at) from market_series_meta)) as at`,
+  );
+  return iso(rows[0]?.at ?? null);
+}

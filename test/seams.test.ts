@@ -59,7 +59,7 @@ describe('profile ids and summaries', () => {
 
   it('summarize gives the settings form its answers back, without the keyword lists', () => {
     expect(summarize(loadProfile('lm-electric'))).toEqual({
-      id: 'lm-electric', businessName: 'L&M Electric', trades: [], zip: null, base: 'Gardnerville, NV', radiusMi: 90,
+      id: 'lm-electric', businessName: 'L&M Electric', trades: [], zip: '89410', base: 'Gardnerville, NV', radiusMi: 90,
       valueRange: { min: 10000, max: 50000 }, limits: {}, costs: {}, alerts: { minScore: 55 }, setAsides: ['SBA', 'SBP'],
     });
     const full = testProfile('test-summary', {

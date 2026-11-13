@@ -58,6 +58,12 @@ const SET_ASIDE_PAIRS = [
   ['SBA', 'SBP'], ['8A', '8AN'], ['HZC', 'HZS'], ['SDVOSBC', 'SDVOSBS'], ['WOSB', 'WOSBSS'], ['EDWOSB', 'EDWOSBSS'], ['VSA', 'VSS'],
 ];
 
+/** The other code of a code's program (SBA → SBP), or null when the program has one code. */
+export function setAsidePartner(code: string): string | null {
+  const pair = SET_ASIDE_PAIRS.find((p) => p.includes(code));
+  return pair ? pair.find((c) => c !== code)! : null;
+}
+
 function withPairs(codes: readonly string[]): string[] {
   const all = new Set(codes);
   for (const pair of SET_ASIDE_PAIRS) if (pair.some((c) => all.has(c))) for (const c of pair) all.add(c);

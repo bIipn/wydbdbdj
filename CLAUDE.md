@@ -20,7 +20,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (1025 tests in 35 files as of 2026-11-13, ~30s)
+npm test                   # vitest (~1,390 tests in 48 files as of 2026-11-13, ~65s; simulate.test.ts alone ~25s)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
@@ -28,11 +28,16 @@ npm run scan -- --source=ngem        # one source
 npm run dev                # http://localhost:8787 (tsx watch)
 npm run market:refresh -- --states=NV,CA   # USAspending awards + BLS wages/indexes (network; --skip-bls etc.)
 npm run demo:snapshot      # rebuild web/demo-data.json + out/bidswipe-demo.html
+npm run simulate -- --seed 20261113 --out out/sim   # 16 SIMULATED companies through the real server on the
+                           # real captured bids (SAM.gov included): checks, same-seed hash, mutations; exit 1 on any miss
+npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run: invariants, limits, sha256
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
 `POST /api/admin/scan` on the running server. Modes (env): `AUTH_MODE=single` (default, the pilot: one
 config profile, optional `ACCESS_CODE`) · `AUTH_MODE=accounts` (sign-up, onboarding, a profile per account)
-· `DEMO_MODE=1` (everyone gets plan "pilot", all features on) · `SOURCES=fixtures` (scan the saved pages).
+· `DEMO_MODE=1` (everyone gets plan "pilot", all features on) · `SOURCES=fixtures` (scan the saved pages)
+· `DATA_DIR=<folder>` (embedded DB folder; one process per folder) · `SCAN_DAILY_AT` / `MARKET_REFRESH_AT`
+(Pacific "HH:MM": the daily scan and the daily market refresh + price/award watch; blank = off).
 
 ## Map
 ```
@@ -50,14 +55,22 @@ src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
 src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
 src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push
-src/market/        USAspending awards, BLS wages + material indexes, NV prevailing wage (config/prevailing-wage)
+src/market/        USAspending awards, BLS wages + material indexes, NV prevailing wage (config/prevailing-wage);
+                   watch.ts (pure price/award watch rules) + watcher.ts (runs the refresh, publishes 'price'/'award')
+src/cost/          the cost engine (21 modules, integer cents, BigInt where it multiplies): estimate.ts is the
+                   API (EstimateRequest → EstimateResult, "needed" instead of guesses); test/cost-oracle re-derives it
+src/sim/           the multi-company simulation (personas, takeoffs, checks, report) behind `npm run simulate`
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
-web/               index.html, styles.css, sw.js, js/*.js (ES modules, no build: main → views/ swipe, browse,
-                   sheet + price check, market, alerts, sign-in, onboarding, settings); demo:snapshot bundles them
+web/               index.html, styles.css, sw.js, js/*.js (ES modules, no build). main.js imports every view;
+                   views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate) register themselves;
+                   dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
+                   demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
 test/fixtures/     REAL responses, raw as the scanner receives them: HTML captured 2026-11-13, QuestCDN JSON
                    2026-11-11, SAM.gov JSON (samgov-*.json) 2026-11-13 04:01 UTC, trimmed; BLS JSON 2026-11-13
 test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
-                   · http.test.ts (cookie session) · pipeline / score / server / util · helpers.ts
+                   · http.test.ts (cookie session) · pipeline / score / server / util · cost/ + cost-oracle/
+                   · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
+                   · simulate.test.ts · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
 ```
 
 ## Rules
@@ -84,8 +97,14 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   guideline 3.1.1). Use Apple Offer Codes / Google Play promo codes / RevenueCat promotional
   entitlements; the web app may keep `ACCESS_CODE` for the pilot. See `docs/PRODUCT.md` §4.
 - **Never fabricate bids, awards, wages or prices.** Demo data comes from captured real pages. The SAM.gov
-  fixtures are real (trimmed) but not in fixture mode or the demo yet; anything synthetic in tests says
-  so (TEST- ids, example.com, "(simulated)").
+  fixtures are real (trimmed): `npm run simulate` uses them, fixture mode and the demo do not yet. Anything
+  synthetic says so (TEST- ids, example.com, "SIM … (simulated)"); simulated persona figures are labelled.
+- **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
+  are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
+  the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
+- **Honest copy:** bids are sealed; nobody sees a competitor's price before the opening. Award notices are
+  results after the fact. "Live" means: the moment a scan (once a day) or a market refresh finds it.
+- **Money in the client:** the API sends integer cents; format them (money.js), never float arithmetic.
 - **Secrets** live in `.env` (gitignored). Never print or commit keys.
 - **Front end:** build DOM with the `h()` helper (text nodes only) — no `innerHTML` with data. Only
   `http(s)` links (`safeUrl`). Keep it dependency-free and mobile-first; Ev cares that it looks neat.
@@ -113,7 +132,14 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - SAM.gov card ids are `samgov:<solicitation number>` since 2026-11-13 (were `samgov:<noticeId>`); rows
   stored under the old ids are not cleaned up and sit beside the new ones until they close.
 - Each scan re-scores every still-open stored bid, but only bids fetched in that scan can raise 'match'
-  alerts. `POST /api/estimate` (cost engine) is a stub that answers 501.
+  alerts. The scan yields to the event loop after each alert it publishes (src/scan.ts): without it every
+  SSE frame waited for the end of the scan, because PGlite runs on the server thread.
+- Daily schedules step a calendar day (src/scheduler.ts), never a fixed 24/26 h: a 23:30 run used to fire
+  every other day. A time in the spring-forward gap runs an hour later (02:30 → 03:30 PDT).
+- Award alerts are keyed per case (`<awardId>:bid:<bidId>` vs `<awardId>:nearby`): one award can be told
+  once as "similar job nearby" and again as "Award posted" when its solicitation number arrives. "Nearby"
+  needs the state AND the NAICS code to have been loaded before (award_coverage), so a first load is silent.
+- Only SAM.gov bids carry a solicitation number, so only they can be matched to a federal award.
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

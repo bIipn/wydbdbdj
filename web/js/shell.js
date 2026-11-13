@@ -46,8 +46,15 @@ export function render() {
       t.classList.toggle('is-active', on);
       t.setAttribute('aria-selected', String(on));
     });
-    $('#countSwipe').textContent = deck().length || '';
-    $('#countBrowse').textContent = (state.browseIds ? state.browseIds.length : state.items.filter((i) => isOpen(i) && i.score >= DECK_MIN_SCORE).length) || '';
+    // The two counts count different things, so each tab says what its number is: Swipe = bids left to swipe
+    // (never over the spend limits), Browse = open bids that match the filters (over-limit ones included).
+    const toSwipe = deck().length;
+    const browseN = state.browseIds ? state.browseIds.length : state.items.filter((i) => isOpen(i) && i.score >= DECK_MIN_SCORE).length;
+    $('#countSwipe').textContent = toSwipe || '';
+    $('#countBrowse').textContent = browseN || '';
+    const label = (sel, text) => { const t = $(sel); t.setAttribute('aria-label', text); t.title = text; };
+    label('.tab[data-view="swipe"]', `Swipe: ${toSwipe} bid${toSwipe === 1 ? '' : 's'} left to swipe`);
+    label('.tab[data-view="browse"]', `Browse: ${browseN} open bid${browseN === 1 ? '' : 's'} match your filters, over-limit ones included`);
     // Market needs the API: the bundled demo has no market data.
     const live = isLive();
     $('#marketTab').hidden = !live;

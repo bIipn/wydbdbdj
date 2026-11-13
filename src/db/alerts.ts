@@ -293,9 +293,33 @@ export async function savedBidsDueWithin(db: Db, now: Date, hours: number): Prom
 // ------------------------------------------------------------- series --
 
 /** Title and source of a published series, so a price alert can say what moved and who says so. */
-export async function seriesLabel(db: Db, seriesId: string): Promise<{ title: string; source: string; sourceUrl: string | null } | null> {
-  const rows = await db.query<{ title: string; source: string; source_url: string | null }>(
-    'select title, source, source_url from market_series_meta where series_id = $1', [seriesId],
+export async function seriesLabel(db: Db, seriesId: string): Promise<{ title: string; source: string; sourceUrl: string | null; kind: string; area: string | null } | null> {
+  const rows = await db.query<{ title: string; source: string; source_url: string | null; kind: string; area: string | null }>(
+    'select title, source, source_url, kind, area from market_series_meta where series_id = $1', [seriesId],
   );
-  return rows[0] ? { title: rows[0].title, source: rows[0].source, sourceUrl: rows[0].source_url } : null;
+  const r = rows[0];
+  return r ? { title: r.title, source: r.source, sourceUrl: r.source_url, kind: r.kind, area: r.area } : null;
+}
+
+// ------------------------------------------------------------- awards --
+
+/** Bids a profile saved or said it bid on that carry a solicitation number: what an award can be matched to. */
+export async function savedSolicitations(db: Db, profileId?: string): Promise<Array<{ profileId: string; bidId: string; solNumber: string }>> {
+  const rows = await db.query<{ profile_id: string; id: string; sol_number: string }>(
+    `select distinct s.profile_id, b.id, b.sol_number
+     from swipes s join bids b on b.id = s.bid_id
+     where s.action in ('save', 'bid') and b.sol_number is not null and btrim(b.sol_number) <> ''
+       and ($1::text is null or s.profile_id = $1)
+     order by s.profile_id, b.id`,
+    [profileId ?? null],
+  );
+  return rows.map((r) => ({ profileId: r.profile_id, bidId: r.id, solNumber: r.sol_number }));
+}
+
+/** How many bids a profile saved or bid on, in all (with or without a solicitation number). */
+export async function countSavedBids(db: Db, profileId: string): Promise<number> {
+  const rows = await db.query<{ n: number | string }>(
+    "select count(distinct bid_id) as n from swipes where profile_id = $1 and action in ('save', 'bid')", [profileId],
+  );
+  return Number(rows[0]?.n ?? 0);
 }

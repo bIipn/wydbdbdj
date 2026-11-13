@@ -55,7 +55,7 @@ notes, decisions and roadmap; `docs/KICKOFF_PROMPT.md` is the first message to p
 
 ```bash
 npm install
-npm test                       # 1025 tests (vitest)
+npm test                       # ~1,390 tests (vitest, ~65 s)
 npm run scan -- --fixtures     # load the captured real bids (no network needed)
 npm run dev                    # http://localhost:8787
 ```
@@ -71,7 +71,18 @@ scans read the saved pages instead of the boards. Phone alerts need `VAPID_*` ke
 material indexes into the database for the price check; `--skip-bls` / `--skip-awards` limit it.
 
 `npm run scan` (no flag) hits the live boards. `npm run demo:snapshot` rebuilds `web/demo-data.json`
-and `out/bidswipe-demo.html` (a single-file, no-server demo of the app).
+and `out/bidswipe-demo.html` (a single-file, no-server demo of the app; premium screens show their locked card there).
+
+`npm run simulate -- --seed 20261113 --out out/sim` runs 16 simulated companies (SIM … (simulated),
+@example.com) through the real server on the real captured bids, SAM.gov included, and writes
+`report.md` + `report.json`: per-company results, checks (and which ones this data cannot exercise),
+a same-seed hash and mutation runs that prove the checks can fail. `npm run simulate:cost -- --companies
+2000 --seed 4242` stress-runs the cost engine on seeded simulated companies.
+
+Environment (all in `.env`, see `.env.example`): `PORT`, `HOST`, `DATA_DIR` (embedded DB folder),
+`DATABASE_URL`, `AUTH_MODE`, `DEMO_MODE`, `SOURCES`, `ACCESS_CODE`, `ADMIN_TOKEN`, `SCAN_DAILY_AT` and
+`MARKET_REFRESH_AT` (Pacific `HH:MM`, blank = off), `PRICE_WATCH_THRESHOLD_PCT` (price alert threshold,
+default 2), `SAM_API_KEY`, `BLS_API_KEY`, `RESEND_API_KEY` + `DIGEST_TO`, `VAPID_*`, `APP_URL`.
 
 ## Deploy on the VPS (PM2 + Caddy)
 
@@ -84,7 +95,8 @@ pm2 start ecosystem.config.cjs && pm2 save
 ```
 
 Add `Caddyfile.example` to your Caddyfile for HTTPS. The server runs the daily scan itself at
-`SCAN_DAILY_AT` (Pacific). Trigger one by hand with:
+`SCAN_DAILY_AT` (Pacific) and, when `MARKET_REFRESH_AT` is set, a daily market refresh that also sends
+price and award alerts to Pro profiles. Trigger one by hand with:
 
 ```bash
 curl -X POST -H "x-admin-token: $ADMIN_TOKEN" https://bids.yourdomain.com/api/admin/scan
@@ -108,8 +120,9 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox, live events (SSE) |
 | `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts |
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
-| `POST /api/estimate`, `GET /api/estimates` | cost engine — not built, answers 501 |
-| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan` | operator routes (`x-admin-token`) |
+| `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
+| `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature |
+| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`) |
 
 Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
 mode), the app asks for it once and sends it as `x-access-code`.
@@ -123,9 +136,14 @@ mode), the app asks for it once and sends it as `x-access-code`.
 - NevadaEPro is mostly supply purchases — those cards are flagged "May be supply-only".
 - Distances are straight-line miles.
 - SAM.gov needs `SAM_API_KEY`; without it the federal source is skipped. Its saved responses are in
-  `test/fixtures/samgov-*.json` but not in `--fixtures` mode or the demo yet.
-- None of the bids captured so far lists an estimated value, so spend limits and the value filter rarely bite.
-- Phone push has never been delivered end to end; the cost engine is not built.
+  `test/fixtures/samgov-*.json`; `npm run simulate` uses them, `--fixtures` mode and the demo do not yet.
+- None of the 111 bids captured so far lists an estimated value, so spend limits and the value filter
+  never bite on real data (the simulation reports those checks as "not exercised").
+- Phone push has never been delivered end to end. Alerts are as fresh as the last scan (once a day by
+  default): "live" means the moment a scan finds a bid, not the moment a board posts it.
+- Bids are sealed: nobody sees a competitor's price before the opening. Award alerts are results after the fact,
+  and they only match SAM.gov bids (the only source with a solicitation number).
+- California has no state or local source yet: California companies see only federal notices.
 
 ## Road to the App Store
 

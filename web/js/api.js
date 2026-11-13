@@ -96,4 +96,9 @@ export const api = {
   marketArea: (zip) => req(`api/market/area${zip ? `?zip=${encodeURIComponent(zip)}` : ''}`),
   marketAwards: (params) => req(`api/market/awards?${new URLSearchParams(params)}`),
   prevailing: (bidId) => req(`api/market/prevailing?bidId=${encodeURIComponent(bidId)}`),
+  marketWatch: () => req('api/market/watch'),
+
+  // cost check (premium: 402 premium_required on plans without the estimator)
+  estimate: (body) => req('api/estimate', { method: 'POST', body }),
+  estimates: (bidId) => req(`api/estimates?${bidId ? `bidId=${encodeURIComponent(bidId)}&` : ''}limit=20`),
 };

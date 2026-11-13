@@ -92,6 +92,43 @@ describe('time', () => {
     // across the March DST jump: 6:15 PDT = 13:15 UTC
     expect(nextDailyRun('06:15', new Date('2027-03-14T20:00:00Z')).toISOString()).toBe('2027-03-15T13:15:00.000Z');
   });
+
+  // The scheduler re-arms a few seconds after each run: every re-arm must land on the next calendar day.
+  const rearm = (hhmm: string, first: Date, n: number) => {
+    const runs: string[] = [];
+    let at = nextDailyRun(hhmm, first);
+    for (let i = 0; i < n; i++) {
+      runs.push(new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(at));
+      at = nextDailyRun(hhmm, new Date(at.getTime() + 5_000));
+    }
+    return runs;
+  };
+
+  it('runs late-evening and midnight schedules every day, not every other day', () => {
+    expect(rearm('23:30', new Date('2026-11-12T20:00:00Z'), 4)).toEqual([
+      '2026-11-12, 23:30', '2026-11-13, 23:30', '2026-11-14, 23:30', '2026-11-15, 23:30',
+    ]);
+    expect(rearm('23:59', new Date('2026-11-12T20:00:00Z'), 3)).toEqual(['2026-11-12, 23:59', '2026-11-13, 23:59', '2026-11-14, 23:59']);
+    expect(rearm('00:00', new Date('2026-11-12T20:00:00Z'), 3)).toEqual(['2026-11-13, 00:00', '2026-11-14, 00:00', '2026-11-15, 00:00']);
+  });
+
+  it('keeps one run a day across both DST change days', () => {
+    // fall back (2026-11-01) and spring forward (2027-03-14) at 23:30
+    expect(rearm('23:30', new Date('2026-10-30T20:00:00Z'), 4)).toEqual([
+      '2026-10-30, 23:30', '2026-10-31, 23:30', '2026-11-01, 23:30', '2026-11-02, 23:30',
+    ]);
+    expect(rearm('23:30', new Date('2027-03-12T20:00:00Z'), 4)).toEqual([
+      '2027-03-12, 23:30', '2027-03-13, 23:30', '2027-03-14, 23:30', '2027-03-15, 23:30',
+    ]);
+    // 01:30 on the fall-back day runs once
+    expect(rearm('01:30', new Date('2026-10-31T12:00:00Z'), 3)).toEqual(['2026-11-01, 01:30', '2026-11-02, 01:30', '2026-11-03, 01:30']);
+  });
+
+  it('runs a time inside the spring-forward gap at the same minutes one hour later, not an hour early', () => {
+    // 02:30 does not exist on 2027-03-14: run at 03:30 PDT (10:30Z), never 01:30 PST (09:30Z)
+    expect(nextDailyRun('02:30', new Date('2027-03-13T12:00:00Z')).toISOString()).toBe('2027-03-14T10:30:00.000Z');
+    expect(nextDailyRun('02:30', new Date('2027-03-14T10:31:00Z')).toISOString()).toBe('2027-03-15T09:30:00.000Z');
+  });
 });
 
 describe('money', () => {

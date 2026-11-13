@@ -1,6 +1,7 @@
 {
   "id": "lm-electric",
   "name": "L&M Electric",
+  "zip": "89410",
   "base": {
     "label": "Gardnerville, NV",
     "lat": 38.9413,

@@ -13,10 +13,19 @@ export type BusEvent =
   | { type: 'scan'; report: ScanReport }
   /** An alert was written to a profile's inbox. */
   | { type: 'alert'; profileId: string; alert: Alert }
-  /** An award/result notice that matters to a profile (bidId when it ties to a bid they saved or bid on). */
-  | { type: 'award'; profileId: string; award: Award; bidId?: string }
-  /** A watched price/wage series moved. */
-  | { type: 'price'; seriesId: string; changePct: number; period: string };
+  /**
+   * An award/result notice that matters to a profile: bidId when it settles a bid they saved or bid on;
+   * `nearby` when it is a job like theirs inside their travel radius (src/market/watch.ts).
+   */
+  | { type: 'award'; profileId: string; award: Award; bidId?: string; nearby?: { miles: number; naics: string } }
+  /**
+   * A watched price/wage series has a new period that moved from the one before (src/market/watch.ts).
+   * changePct is against previousPeriod; yearChangePct against the same period a year earlier.
+   */
+  | {
+    type: 'price'; seriesId: string; changePct: number; period: string;
+    previousPeriod?: string; yearChangePct?: number | null; preliminary?: boolean;
+  };
 
 export type BusEventType = BusEvent['type'];
 export type BusEventOf<T extends BusEventType> = Extract<BusEvent, { type: T }>;

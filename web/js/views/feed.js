@@ -142,6 +142,20 @@ function noResults() {
   );
 }
 
+/**
+ * "24 bids · 18 to swipe · 3 over your limit": Browse lists swiped and over-limit bids too, Swipe does not.
+ * Saying how many of these are still in the deck makes the two tab counts add up.
+ */
+function resultCount(list) {
+  const inDeck = new Set(deck().map((i) => i.id));
+  const toSwipe = list.filter((i) => inDeck.has(i.id)).length;
+  const over = list.filter((i) => i.overLimit).length;
+  const parts = [`${list.length} bid${list.length === 1 ? '' : 's'}`];
+  if (toSwipe !== list.length) parts.push(`${toSwipe} to swipe`);
+  if (over) parts.push(`${over} over your limit`);
+  return parts.join(' · ');
+}
+
 function renderBrowse() {
   ui.hadFocus = !!ui.input && document.activeElement === ui.input;
   if (state.browseIds === null && !state.browseLoading) loadBrowse();
@@ -161,7 +175,7 @@ function renderBrowse() {
       chips.length > 1 ? h('button', { class: 'chip', type: 'button', onclick: () => refilter((x) => Object.assign(x, defaultFilters(), { q: x.q, sort: x.sort })) }, 'Clear all') : null,
     ) : null,
     h('div', { class: 'result-bar' },
-      h('span', { class: 'result-count', 'aria-live': 'polite' }, loading ? 'Loading…' : `${list.length} bid${list.length === 1 ? '' : 's'}`),
+      h('span', { class: 'result-count', 'aria-live': 'polite' }, loading ? 'Loading…' : resultCount(list)),
       sortMenu(),
     ),
   );

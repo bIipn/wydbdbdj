@@ -15,6 +15,7 @@ import { closeSheet, openSheet, sheetOpen } from './sheet.js';
 import { deck, state } from './state.js';
 import './live.js';
 import { openAlerts, openBidById } from './views/alerts.js';
+import './views/cost.js';
 import './views/feed.js';
 import { showGate } from './views/gate.js';
 import './views/market.js';

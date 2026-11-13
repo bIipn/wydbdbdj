@@ -4,7 +4,7 @@ import { setSwipe } from './actions.js';
 import { $, h } from './dom.js';
 import { VERDICT_LABEL } from './format.js';
 import { bidLink, facts, reasonsList, scoreRing } from './parts.js';
-import { priceCheck } from './price.js';
+import { costCheckButton, priceCheck } from './price.js';
 import { render, setView } from './shell.js';
 import { isLive } from './state.js';
 
@@ -32,8 +32,8 @@ export function openSheet(item) {
     h('div', { class: `verdict-${item.verdict}` }, reasonsList(item)),
     item.description ? h('div', { class: 'desc' }, item.description) : null,
     actions,
-    // The price check needs the API (the bundled demo has no market data).
-    isLive() ? priceCheck(item, () => { closeSheet(); setView('market'); }) : null,
+    // The price check needs the API (the bundled demo has no market data); the cost check button explains itself.
+    isLive() ? priceCheck(item, () => { closeSheet(); setView('market'); }) : h('section', { class: 'price-check' }, costCheckButton(item)),
   ].filter(Boolean));
   showSheet();
 }

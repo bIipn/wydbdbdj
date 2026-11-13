@@ -1,11 +1,12 @@
 // The price check: what similar federal jobs were awarded for, the area wage, material price trends,
-// the prevailing-wage hint for a public job, and the (not yet built) cost check.
+// the prevailing-wage hint for a public job, and the way into the cost check.
 // Shared by the bid detail sheet and the Market view. Every figure keeps its source, period and level;
 // an index is never shown as a dollar price, and a BLS wage is never called a prevailing wage.
 
 import { api } from './api.js';
 import { h, icon, ICONS, safeUrl } from './dom.js';
 import { money } from './format.js';
+import { features } from './state.js';
 
 const usd = (v) => `$${Math.round(v).toLocaleString('en-US')}`;
 const hourly = (v) => (v == null ? '—' : `$${Number(v).toFixed(2)}`);
@@ -223,12 +224,27 @@ export function prevailingView(p) {
 
 // -------------------------------------------------------- cost check ---
 
-/** Where the estimator will go. Disabled, and says so: nothing here is computed yet. */
-export function costCheckStub() {
-  return h('div', { class: 'pc-stub' },
-    h('button', { class: 'cta ghost', type: 'button', disabled: true, 'aria-disabled': 'true' }, icon(ICONS.lock), 'Cost check (Pro) — coming with the cost engine'),
-    h('p', { class: 'pc-fine' }, 'Not built yet. It will add up labor, materials and markup against the numbers above.'),
-  );
+/**
+ * The way into the cost check (views/cost.js), for a bid or (bid = null) a job that is not listed. It fires an
+ * event instead of importing the view: the view opens the detail sheet again on Back, and the sheet imports this.
+ * A plan without the estimator still opens it: the screen says what it does and that it is part of Pro.
+ */
+export function costCheckButton(bid, { card = false } = {}) {
+  const pro = features()?.estimator === true;
+  const open = () => window.dispatchEvent(new CustomEvent('bidswipe:cost', { detail: { bid } }));
+  const what = pro
+    ? (bid ? 'Your hours, wage, quotes and markups to a bid price, the cash you would carry, and your limits.'
+      : 'A job that is not a listed bid: your hours, wage, quotes and markups to a bid price, the cash you would carry, and your limits.')
+    : 'Part of BidSwipe Pro: a bid price from your own numbers, the cash you would carry, and your limits.';
+  const button = h('button', { class: `cta${card ? ' ghost' : ''}`, type: 'button', onclick: open },
+    pro ? null : icon(ICONS.lock), bid ? 'Cost check: price this bid' : (card ? 'Open the cost check' : 'Cost check: price a job'));
+  if (card) {
+    return h('section', { class: 'pc-block cc-entry' },
+      h('div', { class: 'pc-head' }, h('h3', {}, 'Cost check: price a job'), h('span', { class: 'pc-tag' }, pro ? 'Your numbers' : 'Pro')),
+      h('p', { class: 'pc-scope' }, what),
+      button);
+  }
+  return h('div', { class: 'pc-cost' }, button, h('p', { class: 'pc-fine' }, what));
 }
 
 // ------------------------------------------------------- bid sheet ---
@@ -246,7 +262,7 @@ export function priceCheck(item, openMarket) {
     h('div', { class: 'pc-title' }, h('h2', {}, 'Price check'),
       openMarket ? h('button', { class: 'text-btn', type: 'button', onclick: openMarket }, 'Market →') : null),
     h('p', { class: 'pc-intro' }, 'Real public records to sanity-check a price. None of it is a quote for this job.'),
+    costCheckButton(item),
     awards, prevailing, wage,
-    costCheckStub(),
   );
 }

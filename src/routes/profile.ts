@@ -3,7 +3,7 @@ import type { RouteContext } from '../context.js';
 import { lastScan, saveProfileForAccount } from '../db/repo.js';
 import { lookupZip } from '../geo/zip.js';
 import { featuresFor, type Features } from '../plans.js';
-import { buildProfile, profileIdFor, SET_ASIDES, summarize, validateAnswers, type ProfileSummary } from '../profile/build.js';
+import { buildProfile, profileIdFor, SET_ASIDES, setAsidePartner, summarize, validateAnswers, type ProfileSummary } from '../profile/build.js';
 import { scoreProfile } from '../scan.js';
 import { TRADES } from '../trades/catalog.js';
 import type { Account, Profile } from '../types.js';
@@ -53,7 +53,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   // Everything the onboarding form picks from. Open before a profile exists.
   app.get('/api/trades', async () => ({
     trades: TRADES.map((t) => ({ id: t.id, label: t.label, blurb: t.blurb, naics: t.naics.strong })),
-    setAsides: SET_ASIDES,
+    // pair: the program's other code. Saving one stores both, so the form ticks and unticks them together.
+    setAsides: SET_ASIDES.map((s) => ({ ...s, pair: setAsidePartner(s.code) })),
   }));
 
   app.get<{ Params: { zip: string } }>('/api/geo/zip/:zip', async (req, reply) => {

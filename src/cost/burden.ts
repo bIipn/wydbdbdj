@@ -294,7 +294,7 @@ export function laborClassCost(input: LaborInput, c: LaborClassInput, ctx: { mbt
 
   const Wwc = c.wcAnnualPayroll ?? W ?? c.annualTaxableWages ?? defaultAnnualWages(c);
   if (input.workersComp.payrollCap !== null && c.wcAnnualPayroll === undefined)
-    warnings.push(`class ${c.id}: W_wc for the workers' comp cap taken as W (${Wwc} cents)`);
+    warnings.push(`class ${c.id}: workers' comp payroll cap figured on annual wages of ${Wwc} cents, because your annual comp payroll was not given`);
   const wc = workersComp(G, otPremium, c.wcRatePpm, input.workersComp, Wwc, mode);
   const WC = line({
     key: `${k}.WC`,

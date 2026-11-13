@@ -324,7 +324,7 @@ describe('award and price alerts', () => {
     const bid = testBid();
     expect(decideAward(awardEvent(award(), bid.id), profile, 'pro', NOW, bid)).toEqual({
       alert: {
-        kind: 'award', bidId: bid.id, dedupeKey: 'TEST:award-1',
+        kind: 'award', bidId: bid.id, dedupeKey: `TEST:award-1:bid:${bid.id}`,
         title: 'Award posted: TEST electrical panel upgrade (synthetic)',
         body: 'Awarded to TEST Contractor LLC (simulated) for $48,200 on 2026-10-30 · source: TEST source',
         data: {
@@ -1072,7 +1072,7 @@ describe('realtime: from a bus event to the inbox and the phone', () => {
     const inbox = await listAlerts(db, pro.profile.id);
     expect(inbox).toHaveLength(1);
     expect(inbox[0]).toMatchObject({
-      kind: 'award', bidId: bid.id, dedupeKey: 'TEST:award-1', title: 'Award posted: TEST electrical panel upgrade (synthetic)',
+      kind: 'award', bidId: bid.id, dedupeKey: `TEST:award-1:bid:${bid.id}`, title: 'Award posted: TEST electrical panel upgrade (synthetic)',
       body: 'Awarded to TEST Contractor LLC (simulated) for $48,200 on 2026-10-30 · source: TEST source',
     });
     expect(await listAlerts(db, free.profile.id)).toEqual([]);

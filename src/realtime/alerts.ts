@@ -13,6 +13,7 @@
  *         about a bid that was already on the boards (inbox only).
  */
 import type { NewAlert, SavedDeadline } from '../db/alerts.js';
+import { periodName } from '../market/watch.js';
 import { featuresFor } from '../plans.js';
 import { alertThreshold } from '../scan.js';
 import type { AlertKind, AlertSettings, Bid, Plan, Profile, Verdict } from '../types.js';
@@ -124,6 +125,8 @@ export function timeLeft(dueAt: string | null, now: Date): string {
   return `${plural(Math.floor(ms / 86_400_000), 'day')} left`;
 }
 
+const titleCase = (s: string): string => s.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
+
 const usd = (amount: number): string =>
   amount.toLocaleString('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: Number.isInteger(amount) ? 0 : 2, maximumFractionDigits: 2 });
 
@@ -222,17 +225,28 @@ export function decideDeadline(saved: SavedDeadline, profile: Profile, plan: Pla
  */
 export function decideAward(event: BusEventOf<'award'>, profile: Profile, plan: Plan, now: Date, bid: Bid | null): AlertDecision | null {
   if (!featuresFor(plan).awardWatch || !kindOn(profile, 'award')) return null;
-  const { award } = event;
+  const { award, nearby } = event;
   const price = award.amount == null ? '' : ` for ${usd(award.amount)}`;
   const outcome = award.recipient ? `Awarded to ${award.recipient}${price}` : price ? `Awarded${price}` : 'Result posted';
+  // A job like theirs near them (no bid of theirs): say why it is in their inbox, and nothing more.
+  const where = [award.city ? titleCase(award.city) : null, award.state].filter(Boolean).join(', ');
+  const title = bid
+    ? `Award posted: ${bid.title}`
+    : nearby
+      ? `Similar job awarded · ${nearby.miles} mi away${where ? ` (${where})` : ''}`
+      : `Award posted${award.agency ? ` · ${award.agency}` : ''}`;
+  const what = nearby ? `${award.description ? `${clip(award.description, 70)} — ` : ''}` : '';
   return {
     alert: {
-      kind: 'award', bidId: event.bidId ?? null, dedupeKey: award.id,
-      title: clip(bid ? `Award posted: ${bid.title}` : `Award posted${award.agency ? ` · ${award.agency}` : ''}`, 80),
-      body: clip(`${outcome}${award.actionDate ? ` on ${award.actionDate}` : ''} · source: ${award.source}`, 200),
+      // Each case has its own key: an award first told as "similar job nearby" (no solicitation
+      // number yet) must still reach the inbox as "Award posted: <saved bid>" once its number is known.
+      kind: 'award', bidId: event.bidId ?? null, dedupeKey: event.bidId ? `${award.id}:bid:${event.bidId}` : `${award.id}:nearby`,
+      title: clip(title, 80),
+      body: clip(`${what}${outcome}${award.actionDate ? ` on ${award.actionDate}` : ''} · source: ${award.source}`, 200),
       data: {
         awardId: award.id, bidId: event.bidId ?? null, recipient: award.recipient, amount: award.amount,
         actionDate: award.actionDate, source: award.source, url: award.url,
+        ...(nearby ? { nearby: { miles: nearby.miles, naics: nearby.naics } } : {}),
       },
     },
     push: pushDecision(profile.alerts, plan, now),
@@ -254,14 +268,23 @@ export interface SeriesLabel {
  */
 export function decidePrice(event: BusEventOf<'price'>, label: SeriesLabel | null, profile: Profile, plan: Plan, now: Date): AlertDecision | null {
   if (!label || !Number.isFinite(event.changePct) || !featuresFor(plan).priceAlerts || !kindOn(profile, 'price')) return null;
-  const pct = Math.abs(event.changePct).toFixed(1).replace(/\.0$/, '');
+  const pct = (n: number): string => Math.abs(n).toFixed(1).replace(/\.0$/, '');
+  const signed = (n: number): string => `${n > 0 ? '+' : n < 0 ? '−' : ''}${pct(n)}%`;
+  // From the watcher: "Sep 2026 (preliminary) vs Aug 2026 · 12 months: +4.1%". Without the period before, the bare period.
+  const when = event.previousPeriod
+    ? `${periodName(event.period)}${event.preliminary ? ' (preliminary)' : ''} vs ${periodName(event.previousPeriod)}`
+      + `${typeof event.yearChangePct === 'number' && Number.isFinite(event.yearChangePct) ? ` · 12 months: ${signed(event.yearChangePct)}` : ''}`
+    : `Period ${event.period}`;
+  const extra = event.previousPeriod
+    ? { previousPeriod: event.previousPeriod, yearChangePct: event.yearChangePct ?? null, preliminary: event.preliminary ?? false }
+    : {};
   return {
     alert: {
       kind: 'price', bidId: null, dedupeKey: `${event.seriesId}:${event.period}`,
-      title: clip(`${label.title} ${event.changePct < 0 ? 'down' : 'up'} ${pct}%`, 80),
-      body: clip(`Period ${event.period} · source: ${label.source}. Re-check open quotes.`, 200),
+      title: clip(`${label.title} ${event.changePct < 0 ? 'down' : 'up'} ${pct(event.changePct)}%`, 80),
+      body: clip(`${when} · source: ${label.source}. Re-check open quotes.`, 200),
       data: {
-        seriesId: event.seriesId, changePct: event.changePct, period: event.period, source: label.source, sourceUrl: label.sourceUrl,
+        seriesId: event.seriesId, changePct: event.changePct, period: event.period, source: label.source, sourceUrl: label.sourceUrl, ...extra,
       },
     },
     push: pushDecision(profile.alerts, plan, now),

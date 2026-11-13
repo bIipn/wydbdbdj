@@ -37,7 +37,7 @@ export const state = {
   accessCode: null,
 };
 
-const ALL_ON = { instantPush: true, awardHistory: true, costSettings: true, awardWatch: true, priceAlerts: true };
+const ALL_ON = { instantPush: true, awardHistory: true, costSettings: true, awardWatch: true, priceAlerts: true, estimator: true };
 
 /** What the plan unlocks. Single mode (the pilot) has every feature; demo mode (no server) has none of the live ones. */
 export function features() {

@@ -463,8 +463,12 @@ describe('GET /api/market/area', () => {
     expect(body.notes.materials).toBe('National price indexes, not dollar prices. Updated monthly; the newest months are preliminary and get revised.');
     expect(body.disclaimer).toBe('BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov. Data retrieved from BLS.gov on 2026-11-11.');
     expect(body.accessed).toBe('2026-11-11');
-    // No ZIP given and none on the pilot's profile: its home state, from "Gardnerville, NV".
-    expect(body.area).toEqual({ zip: null, city: null, state: 'NV', stateName: 'Nevada', label: 'Gardnerville, NV' });
+    // No ZIP given: the pilot's profile ZIP (config/lm-electric.json carries 89410, like an onboarded account).
+    expect(body.area).toEqual({ zip: '89410', city: 'Gardnerville', state: 'NV', stateName: 'Nevada', label: 'Gardnerville, NV 89410' });
+    // A profile with no ZIP falls back to its home state, from "Gardnerville, NV".
+    const { zip: _zip, ...noZip } = pilot;
+    const bare = await build({ profile: noZip });
+    expect((await bare.inject('/api/market/area')).json().area).toEqual({ zip: null, city: null, state: 'NV', stateName: 'Nevada', label: 'Gardnerville, NV' });
     expect(body.wages[0]).toMatchObject({ level: 'state', areaName: 'Nevada', primary: true });
   });
 

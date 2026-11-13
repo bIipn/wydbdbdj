@@ -1,20 +1,23 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { RouteContext } from '../context.js';
-import { awardsFetchedAt, getAwardCoverage, listAwards } from '../db/market.js';
+import { countSavedBids, savedSolicitations } from '../db/alerts.js';
+import { awardsFetchedAt, getAwardCoverage, getSeries, listAwards, listSeriesMeta } from '../db/market.js';
 import { getBid, listProfiles } from '../db/repo.js';
 import { env as processEnv } from '../env.js';
-import { lookupZip as defaultLookupZip, statesWithin as defaultStatesWithin } from '../geo/zip.js';
+import { lookupCity as defaultLookupCity, lookupZip as defaultLookupZip, statesWithin as defaultStatesWithin } from '../geo/zip.js';
 import { isStateCode, NATION_AREA, stateInfo } from '../market/areas.js';
 import {
-  areaWage, BLS_DISCLAIMER, ELECTRICIANS, materialTrends, metroWagesInState, TRADE_SOC, wageForArea, type AreaWage,
+  areaWage, BLS_DISCLAIMER, materialTrends, metroWagesInState, PPI_SERIES, wageForArea, type AreaWage,
 } from '../market/bls.js';
-import { createMarketHttp, refreshMarket, type MarketHttp } from '../market/refresh.js';
+import type { MarketHttp } from '../market/refresh.js';
 import {
   hasPriceAtAward, loadedSpan, MIN_PRICED_AWARDS, selectSimilarAwards,
   type AwardLevel, type CoverageSpan, type LadderStep, type SimilarAwards, type SimilarWhere, type ZipLookup,
 } from '../market/stats.js';
 import { awardWindow, NATIONWIDE, type FederalAward } from '../market/usaspending.js';
 import { pacificDay, prevailingWageHint, prevailingWageTables } from '../market/prevailing.js';
+import { homeState, periodName, seriesChange, socFor, solKey, watchedSeries } from '../market/watch.js';
+import { RefreshRunningError } from '../market/watcher.js';
 import { featuresFor } from '../plans.js';
 import type { Bid, Profile } from '../types.js';
 import { requireAdmin } from './shared.js';
@@ -25,7 +28,9 @@ export interface MarketRouteDeps {
   lookupZip?: (zip: string) => { lat: number; lng: number; state?: string | null; county?: string | null; city?: string | null } | null;
   /** 2-letter codes of the states a circle reaches. Default: src/geo/zip.ts. An empty list means "not known". */
   statesWithin?: (center: { lat: number; lng: number }, radiusMi: number) => string[];
-  /** HTTP clients for the admin refresh. Default: polite real clients, built on first use. */
+  /** City + state → the middle of the town's ZIPs (where "within N mi of <town>" is measured from). Default: src/geo/zip.ts. */
+  lookupCity?: (city: string, state: string) => { lat: number; lng: number } | null;
+  /** HTTP clients for the admin refresh. Default: the context's market watcher's (polite real clients). */
   http?: MarketHttp;
   env?: (name: string) => string | undefined;
 }
@@ -90,19 +95,6 @@ function naicsParam(q: Query): Parsed<string[] | undefined> {
 const fail = (reply: FastifyReply, p: { error: string; message: string }, status = 400): FastifyReply =>
   reply.code(status).send({ error: p.error, message: p.message });
 
-/** The profile's home state: the "…, NV" at the end of its base label, else the first state it works in. */
-function homeState(profile: Profile): string | null {
-  const fromLabel = /,\s*([A-Za-z]{2})$/.exec(profile.base.label)?.[1]?.toUpperCase();
-  if (fromLabel && isStateCode(fromLabel)) return fromLabel;
-  return profile.states.map((s) => s.toUpperCase()).find(isStateCode) ?? null;
-}
-
-/** The occupation whose wage a profile sees: from its trades, else electricians when it bids electrical NAICS. */
-function socFor(profile: Profile): string | null {
-  for (const trade of profile.trades ?? []) if (TRADE_SOC[trade]) return TRADE_SOC[trade];
-  return profile.naics.strong.includes('238210') ? ELECTRICIANS : null;
-}
-
 const day = (isoTime: string): string => isoTime.slice(0, 10);
 
 function levelLabel(level: AwardLevel, r: SimilarAwards<FederalAward>, center: string): string {
@@ -138,7 +130,14 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
   const lookupZip = deps.lookupZip ?? defaultLookupZip;
   const statesWithin = deps.statesWithin ?? defaultStatesWithin;
   const env = deps.env ?? processEnv;
+  const lookupCity = deps.lookupCity ?? defaultLookupCity;
   const zipLookup: ZipLookup = (zip) => lookupZip(zip);
+  /** The middle of the profile's home town ("City, ST" in its base label), else its base point. */
+  const townPoint = (profile: Profile): { lat: number; lng: number } => {
+    const m = /^(.+),\s*([A-Za-z]{2})$/.exec(profile.base.label.trim());
+    const town = m ? lookupCity(m[1]!, m[2]!) : null;
+    return town ? { lat: town.lat, lng: town.lng } : { lat: profile.base.lat, lng: profile.base.lng };
+  };
   // Read the owner-maintained tables once: a broken file stops the boot instead of reading as "none on file".
   const prevailingTables = prevailingWageTables();
 
@@ -252,7 +251,11 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
       where = { zip: zip.value, radiusMi };
       center = `ZIP ${zip.value}`;
     } else {
-      where = { center: { lat: profile.base.lat, lng: profile.base.lng }, zip: profile.zip ?? null, state: homeState(profile), radiusMi };
+      // "Within 90 mi of Gardnerville, NV" is measured from Gardnerville, NV as the gazetteer places it (the
+      // middle of the town's ZIPs), so every profile at home in that town gets the same circle, however it was
+      // made. The pilot's config holds a hand-placed point and an onboarded account the middle of its own ZIP:
+      // 8.9 miles apart for Gardnerville, enough to move awards across the 90-mile edge and flip the level.
+      where = { center: townPoint(profile), zip: profile.zip ?? null, state: homeState(profile), radiusMi };
       center = profile.base.label;
     }
 
@@ -362,10 +365,75 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
     return { bidId: bid.id, ...prevailingWageHint(bid, prevailingTables, pacificDay(ctx.now())) };
   });
 
+  // ----------------------------------------------------------- watch --
+  // What the price agent watches for this profile, and when it last checked and checks next.
+  app.get('/api/market/watch', async (req, reply) => {
+    const id = await ctx.requireProfile(req, reply);
+    if (!id) return reply;
+    const features = featuresFor(id.plan);
+    // Locked: what it is, nothing else. The client says it is part of BidSwipe Pro.
+    if (!features.priceAlerts && !features.awardWatch) {
+      return { locked: true, enabled: false, lastRefreshAt: null, nextRefreshAt: null, series: [], awardsWatched: 0 };
+    }
+    const status = await ctx.market.status();
+
+    let series: Array<Record<string, unknown>> = [];
+    if (features.priceAlerts) {
+      const metas = [...(await listSeriesMeta(ctx.db, 'ppi')), ...(await listSeriesMeta(ctx.db, 'oews'))];
+      const watched = watchedSeries(id.profile, metas);
+      const stored = await getSeries(ctx.db, watched.map((m) => m.seriesId));
+      const order = new Map(PPI_SERIES.map((p, i) => [p.seriesId, i]));
+      series = watched
+        .sort((a, b) => (order.get(a.seriesId) ?? 99) - (order.get(b.seriesId) ?? 99) || a.seriesId.localeCompare(b.seriesId))
+        .map((m) => {
+          const change = seriesChange(m.seriesId, stored.get(m.seriesId)?.observations ?? []);
+          const short = PPI_SERIES.find((p) => p.seriesId === m.seriesId)?.label;
+          return {
+            id: m.seriesId,
+            title: short ?? `${m.title}${m.area ? `, ${m.area}` : ''}`,
+            kind: m.kind,
+            period: change?.period ?? null,
+            periodLabel: change ? periodName(change.period) : null,
+            preliminary: change?.preliminary ?? false,
+            // Against the period before; null when that period is not stored (never filled in).
+            changePct: change?.changePct ?? null,
+            previousPeriod: change?.previousPeriod && change.changePct !== null ? periodName(change.previousPeriod) : null,
+            yearChangePct: change?.yearChangePct ?? null,
+            source: m.source,
+            sourceUrl: m.sourceUrl,
+          };
+        });
+    }
+
+    let awardsWatched = 0;
+    let savedBids = 0;
+    if (features.awardWatch) {
+      awardsWatched = new Set((await savedSolicitations(ctx.db, id.profile.id)).filter((s) => solKey(s.solNumber)).map((s) => s.bidId)).size;
+      savedBids = await countSavedBids(ctx.db, id.profile.id);
+    }
+
+    return {
+      locked: false,
+      enabled: status.enabled,
+      lastRefreshAt: status.lastRefreshAt,
+      nextRefreshAt: status.nextRefreshAt,
+      // The last check here did not finish: alerts resume with the next one. Details are in the server log.
+      lastCheckOk: status.lastRun ? status.lastRun.ok : null,
+      prices: features.priceAlerts,
+      awards: features.awardWatch,
+      series,
+      // Saved bids an award can be matched to (they carry a solicitation number), and all saved bids.
+      awardsWatched,
+      savedBids,
+      // New federal awards in the profile's main NAICS codes inside its travel radius are watched too.
+      nearby: features.awardWatch ? { radiusMi: id.profile.maxDistanceMi, naics: id.profile.naics.strong } : null,
+      sources: { awards: AWARDS_SOURCE.name, prices: 'U.S. Bureau of Labor Statistics (BLS)' },
+    };
+  });
+
   // ----------------------------------------------------------- admin --
-  // Pull fresh market data now. Body (all optional): { states, months, naics, awards, bls, details }.
-  let running = false;
-  let http = deps.http;
+  // Pull fresh market data now and publish what changed (price and award alerts).
+  // Body (all optional): { states, months, naics, awards, bls, details }.
   app.post('/api/admin/market/refresh', async (req, reply) => {
     if (!requireAdmin(ctx, req, reply)) return reply;
     const body = (req.body ?? {}) as Record<string, unknown>;
@@ -402,20 +470,17 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
       if (wantAwards && states.length === 0) return fail(reply, { error: 'states_required', message: 'No profile has a state yet: send states, e.g. ["NV","CA"].' });
     }
 
-    if (running) return fail(reply, { error: 'refresh_running', message: 'A market refresh is already running.' }, 409);
-    running = true;
+    const maxQueries = Number(env('BLS_MAX_QUERIES'));
     try {
-      const contact = env('CONTACT_EMAIL');
-      http ??= createMarketHttp(`BidSwipe/1.0 (market data refresh${contact ? `; contact ${contact}` : ''})`);
-      const maxQueries = Number(env('BLS_MAX_QUERIES'));
-      return await refreshMarket(ctx.db, http, {
+      return await ctx.market.refresh({
         states, naics, months: body.months as number | undefined, details: body.details as number | undefined,
         awards: wantAwards, bls: wantBls, blsApiKey: env('BLS_API_KEY'),
         blsMaxQueries: Number.isInteger(maxQueries) && maxQueries > 0 ? maxQueries : undefined,
         now: ctx.now(), log: ctx.log,
-      });
-    } finally {
-      running = false;
+      }, { trigger: 'admin', http: deps.http });
+    } catch (err) {
+      if (err instanceof RefreshRunningError) return fail(reply, { error: 'refresh_running', message: err.message }, 409);
+      throw err;
     }
   });
 }

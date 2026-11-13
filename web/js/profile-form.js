@@ -12,18 +12,41 @@ export const RADIUS = { min: 10, max: 300, step: 5 };
 const DEFAULT_QUIET = { start: '21:00', end: '06:00' };
 
 let tradesCache = null;
-/** GET /api/trades, once. */
-export async function loadTrades() {
-  tradesCache ??= (await api.trades()).trades;
+/** GET /api/trades, once: the trades and the set-aside programs (codes with their plain labels). */
+async function catalog() {
+  tradesCache ??= await api.trades();
   return tradesCache;
 }
+export const loadTrades = async () => (await catalog()).trades;
+export const loadSetAsides = async () => (await catalog()).setAsides ?? [];
+
+export const ALERT_KINDS = [
+  { id: 'match', label: 'New bids that fit', help: 'A new bid scores at or above your minimum.', feature: null },
+  { id: 'deadline', label: 'Deadline reminders', help: 'Bids you saved, before they close.', feature: null },
+  { id: 'award', label: 'Award and result notices', help: 'Who won bids you saved or bid on, after the opening.', feature: 'awardWatch' },
+  { id: 'price', label: 'Price moves', help: 'Material price indexes and wages that moved.', feature: 'priceAlerts' },
+];
+
+export const TIME_ZONES = [
+  { id: 'America/Los_Angeles', label: 'Pacific' },
+  { id: 'America/Denver', label: 'Mountain' },
+  { id: 'America/Phoenix', label: 'Arizona' },
+  { id: 'America/Chicago', label: 'Central' },
+  { id: 'America/New_York', label: 'Eastern' },
+  { id: 'America/Anchorage', label: 'Alaska' },
+  { id: 'Pacific/Honolulu', label: 'Hawaii' },
+];
 
 export function emptyDraft() {
   return {
     businessName: '', trades: [], zip: '', place: null, radiusMi: 60,
     min: '', max: '', limits: { maxJobSize: '', maxUpfront: '', bondingCapacity: '' },
     minScore: 55, quietOn: false, quiet: { ...DEFAULT_QUIET },
-    keep: {}, // settings the form does not show, sent back unchanged (costs, set-asides, push, alert kinds)
+    costs: { laborRate: '', burdenPct: '', overheadPct: '', profitPct: '' },
+    setAsides: [],
+    kinds: { match: true, deadline: true, award: true, price: true },
+    timeZone: '',
+    keep: {}, // settings the form does not show, sent back unchanged (phone push on/off)
   };
 }
 
@@ -42,11 +65,14 @@ export function draftFromSummary(p) {
   d.quietOn = !!p.alerts?.quietHours;
   d.quiet = { ...(p.alerts?.quietHours ?? DEFAULT_QUIET) };
   const { push, kinds, timeZone } = p.alerts ?? {};
-  d.keep = {
-    costs: Object.values(p.costs ?? {}).some((v) => v != null) ? p.costs : undefined,
-    setAsides: p.setAsides?.length ? p.setAsides : undefined,
-    push, kinds, timeZone,
-  };
+  for (const k of Object.keys(d.costs)) {
+    const v = p.costs?.[k];
+    d.costs[k] = v == null ? '' : k === 'laborRate' && !Number.isInteger(v) ? v.toFixed(2) : String(v); // $42.50, not $42.5
+  }
+  d.setAsides = [...(p.setAsides ?? [])];
+  for (const k of Object.keys(d.kinds)) d.kinds[k] = kinds?.[k] !== false;
+  d.timeZone = timeZone ?? '';
+  d.keep = { push };
   return d;
 }
 
@@ -60,18 +86,28 @@ function browserTimeZone() {
   try { return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined; } catch { return undefined; }
 }
 
-/** The PUT /api/profile body. */
-export function answersFrom(d) {
+/** "45.50" → 45.5; blank → null; anything else is sent as typed so the server names the problem. */
+const decimal = (text) => {
+  const s = String(text ?? '').trim().replace(/[$,%\s]/g, '');
+  if (!s) return null;
+  return /^\d+(\.\d+)?$/.test(s) ? Number(s) : String(text);
+};
+
+/**
+ * The PUT /api/profile body. `withCosts`: send the four cost settings (only a plan that has them; otherwise
+ * the server keeps whatever is stored).
+ */
+export function answersFrom(d, { withCosts = false } = {}) {
   const limits = {};
   for (const [k, v] of Object.entries(d.limits)) limits[k] = amount(v);
   const alerts = {
     minScore: d.minScore,
     quietHours: d.quietOn ? { start: d.quiet.start, end: d.quiet.end } : null,
   };
-  const tz = d.keep.timeZone ?? browserTimeZone();
+  const tz = d.timeZone || browserTimeZone();
   if (tz) alerts.timeZone = tz;
   if (d.keep.push !== undefined) alerts.push = d.keep.push;
-  if (d.keep.kinds) alerts.kinds = d.keep.kinds;
+  alerts.kinds = { ...d.kinds };
   const body = {
     businessName: d.businessName,
     trades: d.trades,
@@ -81,8 +117,8 @@ export function answersFrom(d) {
     limits,
     alerts,
   };
-  if (d.keep.costs) body.costs = d.keep.costs;
-  if (d.keep.setAsides) body.setAsides = d.keep.setAsides;
+  if (withCosts) body.costs = Object.fromEntries(Object.entries(d.costs).map(([k, v]) => [k, decimal(v)]));
+  body.setAsides = [...d.setAsides];
   return body;
 }
 
@@ -203,7 +239,8 @@ function limitField(d, key, label, help) {
   });
 }
 
-export function alertsSection(d) {
+/** Minimum fit and quiet hours; settings also shows the alert kinds and the time zone (`opts`). */
+export function alertsSection(d, opts = {}) {
   const readout = h('output', { class: 'range-value' });
   const words = h('p', { class: 'field-help' });
   const range = h('input', { type: 'range', class: 'range', min: 35, max: 95, step: 5, value: d.minScore, id: 'minfit' });
@@ -224,7 +261,19 @@ export function alertsSection(d) {
     h('label', { class: 'mini' }, h('span', {}, 'Until'), end));
   times.hidden = !d.quietOn;
 
+  const kinds = opts.kinds ? h('div', { class: 'field', 'data-field': 'alerts.kinds' },
+    h('p', { class: 'field-label' }, 'What to alert me about'),
+    h('div', { class: 'kind-list' }, ALERT_KINDS.map((k) => h('div', { class: 'kind' },
+      toggle({ checked: d.kinds[k.id], label: k.label, onchange: (on) => { d.kinds[k.id] = on; } }),
+      h('p', { class: 'field-help' }, k.help, k.feature && opts.features?.[k.feature] !== true ? h('span', { class: 'pro-note' }, ' Part of BidSwipe Pro.') : null)))),
+    h('p', { class: 'field-error', role: 'alert' })) : null;
+  const zones = TIME_ZONES.some((z) => z.id === (d.timeZone || browserTimeZone())) ? TIME_ZONES : [...TIME_ZONES, { id: d.timeZone || browserTimeZone(), label: d.timeZone || browserTimeZone() }];
+  const tzSelect = h('select', { class: 'input select', id: 'tz' }, zones.map((z) => h('option', { value: z.id, selected: z.id === (d.timeZone || browserTimeZone() || 'America/Los_Angeles') }, z.label)));
+  tzSelect.addEventListener('change', () => { d.timeZone = tzSelect.value; });
+  const tz = opts.timeZone ? field({ key: 'alerts.timeZone', label: 'Time zone', help: 'Quiet hours and deadline reminders use this clock.', control: tzSelect }) : null;
+
   return h('div', { class: 'stack' },
+    kinds,
     h('div', { class: 'field', 'data-field': 'alerts.minScore' },
       h('div', { class: 'range-head' }, h('label', { class: 'field-label', for: 'minfit' }, 'Minimum fit to alert me'), readout),
       range, words, h('p', { class: 'field-error', role: 'alert' })),
@@ -233,6 +282,51 @@ export function alertsSection(d) {
       times,
       h('p', { class: 'field-help' }, 'No alerts in these hours. The bids wait in your deck.'),
       h('p', { class: 'field-error', role: 'alert' })),
+    tz,
     h('div', { 'data-field': 'alerts' }, h('p', { class: 'field-error', role: 'alert' })),
+  );
+}
+
+/** Your own numbers for the cost check: labor rate, burden, overhead, profit. */
+export function costsSection(d) {
+  const pctField = (key, label, help) => {
+    const input = h('input', { class: 'input', type: 'text', inputmode: 'decimal', autocomplete: 'off', value: d.costs[key], placeholder: 'Not set', 'aria-label': label });
+    input.addEventListener('input', () => { d.costs[key] = input.value; });
+    return field({ key: `costs.${key}`, label, help, control: h('div', { class: 'affix' }, input, h('span', { class: 'affix-unit', 'aria-hidden': 'true' }, '%')) });
+  };
+  return h('div', { class: 'stack' },
+    h('p', { class: 'field-help' }, 'The cost check fills these in. Leave a box empty and it asks each time.'),
+    field({ key: 'costs.laborRate', label: 'Labor rate per hour', help: 'The cash wage you pay, before burden.', control: moneyInput({ text: d.costs.laborRate, placeholder: 'Not set', label: 'Labor rate per hour', oninput: (v) => (d.costs.laborRate = v) }) }),
+    pctField('burdenPct', 'Burden', 'One percentage on wages: an approximation of payroll taxes and comp.'),
+    h('div', { class: 'pair' },
+      pctField('overheadPct', 'Overhead', 'On job cost.'),
+      pctField('profitPct', 'Profit', 'On cost + overhead.')),
+  );
+}
+
+/** The set-aside programs the business is certified for (SAM.gov codes, plain labels from GET /api/trades). */
+export function setAsidesSection(d, list) {
+  // A program's two codes (SBA/SBP, 8A/8AN…) are saved together, so they tick and untick together:
+  // the screen always shows what the server will keep.
+  const picked = new Set(d.setAsides);
+  for (const s of list) if (s.pair && picked.has(s.code)) picked.add(s.pair);
+  d.setAsides = list.map((x) => x.code).filter((c) => picked.has(c));
+  const boxes = new Map();
+  return h('div', { class: 'field', 'data-field': 'setAsides' },
+    h('p', { class: 'field-help' }, 'Tick the programs you are certified in. A program’s two codes (for example total and partial, or competitive and sole source) go together. Federal bids set aside for a program you are not in score lower.'),
+    h('div', { class: 'checks' }, list.map((s) => {
+      const box = h('input', { type: 'checkbox', checked: picked.has(s.code), id: `sa-${s.code}` });
+      boxes.set(s.code, box);
+      box.addEventListener('change', () => {
+        for (const c of [s.code, s.pair].filter(Boolean)) {
+          if (box.checked) picked.add(c); else picked.delete(c);
+          const other = boxes.get(c);
+          if (other) other.checked = box.checked;
+        }
+        d.setAsides = list.map((x) => x.code).filter((c) => picked.has(c));
+      });
+      return h('label', { class: 'check', for: box.id }, box, h('span', { class: 'check-box', 'aria-hidden': 'true' }, icon(ICONS.check)), h('span', { class: 'check-text' }, s.label, h('small', {}, s.code)));
+    })),
+    h('p', { class: 'field-error', role: 'alert' }),
   );
 }

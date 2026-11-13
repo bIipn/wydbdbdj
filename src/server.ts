@@ -8,6 +8,7 @@ import { createAuth, type AuthService } from './auth/index.js';
 import { createContext, loadConfig, type AppConfig, type RouteContext } from './context.js';
 import type { Db } from './db/db.js';
 import { env, loadEnv } from './env.js';
+import type { MarketHttp } from './market/refresh.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
 import { startRealtime } from './realtime/index.js';
@@ -46,6 +47,8 @@ export interface ServerOptions {
    * nothing, the sign-in rate limiter already reads the header from loopback (src/auth/ratelimit.ts).
    */
   trustProxy?: string;
+  /** Market refresh clients (tests and the offline demo replay captured pages). Default: polite real clients. */
+  marketHttp?: MarketHttp;
 }
 
 export interface ServerDeps {
@@ -88,6 +91,7 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     now: opts.now,
     log: (msg) => app.log.info(msg),
     scan: opts.scan,
+    marketHttp: opts.marketHttp,
   });
 
   // One plugin per area; each file has exactly one owner.
@@ -144,9 +148,13 @@ async function main() {
   const stopRealtime = startRealtime(ctx);
   const at = env('SCAN_DAILY_AT');
   const stopSchedule = at ? scheduleDaily(at, async () => void (await scan())) : () => {};
+  // The daily market refresh + price/award watch (MARKET_REFRESH_AT). Its own timer: a failed refresh
+  // is logged and shows in GET /api/market/watch, and never touches the scan's schedule.
+  const stopMarket = ctx.market.start();
 
   const shutdown = async () => {
     stopSchedule();
+    stopMarket();
     stopRealtime();
     await app.close();
     await deps.db.close();

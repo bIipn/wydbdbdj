@@ -338,6 +338,8 @@ export interface PricePointOut { readonly price: number; readonly markupOnCost: 
 // ================================================================ parsing (exact decimals, field-level errors)
 
 const DEC_RE = /^(\d+)(?:\.(\d+))?$/;
+/** 100,000.00 hours: the engine's per-bucket guard (types.ts MAX_BUCKET_HOURS), checked here as a field error. */
+const MAX_CLASS_HOURS_C = 10_000_000;
 
 class Reader {
   readonly errors: FieldError[] = [];
@@ -561,6 +563,11 @@ export function estimate(req: EstimateRequest, opts: EstimateOptions = {}): Esti
     const h10 = r.hours(c.hours, `${p}.hours`) ?? (c.hours === undefined ? r.err(`${p}.hours`, 'straight-time hours are required (0 is allowed)') : undefined);
     const h15 = r.hours(c.overtimeHours, `${p}.overtimeHours`) ?? (0 as HoursC);
     const h20 = r.hours(c.doubleTimeHours, `${p}.doubleTimeHours`) ?? (0 as HoursC);
+    // The engine's guard is 100,000 hours per bucket (10,000,000 HoursC, spec 1.2): say so under the box
+    // instead of letting the engine refuse with its internal units.
+    for (const [hc, key] of [[h10, 'hours'], [h15, 'overtimeHours'], [h20, 'doubleTimeHours']] as const) {
+      if (hc !== undefined && hc > MAX_CLASS_HOURS_C) r.err(`${p}.${key}`, 'at most 100,000 hours');
+    }
     const prev = r.obj(c.prevailing, `${p}.prevailing`);
     const bhr = prev ? r.money(prev.basic, `${p}.prevailing.basic`) : undefined;
     const fb = prev ? r.money(prev.fringe, `${p}.prevailing.fringe`) : undefined;
@@ -1196,7 +1203,7 @@ export function estimate(req: EstimateRequest, opts: EstimateOptions = {}): Esti
     if (lim && cashForJob !== undefined && credit !== undefined) {
       const st = stressCases(jobIn, { codKinds: ['material', 'equipment'], ...(laborUp !== undefined ? { laborIncreasePpm: laborUp } : {}), ...(changeOrder !== undefined ? { unpaidChangeOrder: { amount: changeOrder, period: workDays! } } : {}) });
       assumptions.push(...st.assumptions);
-      if (laborUp === undefined) warnings.push('Stress "labor up at the same price" not run: enter stress.laborIncreasePercent (no default)');
+      if (laborUp === undefined) warnings.push('Labor-overrun test not run: enter a labor increase percentage to see it (there is no default)');
       const limits: ContractorLimits = {
         cashForJob, unusedCreditLine: credit,
         ...(buffer !== undefined ? { bufferPpm: buffer } : {}),

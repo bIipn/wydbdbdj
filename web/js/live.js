@@ -104,12 +104,12 @@ function openEventSource() {
   es.onopen = () => setStatus('live');
   for (const kind of [...ALERT_KINDS, 'alert', 'scan']) es.addEventListener(kind, (e) => dispatch(kind, e.data));
   es.onerror = () => {
-    // CONNECTING = it is retrying by itself. CLOSED = the server refused (401, 429, …): we retry, slower.
+    // CONNECTING = it is retrying by itself. CLOSED = the server refused (401, 429, …): find out which.
     if (es.readyState === EventSource.CONNECTING) return setStatus('retrying');
     es.close();
     conn.es = null;
     setStatus('retrying');
-    schedule(BUSY_RETRY_MS);
+    refused();
   };
 }
 
@@ -124,6 +124,7 @@ async function readWithFetch() {
     const res = await fetch(`api/stream${conn.lastId ? `?lastEventId=${conn.lastId}` : ''}`, {
       headers: { accept: 'text/event-stream', 'x-access-code': state.accessCode ?? '' }, credentials: 'same-origin', signal: ctrl.signal,
     });
+    if (res.status === 401) { conn.abort = null; return refused(); }
     if (!res.ok || !res.body) { wait = BUSY_RETRY_MS; throw new Error(`HTTP ${res.status}`); }
     setStatus('live');
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -152,6 +153,24 @@ async function readWithFetch() {
 }
 
 // ------------------------------------------------------------- start ---
+
+/**
+ * The stream was refused. EventSource does not say why, so ask GET /api/me (not quiet): an expired session
+ * answers 401 sign_in_required, and the app's auth handler stops this connection (onSignedOut) and shows
+ * sign-in. Anything else (429 too many connections, a restart) is retried, slower.
+ */
+async function refused() {
+  if (!conn.on) return;
+  try {
+    await api.me();
+  } catch (err) {
+    if (err.code === 'sign_in_required' || err.code === 'onboarding_required' || err.code === 'access_code_required') {
+      if (conn.on) stopLive(); // the auth handler normally did this already
+      return;
+    }
+  }
+  if (conn.on) schedule(BUSY_RETRY_MS);
+}
 
 function schedule(ms) {
   clearTimeout(conn.timer);

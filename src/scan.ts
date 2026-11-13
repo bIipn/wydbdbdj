@@ -68,6 +68,9 @@ async function scoreBids(
     if (isNewBid && s.score >= profile.notify.minScore && !s.overLimit) newGood++;
     if (bus && !quiet.has(bid.id) && s.score >= threshold && !s.rejected && !s.overLimit) {
       await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid });
+      // Let the event loop run once: the alert's stream frame and push go out now, not when the whole
+      // scan ends (the embedded database runs on this thread, so a long scan would otherwise hold them).
+      await new Promise<void>((r) => setImmediate(r));
     }
   }
   return { scored: bids.length, byVerdict, newGood };

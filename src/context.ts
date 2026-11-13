@@ -3,9 +3,12 @@ import type { AuthService } from './auth/index.js';
 import type { Db } from './db/db.js';
 import { getProfileByAccount } from './db/repo.js';
 import { env as processEnv } from './env.js';
+import type { MarketHttp, refreshMarket } from './market/refresh.js';
+import { createMarketWatcher, type MarketWatcher } from './market/watcher.js';
 import { effectivePlan } from './plans.js';
 import type { Bus } from './realtime/bus.js';
 import type { ScanReport } from './scan.js';
+import { nextDailyRun } from './scheduler.js';
 import type { Account, Plan, Profile } from './types.js';
 
 // ----------------------------------------------------------------- config --
@@ -25,6 +28,8 @@ export interface AppConfig {
   cookieSecure: boolean;
   supabase?: { url: string; anonKey: string };
   vapid?: { publicKey: string; privateKey: string; subject: string };
+  /** Daily market refresh + price/award watch, "HH:MM" Pacific (MARKET_REFRESH_AT). Absent = off. */
+  marketRefreshAt?: string;
 }
 
 /** `env('NAME')`-style getter or a plain object such as process.env. Blank values count as unset. */
@@ -42,6 +47,8 @@ export function loadConfig(env: EnvSource = processEnv): AppConfig {
   const [supabaseUrl, anonKey] = [get('SUPABASE_URL'), get('SUPABASE_ANON_KEY')];
   const [publicKey, privateKey] = [get('VAPID_PUBLIC_KEY'), get('VAPID_PRIVATE_KEY')];
   const contact = get('CONTACT_EMAIL');
+  const marketRefreshAt = get('MARKET_REFRESH_AT');
+  if (marketRefreshAt) nextDailyRun(marketRefreshAt, new Date(), 'MARKET_REFRESH_AT'); // a typo stops the boot, not the 3 a.m. run
 
   return {
     authMode: mode,
@@ -55,6 +62,7 @@ export function loadConfig(env: EnvSource = processEnv): AppConfig {
     vapid: publicKey && privateKey
       ? { publicKey, privateKey, subject: get('VAPID_SUBJECT') ?? (contact ? `mailto:${contact}` : appUrl) }
       : undefined,
+    marketRefreshAt,
   };
 }
 
@@ -80,6 +88,8 @@ export interface RouteContext {
   log: (msg: string) => void;
   /** Runs a scan now (admin route + daily schedule). Absent when the server was built without one. */
   scan?: () => Promise<ScanReport>;
+  /** The market refresh with its price and award watch (admin route, daily schedule, GET /api/market/watch). */
+  market: MarketWatcher;
   identify(req: FastifyRequest): Promise<Identity>;
   /**
    * The identity when it has a profile. Otherwise it answers the request itself —
@@ -101,6 +111,12 @@ export interface ContextParts {
   now?: () => Date;
   log?: (msg: string) => void;
   scan?: () => Promise<ScanReport>;
+  /** Market refresh clients (tests replay captured pages). Default: polite real clients, built on first use. */
+  marketHttp?: MarketHttp;
+  /** Stand-in for refreshMarket (tests). */
+  marketRefresh?: typeof refreshMarket;
+  /** Environment reader for the market refresh (BLS key, query budget, watch threshold). Default: process env. */
+  env?: (name: string) => string | undefined;
 }
 
 export function createContext(parts: ContextParts): RouteContext {
@@ -115,10 +131,15 @@ export function createContext(parts: ContextParts): RouteContext {
     return { account, profile, plan: effectivePlan(config, account) };
   };
 
+  const now = parts.now ?? (() => new Date());
+  const log = parts.log ?? (() => {});
+  const market = createMarketWatcher({
+    db, bus, now, log, env: parts.env ?? processEnv, schedule: config.marketRefreshAt ?? null, profile: single,
+    http: parts.marketHttp, refresh: parts.marketRefresh,
+  });
+
   return {
-    db, config, bus, auth, scan,
-    now: parts.now ?? (() => new Date()),
-    log: parts.log ?? (() => {}),
+    db, config, bus, auth, scan, market, now, log,
     identify,
     async requireProfile(req, reply) {
       const id = await identify(req);

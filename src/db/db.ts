@@ -26,7 +26,12 @@ export async function openDb(opts: OpenDbOptions = {}): Promise<Db> {
   return db;
 }
 
-async function openPglite(dataDir = resolve(process.cwd(), 'data/pglite'), loadDataDir?: Blob): Promise<Db> {
+/** The embedded database folder: DATA_DIR when set (a second server or a test run), else ./data/pglite. */
+function defaultDataDir(): string {
+  return resolve(process.cwd(), process.env.DATA_DIR?.trim() || 'data/pglite');
+}
+
+async function openPglite(dataDir = defaultDataDir(), loadDataDir?: Blob): Promise<Db> {
   const { PGlite } = await import('@electric-sql/pglite');
   if (!dataDir.startsWith('memory://')) mkdirSync(dataDir, { recursive: true });
   const pg = new PGlite(dataDir, { loadDataDir });

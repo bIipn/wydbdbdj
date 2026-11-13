@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { buildDeps, scanProfiles, type AppDeps } from './app.js';
 import { registerCsrfGuard } from './auth/guard.js';
@@ -104,8 +103,13 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
   }
 
   // The app shell. A serverless host serves these files from its CDN (the build copies web/ to
-  // public/), and the folder is not inside the function there: nothing to register.
-  if (existsSync(WEB_DIR)) await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
+  // public/) and the folder is not inside the function there, so there is nothing to register.
+  // The plugin is imported only when it is used: Vercel's module loader cannot load it at all
+  // (it require()s an ES-module-only package), and a top-level import crashed every request.
+  if (existsSync(WEB_DIR)) {
+    const { default: fastifyStatic } = await import('@fastify/static');
+    await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
+  }
   return { app, ctx };
 }
 

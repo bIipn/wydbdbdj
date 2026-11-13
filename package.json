@@ -8,6 +8,7 @@
     "scan": "tsx src/cli/scan.ts",
     "scan:prod": "node dist/cli/scan.js",
     "demo:snapshot": "tsx src/cli/snapshot.ts",
+    "simulate:cost": "tsx src/cli/simulate-cost.ts",
     "market:refresh": "tsx src/cli/market.ts",
     "market:refresh:prod": "node dist/cli/market.js",
     "push:keys": "web-push generate-vapid-keys",

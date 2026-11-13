@@ -64,9 +64,9 @@ describe('plans', () => {
     expect(effectivePlan(accounts, null)).toBe('free');
   });
 
-  it('free gets only the basic estimator; pro and pilot get everything', () => {
+  it('free gets no premium feature (the cost engine is premium: 402, no numbers); pro and pilot get everything', () => {
     expect(featuresFor('free')).toEqual({
-      instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: true,
+      instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: false,
     });
     for (const plan of ['pro', 'pilot'] as const) {
       expect(Object.values(featuresFor(plan)).every((on) => on === true), plan).toBe(true);

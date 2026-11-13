@@ -12,12 +12,12 @@ export interface Features {
   awardWatch: boolean;
   /** Material-price and wage movement alerts. */
   priceAlerts: boolean;
-  /** The cost check. On for every plan: free gets the basic one (type your numbers each time). */
+  /** The cost engine (POST /api/estimate, GET /api/estimates): premium only. Free plans get 402 and no numbers. */
   estimator: boolean;
 }
 
 const FREE: Features = {
-  instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: true,
+  instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: false,
 };
 const PRO: Features = {
   instantPush: true, awardHistory: true, costSettings: true, awardWatch: true, priceAlerts: true, estimator: true,

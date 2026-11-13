@@ -4,6 +4,7 @@ import { openDb, type Db } from './db/db.js';
 import { listProfiles } from './db/repo.js';
 import { loadProfile } from './profiles.js';
 import { selectSources } from './sources/index.js';
+import { withCatalogLists } from './trades/catalog.js';
 import type { Profile, Source, SourceContext } from './types.js';
 import { createHttp } from './util/http.js';
 
@@ -33,7 +34,10 @@ export async function buildDeps(config: AppConfig = loadConfig()): Promise<AppDe
   };
 }
 
-/** Who a scan scores for: the config profile, or (accounts mode) every stored profile, read when the scan gets to scoring. */
+/**
+ * Who a scan scores for: the config profile, or (accounts mode) every stored profile, read when the
+ * scan gets to scoring and brought up to the trade catalog's current keyword lists.
+ */
 export function scanProfiles(deps: Pick<AppDeps, 'db' | 'profile'>): Profile[] | (() => Promise<Profile[]>) {
-  return deps.profile ? [deps.profile] : () => listProfiles(deps.db);
+  return deps.profile ? [deps.profile] : async () => (await listProfiles(deps.db)).map(withCatalogLists);
 }

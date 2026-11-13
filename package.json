@@ -10,6 +10,7 @@
     "demo:snapshot": "tsx src/cli/snapshot.ts",
     "simulate": "tsx src/cli/simulate.ts",
     "market:refresh": "tsx src/cli/market.ts",
+    "push:keys": "web-push generate-vapid-keys",
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "test": "vitest run"

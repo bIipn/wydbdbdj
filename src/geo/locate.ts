@@ -1,5 +1,9 @@
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
+import { lookupCity, lookupZip } from './zip.js';
+
+// The formula lives beside the ZIP table (statesWithin needs it too); everyone else keeps importing it from here.
+export { milesBetween } from './zip.js';
 
 const byName = new Map<string, Place>();
 for (const p of PLACES) {
@@ -13,6 +17,10 @@ const scanList = PLACES.filter((p) => p.scan !== false)
   .flatMap((p) => [p.name, ...(p.aliases ?? [])].map((n) => ({ n, p })))
   .sort((a, b) => b.n.length - a.n.length)
   .map(({ n, p }) => ({ re: new RegExp(`\\b${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i'), p }));
+
+// Where the gazetteer may guess from words (a town in the title, an agency's name, a region).
+// A bid that says it is in another state is left alone: "Dayton" in an Ohio bid is not Dayton, NV.
+const HOME_STATES = new Set<string>(PLACES.map((p) => p.state));
 
 export function findPlace(name: string | null | undefined): Place | null {
   if (!name) return null;
@@ -40,19 +48,28 @@ function placeLoc(p: Place, precision: LocationPrecision, zip: string | null = n
   };
 }
 
-/** Haversine distance in miles. */
-export function milesBetween(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
-  const R = 3958.8;
-  const toRad = (d: number) => (d * Math.PI) / 180;
-  const dLat = toRad(b.lat - a.lat);
-  const dLng = toRad(b.lng - a.lng);
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+/**
+ * Anywhere in the US (./zip.ts): the ZIP when we know it, else the named city in the bid's state.
+ * A ZIP that sits in another state than the bid says is treated as a typo. When the town is one of ours, the
+ * gazetteer's hand-checked centre and county are used, so a Reno ZIP and the word "Reno" land on the same point.
+ */
+function nationwide(city: string | null | undefined, state: string | null, zip: string | null): BidLocation | null {
+  const byZip = zip ? lookupZip(zip) : null;
+  const hit = (byZip && (!state || byZip.state === state) ? byZip : null) ?? (city && state ? lookupCity(city, state) : null);
+  if (!hit) return null;
+  const known = byName.get(hit.city.toLowerCase());
+  if (known && known.state === hit.state) return placeLoc(known, 'city', zip);
+  return {
+    city: hit.city, county: null, state: hit.state, zip,
+    lat: hit.lat, lng: hit.lng, precision: 'city', label: `${hit.city}, ${hit.state}`,
+  };
 }
 
 /**
  * Work out where a bid's work happens, from best evidence to worst:
  * explicit city → ZIP → county → place named in the text → agency name → region → state.
+ * City and ZIP try the hand-checked gazetteer first, then the nationwide ZIP table. Free text is only ever
+ * searched for gazetteer towns, never for every US city name.
  */
 export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'>): BidLocation {
   const given = draft.location ?? {};
@@ -70,14 +87,19 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   const city = findPlace(given.city);
   if (city && (!state || city.state === state)) return placeLoc(city, 'city', zip);
 
-  if (zip) {
-    const z = ZIP_PLACES[zip.slice(0, 5)] ?? ZIP_PLACES[zip.slice(0, 3)];
-    const p = z ? findPlace(z) : null;
-    if (p) return placeLoc(p, 'city', zip);
-  }
+  const nearHome = zip ? findPlace(ZIP_PLACES[zip.slice(0, 5)]) : null;
+  if (nearHome) return placeLoc(nearHome, 'city', zip);
 
+  const us = nationwide(given.city, state, zip);
+  if (us) return us;
+
+  // A metro prefix ("891" = Las Vegas) is only a guess, so it waits until the table that knows exact ZIPs has passed.
+  const metro = zip ? findPlace(ZIP_PLACES[zip.slice(0, 3)]) : null;
+  if (metro) return placeLoc(metro, 'city', zip);
+
+  const home = !state || HOME_STATES.has(state);
   const text = [draft.title, draft.description].filter(Boolean).join(' \n ');
-  const named = scanList.find(({ re }) => re.test(text))?.p ?? null;
+  const named = home ? scanList.find(({ re }) => re.test(text))?.p ?? null : null;
 
   if (given.county && state) {
     const county = given.county.toLowerCase().replace(/\s+county$/, '');
@@ -92,7 +114,7 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
 
   if (named) return placeLoc(named, 'city', zip); // Tahoe-area work crosses the state line, so accept either state
 
-  if (draft.agency) {
+  if (home && draft.agency) {
     for (const { re, place } of AGENCY_PLACES) {
       if (re.test(draft.agency)) {
         const p = findPlace(place);
@@ -102,7 +124,7 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   }
 
   const regionText = [text, draft.agency].filter(Boolean).join(' ');
-  for (const r of REGIONS) {
+  for (const r of home ? REGIONS : []) {
     if (r.re.test(regionText)) {
       return { city: null, county: null, state: state ?? r.state, zip, lat: r.lat, lng: r.lng, precision: 'region', label: r.label };
     }

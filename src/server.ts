@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
 import { buildDeps, scanProfiles } from './app.js';
 import { registerCsrfGuard } from './auth/guard.js';
 import { createAuth, type AuthService } from './auth/index.js';
@@ -40,6 +40,12 @@ export interface ServerOptions {
   bus?: Bus;
   /** Defaults to createAuth(db, config). Tests pass a fake to be "signed in". */
   auth?: AuthService;
+  /**
+   * Reverse proxies whose X-Forwarded-For is believed (Fastify's trustProxy): their addresses or
+   * CIDR ranges, comma-separated. Only for a proxy on another machine — one on this machine needs
+   * nothing, the sign-in rate limiter already reads the header from loopback (src/auth/ratelimit.ts).
+   */
+  trustProxy?: string;
 }
 
 export interface ServerDeps {
@@ -51,7 +57,8 @@ export interface ServerDeps {
 /** The Fastify app plus the context its routes share (main() hands the context to startRealtime). */
 export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Promise<{ app: FastifyInstance; ctx: RouteContext }> {
   // forceCloseConnections: a long-lived /api/stream connection must not keep close() waiting.
-  const app = Fastify({ logger: opts.logger ?? false, forceCloseConnections: true });
+  const options: FastifyServerOptions = { logger: opts.logger ?? false, forceCloseConnections: true, trustProxy: opts.trustProxy ?? false };
+  const app = Fastify(options);
   const base = opts.config ?? loadConfig({});
   const config: AppConfig = {
     ...base,
@@ -61,8 +68,12 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
 
   // Optional shared access code. It gates the whole API in both modes (accounts sign in on top of it).
   app.addHook('onRequest', async (req, reply) => {
-    if (!config.accessCode || !req.url.startsWith('/api/') || req.url.startsWith('/api/health')) return;
-    if (req.url.startsWith('/api/admin/')) return; // admin routes check their own token
+    if (!config.accessCode) return;
+    // Judged by the route the router matched as well as the raw URL: the router decodes "/%61pi/me"
+    // to "/api/me", so the raw text alone would wave that request through.
+    const route = req.routeOptions.url ?? '';
+    if (!route.startsWith('/api/') && !req.url.startsWith('/api/')) return; // the app shell and its files
+    if (route === '/api/health' || route.startsWith('/api/admin/')) return; // health is public; admin routes check their own token
     const given = String(req.headers['x-access-code'] ?? '');
     if (!safeEqual(given, config.accessCode)) return reply.code(401).send({ error: 'access_code_required' });
   });
@@ -124,7 +135,9 @@ async function main() {
     return running;
   };
 
-  const { app, ctx } = await buildApp(deps, { config, bus, auth: createAuth(deps.db, config), scan, logger: true });
+  const { app, ctx } = await buildApp(deps, {
+    config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'),
+  });
   const port = Number(env('PORT') ?? 8787);
   await app.listen({ port, host: env('HOST') ?? '0.0.0.0' });
 

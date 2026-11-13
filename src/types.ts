@@ -43,6 +43,14 @@ export type BidDraft = Omit<Bid, 'id' | 'location' | 'flags'> & {
 export interface FetchLike {
   text(url: string, init?: RequestInit): Promise<string>;
   json<T = unknown>(url: string, init?: RequestInit): Promise<T>;
+  /**
+   * Opt-in: a new cookie session for boards that page by form postback. Same pacing, timeout and
+   * User-Agent; cookies from Set-Cookie are kept in memory and sent back only to the host that set
+   * them, for as long as the returned object lives. Test fakes may leave it out.
+   */
+  session?(): FetchLike;
+  /** Sessions only: the names (never the values) of the cookies held for this URL's host. */
+  cookieNames?(url: string): string[];
 }
 
 export interface SourceContext {

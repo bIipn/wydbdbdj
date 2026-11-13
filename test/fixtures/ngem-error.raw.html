@@ -1,0 +1,31 @@
+<!--
+  NGEM (IonWave) error page — what the server answers, with HTTP 200, to a paging POST it does not like.
+  URL: https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1
+  How: the page-2 postback sent WITHOUT the session cookies of the page-1 GET. Captured 2026-11-13.
+  Each such answer also files an error report with the board's administrators, so the scanner must never cause one.
+  Kept verbatim: the whole page, minus its 43 stylesheet <link> tags and the logo <div>. __VIEWSTATE value replaced by TRIMMED.
+-->
+
+<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head><meta name="robots" content="noindex" /><title>
+	An error has occurred
+</title></head>
+<body>
+	<form method="post" action="./Error.aspx" id="form1">
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="TRIMMED" />
+
+<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="AB827D4F" />
+<input type="hidden" name="__VIEWSTATEENCRYPTED" id="__VIEWSTATEENCRYPTED" value="" />
+		<hr />
+		<div style="padding: 5px;">
+			<p style="font-weight: bold; font-size: 12pt;">An unexpected error has occurred.</p>
+			<p style="padding-top: 10px; font-size: 11pt;">
+				Please restart your browser, login to the system, and try again.<br />
+				An automated error report has been generated and sent to the system administrators.<br />
+			</p>
+		</div>
+	</form>
+</body>
+</html>
+

@@ -1,0 +1,151 @@
+<!--
+  NGEM (IonWave) "Current Bid Opportunities", page 2 of 3 — the RAW server HTML the scanner gets, not a browser-saved page.
+  URL: https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1
+  How: POST to the same URL (application/x-www-form-urlencoded) with the cookies the page-1 GET set
+  (ASP.NET_SessionId, __AntiXsrfToken). Body: every hidden input of the page-1 form, plus
+  __EVENTTARGET=ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl06 (the "Go to Page 2" link) and an empty __EVENTARGUMENT.
+  Captured 2026-11-13.
+  Kept, verbatim and in order: the <form> tag, its hidden inputs, the toolbar and the whole bid grid
+  (thead, tfoot pager, all 20 rows, the grid's own hidden state fields). Dropped: <head>, scripts, page chrome.
+  The __VIEWSTATE value (a session token, about 60 KB) is replaced by the text TRIMMED.
+-->
+	<form method="post" action="./SourcingEvents.aspx?SourceType=1" id="aspnetForm" enctype="multipart/form-data">
+<input type="hidden" name="ctl00_ScriptManager_TSM" id="ctl00_ScriptManager_TSM" value="" />
+<input type="hidden" name="__VIEWSTATE" id="__VIEWSTATE" value="TRIMMED" />
+<input type="hidden" name="__VIEWSTATEGENERATOR" id="__VIEWSTATEGENERATOR" value="A4E5206D" />
+<input type="hidden" name="__VIEWSTATEENCRYPTED" id="__VIEWSTATEENCRYPTED" value="" />
+			<div id="ctl00_mainContent_rtb" class="RadToolBar RadToolBar_Horizontal RadToolBar_Proc RadToolBar_Proc_Horizontal" EnableAriaSupport="true" style="width:100%;z-index:5;">
+	<!-- 2026.3.812.462 --><ul class="rtbUL">
+		<li class="rtbLI rtbItem"><span class="rtbButton" tabindex="0"><span title="" class="rtbImage flaticon-toolbar_Return"></span><span class="rtbText">Return To Login</span></span></li><li class="rtbLI rtbItem"><span class="rtbButton" tabindex="0"><span title="" class="rtbImage flaticon-toolbar_Supplier"></span><span class="rtbText">Supplier Registration</span></span></li>
+	</ul><input id="ctl00_mainContent_rtb_ClientState" name="ctl00_mainContent_rtb_ClientState" type="hidden" />
+</div>
+			<div id="ctl00_mainContent_rgBidList" class="RadGrid RadGrid_Proc">
+
+<table class="rgMasterTable" summary="Grid table view level . Contains flat or hierarchical data represented in a tabular manner." id="ctl00_mainContent_rgBidList_ctl00" width="100%" style="table-layout:auto;empty-cells:show;">
+	<colgroup>
+        <col  />
+        <col  />
+        <col  />
+        <col  />
+        <col  />
+        <col  />
+        <col  />
+    </colgroup>
+<thead>
+		<tr>
+			<th scope="col" class="rgHeader" nowrap="nowrap">&nbsp;</th><th scope="col" class="rgHeader" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;BidNumber&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl01&#39;,&#39;&#39;)">Bid Number</a></th><th scope="col" class="rgHeader" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;Title&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl02&#39;,&#39;&#39;)">Bid Title</a></th><th scope="col" class="rgHeader" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;TypeTitle&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl03&#39;,&#39;&#39;)">Bid Type</a></th><th scope="col" class="rgHeader" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;WorkGroupName&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl04&#39;,&#39;&#39;)">Organization</a></th><th scope="col" class="rgHeader" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;OpenDate&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl06&#39;,&#39;&#39;)">Bid Issue Date</a></th><th scope="col" class="rgHeader rgSorted" nowrap="nowrap"><a onclick="Telerik.Web.UI.Grid.Sort($find(&#39;ctl00_mainContent_rgBidList_ctl00&#39;), &#39;CloseDate&#39;); return false;" title="Click here to sort" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl07&#39;,&#39;&#39;)">Bid Close Date/Time</a>&nbsp;<button type="button" name="ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl08" value="Sorted asc" onclick="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl02$ctl01$ctl08&#39;,&#39;&#39;)" title="Sorted asc" class="t-button rgActionButton rgSortAsc" aria-label="Sorted asc"><span class="t-font-icon rgIcon rgSortAscIcon"></span></button></th>
+		</tr><tr class="rgFilterRow">
+			<td>&nbsp;</td><td style="white-space:nowrap;"><input name="ctl00$mainContent$rgBidList$ctl00$ctl02$ctl02$FilterTextBox_colBidNumber" type="text" size="10" id="ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colBidNumber" class="rgFilterBox" alt="Filter colBidNumber column" aria-label="Bid Number" onkeydown="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyDownWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colBidNumber&quot;,&quot;colBidNumber&quot;,&quot;1500&quot;)" onkeypress="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyPressWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colBidNumber&quot;,&quot;colBidNumber&quot;,&quot;1500&quot;)" /></td><td style="white-space:nowrap;"><input name="ctl00$mainContent$rgBidList$ctl00$ctl02$ctl02$FilterTextBox_colTitle" type="text" size="10" id="ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTitle" class="rgFilterBox" alt="Filter colTitle column" aria-label="Bid Title" onkeydown="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyDownWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTitle&quot;,&quot;colTitle&quot;,&quot;1500&quot;)" onkeypress="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyPressWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTitle&quot;,&quot;colTitle&quot;,&quot;1500&quot;)" /></td><td style="white-space:nowrap;"><input name="ctl00$mainContent$rgBidList$ctl00$ctl02$ctl02$FilterTextBox_colTypeTitle" type="text" size="10" id="ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTypeTitle" class="rgFilterBox" alt="Filter colTypeTitle column" aria-label="Bid Type" onkeydown="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyDownWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTypeTitle&quot;,&quot;colTypeTitle&quot;,&quot;1500&quot;)" onkeypress="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyPressWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colTypeTitle&quot;,&quot;colTypeTitle&quot;,&quot;1500&quot;)" /></td><td style="white-space:nowrap;"><input name="ctl00$mainContent$rgBidList$ctl00$ctl02$ctl02$FilterTextBox_colWorkGroupName" type="text" size="10" id="ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colWorkGroupName" class="rgFilterBox" alt="Filter colWorkGroupName column" aria-label="Organization" onkeydown="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyDownWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colWorkGroupName&quot;,&quot;colWorkGroupName&quot;,&quot;1500&quot;)" onkeypress="$find(&quot;ctl00_mainContent_rgBidList_ctl00&quot;)._filterOnKeyPressWithDelay(event,&quot;ctl00_mainContent_rgBidList_ctl00_ctl02_ctl02_FilterTextBox_colWorkGroupName&quot;,&quot;colWorkGroupName&quot;,&quot;1500&quot;)" /></td><td>&nbsp;</td><td>&nbsp;</td>
+		</tr>
+	</thead><tfoot>
+		<tr class="rgPager">
+			<td class="rgPagerCell" colspan="7"><div class="NextPrevAndNumeric">
+				<div class="rgWrap rgArrPart1">
+					<button type="button" name="ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl02" value=" " onclick="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl02&#39;,&#39;&#39;)" title="First Page" class="t-button rgActionButton rgPageFirst" aria-label="First Page"><span class="t-font-icon rgIcon"></span></button><button type="button" name="ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl03" value=" " onclick="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl03&#39;,&#39;&#39;)" title="Previous Page" class="t-button rgActionButton rgPagePrev" aria-label="Previous Page"><span class="t-font-icon rgIcon"></span></button>
+				</div><div class="rgWrap rgNumPart">
+					<a title="Go to Page 1" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl05&#39;,&#39;&#39;)">1</a><a onclick="return false;" title="Go to Page 2" class="rgCurrentPage" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl06&#39;,&#39;&#39;)">2</a><a title="Go to Page 3" href="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl07&#39;,&#39;&#39;)">3</a>
+				</div><div class="rgWrap rgArrPart2">
+					<button type="button" name="ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl09" value=" " onclick="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl09&#39;,&#39;&#39;)" title="Next Page" class="t-button rgActionButton rgPageNext" aria-label="Next Page"><span class="t-font-icon rgIcon"></span></button><button type="button" name="ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl10" value=" " onclick="javascript:__doPostBack(&#39;ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$ctl10&#39;,&#39;&#39;)" title="Last Page" class="t-button rgActionButton rgPageLast" aria-label="Last Page"><span class="t-font-icon rgIcon"></span></button>
+				</div><div class="rgWrap rgAdvPart">
+					<span id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_ChangePageSizeLabel" title="Page size:" class="rgPagerLabel">Page size:</span><div id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox" class="RadComboBox RadComboBox_Proc">
+						<span class="rcbInner rcbReadOnly"><input name="ctl00$mainContent$rgBidList$ctl00$ctl03$ctl01$PageSizeComboBox" type="text" class="rcbInput radPreventDecorate" id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox_Input" value="20" title="Change page size control" readonly="readonly" /><button class="rcbActionButton" tabindex="-1" type="button"><span id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox_Arrow" class="p-icon p-i-arrow-60-down"></span><span class="rcbButtonText">select</span></button></span><div class="rcbSlide" style="z-index:6000;display:none;"><div id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox_DropDown" class="RadComboBoxDropDown RadComboBoxDropDown_Proc "><div class="rcbScroll rcbWidth"><ul class="rcbList"><li class="rcbItem">10</li><li class="rcbItem">20</li><li class="rcbItem">50</li></ul></div></div></div><input id="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox_ClientState" name="ctl00_mainContent_rgBidList_ctl00_ctl03_ctl01_PageSizeComboBox_ClientState" type="hidden" />
+					</div>
+				</div><div class="rgWrap rgInfoPart">
+					 &nbsp;<strong>46</strong> items in <strong>3</strong> pages
+				</div>
+			</div></td>
+		</tr>
+	</tfoot><tbody>
+	<tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__0">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">PWP-WA-2027-049 Addendum 1</td><td valign="top" width="25%">Marsh Avenue Main Replacement</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">Truckee Meadows Water Authority</td><td valign="top" width="5%">11/3/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">11/24/2026 02:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__1">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">608021-26 Addendum 2</td><td valign="top" width="25%">PARADISE PARK TENNIS COURT CONVERSION PARADISE PARK DOG RUNS</td><td valign="top" width="15%">Clark County BID</td><td valign="top" width="10%">Clark County, Nevada</td><td valign="top" width="5%">10/14/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">11/24/2026 02:15:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__2">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">5588-SS Addendum 1</td><td valign="top" width="25%">Charter Bus Services</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">UNLV (NSHE-Business Center South)</td><td valign="top" width="5%">10/20/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">11/24/2026 03:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__3">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">BID NO. 608079-26</td><td valign="top" width="25%">ANNUAL REQUIREMENTS CONTRACT FOR LANDSCAPE AND GROUNDS MAINTENANCE FOR SEARCHLIGHT &amp; LAUGHLIN PARKS &amp; FACILITIES</td><td valign="top" width="15%">Clark County BID</td><td valign="top" width="10%">Clark County, Nevada</td><td valign="top" width="5%">11/5/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">11/30/2026 03:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__4">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">010895</td><td valign="top" width="25%">3304L Meranto Pumping Station Sewer Lateral Installation</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">Las Vegas Valley Water District</td><td valign="top" width="5%">11/10/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/1/2026 10:00:00 AM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__5">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">608108-26</td><td valign="top" width="25%">WARM SPRINGS ROAD - LAS VEGAS BOULEVARD TO PECOS ROAD</td><td valign="top" width="15%">Clark County BID</td><td valign="top" width="10%">Clark County, Nevada</td><td valign="top" width="5%">11/10/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/1/2026 02:15:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__6">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP 916-CM Addendum 1</td><td valign="top" width="25%">CORPORATE REAL ESTATE ADVISORY FIRM SERVICES</td><td valign="top" width="15%">RFP</td><td valign="top" width="10%">UNLV (NSHE-Business Center South)</td><td valign="top" width="5%">10/20/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/1/2026 03:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__7">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">5590-CB Addendum 1</td><td valign="top" width="25%">Exclusive Non-Alcoholic Beverage Provider For UNLV Events Centers</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">UNLV (NSHE-Business Center South)</td><td valign="top" width="5%">10/21/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/2/2026 02:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__8">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP27015TCG</td><td valign="top" width="25%">Solutions for Students with Significant Cognitive Disabilities</td><td valign="top" width="15%">CCSD Opportunities</td><td valign="top" width="10%">Clark County School District Purchasing</td><td valign="top" width="5%">10/15/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/3/2026 01:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__9">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">27300240</td><td valign="top" width="25%">Carson River Trail System Phase IV Riverview Trailhead</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">Carson City, Nevada</td><td valign="top" width="5%">11/3/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/3/2026 02:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__10">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">607998-26 Addendum 1</td><td valign="top" width="25%">Fire Station 71 Bunkerville Emergency Generator Connection</td><td valign="top" width="15%">Clark County BID</td><td valign="top" width="10%">Clark County, Nevada</td><td valign="top" width="5%">10/26/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/3/2026 02:15:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__11">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">3019</td><td valign="top" width="25%">CONSTRUCTION CONTRACTS - TSA Innovation Checkpoint Renovation</td><td valign="top" width="15%">CC Dept of Aviation - Construction/Engineering: Request for Bid</td><td valign="top" width="10%">Clark County Department of Aviation</td><td valign="top" width="5%">11/10/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/8/2026 01:30:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__12">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">26.MWA154.C1-SK</td><td valign="top" width="25%">Cheyenne Avenue Bus Turnouts</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">City of Las Vegas, Nevada</td><td valign="top" width="5%">11/10/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/14/2026 01:30:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__13">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">IFB 119-27 Black Mountain Nature Preserve</td><td valign="top" width="25%">IFB 119-27 Black Mountain Nature Preserve</td><td valign="top" width="15%">BID</td><td valign="top" width="10%">City of Henderson</td><td valign="top" width="5%">11/12/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/16/2026 03:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__14">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP-EUD 08/06/2026</td><td valign="top" width="25%">Request for Development Proposals: Downtown Core Assemblage</td><td valign="top" width="15%">RFP-I</td><td valign="top" width="10%">City of Las Vegas, Nevada</td><td valign="top" width="5%">8/6/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/16/2026 05:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__15">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP 2026-024 Addendum 4</td><td valign="top" width="25%">Customer Portal &amp;amp; AMI Technology</td><td valign="top" width="15%">RFP</td><td valign="top" width="10%">City of North Las Vegas</td><td valign="top" width="5%">9/21/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/17/2026 01:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__16">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">608032-26</td><td valign="top" width="25%">Custody Services</td><td valign="top" width="15%">RFR</td><td valign="top" width="10%">Clark County, Nevada</td><td valign="top" width="5%">11/10/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/17/2026 03:00:00 PM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__17">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP- EUD 10//2026</td><td valign="top" width="25%">Request for Development Proposals: Ice Hockey Facility - Primary Development Area + Conditional Expansion Opportunity</td><td valign="top" width="15%">RFP-I</td><td valign="top" width="10%">City of Las Vegas, Nevada</td><td valign="top" width="5%">10/21/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/17/2026 05:00:00 PM (PT)</td>
+	</tr><tr class="rgRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__18">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">B27012</td><td valign="top" width="25%">COMPLETE REHABILITATION FOR 3 SCATTERED SITE HOMES</td><td valign="top" width="15%">Construction</td><td valign="top" width="10%">Southern Nevada Regional Housing Authority</td><td valign="top" width="5%">11/4/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/21/2026 10:00:00 AM (PT)</td>
+	</tr><tr class="rgAltRow" valign="top" id="ctl00_mainContent_rgBidList_ctl00__19">
+		<td align="center" valign="top" width="1%" nowrap="nowrap">
+								<span class="flaticon-grid_View" title="View Bid"></span>
+							</td><td valign="top" width="25%">RFP-DNS 10/26/26</td><td valign="top" width="25%">Redevelopment of M Street &amp; Madison Ave.</td><td valign="top" width="15%">RFP-I</td><td valign="top" width="10%">City of Las Vegas, Nevada</td><td valign="top" width="5%">10/26/2026</td><td class="rgSorted" valign="top" width="15%" nowrap="nowrap">12/21/2026 05:00:00 PM (PT)</td>
+	</tr>
+	</tbody>
+
+</table><div id="ctl00_mainContent_rgBidList_SharedCalendarContainer" style="display:none;">
+
+</div><div tabindex="0" id="ctl00_mainContent_rgBidList_rfltMenu">
+	<div class="RadMenu RadMenu_Proc RadMenu_Context RadMenu_Proc_Context">
+		<ul class="rmActive rmVertical rmGroup rmLevel1">
+			<li class="rmItem rmFirst"><span class="rmLink" tabindex="0">NoFilter</span></li><li class="rmItem "><span class="rmLink" tabindex="0">Contains</span></li><li class="rmItem "><span class="rmLink" tabindex="0">DoesNotContain</span></li><li class="rmItem "><span class="rmLink" tabindex="0">StartsWith</span></li><li class="rmItem "><span class="rmLink" tabindex="0">EndsWith</span></li><li class="rmItem "><span class="rmLink" tabindex="0">EqualTo</span></li><li class="rmItem "><span class="rmLink" tabindex="0">NotEqualTo</span></li><li class="rmItem "><span class="rmLink" tabindex="0">GreaterThan</span></li><li class="rmItem "><span class="rmLink" tabindex="0">LessThan</span></li><li class="rmItem "><span class="rmLink" tabindex="0">GreaterThanOrEqualTo</span></li><li class="rmItem "><span class="rmLink" tabindex="0">LessThanOrEqualTo</span></li><li class="rmItem "><span class="rmLink" tabindex="0">Between</span></li><li class="rmItem "><span class="rmLink" tabindex="0">NotBetween</span></li><li class="rmItem "><span class="rmLink" tabindex="0">IsEmpty</span></li><li class="rmItem "><span class="rmLink" tabindex="0">NotIsEmpty</span></li><li class="rmItem "><span class="rmLink" tabindex="0">IsNull</span></li><li class="rmItem "><span class="rmLink" tabindex="0">NotIsNull</span></li><li class="rmItem rmLast"><span class="rmLink" tabindex="0">Custom</span></li>
+		</ul>
+	</div><input id="ctl00_mainContent_rgBidList_rfltMenu_ClientState" name="ctl00_mainContent_rgBidList_rfltMenu_ClientState" type="hidden" />
+</div><input id="ctl00_mainContent_rgBidList_ClientState" name="ctl00_mainContent_rgBidList_ClientState" type="hidden" />    </div>
+</form>

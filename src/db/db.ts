@@ -58,6 +58,9 @@ async function openPostgres(url: string, sslNoVerify?: boolean): Promise<Db> {
     max: 5,
     ssl: sslNoVerify ? { rejectUnauthorized: false } : undefined,
   });
+  // An idle pooled connection can be closed by the server or a pooler. Without a listener node-postgres
+  // raises that as an unhandled 'error' event and the process dies; the pool replaces the client itself.
+  pool.on('error', (err) => console.error(`[db] idle connection dropped: ${err.message}`));
   return {
     kind: 'postgres',
     async query<T>(sql: string, params: unknown[] = []) {

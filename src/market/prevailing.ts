@@ -9,8 +9,8 @@
  *  - the state rate is not presented as the federal Davis-Bacon rate
  */
 import { readFileSync, readdirSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { milesBetween } from '../geo/locate.js';
+import { projectDir } from '../paths.js';
 import type { Bid } from '../types.js';
 import { pacificParts } from '../util/time.js';
 import { normalizeCounty } from './stats.js';
@@ -154,7 +154,7 @@ export function validatePrevailingWage(input: unknown, file = 'prevailing wage t
   return t as PrevailingWageTable;
 }
 
-const CONFIG_DIR = fileURLToPath(new URL('../../config/prevailing-wage/', import.meta.url));
+const CONFIG_DIR = `${projectDir('config').replace(/\/+$/, '')}/prevailing-wage/`;
 
 /** Every table in config/prevailing-wage/, validated. */
 export function loadPrevailingWageTables(dir: string = CONFIG_DIR): PrevailingWageTable[] {

@@ -1,19 +1,22 @@
+import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
-import { buildDeps, scanProfiles } from './app.js';
+import { buildDeps, scanProfiles, type AppDeps } from './app.js';
 import { registerCsrfGuard } from './auth/guard.js';
 import { createAuth, type AuthService } from './auth/index.js';
 import { createContext, loadConfig, type AppConfig, type RouteContext } from './context.js';
 import type { Db } from './db/db.js';
 import { env, loadEnv } from './env.js';
+import { projectDir } from './paths.js';
 import type { MarketHttp } from './market/refresh.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
 import { startRealtime } from './realtime/index.js';
 import { register as adminRoutes } from './routes/admin.js';
 import { register as authRoutes } from './routes/auth.js';
+import { register as cronRoutes } from './routes/cron.js';
 import { register as estimateRoutes } from './routes/estimate.js';
 import { register as feedRoutes } from './routes/feed.js';
 import { register as marketRoutes } from './routes/market.js';
@@ -24,7 +27,7 @@ import { runScan, type ScanReport } from './scan.js';
 import { scheduleDaily } from './scheduler.js';
 import type { Profile } from './types.js';
 
-const WEB_DIR = fileURLToPath(new URL('../web/', import.meta.url));
+const WEB_DIR = projectDir('web');
 
 export interface ServerOptions {
   /** Shortcuts for config.accessCode / config.adminToken; they win over `config`. */
@@ -76,7 +79,8 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     // to "/api/me", so the raw text alone would wave that request through.
     const route = req.routeOptions.url ?? '';
     if (!route.startsWith('/api/') && !req.url.startsWith('/api/')) return; // the app shell and its files
-    if (route === '/api/health' || route.startsWith('/api/admin/')) return; // health is public; admin routes check their own token
+    // health is public; admin and cron routes check their own token
+    if (route === '/api/health' || route.startsWith('/api/admin/') || route.startsWith('/api/cron/')) return;
     const given = String(req.headers['x-access-code'] ?? '');
     if (!safeEqual(given, config.accessCode)) return reply.code(401).send({ error: 'access_code_required' });
   });
@@ -95,11 +99,13 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
   });
 
   // One plugin per area; each file has exactly one owner.
-  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes]) {
+  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes, cronRoutes]) {
     await routes(app, ctx);
   }
 
-  await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
+  // The app shell. A serverless host serves these files from its CDN (the build copies web/ to
+  // public/), and the folder is not inside the function there: nothing to register.
+  if (existsSync(WEB_DIR)) await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
   return { app, ctx };
 }
 
@@ -109,16 +115,10 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
 
 // ---------------------------------------------------------------- main --
 
-async function main() {
-  loadEnv();
-  const config = loadConfig();
-  const deps = await buildDeps(config);
-  const bus = createBus((err, event) => {
-    console.error(`[bus] a "${event.type}" listener failed: ${err instanceof Error ? err.message : String(err)}`);
-  });
+/** One scan at a time (manual trigger, schedule, cron route), with the pilot's digest after it. */
+function createScanRunner(deps: AppDeps, config: AppConfig, bus: Bus): () => Promise<ScanReport> {
   let running: Promise<ScanReport> | null = null;
-
-  const scan = async () => {
+  return async () => {
     // Never run two scans at once (manual trigger + schedule).
     running ??= (async () => {
       try {
@@ -138,10 +138,25 @@ async function main() {
     })();
     return running;
   };
+}
 
+/** Database, sources, bus, app and realtime wiring: everything except listening and timers. */
+async function boot() {
+  loadEnv();
+  const config = loadConfig();
+  const deps = await buildDeps(config);
+  const bus = createBus((err, event) => {
+    console.error(`[bus] a "${event.type}" listener failed: ${err instanceof Error ? err.message : String(err)}`);
+  });
+  const scan = createScanRunner(deps, config, bus);
   const { app, ctx } = await buildApp(deps, {
     config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'),
   });
+  return { app, ctx, deps, scan };
+}
+
+async function main() {
+  const { app, ctx, deps, scan } = await boot();
   const port = Number(env('PORT') ?? 8787);
   await app.listen({ port, host: env('HOST') ?? '0.0.0.0' });
 
@@ -164,7 +179,22 @@ async function main() {
   process.on('SIGTERM', shutdown);
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/**
+ * Serverless start (Vercel). The host imports this file for each new instance and routes requests to
+ * the server that listens; the instance is frozen between requests and thrown away when idle. So:
+ * no timers (the host's scheduler calls GET /api/cron/* instead, see vercel.json), and the database
+ * must be a real Postgres (DATABASE_URL): the embedded one would start empty on every instance.
+ */
+async function serverless() {
+  if (!env('DATABASE_URL')) throw new Error('DATABASE_URL is required on a serverless host: the embedded database does not survive between requests');
+  const { app, ctx } = await boot();
+  startRealtime(ctx); // stores alerts for what a scan publishes; the stream and push hang off the same bus
+  await app.listen({ port: Number(env('PORT') ?? 3000), host: '0.0.0.0' });
+}
+
+if (process.env.VERCEL) {
+  await serverless();
+} else if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   main().catch((err) => {
     console.error(err);
     process.exit(1);

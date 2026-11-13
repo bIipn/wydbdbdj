@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "fastify",
+  "buildCommand": "npm run build && rm -rf public && cp -r web public",
+  "regions": ["sfo1"],
+  "crons": [
+    { "path": "/api/cron/market", "schedule": "40 11 * * *" },
+    { "path": "/api/cron/scan", "schedule": "20 13 * * *" }
+  ]
+}

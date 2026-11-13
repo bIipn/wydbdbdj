@@ -30,6 +30,8 @@ export interface AppConfig {
   vapid?: { publicKey: string; privateKey: string; subject: string };
   /** Daily market refresh + price/award watch, "HH:MM" Pacific (MARKET_REFRESH_AT). Absent = off. */
   marketRefreshAt?: string;
+  /** Lets the host's scheduler call GET /api/cron/* (serverless hosts). Absent = those routes answer 404. */
+  cronSecret?: string;
 }
 
 /** `env('NAME')`-style getter or a plain object such as process.env. Blank values count as unset. */
@@ -63,6 +65,7 @@ export function loadConfig(env: EnvSource = processEnv): AppConfig {
       ? { publicKey, privateKey, subject: get('VAPID_SUBJECT') ?? (contact ? `mailto:${contact}` : appUrl) }
       : undefined,
     marketRefreshAt,
+    cronSecret: get('CRON_SECRET'),
   };
 }
 

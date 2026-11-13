@@ -106,6 +106,11 @@ export interface MarketWatcher {
   defaultStates(): Promise<string[]>;
   /** Arm the daily refresh (no-op without a schedule). Returns the function that disarms it. */
   start(): () => void;
+  /**
+   * One daily refresh, now: what the timer runs. For hosts whose own scheduler calls the app
+   * (GET /api/cron/market). Always resolves; a failure is logged and shows in status().
+   */
+  runDaily(): Promise<void>;
 }
 
 const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
@@ -266,5 +271,6 @@ export function createMarketWatcher(deps: MarketWatcherDeps): MarketWatcher {
       if (!schedule) return () => {};
       return scheduleDaily(schedule, daily, log, 'market refresh');
     },
+    runDaily: daily,
   };
 }

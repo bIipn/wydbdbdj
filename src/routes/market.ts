@@ -3,13 +3,16 @@ import type { RouteContext } from '../context.js';
 import { awardsFetchedAt, getAwardCoverage, listAwards } from '../db/market.js';
 import { getBid, listProfiles } from '../db/repo.js';
 import { env as processEnv } from '../env.js';
-import { lookupZip as defaultLookupZip } from '../geo/zip.js';
+import { lookupZip as defaultLookupZip, statesWithin as defaultStatesWithin } from '../geo/zip.js';
 import { isStateCode, NATION_AREA, stateInfo } from '../market/areas.js';
 import {
   areaWage, BLS_DISCLAIMER, ELECTRICIANS, materialTrends, metroWagesInState, TRADE_SOC, wageForArea, type AreaWage,
 } from '../market/bls.js';
 import { createMarketHttp, refreshMarket, type MarketHttp } from '../market/refresh.js';
-import { selectSimilarAwards, type AwardLevel, type LadderStep, type SimilarAwards, type SimilarWhere, type ZipLookup } from '../market/stats.js';
+import {
+  hasPriceAtAward, loadedSpan, MIN_PRICED_AWARDS, selectSimilarAwards,
+  type AwardLevel, type CoverageSpan, type LadderStep, type SimilarAwards, type SimilarWhere, type ZipLookup,
+} from '../market/stats.js';
 import { awardWindow, NATIONWIDE, type FederalAward } from '../market/usaspending.js';
 import { featuresFor } from '../plans.js';
 import type { Bid, Profile } from '../types.js';
@@ -19,6 +22,8 @@ import { requireAdmin } from './shared.js';
 export interface MarketRouteDeps {
   /** ZIP → point (+ state, and county when the table has one). Default: src/geo/zip.ts. */
   lookupZip?: (zip: string) => { lat: number; lng: number; state?: string | null; county?: string | null; city?: string | null } | null;
+  /** 2-letter codes of the states a circle reaches. Default: src/geo/zip.ts. An empty list means "not known". */
+  statesWithin?: (center: { lat: number; lng: number }, radiusMi: number) => string[];
   /** HTTP clients for the admin refresh. Default: polite real clients, built on first use. */
   http?: MarketHttp;
   env?: (name: string) => string | undefined;
@@ -29,9 +34,14 @@ export const AWARDS_SOURCE = {
   url: 'https://www.usaspending.gov/',
   note: 'Federal contract awards only, and only the winner\'s amount. Awards show up about 5 days after signing; Defense and Army Corps awards about 90 days.',
 };
-export const AMOUNT_LABEL = 'Price at award: the first signed amount, before any modification.';
+/**
+ * What the dollar figure is. It is the first obligation (Mod 0), which for a contract with option
+ * years is the base period only, so it is never called the contract price.
+ */
+export const AMOUNT_LABEL = 'Amount obligated when the award was signed (its first action). Option years and later funding are not included; orders described as a minimum guarantee are left out.';
 const WAGE_NOTE = 'Published BLS wage for the area and survey period shown. It is not a prevailing wage and not a loaded rate: a public job may require prevailing wage. '
-  + 'BLS also publishes metro areas; we do not match ZIP codes to them yet, so the main figure is the state\'s, or the nation\'s when we hold nothing for the state.';
+  + 'BLS also publishes metro areas; we do not match ZIP codes to them yet, so the main figure is the state\'s, or the nation\'s when we hold nothing for the state. '
+  + 'BLS publishes no sample size for these figures. "employment" is its estimate of how many jobs the occupation has in the area; figures for an area with few jobs are generally less precise.';
 const MATERIAL_NOTE = 'National price indexes, not dollar prices. Updated monthly; the newest months are preliminary and get revised.';
 const RECENT_LIMIT = 10;
 
@@ -45,6 +55,8 @@ function single(q: Query, key: string, error: string): Parsed<string | undefined
   const v = q[key];
   if (v === undefined) return ok(undefined);
   if (typeof v !== 'string') return bad(error, `${key} must be given once`);
+  // Postgres text cannot hold a NUL byte: a lookup with one fails with a database error instead of finding nothing.
+  if (v.includes('\u0000')) return bad(error, `${key} has a character that is not allowed`);
   return ok(v.trim() === '' ? undefined : v.trim());
 }
 
@@ -112,8 +124,18 @@ const SKIP_TEXT: Record<NonNullable<LadderStep['skipped']>, string> = {
   not_loaded: 'nationwide awards are not loaded',
 };
 
+/** Why there is no answer for a place we could resolve: a code never pulled there, or pulls that do not reach the window. */
+function notLoadedText(coverage: readonly CoverageSpan[], codes: readonly string[], state: string | null, window: { startDate: string; endDate: string }): string {
+  const place = stateInfo(state)?.name ?? state ?? 'this area';
+  const never = codes.filter((c) => loadedSpan(coverage, [c], state, '', NATIONWIDE) === null);
+  return never.length
+    ? `We have not loaded federal awards for NAICS ${never.join(', ')} in ${place} yet, so there is nothing to compare.`
+    : `We have not loaded federal awards for NAICS ${codes.join(', ')} in ${place} for ${window.startDate} to ${window.endDate} yet, so there is nothing to compare.`;
+}
+
 export async function register(app: FastifyInstance, ctx: RouteContext, deps: MarketRouteDeps = {}): Promise<void> {
   const lookupZip = deps.lookupZip ?? defaultLookupZip;
+  const statesWithin = deps.statesWithin ?? defaultStatesWithin;
   const env = deps.env ?? processEnv;
   const zipLookup: ZipLookup = (zip) => lookupZip(zip);
 
@@ -209,7 +231,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
 
     const awards = await listAwards(ctx.db, { naics: codes, since: window.startDate });
     const coverage = await getAwardCoverage(ctx.db);
-    const nationwide = codes.every((c) => coverage.some((cov) => cov.scope === NATIONWIDE && cov.naics === c && cov.fromDate <= window.startDate));
+    // What we hold for a state and ALL of these codes inside the window (null state = the nationwide pulls alone).
+    const spanOf = (state: string | null): { from: string; to: string } | null => loadedSpan(coverage, codes, state, window.startDate, NATIONWIDE);
 
     // Where the job is: the bid's own place, else the ZIP asked for, else the profile's base.
     let where: SimilarWhere;
@@ -230,44 +253,93 @@ export async function register(app: FastifyInstance, ctx: RouteContext, deps: Ma
       center = profile.base.label;
     }
 
-    const result = selectSimilarAwards(awards, where, { lookupZip: zipLookup, nationwide });
-    const label = result.level ? levelLabel(result.level, result, center) : null;
-    const range = result.dateRange ? `, ${result.dateRange.from} to ${result.dateRange.to}` : '';
-    const summary = !result.level
+    // First pass: only to learn which state the place is in. No rows there can mean "none exist" or
+    // "never pulled", and only the coverage table can tell the two apart.
+    const placed = selectSimilarAwards(awards, where, { lookupZip: zipLookup });
+    const state = placed.place.state;
+    const span = spanOf(state);
+    // A point with no state and no nationwide pull: we cannot tell whether its awards are loaded.
+    const placedOk = placed.level !== null && (state !== null || span !== null);
+    const loaded = placedOk && span !== null;
+    // The window the answer covers: what was asked for, cut to what our pulls hold.
+    const from = loaded && span.from > window.startDate ? span.from : window.startDate;
+    const to = loaded && span.to < window.endDate ? span.to : window.endDate;
+    const whole = (sp: { from: string; to: string } | null): boolean => sp !== null && sp.from <= from && sp.to >= to;
+    const nationwide = loaded && whole(spanOf(null));
+    const narrowed = from !== window.startDate || to !== window.endDate;
+    const result = !loaded ? null : !narrowed && !nationwide ? placed : selectSimilarAwards(
+      narrowed ? awards.filter((a) => a.actionDate !== null && a.actionDate >= from && a.actionDate <= to) : awards,
+      { ...where, state }, { lookupZip: zipLookup, nationwide },
+    );
+
+    const stateName = (code: string | null): string => stateInfo(code)?.name ?? code ?? 'this area';
+    let notes = '';
+    let missingStates: string[] = [];
+    let partialStates: string[] = [];
+    if (result) {
+      if (from !== window.startDate) notes += ` Our federal award records for ${stateName(state)} start ${from}.`;
+      // A circle can reach into states we never pulled: their awards are not in the count, so name them.
+      if (result.level === 'zip_radius' && !nationwide) {
+        const point = where.center ?? (where.zip ? lookupZip(where.zip) : null);
+        const reached = point ? [...new Set(statesWithin({ lat: point.lat, lng: point.lng }, radiusMi).map((c) => c.toUpperCase()))].filter(isStateCode).sort() : [];
+        missingStates = reached.filter((c) => spanOf(c) === null);
+        partialStates = reached.filter((c) => spanOf(c) !== null && !whole(spanOf(c)));
+        if (missingStates.length) notes += ` Awards in ${missingStates.map(stateName).join(', ')} are not loaded, so they are left out.`;
+        if (partialStates.length) notes += ` Awards in ${partialStates.map(stateName).join(', ')} are loaded for only part of this period.`;
+      }
+    }
+
+    const label = result?.level ? levelLabel(result.level, result, center) : null;
+    const range = result?.dateRange ? `, ${result.dateRange.from} to ${result.dateRange.to}` : '';
+    const summary = !placedOk
       ? 'We could not place this location, so there are no federal awards to compare.'
-      : result.enough
-        ? `Based on ${result.priced} federal awards ${label}${range}. ${AMOUNT_LABEL}`
-        : `${result.priced} federal award${result.priced === 1 ? '' : 's'} with a price at award ${label}${range}: not enough to show a range (we need ${result.minCount}).`;
+      : !result
+        ? notLoadedText(coverage, codes, state, window)
+        : result.enough
+          ? `Based on ${result.priced} federal awards ${label}${range}. ${AMOUNT_LABEL}${notes}`
+          : `${result.priced} federal award${result.priced === 1 ? '' : 's'} with an amount obligated at signing ${label}${range}: not enough to show a range (we need ${result.minCount}).${notes}`;
 
     const scope = {
-      level: result.level,
+      level: result?.level ?? null,
       label,
       naics: codes,
       months: monthsBack,
-      window: { from: window.startDate, to: window.endDate },
-      radiusMi: result.level === 'zip_radius' ? radiusMi : null,
-      // Which states' awards are loaded for these NAICS codes: a radius that crosses into a state not listed undercounts.
+      // What the count covers: starts and ends where our pulls do when that is inside what was asked for.
+      window: { from, to },
+      radiusMi: result?.level === 'zip_radius' ? radiusMi : null,
       coverage: {
-        states: [...new Set(coverage.filter((c) => c.scope !== NATIONWIDE && codes.includes(c.naics)).map((c) => c.scope))].sort(),
+        // States where EVERY one of these NAICS codes is loaded from the start of the window above.
+        states: [...new Set(coverage.map((c) => c.scope))].filter((c) => c !== NATIONWIDE && (spanOf(c)?.from ?? '9999') <= from).sort(),
         nationwide,
+        // Radius answers: states the circle reaches whose awards are not in the count, or only for part of
+        // the window. Both empty when there are none, or when we could not tell which states it reaches.
+        missingStates,
+        partialStates,
       },
     };
-    const common = { scope, dateRange: result.dateRange, source: AWARDS_SOURCE, asOf: await awardsFetchedAt(ctx.db), summary };
+    // notLoaded: we never pulled this place, code or period. That is not "zero awards", so there is no count.
+    const common = {
+      notLoaded: placedOk && !loaded, scope, dateRange: result?.dateRange ?? null, source: AWARDS_SOURCE, asOf: await awardsFetchedAt(ctx.db), summary,
+    };
+    const count = result ? result.priced : null;
 
     // Without award history the plan sees how many there are, nothing about what they went for.
-    if (!featuresFor(id.plan).awardHistory) return { locked: true, stats: { count: result.priced }, ...common };
+    if (!featuresFor(id.plan).awardHistory) return { locked: true, stats: { count }, ...common };
 
-    const s = result.stats;
+    const s = result?.stats ?? null;
+    // Not placed at all: the ladder still says why each level was skipped. Not loaded: no ladder, it would read as counts.
+    const ladder = result?.ladder ?? (placed.level === null ? placed.ladder : []);
     return {
       locked: false,
-      stats: { count: result.priced, min: s?.min ?? null, p25: s?.p25 ?? null, median: s?.median ?? null, p75: s?.p75 ?? null, max: s?.max ?? null },
-      enough: result.enough,
-      minCount: result.minCount,
-      amountBasis: result.amountBasis,
+      stats: { count, min: s?.min ?? null, p25: s?.p25 ?? null, median: s?.median ?? null, p75: s?.p75 ?? null, max: s?.max ?? null },
+      enough: result?.enough ?? false,
+      minCount: result?.minCount ?? MIN_PRICED_AWARDS,
+      amountBasis: placed.amountBasis,
       amountLabel: AMOUNT_LABEL,
-      excludedNoPrice: result.excludedNoPrice,
-      ladder: result.ladder.map((step) => ({ ...step, skipped: step.skipped ? SKIP_TEXT[step.skipped] : undefined })),
-      recent: result.awards.slice(0, RECENT_LIMIT),
+      excludedNoPrice: result?.excludedNoPrice ?? 0,
+      ladder: ladder.map((step) => ({ ...step, skipped: step.skipped ? SKIP_TEXT[step.skipped] : undefined })),
+      // inStats false: shown in the list but not in the range (no amount at signing, or a minimum-guarantee order).
+      recent: (result?.awards ?? []).slice(0, RECENT_LIMIT).map((a) => ({ ...a, inStats: hasPriceAtAward(a) })),
       ...common,
     };
   });

@@ -1,9 +1,11 @@
 /**
  * Price statistics for "what similar jobs were awarded for". Pure: no database, no clock, no network.
  *
- * Two rules the product depends on:
- *  - The number is always the PRICE AT AWARD (the first signed amount). Awards without one are left
- *    out of the statistics and counted, never filled in from the current amount.
+ * Three rules the product depends on:
+ *  - The number is always the "price at award": the dollars obligated by the award's FIRST action
+ *    (Mod 0). It is not the contract's full value: option years and later funding are not in it.
+ *    Awards without one are left out of the statistics and counted, never filled in from the current amount.
+ *  - Orders that only fund a contract's minimum guarantee are placeholders, not jobs: left out and counted too.
  *  - A range is shown only from MIN_PRICED_AWARDS priced awards up, and the answer always says which
  *    geography level it used, how many awards, and their date range.
  */
@@ -64,6 +66,48 @@ export function priceStats(values: readonly number[]): PriceStats | null {
   };
 }
 
+// ---------------------------------------------------------------- coverage --
+
+/** One complete pull we hold: a place ("NV", or the nationwide scope) and NAICS code, for one unbroken stretch of dates. */
+export interface CoverageSpan {
+  scope: string;
+  naics: string;
+  /** YYYY-MM-DD, inclusive. */
+  fromDate: string;
+  toDate: string;
+}
+
+/**
+ * The stretch of dates for which EVERY one of `codes` is loaded for a state, among pulls that reach
+ * `since` or later. Pulls of the state itself and of the whole country (`nationwideScope`) count;
+ * pass `state: null` to ask about the nationwide pulls alone.
+ *
+ * null = at least one code has no such pull, or the codes share no date: the caller must answer
+ * "not loaded", which is a different thing from "zero awards".
+ *
+ * Two pulls for one code are joined only when their dates overlap. Otherwise the later one is used,
+ * so a hole between pulls is never reported as covered.
+ */
+export function loadedSpan(
+  coverage: readonly CoverageSpan[], codes: readonly string[], state: string | null, since: string, nationwideScope = 'US',
+): { from: string; to: string } | null {
+  let from = '';
+  let to = '9999-12-31';
+  for (const code of codes) {
+    const pulls = coverage
+      .filter((c) => c.naics === code && (c.scope === nationwideScope || (state !== null && c.scope === state)) && c.toDate >= since)
+      .sort((a, b) => a.fromDate.localeCompare(b.fromDate));
+    const span = pulls.reduce<{ from: string; to: string } | null>(
+      (s, p) => (s && p.fromDate <= s.to ? { from: s.from, to: p.toDate > s.to ? p.toDate : s.to } : { from: p.fromDate, to: p.toDate }),
+      null,
+    );
+    if (!span) return null;
+    if (span.from > from) from = span.from;
+    if (span.to < to) to = span.to;
+  }
+  return codes.length > 0 && from <= to ? { from, to } : null;
+}
+
 // --------------------------------------------------------- similar awards --
 
 /** A range is shown only when at least this many awards have a price at award. */
@@ -74,8 +118,10 @@ export const AWARD_LADDER: readonly AwardLevel[] = ['zip_radius', 'county', 'sta
 
 /** The slice of an award the selection reads. Rows are expected to be pre-filtered by NAICS and date window. */
 export interface AwardPoint {
-  /** First signed amount (Mod 0). null = unknown. */
+  /** Dollars obligated by the first action (Mod 0). null = unknown. */
   priceAtAward: number | null;
+  /** The award's own description, when the caller has it: read only to spot minimum-guarantee orders. */
+  description?: string | null;
   /** Signed / base obligation date, YYYY-MM-DD. */
   actionDate: string | null;
   zip: string | null;
@@ -119,7 +165,7 @@ export interface LadderStep {
   level: AwardLevel;
   /** Awards in this scope with a usable price at award. */
   priced: number;
-  /** Awards in this scope left out because they have no usable price at award. */
+  /** Awards in this scope left out: no usable price at award, or a minimum-guarantee order. */
   excludedNoPrice: number;
   /** Set when the level could not be tried at all. */
   skipped?: SkipReason;
@@ -131,9 +177,9 @@ export interface SimilarAwards<T extends AwardPoint> {
   /** True when `priced` reached the floor, i.e. `stats` is present. */
   enough: boolean;
   minCount: number;
-  /** N: awards with a price at award in the chosen scope. */
+  /** N: awards with a usable price at award in the chosen scope. */
   priced: number;
-  /** Awards in the chosen scope left out of the statistics for lack of a price at award. */
+  /** Awards in the chosen scope left out of the statistics: no price at award, or a minimum-guarantee order. */
   excludedNoPrice: number;
   /** Which amount the statistics use. Always the price at award. */
   amountBasis: 'price_at_award';
@@ -148,9 +194,23 @@ export interface SimilarAwards<T extends AwardPoint> {
   place: { state: string | null; county: string | null; radiusMi: number; hasPoint: boolean };
 }
 
-/** A price at award we can use in statistics: a finite amount above zero. */
-export function hasPriceAtAward(a: Pick<AwardPoint, 'priceAtAward'>): boolean {
-  return typeof a.priceAtAward === 'number' && Number.isFinite(a.priceAtAward) && a.priceAtAward > 0;
+// Wordings seen in the live capture of 2026-11-13: "MINIMUM GUARANTEE TASK ORDER", "WRMACC MIN GUARANTEE SHEMP",
+// "MIN. GUARANTEE TASK ORDER", "MINIMUM ORDER GUARANTEE", "GUARANTEED MINIMUM FOR ...", and the typo "MIN GURANTEE".
+const MINIMUM_GUARANTEE = /\b(?:min(?:imum|\.)?\s+(?:order\s+)?gua?rantee|guaranteed\s+minimum)/i;
+
+/**
+ * An order whose description says it funds a contract's minimum guarantee: a placeholder of a few
+ * hundred or thousand dollars on an indefinite-delivery contract, not the price of a job. Only the
+ * wording is read. A dollar floor would also throw out real small jobs, so placeholders that do
+ * not say what they are stay in.
+ */
+export function isMinimumGuarantee(a: Pick<AwardPoint, 'description'>): boolean {
+  return typeof a.description === 'string' && MINIMUM_GUARANTEE.test(a.description);
+}
+
+/** A price at award we can use in statistics: a finite amount above zero, on an award that is not a minimum-guarantee order. */
+export function hasPriceAtAward(a: Pick<AwardPoint, 'priceAtAward' | 'description'>): boolean {
+  return typeof a.priceAtAward === 'number' && Number.isFinite(a.priceAtAward) && a.priceAtAward > 0 && !isMinimumGuarantee(a);
 }
 
 /** "CLARK", "Clark County" and "clark" are the same county. */

@@ -16,7 +16,7 @@
  * BLS_API_KEY (optional) raises the BLS allowance. With the embedded database, stop the server
  * first (one process at a time) or use POST /api/admin/market/refresh on the running server.
  */
-import { resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { openDb, type Db } from '../db/db.js';
 import { awardCounts, listAwards, seriesCounts } from '../db/market.js';
@@ -83,7 +83,8 @@ const money = (v: number): string => v.toLocaleString('en-US', { minimumFraction
 const pct = (c: TrendChange | null): string => (c ? `${c.pct > 0 ? '+' : ''}${c.pct.toFixed(1)}% (from ${c.from.periodLabel})` : 'n/a');
 const dollars = (v: number | null): string => (v === null ? 'n/a' : `$${v.toFixed(2)}`);
 const wageLine = (w: AreaWage): string =>
-  `  ${w.areaName.padEnd(42)} mean ${dollars(w.mean)} · median ${dollars(w.median)} · p25 ${dollars(w.p25)} · p75 ${dollars(w.p75)}   [${w.level}, ${w.periodLabel}]`;
+  `  ${w.areaName.padEnd(42)} mean ${dollars(w.mean)} · median ${dollars(w.median)} · p25 ${dollars(w.p25)} · p75 ${dollars(w.p75)} · p90 ${dollars(w.p90)}`
+  + ` · jobs ${w.employment === null ? 'n/a' : w.employment.toLocaleString('en-US')}   [${w.level}, ${w.periodLabel}]`;
 
 /** Everything a refresh stored, as text: counts, price-at-award ranges, wages, index trends. */
 export async function describeStored(db: Db, args: Pick<MarketCliArgs, 'states' | 'months' | 'naics'>, now: Date): Promise<string[]> {
@@ -96,16 +97,17 @@ export async function describeStored(db: Db, args: Pick<MarketCliArgs, 'states' 
   }
 
   const window = awardWindow(now, args.months);
-  out.push('', `Price at award (Mod 0 amount), awards signed ${window.startDate} to ${window.endDate}. A range needs ${MIN_PRICED_AWARDS} priced awards.`);
+  out.push('', `Amount obligated at signing (Mod 0 amount), awards signed ${window.startDate} to ${window.endDate}. A range needs ${MIN_PRICED_AWARDS} such awards; minimum-guarantee orders are left out.`);
   const states = args.states.filter((s) => s !== NATIONWIDE);
   for (const state of states.length ? states : [...new Set(counts.flatMap((c) => c.state ?? []))]) {
     for (const naics of args.naics) {
       const rows = await listAwards(db, { naics: [naics], since: window.startDate, states: [state] });
       const priced = rows.filter(hasPriceAtAward);
       const s = priced.length >= MIN_PRICED_AWARDS ? priceStats(priced.map((a) => a.priceAtAward!)) : null;
+      const leftOut = `(${rows.length - priced.length} left out: no amount, or a minimum guarantee)`;
       out.push(s
-        ? `  ${state} ${naics}  n=${s.count}  min ${money(s.min)} · p25 ${money(s.p25)} · median ${money(s.median)} · p75 ${money(s.p75)} · max ${money(s.max)}   (${rows.length - priced.length} without a price left out)`
-        : `  ${state} ${naics}  n=${priced.length}: not enough to show a range   (${rows.length - priced.length} without a price left out)`);
+        ? `  ${state} ${naics}  n=${s.count}  min ${money(s.min)} · p25 ${money(s.p25)} · median ${money(s.median)} · p75 ${money(s.p75)} · max ${money(s.max)}   ${leftOut}`
+        : `  ${state} ${naics}  n=${priced.length}: not enough to show a range   ${leftOut}`);
     }
   }
 
@@ -198,8 +200,22 @@ export async function main(argv: readonly string[] = process.argv.slice(2), deps
   }
 }
 
-// Run only as a script (npm run market:refresh), never on import.
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+/**
+ * True when this file is what node was started with (npm run market:refresh), false on import.
+ * Real paths on both sides: node resolves symlinks for import.meta.url but not for argv[1], so
+ * through a symlinked folder (/srv/app/current/…) a plain comparison never matched, and the
+ * command did nothing and exited 0.
+ */
+export function startedAsScript(argv1: string | undefined = process.argv[1], self: string = fileURLToPath(import.meta.url)): boolean {
+  if (!argv1) return false;
+  try {
+    return realpathSync(argv1) === realpathSync(self);
+  } catch {
+    return false; // argv[1] is not a file (node -e, a test runner): we were imported
+  }
+}
+
+if (startedAsScript()) {
   main().then((code) => process.exit(code), (err) => {
     console.error(err);
     process.exit(1);

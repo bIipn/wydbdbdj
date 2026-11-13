@@ -12,6 +12,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { milesBetween } from '../geo/locate.js';
 import type { Bid } from '../types.js';
+import { pacificParts } from '../util/time.js';
 import { normalizeCounty } from './stats.js';
 
 // ------------------------------------------------------------------ table --
@@ -187,10 +188,17 @@ export type HintBid = Pick<Bid, 'source' | 'location' | 'estValue' | 'naics' | '
 export interface ZoneEstimate {
   /** Straight-line miles from the measuring point, rounded. */
   distanceMi: number;
+  /** The zone for the straight-line miles. The road is never shorter, so a count by road can only raise it. */
   zone: number;
   addPerHour: number;
-  /** Within 5 miles of a zone line: the real zone may differ. */
+  /** The real zone may differ: within 5 miles of a zone line, or a count by road could reach the next zone. */
   nearBoundary: boolean;
+  /**
+   * The zone if the miles are counted by road (straight line × ROAD_ALLOWANCE). Equal to `zone` when
+   * that stays inside it. Anything that costs labor from this estimate must use `maxAddPerHour`.
+   */
+  maxZone: number;
+  maxAddPerHour: number;
 }
 
 export interface PrevailingWageHint {
@@ -223,12 +231,31 @@ function shortDate(isoDay: string): string {
   return `${Number(m)}/${Number(d)}/${y!.slice(2)}`;
 }
 
-/** The zone for a straight-line distance: the first zone whose upper end is not passed. */
+/**
+ * Roads run longer than the straight line, so a straight-line zone can only be too LOW. This factor
+ * decides when to warn and show the next zone as well. It is a judgment allowance, not a
+ * measurement: it is never shown as a mileage, and a mountain route can exceed it, which is why
+ * the copy keeps "the bid documents control" and the whole zone table.
+ */
+export const ROAD_ALLOWANCE = 1.25;
+
+/**
+ * The zone for a straight-line distance (the first zone whose upper end is not passed), and the
+ * zone the same trip could fall in when counted by road.
+ */
 export function zoneFor(zones: readonly ZoneRow[], distanceMi: number): ZoneEstimate | null {
-  const row = zones.find((z) => z.toMi === null || distanceMi <= z.toMi);
+  const at = (mi: number): ZoneRow | undefined => zones.find((z) => z.toMi === null || mi <= z.toMi);
+  const row = at(distanceMi);
   if (!row) return null;
-  const nearBoundary = zones.some((z) => z.toMi !== null && Math.abs(distanceMi - z.toMi) <= 5);
-  return { distanceMi: Math.round(distanceMi), zone: row.zone, addPerHour: row.addPerHour, nearBoundary };
+  const byRoad = at(distanceMi * ROAD_ALLOWANCE) ?? row;
+  const nearBoundary = byRoad.zone !== row.zone || zones.some((z) => z.toMi !== null && Math.abs(distanceMi - z.toMi) <= 5);
+  return { distanceMi: Math.round(distanceMi), zone: row.zone, addPerHour: row.addPerHour, nearBoundary, maxZone: byRoad.zone, maxAddPerHour: byRoad.addPerHour };
+}
+
+/** Today's date in Pacific time, YYYY-MM-DD (the tables are Nevada's). */
+export function pacificDay(now: Date = new Date()): string {
+  const { y, mo, d } = pacificParts(now);
+  return `${y}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
 
 function valueBounds(est: Bid['estValue']): { lo: number; hi: number } | null {
@@ -261,7 +288,9 @@ function davisBaconHint(bid: HintBid): PrevailingWageHint {
   };
 }
 
-function stateHint(bid: HintBid, table: PrevailingWageTable): PrevailingWageHint {
+const zoneAdd = (addPerHour: number): string => (addPerHour > 0 ? `add ${usd(addPerHour)}/hr` : 'no zone adder');
+
+function stateHint(bid: HintBid, table: PrevailingWageTable, today: string): PrevailingWageHint {
   const limit = thousands(table.thresholdUsd);
   const value = valueBounds(bid.estValue);
   const noticeSaysSo = bid.flags.some((f) => f === 'Prevailing wage' || f === 'Certified payroll');
@@ -295,6 +324,12 @@ function stateHint(bid: HintBid, table: PrevailingWageTable): PrevailingWageHint
     return { ...base, applies, headline, lines: [...lines, BID_DOCUMENTS_CONTROL], rates: [], zone: null, zoneTable: [] };
   }
 
+  // Past the table's last day its rates are history: say so and show none (a stale rate is a wage violation waiting to happen).
+  if (table.effectiveTo !== null && today > table.effectiveTo) {
+    lines.push(`The rates we have on file (${table.editionLabel}) ended ${shortDate(table.effectiveTo)}, so we are not showing them. See the Labor Commissioner's current rate sheets.`);
+    return { ...base, asOf: null, applies, headline, lines: [...lines, BID_DOCUMENTS_CONTROL], rates: [], zone: null, zoneTable: [] };
+  }
+
   const region = regionForCounty(table, bid.location.county);
   const crafts = region ? table.crafts.filter((c) => c.regionCodes.includes(region.code)) : [];
   const rates = crafts.flatMap((c) => c.rates.map((r) => ({ craft: c.craft, classification: r.classification, totalHourly: r.totalHourly })));
@@ -317,9 +352,13 @@ function stateHint(bid: HintBid, table: PrevailingWageTable): PrevailingWageHint
       const pinned = lat !== null && lng !== null && (precision === 'exact' || precision === 'city');
       zone = pinned ? zoneFor(adders.zones, milesBetween(adders.measuredFrom, { lat, lng })) : null;
       const top = Math.max(...adders.zones.map((z) => z.addPerHour));
-      lines.push(zone
-        ? `About ${zone.distanceMi} mi from the ${adders.measuredFrom.label} in a straight line: Zone ${zone.zone}, ${zone.addPerHour > 0 ? `add ${usd(zone.addPerHour)}/hr` : 'no zone adder'}.${zone.nearBoundary ? ' Close to a zone line: confirm the zone.' : ''}`
-        : `Zone adder of $0.00 to ${usd(top)}/hr by distance from the ${adders.measuredFrom.label}.`);
+      const about = zone ? `About ${zone.distanceMi} mi from the ${adders.measuredFrom.label} in a straight line` : '';
+      lines.push(!zone
+        ? `Zone adder of $0.00 to ${usd(top)}/hr by distance from the ${adders.measuredFrom.label}.`
+        : zone.maxZone !== zone.zone
+          // The straight line can only come out too low: show the next zone too, never one adder alone.
+          ? `${about}: Zone ${zone.zone} (${zoneAdd(zone.addPerHour)}), or up to Zone ${zone.maxZone} (${zoneAdd(zone.maxAddPerHour)}) if the miles are counted by road, which runs longer. Confirm the zone.`
+          : `${about}: Zone ${zone.zone}, ${zoneAdd(zone.addPerHour)}.${zone.nearBoundary ? ' Close to a zone line: confirm the zone.' : ''}`);
     }
     lines.push('Overtime is figured on a base rate this table does not have. Do not multiply the all-in rate.');
     if (table.checkedBy === null) lines.push('These rates were typed in from the state PDF and have not been double-checked on our side yet.');
@@ -329,16 +368,20 @@ function stateHint(bid: HintBid, table: PrevailingWageTable): PrevailingWageHint
 }
 
 /**
- * What to tell a contractor about prevailing wage on this bid. Pure: the bid in, copy out.
- *  - a federal bid (SAM.gov): Davis-Bacon, with a link out
- *  - a state we hold a table for: the threshold rule, and from the threshold up the rates and zone adder
+ * What to tell a contractor about prevailing wage on this bid. Pure when `tables` and `today` are passed: the bid in, copy out.
+ *  - a federal bid (SAM.gov): Davis-Bacon, with a link out. No state table is read for it.
+ *  - a state we hold a table for: the threshold rule, and from the threshold up the rates and zone adder,
+ *    unless `today` (YYYY-MM-DD, default: today in Pacific time) is past the table's last day
  *  - anything else: we say we have nothing on file
+ *
+ * A broken table file throws here, on purpose (a typo must not turn into "no table on file"). Call
+ * prevailingWageTables() once at startup when this is wired into the server, so it stops the boot instead.
  */
-export function prevailingWageHint(bid: HintBid, tables: readonly PrevailingWageTable[] = prevailingWageTables()): PrevailingWageHint {
+export function prevailingWageHint(bid: HintBid, tables?: readonly PrevailingWageTable[], today: string = pacificDay()): PrevailingWageHint {
   if (bid.source === 'samgov') return davisBaconHint(bid);
   const state = bid.location.state?.toUpperCase() ?? null;
-  const table = state ? tables.find((t) => t.jurisdiction === state) : undefined;
-  if (table) return stateHint(bid, table);
+  const table = state ? (tables ?? prevailingWageTables()).find((t) => t.jurisdiction === state) : undefined;
+  if (table) return stateHint(bid, table, today);
   return {
     basis: 'none', applies: 'unknown',
     headline: state ? `No prevailing wage table on file for ${state}` : 'No prevailing wage table on file for this bid',

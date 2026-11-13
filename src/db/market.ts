@@ -234,15 +234,27 @@ export interface AwardCoverage {
   refreshedAt: string;
 }
 
-/** Note that a complete pull covered this place and these NAICS codes for the window. Windows only ever grow. */
+/**
+ * Note that a complete pull covered this place and these NAICS codes for the window.
+ *
+ * A row is ONE unbroken stretch of dates, so "loaded from X" never hides a hole. A pull that
+ * overlaps or touches the stored stretch grows it. A pull that starts after a gap replaces it (the
+ * newest stretch is the one answers are built on). A pull that ends before the stored stretch
+ * starts, with a gap between, changes nothing.
+ */
 export async function recordAwardCoverage(db: Db, scope: string, naics: readonly string[], fromDate: string, toDate: string, at: Date = new Date()): Promise<void> {
   for (const code of naics) {
     await db.query(
       `insert into award_coverage (scope, naics, from_date, to_date, refreshed_at) values ($1, $2, $3::date, $4::date, $5::timestamptz)
        on conflict (scope, naics) do update set
-         from_date = least(award_coverage.from_date, excluded.from_date),
+         from_date = case
+           when excluded.from_date > award_coverage.to_date + 1 then excluded.from_date
+           when excluded.to_date < award_coverage.from_date - 1 then award_coverage.from_date
+           else least(award_coverage.from_date, excluded.from_date) end,
          to_date = greatest(award_coverage.to_date, excluded.to_date),
-         refreshed_at = excluded.refreshed_at`,
+         refreshed_at = case
+           when excluded.to_date < award_coverage.from_date - 1 then award_coverage.refreshed_at
+           else excluded.refreshed_at end`,
       [scope, code, fromDate, toDate, at.toISOString()],
     );
   }

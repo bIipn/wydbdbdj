@@ -27,6 +27,8 @@ const THRESHOLD = capture('bls-daily-threshold.json');
 const THRESHOLD_MESSAGE = 'Request could not be serviced, as the daily threshold for total number of requests allocated to the user with registration key  has been reached.';
 
 const NOW = new Date('2026-11-13T03:00:00Z');
+/** Series in a full refresh: 9 price indexes, then for the nation, 50 states + DC and 6 metro areas: four wage figures, employment and the 90th percentile. */
+const PLANNED = 9 + (1 + 51 + 6) * 6;
 const CAPTURED = new Map<string, RawSeries>([OEWS, OEWS_PCT, PPI, MIXED].flatMap((c) => c.response.Results.series.map((s) => [s.seriesID, s] as const)));
 const NOT_FOUND = new Set(['WPU10260306', 'PCU335122335122']);
 
@@ -250,12 +252,18 @@ describe('fetchBls', () => {
 });
 
 describe('refresh plan', () => {
-  it('asks for the 9 price indexes and four wage figures for the nation, every state and the verified metros', () => {
+  it('asks for the 9 price indexes, then four wage figures, employment and the 90th percentile for the nation, every state and the verified metros', () => {
     const plan = blsRefreshPlan();
-    expect(plan).toHaveLength(9 + (1 + 51 + 6) * 4);
+    expect(plan).toHaveLength(PLANNED);
+    expect(PLANNED).toBe(357);
     expect(new Set(plan.map((p) => p.seriesId)).size).toBe(plan.length);
     expect(plan.slice(0, 9).map((p) => p.seriesId)).toEqual(['WPU10260314', 'WPU11710216', 'WPU117522', 'PCU3353133353133', 'WPU108303', 'WPU1174', 'WPU1171', 'WPUIP2312001', 'PCU23821X23821X']);
-    expect(plan.slice(9, 13).map((p) => p.seriesId)).toEqual(['OEUN000000000000047211103', 'OEUN000000000000047211107', 'OEUN000000000000047211108', 'OEUN000000000000047211109']);
+    // Per area: the wage figures first, then what they rest on (employment, data type 01) and the 90th percentile (10).
+    expect(plan.slice(9, 15).map((p) => p.seriesId)).toEqual([
+      'OEUN000000000000047211103', 'OEUN000000000000047211107', 'OEUN000000000000047211108', 'OEUN000000000000047211109',
+      'OEUN000000000000047211101', 'OEUN000000000000047211110',
+    ]);
+    expect(plan.slice(15, 21).map((p) => p.seriesId.slice(-2))).toEqual(['03', '07', '08', '09', '01', '10']);
     const ids = new Set(plan.map((p) => p.seriesId));
     for (const id of ['OEUS320000000000047211103', 'OEUS060000000000047211109', 'OEUS110000000000047211108', 'OEUM003990000000047211107', 'OEUM320000600000047211103', 'OEUM003562000000047211103']) {
       expect(ids.has(id), id).toBe(true);
@@ -264,10 +272,18 @@ describe('refresh plan', () => {
       seriesId: 'OEUS320000000000047211108', kind: 'oews', title: 'Electricians: hourly median wage', area: 'Nevada', unit: 'USD per hour',
       source: 'BLS Occupational Employment and Wage Statistics (OEWS)', sourceUrl: 'https://www.bls.gov/oes/',
     });
+    // Employment is a count of jobs, never labelled as a wage (or as a sample size).
+    expect(plan.find((p) => p.seriesId === 'OEUM003990000000047211101')!.meta).toEqual({
+      seriesId: 'OEUM003990000000047211101', kind: 'oews', title: 'Electricians: employment', area: 'Reno, NV', unit: 'jobs',
+      source: 'BLS Occupational Employment and Wage Statistics (OEWS)', sourceUrl: 'https://www.bls.gov/oes/',
+    });
+    expect(plan.find((p) => p.seriesId === 'OEUM001618000000047211110')!.meta).toMatchObject({ title: 'Electricians: hourly 90th percentile wage', area: 'Carson City, NV', unit: 'USD per hour' });
+    // The relative standard errors (02, 05) have never been captured, so they are not asked for.
+    expect(plan.some((p) => p.seriesId.startsWith('OEU') && ['02', '05'].includes(p.seriesId.slice(-2)))).toBe(false);
     expect(plan[0]!.meta).toMatchObject({ kind: 'ppi', title: 'Metals and metal products: Copper wire and cable', area: 'United States', unit: 'index', source: 'BLS Producer Price Index (PPI)' });
-    // 241 series = 10 queries without a key (the daily allowance is 25), 5 with one.
-    expect(Math.ceil(plan.length / 25)).toBe(10);
-    expect(Math.ceil(plan.length / 50)).toBe(5);
+    // 357 series = 15 queries without a key (the daily allowance is 25), 8 with one.
+    expect(Math.ceil(plan.length / 25)).toBe(15);
+    expect(Math.ceil(plan.length / 50)).toBe(8);
     expect(PPI_SERIES.every((p) => p.label && p.title)).toBe(true);
   });
 
@@ -281,7 +297,7 @@ describe('refresh plan', () => {
     ]);
     expect(order(['NV', 'CA'])[9]).toBe('S0100000');
     expect(order([]).slice(0, 8)).toEqual(['N0000000', 'M0039900', 'M0029820', 'M0016180', 'M3200006', 'M0040900', 'M0035620', 'S0100000']);
-    // Same series either way: only the order changes. With NV and CA first, one 25-series query holds the indexes, the nation and both states.
+    // Same series either way: only the order changes. With NV and CA first, one 25-series query holds the indexes, the nation and both states' wage figures.
     const plan = blsRefreshPlan(undefined, ['NV', 'CA']);
     expect(plan.map((p) => p.seriesId).sort()).toEqual(blsRefreshPlan().map((p) => p.seriesId).sort());
     expect(plan.slice(0, 25).map((p) => p.seriesId)).toEqual(expect.arrayContaining(['WPU10260314', 'OEUN000000000000047211103', 'OEUS320000000000047211103', 'OEUS060000000000047211109']));
@@ -299,17 +315,23 @@ describe('stored series: refresh, area wages, material trends', () => {
   it('stores what BLS returned, flags preliminary values, and records each series that failed', async () => {
     const { http, calls } = replay();
     const report = await refreshBls(db, http, { now: NOW });
-    expect(calls).toHaveLength(10);
+    expect(calls).toHaveLength(15);
     expect(calls.every((c) => c.body.startyear === '2024' && c.body.endyear === '2026')).toBe(true);
-    expect(report).toMatchObject({ source: 'bls', startYear: 2024, endYear: 2026, queries: 10, seriesPlanned: 241, skippedFresh: 0, seriesAsked: 241, notFetched: [], error: null });
-    // Captured: 9 price indexes, mean + median for 8 areas, 25th + 75th percentile for 6 areas, and the mean alone for Texas and New York.
-    expect(report.seriesStored).toBe(9 + 16 + 12 + 2);
-    expect(report.observationsStored).toBe(9 * 33 + 16 + 12 + 2);
-    expect(report.failed).toHaveLength(241 - 39);
+    expect(report).toMatchObject({ source: 'bls', startYear: 2024, endYear: 2026, queries: 15, seriesPlanned: PLANNED, skippedFresh: 0, seriesAsked: PLANNED, notFetched: [], error: null });
+    // Captured: 9 price indexes, mean + median for 8 areas, 25th + 75th percentile for 6 areas, the mean alone for Texas and New York,
+    // employment for the nation and Reno, and the 90th percentile for 7 areas.
+    expect(report.seriesStored).toBe(9 + 16 + 12 + 2 + 2 + 7);
+    expect(report.observationsStored).toBe(9 * 33 + 16 + 12 + 2 + 2 + 7);
+    expect(report.failed).toHaveLength(PLANNED - 48);
     expect(report.failed.find((f) => f.seriesId === 'OEUS480000000000047211108')).toEqual({
       seriesId: 'OEUS480000000000047211108', status: 'no_data',
       message: 'No Data Available for Series OEUS480000000000047211108 Year: 2024 | No Data Available for Series OEUS480000000000047211108 Year: 2025 | No Data Available for Series OEUS480000000000047211108 Year: 2026',
     });
+
+    // Employment as published (a whole number of jobs), under its own title and unit.
+    const jobs = (await getSeries(db, ['OEUN000000000000047211101', 'OEUM003990000000047211101']));
+    expect(jobs.get('OEUN000000000000047211101')).toMatchObject({ meta: { title: 'Electricians: employment', unit: 'jobs', area: 'United States', status: 'ok' }, observations: [{ period: '2025-A01', value: 757220, preliminary: false }] });
+    expect(jobs.get('OEUM003990000000047211101')!.observations).toEqual([{ period: '2025-A01', value: 1490, preliminary: false }]);
 
     const stored = await getSeries(db, ['WPU10260314', 'OEUS320000000000047211103', 'OEUS480000000000047211108', 'TEST-NOT-STORED']);
     expect([...stored.keys()].sort()).toEqual(['OEUS320000000000047211103', 'OEUS480000000000047211108', 'WPU10260314']);
@@ -323,7 +345,7 @@ describe('stored series: refresh, area wages, material trends', () => {
     expect(stored.get('OEUS480000000000047211108')).toMatchObject({ meta: { status: 'no_data', area: 'Texas' }, observations: [] });
 
     expect(await seriesCounts(db)).toEqual([
-      { kind: 'oews', series: 232, withData: 30, observations: 30 },
+      { kind: 'oews', series: PLANNED - 9, withData: 39, observations: 39 },
       { kind: 'ppi', series: 9, withData: 9, observations: 297 },
     ]);
   });
@@ -349,7 +371,7 @@ describe('stored series: refresh, area wages, material trends', () => {
     const later = new Date('2026-12-01T00:00:00Z');
     const report = await refreshBls(db, replay({ thresholdOnQuery: 1 }).http, { now: later, wageMaxAgeDays: 0 });
     expect(report).toMatchObject({ queries: 1, seriesStored: 0, skippedFresh: 0, error: `BLS answered REQUEST_NOT_PROCESSED: ${THRESHOLD_MESSAGE}` });
-    expect(report.notFetched).toHaveLength(241);
+    expect(report.notFetched).toHaveLength(PLANNED);
     expect((await getSeries(db, ['WPU10260314'])).get('WPU10260314')).toMatchObject({ meta: { status: 'ok', fetchedAt: NOW.toISOString() } });
 
     // A series BLS stops publishing keeps its old values and gets a note.
@@ -371,8 +393,8 @@ describe('stored series: refresh, area wages, material trends', () => {
     // Day one, as it happened live: two queries answered, the third refused.
     const first = replay({ thresholdOnQuery: 3 });
     const day1 = await refreshBls(db, first.http, { now: NOW, priorityStates: ['NV', 'CA'] });
-    expect(day1).toMatchObject({ queries: 3, seriesAsked: 241, skippedFresh: 0, error: `BLS answered REQUEST_NOT_PROCESSED: ${THRESHOLD_MESSAGE}` });
-    expect(day1.notFetched).toHaveLength(241 - 50);
+    expect(day1).toMatchObject({ queries: 3, seriesAsked: PLANNED, skippedFresh: 0, error: `BLS answered REQUEST_NOT_PROCESSED: ${THRESHOLD_MESSAGE}` });
+    expect(day1.notFetched).toHaveLength(PLANNED - 50);
     // Nevada and California were asked for first, so they are in.
     expect(await areaWage(db, { state: 'NV' }, '47-2111')).toMatchObject({ level: 'state', mean: 36.4 });
     expect(await areaWage(db, { state: 'CA' }, '47-2111')).toMatchObject({ level: 'state', mean: 41.28 });
@@ -382,8 +404,8 @@ describe('stored series: refresh, area wages, material trends', () => {
     // Day two: wage series that came back with data are left alone; the indexes and everything else are asked for.
     const second = replay();
     const day2 = await refreshBls(db, second.http, { now: new Date('2026-11-14T03:00:00Z'), priorityStates: ['NV', 'CA'] });
-    expect(day2).toMatchObject({ seriesPlanned: 241, skippedFresh: stored, seriesAsked: 241 - stored, notFetched: [], error: null });
-    expect(second.calls).toHaveLength(Math.ceil((241 - stored) / 25));
+    expect(day2).toMatchObject({ seriesPlanned: PLANNED, skippedFresh: stored, seriesAsked: PLANNED - stored, notFetched: [], error: null });
+    expect(second.calls).toHaveLength(Math.ceil((PLANNED - stored) / 25));
     const asked = second.calls.flatMap((c) => c.body.seriesid);
     expect(asked).toContain('WPU10260314');
     expect(asked).not.toContain('OEUS320000000000047211103');
@@ -391,7 +413,7 @@ describe('stored series: refresh, area wages, material trends', () => {
 
     // A year on, a new survey is out: everything is asked for again.
     const nextYear = await refreshBls(db, replay().http, { now: new Date('2027-05-20T00:00:00Z') });
-    expect(nextYear).toMatchObject({ skippedFresh: 0, seriesAsked: 241, startYear: 2025, endYear: 2027 });
+    expect(nextYear).toMatchObject({ skippedFresh: 0, seriesAsked: PLANNED, startYear: 2025, endYear: 2027 });
   });
 
   it('areaWage: metro, then state, then nation, and says which level and survey period it used', async () => {
@@ -401,13 +423,25 @@ describe('stored series: refresh, area wages, material trends', () => {
     const nevada = await areaWage(db, { state: 'NV' }, '47-2111');
     expect(nevada).toEqual({
       soc: '472111', occupation: 'Electricians', level: 'state', areaCode: '3200000', areaName: 'Nevada',
-      period: '2025-A01', periodLabel: 'May 2025', mean: 36.4, median: 35.37, p25: 23.52, p75: 46.42, unit: 'USD per hour',
+      period: '2025-A01', periodLabel: 'May 2025', mean: 36.4, median: 35.37, p25: 23.52, p75: 46.42, p90: 58.27, unit: 'USD per hour',
+      // No employment figure for Nevada in the capture: null, and the row says so instead of looking as solid as the rest.
+      employment: null, cautions: ['No BLS employment estimate is stored for this area, so we cannot say how many jobs these figures rest on.'],
       source: 'BLS Occupational Employment and Wage Statistics (OEWS)', sourceUrl: 'https://www.bls.gov/oes/', fetchedAt: NOW.toISOString(),
       tried: [{ level: 'state', areaName: 'Nevada', found: true }],
     });
 
     const reno = await areaWage(db, { state: 'NV', cbsa: '39900' }, '472111');
     expect(reno).toMatchObject({ level: 'metro', areaName: 'Reno, NV', mean: 35.2, median: 35, p25: 23.63, p75: 41.12, periodLabel: 'May 2025' });
+    // What the figures rest on: BLS's estimate of jobs (Reno 1,490; the nation 757,220). No caution needed.
+    expect(reno).toMatchObject({ employment: 1490, p90: 49.16, cautions: [] });
+    expect(await areaWage(db, {}, '47-2111')).toMatchObject({ level: 'nation', employment: 757220, p90: null, cautions: [] });
+    // Carson City: the 75th percentile BLS published is the same figure as the 90th. Said as a fact, with no guess at why.
+    const carson = await areaWage(db, { state: 'NV', cbsa: '16180' }, '47-2111');
+    expect(carson).toMatchObject({ level: 'metro', areaName: 'Carson City, NV', p25: 27.65, p75: 59.5, p90: 59.5, employment: null });
+    expect(carson!.cautions).toEqual([
+      'The 75th and 90th percentile are the same figure ($59.50).',
+      'No BLS employment estimate is stored for this area, so we cannot say how many jobs these figures rest on.',
+    ]);
     expect(reno!.tried).toEqual([{ level: 'metro', areaName: 'Reno, NV', found: true }]);
 
     expect(await areaWage(db, { state: 'CA' }, '47-2111')).toMatchObject({ level: 'state', areaName: 'California', mean: 41.28, median: 36.62, p25: 28.5, p75: 49.52 });
@@ -441,6 +475,19 @@ describe('stored series: refresh, area wages, material trends', () => {
     ]);
     expect((await metroWagesInState(db, 'NY', '47-2111')).map((w) => [w.areaName, w.mean, w.median])).toEqual([['New York metro area', 42.63, null]]);
     expect(await metroWagesInState(db, 'OR', '47-2111')).toEqual([]);
+  });
+
+  it('employment and the 90th percentile never make a wage row, or pick its period, by themselves', async () => {
+    // Only Reno's real employment figure (1,490, May 2025) is stored: there is no wage to show for Reno.
+    const meta = blsRefreshPlan().find((p) => p.seriesId === 'OEUM003990000000047211101')!.meta;
+    await saveSeries(db, meta, [{ period: '2025-A01', value: '1490', preliminary: false }], NOW);
+    expect(await areaWage(db, { cbsa: '39900' }, '47-2111')).toBeNull();
+    expect(await metroWagesInState(db, 'NV', '47-2111')).toEqual([]);
+    // With the wage figures in, an employment figure for another survey year is not attached to them.
+    // (TEST only: the stored row is moved to 2024 by hand to stand for a year-old figure. BLS never said that.)
+    await db.query("update market_series set period = '2024-A01' where series_id = 'OEUM003990000000047211101'");
+    await refreshBls(db, replay().http, { now: NOW, wageMaxAgeDays: 3650 });
+    expect(await areaWage(db, { cbsa: '39900' }, '47-2111')).toMatchObject({ period: '2025-A01', mean: 35.2, employment: null });
   });
 
   it('materialTrends: latest value, period, preliminary flag and the change over 1, 3 and 12 months', async () => {

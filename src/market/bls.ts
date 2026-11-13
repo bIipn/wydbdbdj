@@ -61,6 +61,21 @@ export const OEWS_MEASURES = { mean: '03', p25: '07', median: '08', p75: '09' } 
 export type OewsMeasure = keyof typeof OEWS_MEASURES;
 const MEASURE_LABEL: Record<OewsMeasure, string> = { mean: 'mean', median: 'median', p25: '25th percentile', p75: '75th percentile' };
 
+/**
+ * What a reader needs to weigh those figures. BLS publishes NO sample size per area; these are the
+ * stand-ins it does publish, both seen live on 2026-11-13:
+ *  - employment (01): its estimate of how many jobs the occupation has in the area (nation 757,220; Reno 1,490)
+ *  - p90 (10): the hourly 90th percentile, kept to say so when the 75th percentile is the same figure (Carson City: both 59.50)
+ * BLS also lists relative standard errors (02 for employment, 05 for the mean wage). No response with
+ * them has been captured yet, so they are not asked for: add them once one is saved as a fixture.
+ */
+export const OEWS_CONTEXT = { employment: '01', p90: '10' } as const;
+export type OewsContext = keyof typeof OEWS_CONTEXT;
+const CONTEXT_META: Record<OewsContext, { title: string; unit: string }> = {
+  employment: { title: 'employment', unit: 'jobs' },
+  p90: { title: 'hourly 90th percentile wage', unit: 'USD per hour' },
+};
+
 /** Occupations (SOC code without the dash) whose series returned data live. */
 export const OCCUPATIONS: Readonly<Record<string, string>> = { '472111': 'Electricians' };
 export const ELECTRICIANS = '472111';
@@ -103,6 +118,8 @@ export function oewsSeriesId(spec: OewsSeriesSpec): string {
 
 const wageSeriesId = (area: Pick<OewsArea, 'areaType' | 'areaCode'>, soc: string, measure: OewsMeasure): string =>
   oewsSeriesId({ areaType: area.areaType, areaCode: area.areaCode, soc, datatype: OEWS_MEASURES[measure] });
+const contextSeriesId = (area: Pick<OewsArea, 'areaType' | 'areaCode'>, soc: string, what: OewsContext): string =>
+  oewsSeriesId({ areaType: area.areaType, areaCode: area.areaCode, soc, datatype: OEWS_CONTEXT[what] });
 
 const occupationName = (soc: string): string => OCCUPATIONS[soc] ?? `SOC ${soc.slice(0, 2)}-${soc.slice(2)}`;
 
@@ -301,8 +318,8 @@ export interface PlannedSeries {
  * Every series a refresh asks for, most important first, because the daily allowance can run out
  * part way (it did on the first live run): the 9 PPI series, then for each occupation the nation,
  * the states named in `priorityStates` (the ones customers work in) and their metro areas, then
- * the other verified metro areas, then every other state and DC. Hourly mean, median, 25th and
- * 75th percentile for each area.
+ * the other verified metro areas, then every other state and DC. For each area: the hourly mean,
+ * median, 25th and 75th percentile, then its employment and 90th percentile (OEWS_CONTEXT).
  */
 export function blsRefreshPlan(socs: readonly string[] = [ELECTRICIANS], priorityStates: readonly string[] = []): PlannedSeries[] {
   const plan: PlannedSeries[] = PPI_SERIES.map((p) => ({
@@ -328,6 +345,16 @@ export function blsRefreshPlan(socs: readonly string[] = [ELECTRICIANS], priorit
           meta: {
             seriesId, kind: 'oews', title: `${occupationName(soc)}: hourly ${MEASURE_LABEL[measure]} wage`, area: area.name,
             unit: 'USD per hour', source: OEWS_SOURCE, sourceUrl: OEWS_SOURCE_URL,
+          },
+        });
+      }
+      for (const what of Object.keys(OEWS_CONTEXT) as OewsContext[]) {
+        const seriesId = contextSeriesId(area, soc, what);
+        plan.push({
+          seriesId,
+          meta: {
+            seriesId, kind: 'oews', title: `${occupationName(soc)}: ${CONTEXT_META[what].title}`, area: area.name,
+            unit: CONTEXT_META[what].unit, source: OEWS_SOURCE, sourceUrl: OEWS_SOURCE_URL,
           },
         });
       }
@@ -458,6 +485,16 @@ export interface AreaWage {
   median: number | null;
   p25: number | null;
   p75: number | null;
+  /** Hourly 90th percentile for the same period. null = not stored. Kept to spot a 75th percentile that equals it. */
+  p90: number | null;
+  /**
+   * BLS's estimate of how many jobs the occupation has in the area, same period. NOT a survey sample
+   * size (BLS publishes none); it is the published stand-in for how much the figures rest on. null = not stored.
+   */
+  employment: number | null;
+  /** Plain facts to read before leaning on the figures. Never a guess at the cause. */
+  cautions: string[];
+  /** Unit of the wage figures (employment is a count of jobs). */
   unit: 'USD per hour';
   source: string;
   sourceUrl: string;
@@ -477,9 +514,16 @@ function wageFrom(area: OewsArea, soc: string, stored: Map<string, StoredSeries>
   const at = (measure: OewsMeasure): number | null =>
     series.find((x) => x.measure === measure)?.s?.observations.find((o) => o.period === period)?.value ?? null;
   const holder = series.find(({ s }) => s?.observations.some((o) => o.period === period))!.s!;
+  // Employment and the 90th percentile never pick the period: they are read for the wage figures' own period.
+  const context = (what: OewsContext): number | null =>
+    stored.get(contextSeriesId(area, soc, what))?.observations.find((o) => o.period === period)?.value ?? null;
+  const [p75, p90, employment] = [at('p75'), context('p90'), context('employment')];
+  const cautions: string[] = [];
+  if (p75 !== null && p75 === p90) cautions.push(`The 75th and 90th percentile are the same figure ($${p75.toFixed(2)}).`);
+  if (employment === null) cautions.push('No BLS employment estimate is stored for this area, so we cannot say how many jobs these figures rest on.');
   return {
     soc, occupation: occupationName(soc), level: area.level, areaCode: area.areaCode, areaName: holder.meta.area ?? area.name,
-    period, periodLabel: oewsPeriodLabel(period), mean: at('mean'), median: at('median'), p25: at('p25'), p75: at('p75'),
+    period, periodLabel: oewsPeriodLabel(period), mean: at('mean'), median: at('median'), p25: at('p25'), p75, p90, employment, cautions,
     unit: 'USD per hour', source: holder.meta.source, sourceUrl: holder.meta.sourceUrl ?? OEWS_SOURCE_URL, fetchedAt: holder.meta.fetchedAt,
   };
 }
@@ -487,7 +531,10 @@ function wageFrom(area: OewsArea, soc: string, stored: Map<string, StoredSeries>
 /** The stored wage for one exact area, or null when we hold nothing for it. */
 export async function wageForArea(db: Db, area: OewsArea, soc: string): Promise<AreaWage | null> {
   const code = normalizeSoc(soc);
-  const ids = (Object.keys(OEWS_MEASURES) as OewsMeasure[]).map((m) => wageSeriesId(area, code, m));
+  const ids = [
+    ...(Object.keys(OEWS_MEASURES) as OewsMeasure[]).map((m) => wageSeriesId(area, code, m)),
+    ...(Object.keys(OEWS_CONTEXT) as OewsContext[]).map((c) => contextSeriesId(area, code, c)),
+  ];
   return wageFrom(area, code, await getSeries(db, ids));
 }
 

@@ -5,7 +5,10 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { Db } from '../src/db/db.js';
-import { awardCounts, awardsMissingDetail, awardsNeedingPriceLookup, awardsWithoutPrice, getAward, getAwardCoverage, listAwards, saveAwardDetail, setPricesAtAward, upsertAwards } from '../src/db/market.js';
+import {
+  awardCounts, awardsMissingDetail, awardsNeedingPriceLookup, awardsWithoutPrice, getAward, getAwardCoverage, listAwards, recordAwardCoverage,
+  saveAwardDetail, setPricesAtAward, upsertAwards,
+} from '../src/db/market.js';
 import {
   AWARD_FIELDS, awardDetailUrl, awardFilters, awardKey, awardWindow, buildAwardCount, buildAwardSearch, buildAwardTransactions, buildTransactionSearch,
   fetchAwards, fetchPriceAtAward, fetchTransactions, fillAwardDetails, parseAwardCount, parseAwardDetail, parseAwardSearch, parseAwardTransactions,
@@ -361,6 +364,77 @@ describe('ingest', () => {
     const cut = await refreshAwards(db, replay({ pageSize: 10 }).http, { ...opts, maxPages: 2 });
     expect(cut.scopes[0]).toMatchObject({ ok: false, truncated: true, fetched: 20 });
     expect(await getAwardCoverage(db)).toEqual([]);
+  });
+
+  it('a pull that comes up short of the count, or loses rows, is stored but not recorded as covered', async () => {
+    const good = replay().http;
+    const rows = AWARDS.response.results as Array<Record<string, unknown>>;
+    /** The real pages, with the awards page or the count swapped for a damaged one (TEST damage, real rows). */
+    const damaged = (page: { results?: unknown[]; count?: unknown }): FetchLike => ({
+      text: good.text,
+      json: async <T>(url: string, init?: RequestInit) => {
+        if (page.results && url.endsWith('/spending_by_award/')) return { ...AWARDS.response, results: page.results, page_metadata: { page: 1, hasNext: false } } as T;
+        if ('count' in page && url.endsWith('/spending_by_award_count/')) return page.count as T;
+        return good.json<T>(url, init);
+      },
+    });
+
+    // The count endpoint says 36; the one page that came back holds 20 and says it is the last.
+    const short = await refreshAwards(db, damaged({ results: rows.slice(0, 20) }), opts);
+    expect(short.scopes[0]).toMatchObject({ ok: false, truncated: false, expected: 36, fetched: 20, inserted: 20, error: 'read 20 awards, the count endpoint says 36: this scope is incomplete' });
+    expect(short.scopes[0]).not.toHaveProperty('dropped');
+    expect(await getAwardCoverage(db)).toEqual([]);
+    expect(await dump()).toHaveLength(20);
+
+    // Five rows arrive without their key: they cannot be stored, and the report says how many.
+    const keyless = rows.map((r, i) => (i < 5 ? { ...r, generated_internal_id: null } : r));
+    const lossy = await refreshAwards(db, damaged({ results: keyless }), opts);
+    expect(lossy.scopes[0]).toMatchObject({ ok: false, expected: 36, fetched: 31, dropped: 5, error: 'read 31 awards (5 more could not be read), the count endpoint says 36: this scope is incomplete' });
+    expect(await getAwardCoverage(db)).toEqual([]);
+
+    // More awards than the count promised (one was published while we paged) is not a loss.
+    const grew = await refreshAwards(db, damaged({ count: { results: { contracts: 35 } } }), opts);
+    expect(grew.scopes[0]).toMatchObject({ ok: true, expected: 35, fetched: 36 });
+    expect(grew.scopes[0]!.error).toBeUndefined();
+    expect(await getAwardCoverage(db)).toHaveLength(1);
+
+    // A count that cannot be read gives nothing to compare with: the pull stands on its pages alone.
+    await db.exec('truncate table award_coverage');
+    const blind = await refreshAwards(db, damaged({ count: { results: {} } }), opts);
+    expect(blind.scopes[0]).toMatchObject({ ok: true, expected: null, fetched: 36 });
+    expect(await getAwardCoverage(db)).toHaveLength(1);
+  });
+
+  it('coverage is one unbroken stretch of dates: a pull after a gap starts it over, it never papers over the hole', async () => {
+    const stretch = async () => (await getAwardCoverage(db)).map((c) => `${c.scope} ${c.naics} ${c.fromDate}..${c.toDate}`);
+    const at = (day: string) => new Date(`${day}T03:00:00Z`);
+
+    // Two routine 4-month pulls, 17 months apart: the months between were never asked for.
+    await refreshAwards(db, replay().http, { ...opts, months: 4, now: at('2025-06-01') });
+    expect(await stretch()).toEqual(['NV 238210 2025-02-01..2025-06-01']);
+    await refreshAwards(db, replay().http, { ...opts, months: 4, now: at('2026-11-11') });
+    expect(await stretch()).toEqual(['NV 238210 2026-07-11..2026-11-11']);
+
+    // A pull that overlaps the stored stretch grows it, in either direction.
+    await refreshAwards(db, replay().http, { ...opts, months: 6, now: at('2026-12-20') });
+    expect(await stretch()).toEqual(['NV 238210 2026-06-20..2026-12-20']);
+    await refreshAwards(db, replay().http, { ...opts, months: 24, now: at('2026-12-20') });
+    expect(await stretch()).toEqual(['NV 238210 2024-12-20..2026-12-20']);
+    // So does one that only touches it (starts the day after it ends)…
+    await recordAwardCoverage(db, 'NV', ['238210'], '2026-12-21', '2027-01-31', at('2027-01-31'));
+    expect(await stretch()).toEqual(['NV 238210 2024-12-20..2027-01-31']);
+    // …but one day of gap is a hole: the newer stretch is the one kept.
+    await recordAwardCoverage(db, 'NV', ['238210'], '2027-02-02', '2027-03-01', at('2027-03-01'));
+    expect(await stretch()).toEqual(['NV 238210 2027-02-02..2027-03-01']);
+    // An older pull that does not reach the stored stretch changes nothing, not even the refresh time.
+    await recordAwardCoverage(db, 'NV', ['238210'], '2025-01-01', '2025-06-30', at('2027-03-05'));
+    expect(await getAwardCoverage(db)).toEqual([{ scope: 'NV', naics: '238210', fromDate: '2027-02-02', toDate: '2027-03-01', refreshedAt: at('2027-03-01').toISOString() }]);
+    // An older pull that reaches it extends it backwards.
+    await recordAwardCoverage(db, 'NV', ['238210'], '2026-10-01', '2027-02-01', at('2027-03-06'));
+    expect(await stretch()).toEqual(['NV 238210 2026-10-01..2027-03-01']);
+    // Each place and code keeps its own stretch.
+    await recordAwardCoverage(db, 'US', ['238210', '238220'], '2027-01-01', '2027-03-06', at('2027-03-06'));
+    expect(await stretch()).toEqual(['NV 238210 2026-10-01..2027-03-01', 'US 238210 2027-01-01..2027-03-06', 'US 238220 2027-01-01..2027-03-06']);
   });
 
   it('refuses unknown states before sending anything', async () => {

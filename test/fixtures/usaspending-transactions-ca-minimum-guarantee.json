@@ -1,0 +1,1231 @@
+{
+ "_about": {
+  "what": "REAL page 8 of the matching transaction search (same filters): the Mod 0 rows, i.e. the amount obligated at signing, for the 33 awards kept in usaspending-awards-ca-minimum-guarantee.json.",
+  "url": "POST https://api.usaspending.gov/api/v2/search/spending_by_transaction/",
+  "capturedUtc": "2026-11-13T03:54Z",
+  "trimming": "results cut from 100 rows to the 33 Mod 0 rows of those awards, and \"Recipient Location\" removed from each. Everything else as returned."
+ },
+ "request": {
+  "limit": 100,
+  "page": 8,
+  "sort": "Action Date",
+  "order": "desc",
+  "filters": {
+   "award_type_codes": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "naics_codes": {
+    "require": [
+     "238210",
+     "238220",
+     "236220"
+    ]
+   },
+   "place_of_performance_locations": [
+    {
+     "country": "USA",
+     "state": "CA"
+    }
+   ],
+   "time_period": [
+    {
+     "start_date": "2024-11-13",
+     "end_date": "2026-11-13",
+     "date_type": "new_awards_only"
+    }
+   ]
+  },
+  "fields": [
+   "Award ID",
+   "Mod",
+   "Action Date",
+   "Action Type",
+   "Transaction Amount",
+   "Transaction Description",
+   "Recipient Name",
+   "Recipient UEI",
+   "Awarding Agency",
+   "Awarding Sub Agency",
+   "Award Type",
+   "NAICS",
+   "PSC",
+   "Primary Place of Performance",
+   "Recipient Location",
+   "internal_id",
+   "generated_internal_id"
+  ]
+ },
+ "response": {
+  "limit": 100,
+  "results": [
+   {
+    "Award ID": "36C26126C0054",
+    "Mod": "0",
+    "Action Date": "2026-06-26",
+    "Action Type": null,
+    "Transaction Amount": 39816,
+    "Transaction Description": "EMERGENCY PROCUREMENT OF WATER MITIGATION SERVICES WATER LEAK, BLDG. 19 AT THE MARTINEZ VA MEDICAL CENTER.",
+    "Recipient Name": "WATER BROOKS LLC",
+    "Recipient UEI": "MYDHGMEADU11",
+    "Awarding Agency": "Department of Veterans Affairs",
+    "Awarding Sub Agency": "Department of Veterans Affairs",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2DA",
+     "description": "REPAIR OR ALTERATION OF HOSPITALS AND INFIRMARIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "MARTINEZ",
+     "county_code": "013",
+     "county_name": "CONTRA COSTA",
+     "congressional_code": "10",
+     "zip4": "4668",
+     "zip5": "94553"
+    },
+    "internal_id": 359729335,
+    "generated_internal_id": "CONT_AWD_36C26126C0054_3600_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "W9123826FA019",
+    "Mod": "0",
+    "Action Date": "2026-06-25",
+    "Action Type": null,
+    "Transaction Amount": 104757.86,
+    "Transaction Description": "DDJC TRACY VEHICLE HOIST REMOVAL JOC",
+    "Recipient Name": "SPECTRUM BUILDERS & RENOVATIONS, INC.",
+    "Recipient UEI": "J9ABUNXR2K45",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Army",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2JZ",
+     "description": "REPAIR OR ALTERATION OF MISCELLANEOUS BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "TRACY",
+     "county_code": "077",
+     "county_name": "SAN JOAQUIN",
+     "congressional_code": "09",
+     "zip4": "1503",
+     "zip5": "95304"
+    },
+    "internal_id": 362679537,
+    "generated_internal_id": "CONT_AWD_W9123826FA019_9700_W9123824D0004_9700"
+   },
+   {
+    "Award ID": "36C10F26C0003",
+    "Mod": "0",
+    "Action Date": "2026-06-25",
+    "Action Type": null,
+    "Transaction Amount": 32709104,
+    "Transaction Description": "DESIGN-BUILD PROJECT FOR THE DESIGN AND CONSTRUCTION OF A NEW ANIMAL RESEARCH BUILDING, 7 ANNEX TO REPLACE BUILDINGS 47 AND 103 AT THE VA SEPULVEDA AMBULATORY CARE CENTER, LOS ANGELES, CA.",
+    "Recipient Name": "RICHARD GROUP LLC",
+    "Recipient UEI": "QST7A5N63TL4",
+    "Awarding Agency": "Department of Veterans Affairs",
+    "Awarding Sub Agency": "Department of Veterans Affairs",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Y1DB",
+     "description": "CONSTRUCTION OF LABORATORIES AND CLINICS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "NORTH HILLS",
+     "county_code": "037",
+     "county_name": "LOS ANGELES",
+     "congressional_code": "32",
+     "zip4": "2036",
+     "zip5": "91343"
+    },
+    "internal_id": 359708131,
+    "generated_internal_id": "CONT_AWD_36C10F26C0003_3600_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA930226P0056",
+    "Mod": "0",
+    "Action Date": "2026-06-25",
+    "Action Type": null,
+    "Transaction Amount": 7031.13,
+    "Transaction Description": "BUILDING AUTOMATION SYSTEM",
+    "Recipient Name": "SIEMENS INDUSTRY INC",
+    "Recipient UEI": "JZXZSN3BBL98",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238220",
+     "description": "PLUMBING, HEATING, AND AIR-CONDITIONING CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J041",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- REFRIGERATION, AIR CONDITIONING, AND AIR CIRCULATING EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "1104",
+     "zip5": "93524"
+    },
+    "internal_id": 362665113,
+    "generated_internal_id": "CONT_AWD_FA930226P0056_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "36C26226P1037",
+    "Mod": "0",
+    "Action Date": "2026-06-25",
+    "Action Type": null,
+    "Transaction Amount": 25265,
+    "Transaction Description": "VAGLAHS WLA B402 WATER FOUNTAIN AND BOTTLE FILLER INSTALLATION",
+    "Recipient Name": "SYGNOS INC",
+    "Recipient UEI": "DN6TFNNHU3B3",
+    "Awarding Agency": "Department of Veterans Affairs",
+    "Awarding Sub Agency": "Department of Veterans Affairs",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2DA",
+     "description": "REPAIR OR ALTERATION OF HOSPITALS AND INFIRMARIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "LOS ANGELES",
+     "county_code": "037",
+     "county_name": "LOS ANGELES",
+     "congressional_code": "32",
+     "zip4": "1003",
+     "zip5": "90073"
+    },
+    "internal_id": 359708539,
+    "generated_internal_id": "CONT_AWD_36C26226P1037_3600_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "80AFRC26FA052",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "BILBRO CONSTRUCTION COMPANY, INC.",
+    "Recipient UEI": "NU7AU7Z3PLL7",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734009,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA052_8000_80AFRC26DA006_8000"
+   },
+   {
+    "Award ID": "N6247326F0448",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 309367,
+    "Transaction Description": "FIRE PROTECTION MACC V",
+    "Recipient Name": "JVR SOUTHBAY LLC",
+    "Recipient UEI": "ZEKRQZZT2L83",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238220",
+     "description": "PLUMBING, HEATING, AND AIR-CONDITIONING CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2JZ",
+     "description": "REPAIR OR ALTERATION OF MISCELLANEOUS BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "SAN DIEGO",
+     "county_code": "073",
+     "county_name": "SAN DIEGO",
+     "congressional_code": "51",
+     "zip4": "0041",
+     "zip5": "92145"
+    },
+    "internal_id": 362607176,
+    "generated_internal_id": "CONT_AWD_N6247326F0448_9700_N6247326D5210_9700"
+   },
+   {
+    "Award ID": "80AFRC26FA068",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC SHEMP",
+    "Recipient Name": "PATRICIA I. ROMERO, INC.",
+    "Recipient UEI": "VHBWY3U8CXD8",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734025,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA068_8000_80AFRC26DA023_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA069",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "GUSTAV KEONI",
+    "Recipient UEI": "Z1KJZK1QN6H3",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734026,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA069_8000_80AFRC26DA024_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA053",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "CM CONSTRUCTION SERVICES, INC.",
+    "Recipient UEI": "K71UDVLLQ2J6",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734010,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA053_8000_80AFRC26DA007_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA070",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "PRIME - MIK JV, LLC",
+    "Recipient UEI": "ZA7HKZAAR6K5",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734027,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA070_8000_80AFRC26DA025_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA055",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "FASONE CONSTRUCTION, INC.",
+    "Recipient UEI": "CL9WYVJ7MKY5",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734012,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA055_8000_80AFRC26DA009_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA071",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "SPECTRUM BUILDERS & RENOVATIONS, INC.",
+    "Recipient UEI": "J9ABUNXR2K45",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734028,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA071_8000_80AFRC26DA026_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA063",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC SHEMP",
+    "Recipient Name": "J G CONTRACTING",
+    "Recipient UEI": "KQLSDGDM8YJ1",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734020,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA063_8000_80AFRC26DA018_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA072",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "SEA PAC ENGINEERING INC",
+    "Recipient UEI": "TSU2GQSJCGK7",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734029,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA072_8000_80AFRC26DA027_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA075",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "TLI CONSTRUCTION, INC.",
+    "Recipient UEI": "D3JYAN52KQ27",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734031,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA075_8000_80AFRC26DA030_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA057",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "GIDEON CONTRACTING, LIMITED LIABILITY COMPANY",
+    "Recipient UEI": "S816XZESSNB9",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734014,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA057_8000_80AFRC26DA011_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA067",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC SHEMP",
+    "Recipient Name": "OCS CONSTRUCTION SERVICES INC",
+    "Recipient UEI": "GJ38U159CDH7",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734024,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA067_8000_80AFRC26DA022_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA074",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "SOUZA CONSTRUCTION, INC.",
+    "Recipient UEI": "MEKSHDL5THP8",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359815072,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA074_8000_80AFRC26DA029_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA062",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "J. I. GARCIA CONSTRUCTION, INC.",
+    "Recipient UEI": "GRGVD98552T5",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734019,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA062_8000_80AFRC26DA017_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA058",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "GOOD-MEN ROOFING & CONSTRUCTION INC.",
+    "Recipient UEI": "TZ1MMMCZ1NL8",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734015,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA058_8000_80AFRC26DA012_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA056",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "G1-LEAD BUILDERS JV LLC",
+    "Recipient UEI": "GT4XJ62JL6N3",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734013,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA056_8000_80AFRC26DA010_8000"
+   },
+   {
+    "Award ID": "80ARC026FA033",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 3606551,
+    "Transaction Description": "WRMACC NOR CAL SEED PROJECT FOR HVAC REMOVAL AND REPLACEMENT N254",
+    "Recipient Name": "IPI CONSTRUCTION",
+    "Recipient UEI": "X9GPP4H2LFF2",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359815079,
+    "generated_internal_id": "CONT_AWD_80ARC026FA033_8000_80AFRC26DA014_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA061",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MIN GUARANTEE SHEMP",
+    "Recipient Name": "IRONWOOD COMMERCIAL BUILDERS INC",
+    "Recipient UEI": "NFGMJQ662UL6",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734018,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA061_8000_80AFRC26DA016_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA073",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC SHEMP",
+    "Recipient Name": "SERGENTS MECHANICAL SYSTEMS INC",
+    "Recipient UEI": "VNPDQR925EH3",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734030,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA073_8000_80AFRC26DA028_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA060",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE",
+    "Recipient Name": "INNOVATIVE PROJECT SOLUTIONS INC.",
+    "Recipient UEI": "M1VUV8NLEDS8",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734017,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA060_8000_80AFRC26DA015_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA064",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MIN GUARANTEE SHEMP",
+    "Recipient Name": "LEAD BUILDERS INC",
+    "Recipient UEI": "NHRJBRC4SX35",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734021,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA064_8000_80AFRC26DA019_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA051",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MIN GUARANTEE SHEMP",
+    "Recipient Name": "BARKLEY ANDROSS CORP.",
+    "Recipient UEI": "HAFMNV3PGDK7",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734008,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA051_8000_80AFRC26DA005_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA050",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "ANDERSON BURTON CONSTRUCTION, INC.",
+    "Recipient UEI": "CM6AAWP8H6Y4",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734007,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA050_8000_80AFRC26DA003_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA059",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "GROUND LEVEL CONSTRUCTION, INC.",
+    "Recipient UEI": "GGD2GML85549",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734016,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA059_8000_80AFRC26DA013_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA054",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "CODY M STEVENS CONSTRUCTION INC",
+    "Recipient UEI": "VJLRABACLTN9",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734011,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA054_8000_80AFRC26DA008_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA065",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MINIMUM GUARANTEE SHEMP",
+    "Recipient Name": "MARTINEZ SERVICES, INC.",
+    "Recipient UEI": "ENH2ALXFPGV5",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734022,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA065_8000_80AFRC26DA020_8000"
+   },
+   {
+    "Award ID": "80AFRC26FA066",
+    "Mod": "0",
+    "Action Date": "2026-06-24",
+    "Action Type": null,
+    "Transaction Amount": 1000,
+    "Transaction Description": "WRMACC MIN GUARANTEE SHEMP",
+    "Recipient Name": "MX CONSTRUCTION, INC.",
+    "Recipient UEI": "Z1L4N6APMQA6",
+    "Awarding Agency": "National Aeronautics and Space Administration",
+    "Awarding Sub Agency": "National Aeronautics and Space Administration",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "236220",
+     "description": "COMMERCIAL AND INSTITUTIONAL BUILDING CONSTRUCTION"
+    },
+    "PSC": {
+     "code": "Z2AZ",
+     "description": "REPAIR OR ALTERATION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "CA",
+     "state_name": "California",
+     "city_name": "EDWARDS",
+     "county_code": "029",
+     "county_name": "KERN",
+     "congressional_code": "20",
+     "zip4": "0273",
+     "zip5": "93523"
+    },
+    "internal_id": 359734023,
+    "generated_internal_id": "CONT_AWD_80AFRC26FA066_8000_80AFRC26DA021_8000"
+   }
+  ],
+  "page_metadata": {
+   "page": 8,
+   "next": 9,
+   "previous": 7,
+   "hasNext": true,
+   "hasPrevious": true
+  },
+  "messages": [
+   "For searches, time period start and end dates are currently limited to an earliest date of 2007-10-01.  For data going back to 2000-10-01, use either the Custom Award Download feature on the website or one of our download or bulk_download API endpoints as listed on https://api.usaspending.gov/docs/endpoints. "
+  ]
+ }
+}

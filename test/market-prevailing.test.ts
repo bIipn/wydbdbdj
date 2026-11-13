@@ -4,8 +4,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
-  BID_DOCUMENTS_CONTROL, DAVIS_BACON_SEARCH_URL, loadPrevailingWageTables, prevailingWageHint, prevailingWageTables, regionForCounty,
-  validatePrevailingWage, zoneFor, type HintBid, type PrevailingWageTable,
+  BID_DOCUMENTS_CONTROL, DAVIS_BACON_SEARCH_URL, loadPrevailingWageTables, pacificDay, prevailingWageHint, prevailingWageTables, regionForCounty,
+  ROAD_ALLOWANCE, validatePrevailingWage, zoneFor, type HintBid, type PrevailingWageHint, type PrevailingWageTable,
 } from '../src/market/prevailing.js';
 import { findPlace } from '../src/geo/locate.js';
 import type { BidLocation } from '../src/types.js';
@@ -24,6 +24,10 @@ const ELKO = town('Elko');
 const bid = (over: Partial<HintBid> = {}): HintBid => ({ source: 'nevadaepro', location: GARDNERVILLE, estValue: null, naics: null, flags: [], ...over });
 const value = (min: number | null, max: number | null = min) => ({ min, max });
 const text = (h: { headline: string; lines: string[] }): string => [h.headline, ...h.lines].join('\n');
+/** The day the fixtures were captured: inside the 2026-2027 table (2026-10-13 to 2027-09-30). */
+const TODAY = '2026-11-13';
+/** Every hint here is asked for a fixed day, so these tests do not change their answer when the table runs out. */
+const hint = (b: HintBid, tables?: readonly PrevailingWageTable[], today: string = TODAY): PrevailingWageHint => prevailingWageHint(b, tables, today);
 
 describe('the Nevada table', () => {
   it('loads, validates, and says nobody has checked it yet', () => {
@@ -98,43 +102,56 @@ describe('the Nevada table', () => {
     expect(validatePrevailingWage(checked).checkedBy).toBe('TEST Reviewer (simulated)');
   });
 
-  it('zone lookup: 0–50, 51–70, 71–90, 91 and over, flagged near a line', () => {
+  it('zone lookup: 0–50, 51–70, 71–90, 91 and over, with the zone a count by road could reach', () => {
     const zones = table.crafts[0]!.zoneAdders!.zones;
-    expect(zoneFor(zones, 0)).toEqual({ distanceMi: 0, zone: 1, addPerHour: 0, nearBoundary: false });
-    expect(zoneFor(zones, 42.6)).toEqual({ distanceMi: 43, zone: 1, addPerHour: 0, nearBoundary: false });
-    expect(zoneFor(zones, 48)).toEqual({ distanceMi: 48, zone: 1, addPerHour: 0, nearBoundary: true });
-    expect(zoneFor(zones, 60)).toEqual({ distanceMi: 60, zone: 2, addPerHour: 3, nearBoundary: false });
-    expect(zoneFor(zones, 80)).toEqual({ distanceMi: 80, zone: 3, addPerHour: 10, nearBoundary: false });
-    expect(zoneFor(zones, 92)).toEqual({ distanceMi: 92, zone: 4, addPerHour: 15, nearBoundary: true });
-    expect(zoneFor(zones, 250)).toEqual({ distanceMi: 250, zone: 4, addPerHour: 15, nearBoundary: false });
+    // The straight line is never longer than the road, so its zone is the lowest possible one. Up to a
+    // quarter more by road is allowed for: when that reaches the next zone, both are given and it is flagged.
+    expect(ROAD_ALLOWANCE).toBe(1.25);
+    expect(zoneFor(zones, 0)).toEqual({ distanceMi: 0, zone: 1, addPerHour: 0, nearBoundary: false, maxZone: 1, maxAddPerHour: 0 });
+    expect(zoneFor(zones, 40)).toEqual({ distanceMi: 40, zone: 1, addPerHour: 0, nearBoundary: false, maxZone: 1, maxAddPerHour: 0 });
+    expect(zoneFor(zones, 42.6)).toEqual({ distanceMi: 43, zone: 1, addPerHour: 0, nearBoundary: true, maxZone: 2, maxAddPerHour: 3 });
+    expect(zoneFor(zones, 48)).toEqual({ distanceMi: 48, zone: 1, addPerHour: 0, nearBoundary: true, maxZone: 2, maxAddPerHour: 3 });
+    expect(zoneFor(zones, 52)).toEqual({ distanceMi: 52, zone: 2, addPerHour: 3, nearBoundary: true, maxZone: 2, maxAddPerHour: 3 });
+    expect(zoneFor(zones, 60)).toEqual({ distanceMi: 60, zone: 2, addPerHour: 3, nearBoundary: true, maxZone: 3, maxAddPerHour: 10 });
+    // 80 straight-line miles was "Zone 3, add $10.00, no warning". By road that can be over 90: Zone 4, $15.00.
+    expect(zoneFor(zones, 80)).toEqual({ distanceMi: 80, zone: 3, addPerHour: 10, nearBoundary: true, maxZone: 4, maxAddPerHour: 15 });
+    expect(zoneFor(zones, 92)).toEqual({ distanceMi: 92, zone: 4, addPerHour: 15, nearBoundary: true, maxZone: 4, maxAddPerHour: 15 });
+    expect(zoneFor(zones, 250)).toEqual({ distanceMi: 250, zone: 4, addPerHour: 15, nearBoundary: false, maxZone: 4, maxAddPerHour: 15 });
+    // The estimate can only be raised by the road, never lowered.
+    for (let mi = 0; mi <= 300; mi += 0.5) {
+      const z = zoneFor(zones, mi)!;
+      expect(z.maxZone, String(mi)).toBeGreaterThanOrEqual(z.zone);
+      expect(z.maxAddPerHour, String(mi)).toBeGreaterThanOrEqual(z.addPerHour);
+      if (z.maxZone !== z.zone) expect(z.nearBoundary, String(mi)).toBe(true);
+    }
   });
 });
 
 describe('prevailingWageHint', () => {
   it('federal construction over $2,000: Davis-Bacon likely applies, with a link out and no state rate', () => {
-    const h = prevailingWageHint(bid({ source: 'samgov', naics: '238210', estValue: value(25_000, 100_000) }));
+    const h = hint(bid({ source: 'samgov', naics: '238210', estValue: value(25_000, 100_000) }));
     expect(h).toMatchObject({ basis: 'davis_bacon', applies: 'likely', headline: 'Davis-Bacon wages likely apply', rates: [], zone: null, asOf: null });
     expect(h.links).toEqual([{ label: 'Look up Davis-Bacon wage determinations on SAM.gov', url: DAVIS_BACON_SEARCH_URL }]);
     expect(h.lines).toContain(BID_DOCUMENTS_CONTROL);
     expect(text(h)).not.toMatch(/83\.81/);
     // Value unknown: still likely, because the federal floor is only $2,000.
-    expect(prevailingWageHint(bid({ source: 'samgov', naics: '236220' }))).toMatchObject({ basis: 'davis_bacon', applies: 'likely' });
+    expect(hint(bid({ source: 'samgov', naics: '236220' }))).toMatchObject({ basis: 'davis_bacon', applies: 'likely' });
   });
 
   it('federal, not clearly construction or tiny: says "may" and "normally", never "does not apply"', () => {
-    const unknownKind = prevailingWageHint(bid({ source: 'samgov', naics: null, estValue: value(40_000) }));
+    const unknownKind = hint(bid({ source: 'samgov', naics: null, estValue: value(40_000) }));
     expect(unknownKind).toMatchObject({ basis: 'davis_bacon', applies: 'depends', headline: 'Davis-Bacon wages may apply' });
     expect(unknownKind.lines[0]).toBe('If this is construction work over $2,000, Davis-Bacon wages likely apply.');
-    expect(prevailingWageHint(bid({ source: 'samgov', naics: '561621' })).applies).toBe('depends');
+    expect(hint(bid({ source: 'samgov', naics: '561621' })).applies).toBe('depends');
 
-    const tiny = prevailingWageHint(bid({ source: 'samgov', naics: '238210', estValue: value(1_500) }));
+    const tiny = hint(bid({ source: 'samgov', naics: '238210', estValue: value(1_500) }));
     expect(tiny).toMatchObject({ applies: 'normally_not', headline: 'Davis-Bacon wages normally not required at this size' });
     expect(text(tiny)).toMatch(/normally/);
     expect(tiny.lines).toContain(BID_DOCUMENTS_CONTROL);
   });
 
   it('Nevada, $100K and up: the rates on file, the zone adder, and every caution', () => {
-    const h = prevailingWageHint(bid({ estValue: value(250_000) }));
+    const h = hint(bid({ estValue: value(250_000) }));
     expect(h).toMatchObject({
       basis: 'state', applies: 'likely', headline: 'Nevada prevailing wage normally applies at $100K and up',
       asOf: 'As of 10/13/26', edition: 'Nevada 2026-2027 prevailing wage rates, Amendment #01', checked: false,
@@ -146,119 +163,129 @@ describe('prevailingWageHint', () => {
       { craft: 'Electrician Wireman', classification: 'Wireman Foreman', totalHourly: 91.61 },
       { craft: 'Electrician Wireman', classification: 'Wireman General Foreman', totalHourly: 96.81 },
     ]);
-    // Gardnerville is about 41 straight-line miles from Reno: Zone 1.
-    expect(h.zone).toEqual({ distanceMi: 41, zone: 1, addPerHour: 0, nearBoundary: false });
+    // Gardnerville is about 41 straight-line miles from Reno: Zone 1 as the crow flies, but a count by road could pass 50.
+    expect(h.zone).toEqual({ distanceMi: 41, zone: 1, addPerHour: 0, nearBoundary: true, maxZone: 2, maxAddPerHour: 3 });
     expect(h.zoneTable).toHaveLength(4);
     expect(h.lines).toEqual([
       'Electrician Wireman, Northern Nevada Rural Region: Wireman $83.81/hr · Wireman-Cable Splicer $91.61/hr · Wireman Foreman $91.61/hr · Wireman General Foreman $96.81/hr. Base plus fringes in one number.',
       'The classification comes from the bid documents: we do not pick one.',
-      'About 41 mi from the Washoe County Courthouse, Reno, Nevada in a straight line: Zone 1, no zone adder.',
+      'About 41 mi from the Washoe County Courthouse, Reno, Nevada in a straight line: Zone 1 (no zone adder), or up to Zone 2 (add $3.00/hr) if the miles are counted by road, which runs longer. Confirm the zone.',
       'Overtime is figured on a base rate this table does not have. Do not multiply the all-in rate.',
       'These rates were typed in from the state PDF and have not been double-checked on our side yet.',
       'As of 10/13/26. The wage determination in the bid documents controls.',
     ]);
-    expect(prevailingWageHint(bid({ estValue: value(100_000) })).applies).toBe('likely');
-    expect(prevailingWageHint(bid({ estValue: value(null, 400_000) })).applies).toBe('likely');
+    expect(hint(bid({ estValue: value(100_000) })).applies).toBe('likely');
+    expect(hint(bid({ estValue: value(null, 400_000) })).applies).toBe('likely');
   });
 
   it('never works out an overtime rate from the all-in number', () => {
-    const h = prevailingWageHint(bid({ estValue: value(250_000) }));
+    const h = hint(bid({ estValue: value(250_000) }));
     const dollars = [...text(h).matchAll(/\$(\d+\.\d{2})/g)].map((m) => Number(m[1]));
-    expect(new Set(dollars)).toEqual(new Set([83.81, 91.61, 96.81]));
+    // The only dollar figures are the four rates and the $3.00 Zone 2 adder, all straight from the table.
+    expect(new Set(dollars)).toEqual(new Set([83.81, 91.61, 96.81, 3]));
     for (const rate of [83.81, 91.61, 96.81]) for (const factor of [1.5, 2]) expect(text(h)).not.toContain((rate * factor).toFixed(2));
     expect(JSON.stringify(h)).not.toMatch(/overtimeRate|doubleTime/i);
   });
 
   it('a far job gets its zone adder, and a job near a zone line is told to confirm', () => {
-    const elko = prevailingWageHint(bid({ location: ELKO, estValue: value(300_000) }));
+    const elko = hint(bid({ location: ELKO, estValue: value(300_000) }));
     expect(elko.zone).toMatchObject({ zone: 4, addPerHour: 15, nearBoundary: false });
     expect(elko.zone!.distanceMi).toBeGreaterThan(200);
     expect(text(elko)).toMatch(/Zone 4, add \$15\.00\/hr\./);
     expect(text(elko)).toContain('Northern Nevada Rural Region');
 
     // TEST point about 52 miles due south of the measuring point: just past the Zone 1 line.
-    const edge = prevailingWageHint(bid({ location: place({ county: 'Douglas', lat: 39.5296 - 52 / 69.09, lng: -119.8138, precision: 'exact' }), estValue: value(300_000) }));
+    const edge = hint(bid({ location: place({ county: 'Douglas', lat: 39.5296 - 52 / 69.09, lng: -119.8138, precision: 'exact' }), estValue: value(300_000) }));
     expect(edge.zone).toMatchObject({ zone: 2, addPerHour: 3, nearBoundary: true });
     expect(text(edge)).toMatch(/Zone 2, add \$3\.00\/hr\. Close to a zone line: confirm the zone\./);
 
+    // Lovelock: about 84 straight-line miles, well inside Zone 3 (71–90) and more than 5 miles from a zone line.
+    // It used to get "Zone 3, add $10.00/hr." with no warning. The straight line can only be too short, so the
+    // next zone is shown as well: a job costed at $10.00/hr could owe $15.00/hr.
+    const lovelock = hint(bid({ location: town('Lovelock'), estValue: value(300_000) }));
+    expect(lovelock.zone).toEqual({ distanceMi: 84, zone: 3, addPerHour: 10, nearBoundary: true, maxZone: 4, maxAddPerHour: 15 });
+    expect(lovelock.lines).toContain('About 84 mi from the Washoe County Courthouse, Reno, Nevada in a straight line: Zone 3 (add $10.00/hr), or up to Zone 4 (add $15.00/hr) if the miles are counted by road, which runs longer. Confirm the zone.');
+    expect(text(lovelock)).not.toMatch(/Zone 3, add \$10\.00\/hr\./);
+
     // No point we can trust (county-level or unknown location): the whole adder range, no guess.
-    const vague = prevailingWageHint(bid({ location: { ...town('Yerington'), city: null, precision: 'county' }, estValue: value(300_000) }));
+    const vague = hint(bid({ location: { ...town('Yerington'), city: null, precision: 'county' }, estValue: value(300_000) }));
     expect(vague.zone).toBeNull();
     expect(text(vague)).toContain('Zone adder of $0.00 to $15.00/hr by distance from the Washoe County Courthouse, Reno, Nevada.');
   });
 
   it('Nevada under $100K: "normally not required. Check the bid documents." and no rates', () => {
-    const h = prevailingWageHint(bid({ estValue: value(10_000, 50_000) }));
+    const h = hint(bid({ estValue: value(10_000, 50_000) }));
     expect(h).toMatchObject({ basis: 'state', applies: 'normally_not', headline: 'Prevailing wage normally not required under $100K', rates: [], zone: null, zoneTable: [] });
     expect(h.lines).toEqual([
       'Nevada public works under $100K are normally not required to pay prevailing wage. Check the bid documents.',
       BID_DOCUMENTS_CONTROL,
     ]);
-    expect(prevailingWageHint(bid({ estValue: value(99_999.99) })).applies).toBe('normally_not');
+    expect(hint(bid({ estValue: value(99_999.99) })).applies).toBe('normally_not');
     expect(text(h)).not.toMatch(/exempt|not required\.|does not apply/i);
   });
 
   it('Nevada, value unknown or straddling the line: "applies if the job is over $100K", with the rates it would mean', () => {
-    const unknown = prevailingWageHint(bid());
+    const unknown = hint(bid());
     expect(unknown).toMatchObject({ applies: 'depends', headline: 'Prevailing wage applies if the job is over $100K' });
     expect(unknown.lines[0]).toBe('No job value is listed.');
     expect(unknown.rates).toHaveLength(4);
-    const straddle = prevailingWageHint(bid({ estValue: value(80_000, 150_000) }));
+    const straddle = hint(bid({ estValue: value(80_000, 150_000) }));
     expect(straddle).toMatchObject({ applies: 'depends', headline: 'Prevailing wage applies if the job is over $100K' });
     expect(straddle.lines[0]).toBe('The estimate straddles $100K.');
   });
 
   it('a board the scanner tags "Prevailing wage likely" tips an unknown value to likely, but not a small job', () => {
-    const tagged = prevailingWageHint(bid({ flags: ['SPWD bidder qualification', 'Prevailing wage likely'] }));
+    const tagged = hint(bid({ flags: ['SPWD bidder qualification', 'Prevailing wage likely'] }));
     expect(tagged).toMatchObject({ applies: 'likely', headline: 'Prevailing wage likely applies (jobs over $100K)' });
     expect(tagged.lines.slice(0, 2)).toEqual(['No job value is listed.', 'Jobs on this bid board normally carry prevailing wage.']);
     expect(tagged.rates).toHaveLength(4);
-    expect(prevailingWageHint(bid({ estValue: value(40_000), flags: ['Prevailing wage likely'] })).applies).toBe('normally_not');
+    expect(hint(bid({ estValue: value(40_000), flags: ['Prevailing wage likely'] })).applies).toBe('normally_not');
   });
 
   it('a notice that mentions prevailing wage wins over a small estimate', () => {
-    const h = prevailingWageHint(bid({ estValue: value(40_000), flags: ['Bid bond', 'Prevailing wage'] }));
+    const h = hint(bid({ estValue: value(40_000), flags: ['Bid bond', 'Prevailing wage'] }));
     expect(h).toMatchObject({ applies: 'likely', headline: 'The notice mentions prevailing wage' });
     expect(h.rates).toHaveLength(4);
-    expect(prevailingWageHint(bid({ estValue: value(40_000), flags: ['Certified payroll'] })).applies).toBe('likely');
-    expect(prevailingWageHint(bid({ estValue: value(40_000), flags: ['Bid bond'] })).applies).toBe('normally_not');
+    expect(hint(bid({ estValue: value(40_000), flags: ['Certified payroll'] })).applies).toBe('likely');
+    expect(hint(bid({ estValue: value(40_000), flags: ['Bid bond'] })).applies).toBe('normally_not');
   });
 
   it('says so when the region has no rates on file or the county is unknown', () => {
-    const clark = prevailingWageHint(bid({ location: town('Las Vegas'), estValue: value(300_000) }));
+    const clark = hint(bid({ location: town('Las Vegas'), estValue: value(300_000) }));
     expect(clark).toMatchObject({ applies: 'likely', rates: [], zone: null });
     expect(clark.lines[0]).toBe("We do not have the Clark County Region rates on file. See the Labor Commissioner's rate sheets.");
     expect(text(clark)).not.toMatch(/\$\d+\.\d{2}\/hr/);
 
-    const nowhere = prevailingWageHint(bid({ location: place({ county: null }), estValue: value(300_000) }));
+    const nowhere = hint(bid({ location: place({ county: null }), estValue: value(300_000) }));
     expect(nowhere.rates).toEqual([]);
     expect(nowhere.lines[0]).toBe('We could not tell the county, so we cannot tell which Nevada wage region this is.');
     expect(nowhere.lines.at(-1)).toBe('As of 10/13/26. The wage determination in the bid documents controls.');
   });
 
   it('Washoe uses the same wireman table', () => {
-    const reno = prevailingWageHint(bid({ location: town('Reno'), estValue: value(300_000) }));
+    const reno = hint(bid({ location: town('Reno'), estValue: value(300_000) }));
     expect(reno.rates.map((r) => r.totalHourly)).toEqual([83.81, 91.61, 91.61, 96.81]);
-    expect(reno.zone).toEqual({ distanceMi: 0, zone: 1, addPerHour: 0, nearBoundary: false });
+    expect(reno.zone).toEqual({ distanceMi: 0, zone: 1, addPerHour: 0, nearBoundary: false, maxZone: 1, maxAddPerHour: 0 });
+    expect(text(reno)).toContain('in a straight line: Zone 1, no zone adder.');
     expect(reno.lines[0]).toContain('Washoe County Region');
   });
 
   it('other states: nothing on file, said plainly; and a checked table drops the "not double-checked" line', () => {
-    const ca = prevailingWageHint(bid({ source: 'questcdn', location: place({ state: 'CA', county: 'El Dorado' }), estValue: value(300_000) }));
+    const ca = hint(bid({ source: 'questcdn', location: place({ state: 'CA', county: 'El Dorado' }), estValue: value(300_000) }));
     expect(ca).toEqual({
       basis: 'none', applies: 'unknown', headline: 'No prevailing wage table on file for CA',
       lines: ['If this is a public works job, prevailing wage may apply. The wage determination in the bid documents controls.'],
       rates: [], zone: null, zoneTable: [], asOf: null, edition: null, checked: false, links: [],
     });
-    expect(prevailingWageHint(bid({ location: place({ state: null }) })).headline).toBe('No prevailing wage table on file for this bid');
+    expect(hint(bid({ location: place({ state: null }) })).headline).toBe('No prevailing wage table on file for this bid');
 
     const checked = clone();
     checked.checkedBy = 'TEST Reviewer (simulated)';
-    const h = prevailingWageHint(bid({ estValue: value(250_000) }), [checked]);
+    const h = hint(bid({ estValue: value(250_000) }), [checked]);
     expect(h.checked).toBe(true);
     expect(text(h)).not.toMatch(/double-checked/);
     // With no table passed in, a Nevada bid has nothing on file either.
-    expect(prevailingWageHint(bid({ estValue: value(250_000) }), []).basis).toBe('none');
+    expect(hint(bid({ estValue: value(250_000) }), []).basis).toBe('none');
   });
 
   it('every hint keeps the cautious words', () => {
@@ -268,9 +295,53 @@ describe('prevailingWageHint', () => {
       bid({ location: place({ county: 'Clark' }), estValue: value(500_000) }),
     ];
     for (const c of cases) {
-      const h = prevailingWageHint(c);
+      const h = hint(c);
       expect(text(h), text(h)).toContain('bid documents');
       expect(text(h), text(h)).not.toMatch(/\b(guaranteed|definitely|exempt|always)\b/i);
     }
+  });
+
+  it('past the table\'s last day the rates are not shown, and the hint says when they ended', () => {
+    expect(table.effectiveTo).toBe('2027-09-30');
+    const job = bid({ estValue: value(250_000) });
+    // The last day the 2026-2027 rates are in force.
+    const lastDay = hint(job, undefined, '2027-09-30');
+    expect(lastDay.rates).toHaveLength(4);
+    expect(lastDay.asOf).toBe('As of 10/13/26');
+
+    const after = hint(job, undefined, '2027-10-01');
+    expect(after).toMatchObject({
+      basis: 'state', applies: 'likely', headline: 'Nevada prevailing wage normally applies at $100K and up',
+      rates: [], zone: null, zoneTable: [], asOf: null, edition: 'Nevada 2026-2027 prevailing wage rates, Amendment #01',
+      links: [{ label: 'Nevada prevailing wage rates (Labor Commissioner)', url: 'https://labor.nv.gov/PrevailingWage/2026-2027_Prevailing_Wages/' }],
+    });
+    expect(after.lines).toEqual([
+      "The rates we have on file (Nevada 2026-2027 prevailing wage rates, Amendment #01) ended 9/30/27, so we are not showing them. See the Labor Commissioner's current rate sheets.",
+      BID_DOCUMENTS_CONTROL,
+    ]);
+    expect(text(after)).not.toMatch(/\$\d+\.\d{2}|As of|Zone/);
+    // The threshold rule does not expire with the rates: a small job is still told "normally not required".
+    expect(hint(bid({ estValue: value(40_000) }), undefined, '2028-01-15')).toMatchObject({ applies: 'normally_not', rates: [] });
+    expect(hint(bid(), undefined, '2028-01-15').lines.slice(0, 2)).toEqual(['No job value is listed.', expect.stringContaining('ended 9/30/27')]);
+
+    // A table with no end date never runs out.
+    const open = clone();
+    open.effectiveTo = null;
+    expect(hint(job, [open], '2031-01-01').rates).toHaveLength(4);
+  });
+
+  it('asks for today in Pacific time when no day is given', () => {
+    expect(pacificDay(new Date('2027-10-01T06:59:00Z'))).toBe('2027-09-30'); // 11:59 PM PDT, still the last day
+    expect(pacificDay(new Date('2027-10-01T07:00:00Z'))).toBe('2027-10-01');
+    expect(pacificDay(new Date('2026-01-05T07:59:00Z'))).toBe('2026-01-04'); // PST
+    expect(prevailingWageHint(bid({ estValue: value(250_000) })).basis).toBe('state');
+  });
+
+  it('a federal bid, or one with no state, never reads the state tables', () => {
+    // Reading anything from this list throws: the Davis-Bacon hint must not depend on a state file.
+    const untouchable = new Proxy([] as PrevailingWageTable[], { get: () => { throw new Error('TEST: the state tables were read'); } });
+    expect(hint(bid({ source: 'samgov', naics: '238210' }), untouchable)).toMatchObject({ basis: 'davis_bacon', applies: 'likely' });
+    expect(hint(bid({ location: place({ state: null }) }), untouchable).basis).toBe('none');
+    expect(() => hint(bid(), untouchable)).toThrow(/state tables were read/);
   });
 });

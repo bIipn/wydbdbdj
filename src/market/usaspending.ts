@@ -134,7 +134,7 @@ export interface AwardDetail {
 /**
  * A stored federal award (table `awards`). Extends the app-wide Award:
  *  - `id` is "usaspending:<generatedInternalId>"
- *  - `amount` mirrors `priceAtAward` (the price a contractor would compare a bid with), never the current amount
+ *  - `amount` mirrors `priceAtAward`, never the current amount
  */
 export interface FederalAward extends Award {
   generatedInternalId: string;
@@ -145,7 +145,13 @@ export interface FederalAward extends Award {
   countyFips: string | null;
   /** CURRENT amount: net obligated to date. Moves with every modification. */
   currentAmount: number | null;
-  /** PRICE AT AWARD: the Mod 0 transaction amount. null = not known (left out of price statistics). */
+  /**
+   * "PRICE AT AWARD": the Mod 0 transaction amount, i.e. the dollars obligated by the award's first
+   * action. Not the contract's full value: with option years it is the base period only (seen live:
+   * W912GY26CA002 obligated 434,000 of a 1,302,000 contract), and on a minimum-guarantee order it is
+   * a placeholder. Shown to users as "amount obligated when the award was signed", never as a price.
+   * null = not known (left out of the statistics).
+   */
   priceAtAward: number | null;
   lastModified: string | null;
   /** From the detail endpoint; null until fetched or when the source has none. */
@@ -410,6 +416,8 @@ export interface Fetched<T> {
   pages: number;
   /** True when we stopped at maxPages with more pages left. */
   truncated: boolean;
+  /** Rows the parser could not read (no generated_internal_id), over all pages. */
+  dropped: number;
 }
 
 /**
@@ -425,13 +433,15 @@ async function fetchPages<T>(
   const maxPages = Math.min(opts.maxPages ?? Infinity, MAX_RESULT_WINDOW / MAX_PAGE_SIZE);
   const rows: T[] = [];
   let pages = 0;
+  let dropped = 0;
   for (let page = 1; page <= maxPages; page++) {
     const parsed = parse(await postJson(http, build(page)));
     pages = page;
     rows.push(...parsed.rows);
-    if (!parsed.hasNext || parsed.rows.length === 0) return { rows, pages, truncated: false };
+    dropped += parsed.dropped;
+    if (!parsed.hasNext || parsed.rows.length === 0) return { rows, pages, truncated: false, dropped };
   }
-  return { rows, pages, truncated: true };
+  return { rows, pages, truncated: true, dropped };
 }
 
 /** Every award matching the query, one row per award (pages can overlap when rows tie on the sort date). */
@@ -502,6 +512,8 @@ export interface AwardsScopeReport {
   updated: number;
   /** A paging safety stop was hit: the scope is incomplete and is not recorded as covered. */
   truncated: boolean;
+  /** Award rows that could not be read. Present only when above zero: the scope is incomplete and is not recorded as covered. */
+  dropped?: number;
 }
 
 export interface AwardsRefreshReport {
@@ -591,9 +603,21 @@ export async function refreshAwards(db: Db, http: FetchLike, opts: RefreshAwards
       r.withPriceAtAward = r.fetched - r.withoutPriceAtAward;
       if (r.priceLookups.asked) log(`${scope}: looked up ${r.priceLookups.asked} award(s) one by one, found the price at award for ${r.priceLookups.filled}`);
 
-      if (!r.truncated) await recordAwardCoverage(db, scope, naics, startDate, endDate, now);
-      r.ok = !r.truncated;
+      // Complete means: no paging stop, every row readable, and at least as many awards as the count
+      // endpoint promised (more is fine: an award can be published while we page). Anything less is
+      // stored but NOT recorded as covered, so no answer is built on it as if it were whole.
+      if (awards.dropped > 0) r.dropped = awards.dropped;
+      const short = r.expected !== null && r.fetched < r.expected;
       if (r.truncated) r.error = 'stopped at the page limit: this scope is incomplete';
+      else if (awards.dropped > 0 || short) {
+        r.error = `read ${r.fetched} award${r.fetched === 1 ? '' : 's'}`
+          + (awards.dropped > 0 ? ` (${awards.dropped} more could not be read)` : '')
+          + (r.expected === null ? '' : `, the count endpoint says ${r.expected}`)
+          + ': this scope is incomplete';
+      }
+      r.ok = r.error === undefined;
+      if (r.ok) await recordAwardCoverage(db, scope, naics, startDate, endDate, now);
+      else log(`${scope}: NOT recorded as covered — ${r.error}`);
     } catch (err) {
       r.error = message(err);
       log(`${scope}: FAILED — ${r.error}`);

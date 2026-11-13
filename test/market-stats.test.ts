@@ -7,8 +7,8 @@ import fc from 'fast-check';
 import zipcodes from 'zipcodes';
 import { describe, expect, it } from 'vitest';
 import {
-  AWARD_LADDER, hasPriceAtAward, MIN_PRICED_AWARDS, normalizeCounty, percentile, priceStats, selectSimilarAwards,
-  type AwardLevel, type AwardPoint, type ZipLookup,
+  AWARD_LADDER, hasPriceAtAward, isMinimumGuarantee, loadedSpan, MIN_PRICED_AWARDS, normalizeCounty, percentile, priceStats, selectSimilarAwards,
+  type AwardLevel, type AwardPoint, type CoverageSpan, type ZipLookup,
 } from '../src/market/stats.js';
 import { parseAwardSearch, parseTransactionSearch, pricesAtAward } from '../src/market/usaspending.js';
 import { fx } from './helpers.js';
@@ -250,5 +250,107 @@ describe('similar awards: properties', () => {
     expect(r.level).toBe('zip_radius');
     expect(r.awards.map((a) => a.zip).sort()).toEqual(rows.slice(0, 10).map((a) => a.zip));
     expect(r.dateRange).toBeNull();
+  });
+});
+
+describe('minimum-guarantee orders are placeholders, not job prices', () => {
+  // 33 real California awards signed 2026-06-24 to 2026-06-26 (captured 2026-11-13), with their real Mod 0 amounts.
+  // 22 are $1,000 orders described as a minimum guarantee on NASA's WRMACC contracts; 11 are not.
+  const rows = parseAwardSearch(response('usaspending-awards-ca-minimum-guarantee.json')).rows;
+  const mod0 = pricesAtAward(parseTransactionSearch(response('usaspending-transactions-ca-minimum-guarantee.json')).rows);
+  const california: AwardPoint[] = rows.map((a) => ({
+    priceAtAward: mod0.get(a.generatedInternalId)?.amount ?? null, description: a.description,
+    actionDate: a.actionDate, zip: a.zip, county: a.county, state: a.state,
+  }));
+
+  it('spots them by their own wording, in every spelling seen live, and nothing else', () => {
+    expect(rows).toHaveLength(33);
+    expect(california.every((a) => typeof a.priceAtAward === 'number' && a.priceAtAward > 0)).toBe(true);
+    const flagged = rows.filter(isMinimumGuarantee);
+    expect(flagged).toHaveLength(22);
+    expect([...new Set(flagged.map((a) => a.description))].sort()).toEqual(['WRMACC MIN GUARANTEE SHEMP', 'WRMACC MINIMUM GUARANTEE', 'WRMACC MINIMUM GUARANTEE SHEMP']);
+    expect(flagged.every((a) => mod0.get(a.generatedInternalId)!.amount === 1000)).toBe(true);
+    // Other descriptions from the same live capture (Nevada and California pages).
+    for (const description of [
+      'MINIMUM GUARANTEE TASK ORDER', 'OBLIGATE MINIMUM GUARANTEE', 'MULTIPLE AWARD IDIQ CONTRACT FOR CONSTRUCTION SERVICES MIN. GUARANTEE TASK ORDER',
+      'SIMPLIFIED ACQUISITION OF BASE ENGINEERING REQUIREMENTS (SABER) MINIMUM GUARANTEE', 'REGION 3 MIN GURANTEE', 'AZ034 REGION 3 MATOC MIN GUARANTEE',
+    ]) expect(isMinimumGuarantee({ description }), description).toBe(true);
+    for (const description of [
+      'WRMACC SHEMP', 'WRMACC NOR CAL SEED PROJECT FOR HVAC REMOVAL AND REPLACEMENT', 'YOSE-HVAC MATOC/IDIQ MINIMUM REQUIREMENT', 'BUILDING AUTOMATION SYSTEM', '', null, undefined,
+    ]) expect(isMinimumGuarantee({ description }), String(description)).toBe(false);
+  });
+
+  it('leaves them out of the range and counts them with the awards that have no price', () => {
+    const r = selectSimilarAwards(california, { state: 'CA', radiusMi: 30 }, { lookupZip: () => null });
+    expect(r).toMatchObject({ level: 'state', enough: true, priced: 11, excludedNoPrice: 22 });
+    // Four more $1,000 orders say only "WRMACC SHEMP": no wording to go by, so they stay in (and the label says what the amount is).
+    expect(r.stats).toEqual({ count: 11, min: 1000, p25: 1000, median: 25265, p75: 207062.43, max: 32709104 });
+    expect(r.awards).toHaveLength(33);
+    expect(r.awards.filter(hasPriceAtAward)).toHaveLength(11);
+
+    // What the same awards said before: three quarters of the "prices" were the $1,000 placeholder.
+    const unfiltered = selectSimilarAwards(california.map((a) => ({ ...a, description: null })), { state: 'CA', radiusMi: 30 }, { lookupZip: () => null });
+    expect(unfiltered.stats).toMatchObject({ count: 33, p25: 1000, median: 1000, p75: 1000 });
+  });
+
+  it('a row without a description is judged on its amount alone', () => {
+    expect(hasPriceAtAward({ priceAtAward: 1000 })).toBe(true);
+    expect(hasPriceAtAward({ priceAtAward: 1000, description: 'WRMACC MINIMUM GUARANTEE SHEMP' })).toBe(false);
+    expect(hasPriceAtAward({ priceAtAward: 0, description: 'REPLACE AHU 2273' })).toBe(false);
+    expect(hasPriceAtAward({ priceAtAward: null, description: 'REPLACE AHU 2273' })).toBe(false);
+  });
+});
+
+describe('loadedSpan: what a place is loaded for (TEST coverage rows: dates only, nothing a user sees)', () => {
+  const row = (scope: string, naics: string, fromDate: string, toDate: string): CoverageSpan => ({ scope, naics, fromDate, toDate });
+  const nv = [row('NV', '238210', '2024-11-13', '2026-11-13'), row('NV', '238220', '2025-03-01', '2026-11-10')];
+
+  it('answers the stretch every code is loaded for, and null when one never was', () => {
+    expect(loadedSpan(nv, ['238210'], 'NV', '2024-11-13')).toEqual({ from: '2024-11-13', to: '2026-11-13' });
+    // Two codes: from the later start to the earlier end.
+    expect(loadedSpan(nv, ['238210', '238220'], 'NV', '2024-11-13')).toEqual({ from: '2025-03-01', to: '2026-11-10' });
+    expect(loadedSpan(nv, ['238210', '561621'], 'NV', '2024-11-13')).toBeNull();
+    expect(loadedSpan(nv, ['238210'], 'AZ', '2024-11-13')).toBeNull();
+    expect(loadedSpan(nv, ['238210'], null, '2024-11-13')).toBeNull();
+    expect(loadedSpan(nv, [], 'NV', '2024-11-13')).toBeNull();
+    expect(loadedSpan([], ['238210'], 'NV', '2024-11-13')).toBeNull();
+  });
+
+  it('a pull that ended before the window starts does not count: that period was never pulled', () => {
+    const old = [row('NV', '238210', '2024-01-10', '2024-06-10')];
+    expect(loadedSpan(old, ['238210'], 'NV', '2026-07-13')).toBeNull();
+    expect(loadedSpan(old, ['238210'], 'NV', '2024-06-10')).toEqual({ from: '2024-01-10', to: '2024-06-10' });
+    expect(loadedSpan(old, ['238210'], 'NV', '')).toEqual({ from: '2024-01-10', to: '2024-06-10' });
+  });
+
+  it('a nationwide pull loads every state; overlapping pulls join, and a hole between two is never covered', () => {
+    const us = [row('US', '238210', '2025-11-13', '2026-11-13')];
+    expect(loadedSpan(us, ['238210'], 'OR', '2024-11-13')).toEqual({ from: '2025-11-13', to: '2026-11-13' });
+    expect(loadedSpan(us, ['238210'], null, '2024-11-13')).toEqual({ from: '2025-11-13', to: '2026-11-13' });
+    expect(loadedSpan(us, ['238210'], 'OR', '2024-11-13', 'ALL')).toBeNull();
+    // The state's own pull reaches further back and overlaps the nationwide one: one stretch.
+    expect(loadedSpan([...us, row('NV', '238210', '2024-11-13', '2026-01-10')], ['238210'], 'NV', '2024-11-13')).toEqual({ from: '2024-11-13', to: '2026-11-13' });
+    // The state's own pull ended before the nationwide one began: only the newer stretch counts.
+    expect(loadedSpan([...us, row('NV', '238210', '2024-11-13', '2025-06-30')], ['238210'], 'NV', '2024-11-13')).toEqual({ from: '2025-11-13', to: '2026-11-13' });
+  });
+
+  it('never claims a day outside a pull of every code', () => {
+    const day = fc.integer({ min: 0, max: 371 }).map((n) => `2025-${String(1 + Math.floor(n / 31)).padStart(2, '0')}-${String(1 + (n % 31)).padStart(2, '0')}`);
+    const pull = fc.tuple(fc.constantFrom('NV', 'US'), fc.constantFrom('238210', '238220'), day, day)
+      .map(([scope, naics, a, b]) => row(scope, naics, a < b ? a : b, a < b ? b : a));
+    fc.assert(fc.property(fc.uniqueArray(pull, { maxLength: 4, selector: (p) => `${p.scope}:${p.naics}` }), fc.subarray(['238210', '238220'], { minLength: 1 }), day, (coverage, codes, since) => {
+      const span = loadedSpan(coverage, codes, 'NV', since);
+      if (!span) return;
+      expect(span.from <= span.to).toBe(true);
+      expect(span.to >= since).toBe(true);
+      for (const code of codes) {
+        const pulls = coverage.filter((p) => p.naics === code);
+        // Both ends of the answer sit inside a pull of this code, and so does every pull boundary between them.
+        for (const edge of [span.from, span.to]) expect(pulls.some((p) => p.fromDate <= edge && edge <= p.toDate)).toBe(true);
+        const earliest = pulls.map((p) => p.fromDate).sort()[0]!;
+        const latest = pulls.map((p) => p.toDate).sort().at(-1)!;
+        expect(span.from >= earliest && span.to <= latest).toBe(true);
+      }
+    }));
   });
 });

@@ -2,8 +2,13 @@
  * The market:refresh command line. The "stored" printout is checked against a database filled from
  * the REAL captured USAspending and BLS pages; nothing here touches the network.
  */
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { describeStored, main, parseArgs } from '../src/cli/market.js';
+import { describeStored, main, parseArgs, startedAsScript } from '../src/cli/market.js';
 import type { Db } from '../src/db/db.js';
 import { refreshBls } from '../src/market/bls.js';
 import { refreshAwards } from '../src/market/usaspending.js';
@@ -78,16 +83,18 @@ describe('what a refresh prints', () => {
   });
   afterAll(async () => db.close());
 
-  it('counts by state, the price-at-award range with its N, wages with their period, and index changes', async () => {
+  it('counts by state, the range of amounts at signing with its N, wages with their period and jobs, and index changes', async () => {
     const text = (await describeStored(db, { states: ['NV', 'CA'], months: 24, naics: ['238210', '238220'] }, NOW)).join('\n');
     expect(text).toContain('NV  238210     36 awards,    27 with a price at award   signed 2024-11-14 to 2026-09-23');
-    expect(text).toContain('Price at award (Mod 0 amount), awards signed 2024-11-13 to 2026-11-13. A range needs 10 priced awards.');
-    expect(text).toContain('NV 238210  n=27  min 3,380.00 · p25 27,376.93 · median 53,488.85 · p75 97,782.99 · max 2,838,934.31   (9 without a price left out)');
-    expect(text).toContain('NV 238220  n=0: not enough to show a range   (0 without a price left out)');
+    expect(text).toContain('Amount obligated at signing (Mod 0 amount), awards signed 2024-11-13 to 2026-11-13. A range needs 10 such awards; minimum-guarantee orders are left out.');
+    expect(text).toContain('NV 238210  n=27  min 3,380.00 · p25 27,376.93 · median 53,488.85 · p75 97,782.99 · max 2,838,934.31   (9 left out: no amount, or a minimum guarantee)');
+    expect(text).toContain('NV 238220  n=0: not enough to show a range   (0 left out: no amount, or a minimum guarantee)');
     expect(text).toContain('CA 238210  n=0: not enough to show a range');
-    expect(text).toMatch(/Nevada\s+mean \$36\.40 · median \$35\.37 · p25 \$23\.52 · p75 \$46\.42 {3}\[state, May 2025\]/);
-    expect(text).toMatch(/California\s+mean \$41\.28 · median \$36\.62 · p25 \$28\.50 · p75 \$49\.52 {3}\[state, May 2025\]/);
-    expect(text).toMatch(/United States\s+mean \$34\.37 · median \$30\.38 · p25 n\/a · p75 n\/a {3}\[nation, May 2025\]/);
+    // Each wage line ends with what it rests on: BLS's estimate of jobs, where we hold it.
+    expect(text).toMatch(/Nevada\s+mean \$36\.40 · median \$35\.37 · p25 \$23\.52 · p75 \$46\.42 · p90 \$58\.27 · jobs n\/a {3}\[state, May 2025\]/);
+    expect(text).toMatch(/California\s+mean \$41\.28 · median \$36\.62 · p25 \$28\.50 · p75 \$49\.52 · p90 \$67\.47 · jobs n\/a {3}\[state, May 2025\]/);
+    expect(text).toMatch(/United States\s+mean \$34\.37 · median \$30\.38 · p25 n\/a · p75 n\/a · p90 n\/a · jobs 757,220 {3}\[nation, May 2025\]/);
+    expect(text).toMatch(/Carson City, NV\s+mean \$40\.86 · median \$39\.36 · p25 \$27\.65 · p75 \$59\.50 · p90 \$59\.50 · jobs n\/a/);
     expect(text).toMatch(/Reno, NV\s+mean \$35\.20/);
     expect(text).toMatch(/Copper wire and cable\s+607\.705 {2}Sep 2026 \(preliminary\) {3}1 mo \+0\.8% \(from Aug 2026\) · 3 mo \+5\.3% \(from Jun 2026\) · 12 mo \+30\.8% \(from Sep 2025\)/);
     expect(text).toContain('ppi   9 series (9 with data), 297 observations');
@@ -105,7 +112,7 @@ describe('what a refresh prints', () => {
     expect(text).toContain('Federal awards pulled (signed 2024-11-13 to 2026-11-13; NAICS 238210; 12 requests)');
     expect(text).toMatch(/NV {2}ok {5}count endpoint 36 · fetched 36 in 1 page\(s\) · 38 transactions in 1 page\(s\) · price at award for 27 \(0 of 9 looked up one by one\), none for 9 · new 0, updated 36/);
     // The wage series stored by the earlier pull are still fresh, so only the price indexes come back with data.
-    expect(text).toContain('BLS pulled (2024–2026): 9 queries · 213 series asked (28 wage series still fresh, left alone) · 9 stored · 297 observations');
+    expect(text).toContain('BLS pulled (2024–2026): 13 queries · 322 series asked (35 wage series still fresh, left alone) · 9 stored · 297 observations');
     expect(text).toContain('NV 238210  n=27  min 3,380.00');
     expect(text).toMatch(/Copper wire and cable\s+607\.705/);
     // The database handed in stays open for the caller.
@@ -124,4 +131,37 @@ describe('what a refresh prints', () => {
     expect(lines.join('\n')).toMatch(/NV {2}FAILED .* HTTP 503/);
     expect(lines.join('\n')).toContain('ERROR awards NV: HTTP 503');
   });
+});
+
+describe('started as a script', () => {
+  const root = fileURLToPath(new URL('..', import.meta.url));
+  const script = join(root, 'src/cli/market.ts');
+  let dir: string;
+  let link: string;
+  beforeAll(() => {
+    dir = mkdtempSync(join(tmpdir(), 'bidswipe-cli-'));
+    link = join(dir, 'current');
+    symlinkSync(root, link, 'dir'); // like /srv/app/current → a release folder
+  });
+  afterAll(() => rmSync(dir, { recursive: true, force: true }));
+
+  it('knows its own file through a symlinked folder, and never mistakes an import for a run', () => {
+    expect(startedAsScript(script, script)).toBe(true);
+    expect(startedAsScript(join(link, 'src/cli/market.ts'), script)).toBe(true);
+    expect(startedAsScript(join(link, 'src/cli/scan.ts'), script)).toBe(false);
+    expect(startedAsScript(join(dir, 'TEST-no-such-file.js'), script)).toBe(false);
+    expect(startedAsScript(undefined, script)).toBe(false);
+    // Under the test runner argv[1] is vitest, not this file: importing the module ran nothing.
+    expect(startedAsScript()).toBe(false);
+  });
+
+  it('runs when started through a symlinked path (it used to print nothing and exit 0)', () => {
+    // A bad option, so the run stops before it opens a database or the network.
+    const run = (path: string) => spawnSync(process.execPath, [join(root, 'node_modules/tsx/dist/cli.mjs'), path, '--bogus'], { encoding: 'utf8', timeout: 60_000 });
+    for (const path of [script, join(link, 'src/cli/market.ts')]) {
+      const res = run(path);
+      expect(res.stderr, path).toContain('Unknown option "--bogus"');
+      expect(res.status, path).toBe(2);
+    }
+  }, 120_000);
 });

@@ -4,18 +4,29 @@ import { describe, expect, it } from 'vitest';
 
 /**
  * server.js is the serverless host's entry. The host ships only files it can trace from there, so
- * every data file the app reads from disk at runtime has to be named in it. A prevailing-wage table
- * added to config/ without a line in server.js would be missing in production only: this test is
- * the reminder.
+ * every folder the app reads from disk at runtime has to be named in serverless-files.cjs. A new
+ * sub-folder under web/ or config/ without a line there would be missing in production only: this
+ * test is the reminder.
  */
 const root = fileURLToPath(new URL('../', import.meta.url));
 const entry = readFileSync(`${root}server.js`, 'utf8');
 
 describe('serverless entry (server.js)', () => {
-  it('names every prevailing-wage table', () => {
-    const tables = readdirSync(`${root}config/prevailing-wage`).filter((f) => f.endsWith('.json'));
-    expect(tables.length).toBeGreaterThan(0);
-    for (const f of tables) expect(entry).toContain(`./config/prevailing-wage/${f}`);
+  const folders = readFileSync(`${root}serverless-files.cjs`, 'utf8');
+
+  it('ships the app shell and the config folders, every sub-folder named', () => {
+    expect(entry).toContain("import './serverless-files.cjs'");
+    // The host's tracer takes one folder per readdirSync line, not its sub-folders: each needs its own.
+    const dirsOf = (dir: string, rel: string[]): string[][] =>
+      readdirSync(dir, { withFileTypes: true })
+        .filter((d) => d.isDirectory() && !d.name.startsWith('.'))
+        .flatMap((d) => [[...rel, d.name], ...dirsOf(`${dir}/${d.name}`, [...rel, d.name])]);
+    for (const top of ['web', 'config']) {
+      for (const parts of [[top], ...dirsOf(`${root}${top}`, [top])]) {
+        const line = `path.join(__dirname, ${parts.map((p) => `'${p}'`).join(', ')})`;
+        expect(folders, `serverless-files.cjs is missing ${parts.join('/')}`).toContain(line);
+      }
+    }
   });
 
   it('names the ZIP table package and hands over to the compiled server', () => {

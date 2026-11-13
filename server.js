@@ -6,14 +6,10 @@
 // with the project's own tsc, so this file only hands over to that output: what runs on the host is
 // what `node dist/server.js` runs anywhere else.
 import 'fastify'; // marks this file as the Fastify entry for the host's detection
+import './serverless-files.cjs'; // the folders the host must ship with the function (web/, config/)
 import './dist/server.js'; // starts in serverless mode when process.env.VERCEL is set
 
-// Never called. The host ships only the files its tracer can follow from this entry, and the app
-// reaches these two in ways it cannot follow: the ZIP table through a lazy require (src/geo/zip.ts)
-// and the prevailing-wage tables through a directory listing (src/market/prevailing.ts).
-// test/serverless-entry.test.ts fails if a table in config/prevailing-wage/ is missing here.
-const shippedWithTheFunction = () => [
-  import('zipcodes'),
-  new URL('./config/prevailing-wage/nevada-2026-2027.json', import.meta.url),
-];
-void shippedWithTheFunction;
+// Never called. The ZIP table is loaded through a lazy require (src/geo/zip.ts) that the host's
+// tracer cannot follow; this import() with a literal name is the form it can.
+const alsoShipped = () => import('zipcodes');
+void alsoShipped;

@@ -179,4 +179,40 @@ create table if not exists estimates (
   result      jsonb not null,
   created_at  timestamptz not null default now()
 );
+
+-- Market data (v1). Federal award prices keep two amounts and never merge them:
+--   current_amount  USAspending "Award Amount": net obligated to date, moves with every modification
+--   price_at_award  the Mod 0 transaction amount: what the job was signed for
+-- awards.id = 'usaspending:' || generated_internal_id, and awards.amount mirrors price_at_award.
+alter table awards add column if not exists generated_internal_id text;
+alter table awards add column if not exists sub_agency text;
+alter table awards add column if not exists naics_description text;
+alter table awards add column if not exists psc_description text;
+alter table awards add column if not exists award_type text;
+alter table awards add column if not exists county_fips text;
+alter table awards add column if not exists current_amount numeric;
+alter table awards add column if not exists price_at_award numeric;
+alter table awards add column if not exists last_modified text;         -- "YYYY-MM-DD HH:MM:SS", no zone, verbatim
+alter table awards add column if not exists offers_received integer;    -- detail endpoint, filled lazily
+alter table awards add column if not exists date_signed date;           -- detail endpoint, filled lazily
+alter table awards add column if not exists detail_fetched_at timestamptz;
+alter table awards add column if not exists price_checked_at timestamptz;   -- when its own transaction history was asked for a Mod 0 row
+create index if not exists awards_naics_date_idx on awards (naics, action_date);
+
+-- What each complete award pull covered (scope = state code, or 'US' for the whole country), so a
+-- price range is only ever labelled "nationwide" when the whole country was loaded.
+create table if not exists award_coverage (
+  scope         text not null,
+  naics         text not null,
+  from_date     date not null,
+  to_date       date not null,
+  refreshed_at  timestamptz not null default now(),
+  primary key (scope, naics)
+);
+
+-- BLS marks the newest index values preliminary and revises them later.
+alter table market_series add column if not exists preliminary boolean not null default false;
+-- 'ok', or why the last refresh got nothing for the series: 'not_found' | 'no_data' (+ the publisher's message).
+alter table market_series_meta add column if not exists status text not null default 'ok';
+alter table market_series_meta add column if not exists note text;
 `;

@@ -1,0 +1,1405 @@
+{
+ "_about": {
+  "what": "REAL response from the USAspending API: transactions (base awards and modifications) of contract awards, NAICS 238210, Clark County NV (FIPS 003), new awards 2024-11-13..2026-11-13 (38 rows for 27 awards).",
+  "url": "POST https://api.usaspending.gov/api/v2/search/spending_by_transaction/",
+  "capturedUtc": "2026-11-13T02:21Z",
+  "trimming": "Every row is as returned; only the \"Recipient Location\" object was removed from each row."
+ },
+ "request": {
+  "limit": 100,
+  "page": 1,
+  "sort": "Action Date",
+  "order": "desc",
+  "filters": {
+   "award_type_codes": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "naics_codes": {
+    "require": [
+     "238210"
+    ]
+   },
+   "place_of_performance_locations": [
+    {
+     "country": "USA",
+     "state": "NV",
+     "county": "003"
+    }
+   ],
+   "time_period": [
+    {
+     "start_date": "2024-11-13",
+     "end_date": "2026-11-13",
+     "date_type": "new_awards_only"
+    }
+   ]
+  },
+  "fields": [
+   "Award ID",
+   "Mod",
+   "Action Date",
+   "Action Type",
+   "Transaction Amount",
+   "Transaction Description",
+   "Recipient Name",
+   "Recipient UEI",
+   "Awarding Agency",
+   "Awarding Sub Agency",
+   "Award Type",
+   "NAICS",
+   "PSC",
+   "Primary Place of Performance",
+   "Recipient Location",
+   "internal_id",
+   "generated_internal_id"
+  ]
+ },
+ "response": {
+  "limit": 100,
+  "results": [
+   {
+    "Award ID": "140R3026P0053",
+    "Mod": "0",
+    "Action Date": "2026-08-21",
+    "Action Type": null,
+    "Transaction Amount": 3380,
+    "Transaction Description": "EO 14398 PURCHASE, INSTALLATION AND PROGRAMMING OF FIRE ALARM PANEL BOARD FCI INI-VG AND FSL-E3 MULTI MODE FIBER BOARD",
+    "Recipient Name": "L.A. NEVADA, INC.",
+    "Recipient UEI": "J53NJL3H66J5",
+    "Awarding Agency": "Department of the Interior",
+    "Awarding Sub Agency": "Bureau of Reclamation",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "H112",
+     "description": "QUALITY CONTROL- FIRE CONTROL EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "BOULDER CITY",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "1208",
+     "zip5": "89005"
+    },
+    "internal_id": 361669813,
+    "generated_internal_id": "CONT_AWD_140R3026P0053_1425_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "36C26126P0882",
+    "Mod": "0",
+    "Action Date": "2026-07-01",
+    "Action Type": null,
+    "Transaction Amount": 2838934.31,
+    "Transaction Description": "DISTRIBUTIVE ANTENNA SYSTEM (DAS) PROJECT",
+    "Recipient Name": "MAYHEW TECHNOLOGY SOLUTIONS, LLC",
+    "Recipient UEI": "C31LV42GMGK9",
+    "Awarding Agency": "Department of Veterans Affairs",
+    "Awarding Sub Agency": "Department of Veterans Affairs",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "N059",
+     "description": "INSTALLATION OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "1909",
+     "zip5": "89115"
+    },
+    "internal_id": 359936386,
+    "generated_internal_id": "CONT_AWD_36C26126P0882_3600_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486126F0136",
+    "Mod": "0",
+    "Action Date": "2026-06-01",
+    "Action Type": null,
+    "Transaction Amount": 17120,
+    "Transaction Description": "CONTRACTOR SHALL FURNISH ALL DESIGN, LABOR, EQUIPMENT, MATERIAL, TRANSPORTATION, ADMINISTRATION, SUPERVISION AND ALL ELSE NECESSARY TO PERFORM ALL OPERATIONS IN CONNECTION WITH SUCCESSFULLY COMPLETING PROJECT B239 BAY 2 POWER INSTALLATION IAW SOW.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 361879414,
+    "generated_internal_id": "CONT_AWD_FA486126F0136_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "15F06726P0000512",
+    "Mod": "0",
+    "Action Date": "2026-05-26",
+    "Action Type": null,
+    "Transaction Amount": 29927.83,
+    "Transaction Description": "MAINTENANCE SERVICE FOR UPS UNITS",
+    "Recipient Name": "NATIONWIDE POWER SOLUTIONS INC",
+    "Recipient UEI": "CSYKL3HQQET7",
+    "Awarding Agency": "Department of Justice",
+    "Awarding Sub Agency": "Federal Bureau of Investigation",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J059",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "HENDERSON",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "7818",
+     "zip5": "89074"
+    },
+    "internal_id": 358672302,
+    "generated_internal_id": "CONT_AWD_15F06726P0000512_1549_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "N6600126P6115",
+    "Mod": "0",
+    "Action Date": "2026-05-18",
+    "Action Type": null,
+    "Transaction Amount": 53737.49,
+    "Transaction Description": "COMMERCIAL SERVICE PROCUREMENT TO PROVIDE CABLING INFRASTRUCTURE AND THE GROUNDING OF FIBEROPTIC INFRASTRUCTURE BY PROVIDING CONNECTIVITY TO IMPROVE USINDOPACOM J3 SPACES ON CAMP H.M. SMITH AND FORT SHAFTER, OAHU, HAWAII.",
+    "Recipient Name": "AETOTECH LLC",
+    "Recipient UEI": "YYL7YH8HUDJ5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "5098",
+     "zip5": "89102"
+    },
+    "internal_id": 361365707,
+    "generated_internal_id": "CONT_AWD_N6600126P6115_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486126F0122",
+    "Mod": "0",
+    "Action Date": "2026-05-04",
+    "Action Type": null,
+    "Transaction Amount": 9436,
+    "Transaction Description": "857 AMXS BLDG. 2107 VAULT ELECTRICAL REPAIRS AND ACTIVATION.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 361012109,
+    "generated_internal_id": "CONT_AWD_FA486126F0122_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "N6600126P6122",
+    "Mod": "0",
+    "Action Date": "2026-04-24",
+    "Action Type": null,
+    "Transaction Amount": 30491.73,
+    "Transaction Description": "THIS IS A COMMERCIAL SERVICE WITH COMMERCIAL OFF-THE-SHELF (COTS) SUPPLIES REQUIREMENT TO PROVIDE CABLE INSTALLATION AND INFRASTRUCTURE SUPPORT FOR THE USINDOPACCOM J6 HEMP SHELTER SPACES AND THE J4 SPACES AT CAMP H.M. SMITH IN OAHU, HAWAII.",
+    "Recipient Name": "AETOTECH LLC",
+    "Recipient UEI": "YYL7YH8HUDJ5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "5098",
+     "zip5": "89102"
+    },
+    "internal_id": 360827115,
+    "generated_internal_id": "CONT_AWD_N6600126P6122_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486126F0089",
+    "Mod": "0",
+    "Action Date": "2026-04-01",
+    "Action Type": null,
+    "Transaction Amount": 12545,
+    "Transaction Description": "THIS CONTRACT WILL FURNISH AND INSTALL 10 RECEPTACLES TO INCLUDE THE PARTS, LABOR AND TESTING REQUIRED FOR A COMPLETE AND FUNCTIONAL INSTALLATION.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 359714148,
+    "generated_internal_id": "CONT_AWD_FA486126F0089_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "FA486125C0021",
+    "Mod": "P00001",
+    "Action Date": "2026-03-12",
+    "Action Type": "B",
+    "Transaction Amount": 15700,
+    "Transaction Description": "WT15766465 RUN FIBER B259 TO SUNSHADE ROWS 17-24",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2EZ",
+     "description": "REPAIR OR ALTERATION OF OTHER INDUSTRIAL BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 298209634,
+    "generated_internal_id": "CONT_AWD_FA486125C0021_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "140P8125C0010",
+    "Mod": "P00001",
+    "Action Date": "2026-03-04",
+    "Action Type": "F",
+    "Transaction Amount": -171261,
+    "Transaction Description": "CONSTRUCTION AND PLACEMENT OF FIBER OPTIC CABLE FOR THE ALAN BIBLE VISITOR CENTER AT LAKE MEAD NATIONAL RECREATION AREA.",
+    "Recipient Name": "BOLDEN, NEWBY & SONS INCORPORATED",
+    "Recipient UEI": "KWPKBBYTYUJ2",
+    "Awarding Agency": "Department of the Interior",
+    "Awarding Sub Agency": "National Park Service",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1NZ",
+     "description": "CONSTRUCTION OF OTHER UTILITIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "BOULDER CITY",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "1877",
+     "zip5": "89005"
+    },
+    "internal_id": 277859050,
+    "generated_internal_id": "CONT_AWD_140P8125C0010_1443_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "1240BE26P0005",
+    "Mod": "P00001",
+    "Action Date": "2026-02-24",
+    "Action Type": "M",
+    "Transaction Amount": -14818.84,
+    "Transaction Description": "THE PURPOSE OF THIS MODIFICATION IS TO: DE-OBLIGATE PREVIOUSLY FUNDED SHIPPING COSTS ($14818.84) ASSOCIATED WITH THE UPFITTING OF GOVERNMENT-OWNED VEHICLES (GOVS); AND CHANGE THE PLACE OF PERFORMANCE TO THE ON-SITE GOVERNMENT FACILITY LOCATED AT 32",
+    "Recipient Name": "EMERGENCY VEHICLE LIGHTING SOLUTION LLC",
+    "Recipient UEI": "REY4MK5F1PK7",
+    "Awarding Agency": "Department of Agriculture",
+    "Awarding Sub Agency": "Forest Service",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "6220",
+     "description": "ELECTRIC VEHICULAR LIGHTS AND FIXTURES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NORTH LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7549",
+     "zip5": "89030"
+    },
+    "internal_id": 353635723,
+    "generated_internal_id": "CONT_AWD_1240BE26P0005_12C2_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "1240BE26P0004",
+    "Mod": "P00001",
+    "Action Date": "2026-02-23",
+    "Action Type": "M",
+    "Transaction Amount": -6640.92,
+    "Transaction Description": "THE PURPOSE OF THIS MODIFICATION IS TO: DE-OBLIGATE PREVIOUSLY FUNDED SHIPPING COSTS ASSOCIATED WITH THE UPFITTING OF GOVERNMENT-OWNED VEHICLES (GOVS) AND CHANGE THE PLACE OF PERFORMANCE TO THE ON-SITE GOVERNMENT FACILITY LOCATED AT 3285 11TH STREE",
+    "Recipient Name": "EMERGENCY VEHICLE LIGHTING SOLUTION LLC",
+    "Recipient UEI": "REY4MK5F1PK7",
+    "Awarding Agency": "Department of Agriculture",
+    "Awarding Sub Agency": "Forest Service",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "6220",
+     "description": "ELECTRIC VEHICULAR LIGHTS AND FIXTURES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NORTH LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7549",
+     "zip5": "89030"
+    },
+    "internal_id": 353495039,
+    "generated_internal_id": "CONT_AWD_1240BE26P0004_12C2_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486126F0032",
+    "Mod": "P00001",
+    "Action Date": "2026-02-11",
+    "Action Type": "D",
+    "Transaction Amount": 0,
+    "Transaction Description": "THIS CONTRACT WILL PROVIDE ELECTRICAL CIRCUIT TRACING AND DOCUMENTATION.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 357094896,
+    "generated_internal_id": "CONT_AWD_FA486126F0032_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "FA486126F0019",
+    "Mod": "P00001",
+    "Action Date": "2026-02-09",
+    "Action Type": "D",
+    "Transaction Amount": 0,
+    "Transaction Description": "REPAIR T2 NITROGEN SYSTEM BLDG 721 AT NELLIS AFB",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2NZ",
+     "description": "REPAIR OR ALTERATION OF OTHER UTILITIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 356482398,
+    "generated_internal_id": "CONT_AWD_FA486126F0019_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "FA486126F0032",
+    "Mod": "0",
+    "Action Date": "2026-01-13",
+    "Action Type": null,
+    "Transaction Amount": 4640,
+    "Transaction Description": "THIS CONTRACT WILL PROVIDE ELECTRICAL CIRCUIT TRACING AND DOCUMENTATION.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 357094896,
+    "generated_internal_id": "CONT_AWD_FA486126F0032_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "FA486126F0019",
+    "Mod": "0",
+    "Action Date": "2025-12-19",
+    "Action Type": null,
+    "Transaction Amount": 29601,
+    "Transaction Description": "REPAIR T2 NITROGEN SYSTEM BLDG 721 AT NELLIS AFB",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2NZ",
+     "description": "REPAIR OR ALTERATION OF OTHER UTILITIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 356482398,
+    "generated_internal_id": "CONT_AWD_FA486126F0019_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "1240BE26P0005",
+    "Mod": "0",
+    "Action Date": "2025-12-17",
+    "Action Type": null,
+    "Transaction Amount": 42449.96,
+    "Transaction Description": "UPFITTING AND INSTALLS OF FIRE COMMAND PACKAGES ON (8) EIGHT VEHICLES FOR THE WALLOWA WHITMAN NATIONAL FOREST FLEET SHOP",
+    "Recipient Name": "EMERGENCY VEHICLE LIGHTING SOLUTION LLC",
+    "Recipient UEI": "REY4MK5F1PK7",
+    "Awarding Agency": "Department of Agriculture",
+    "Awarding Sub Agency": "Forest Service",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "6220",
+     "description": "ELECTRIC VEHICULAR LIGHTS AND FIXTURES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NORTH LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7549",
+     "zip5": "89030"
+    },
+    "internal_id": 353635723,
+    "generated_internal_id": "CONT_AWD_1240BE26P0005_12C2_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "1240BE26P0004",
+    "Mod": "0",
+    "Action Date": "2025-12-12",
+    "Action Type": null,
+    "Transaction Amount": 25152.86,
+    "Transaction Description": "UPFITTING AND MARKING PACKAGES INSTALLS OF FIRE COMMAND PACKAGES ON 2024 FORD F250 4X4 AND FORD F350 4X4 FOR THE UMATILLA NATIONAL FOREST FLEET SHOP THE CONTRACTOR SHALL PROVIDE ALL MANAGEMENT, SUPERVISION, LABOR, PERSONNEL, MATERIALS, EQUIPMENT, A",
+    "Recipient Name": "EMERGENCY VEHICLE LIGHTING SOLUTION LLC",
+    "Recipient UEI": "REY4MK5F1PK7",
+    "Awarding Agency": "Department of Agriculture",
+    "Awarding Sub Agency": "Forest Service",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "6220",
+     "description": "ELECTRIC VEHICULAR LIGHTS AND FIXTURES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NORTH LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7549",
+     "zip5": "89030"
+    },
+    "internal_id": 353495039,
+    "generated_internal_id": "CONT_AWD_1240BE26P0004_12C2_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0031",
+    "Mod": "P00001",
+    "Action Date": "2025-10-14",
+    "Action Type": "M",
+    "Transaction Amount": 0,
+    "Transaction Description": "WT15083872 ELECTRICAL PANEL INSTALLATION, B61683",
+    "Recipient Name": "FAR SOLUTIONS LLC",
+    "Recipient UEI": "F8TZGJDAJYQ4",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2JZ",
+     "description": "REPAIR OR ALTERATION OF MISCELLANEOUS BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 353409591,
+    "generated_internal_id": "CONT_AWD_FA486125C0031_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0025",
+    "Mod": "P00003",
+    "Action Date": "2025-09-30",
+    "Action Type": "D",
+    "Transaction Amount": 0,
+    "Transaction Description": "FY25_F7839_7J7853_422TES_FM9 BLDG 878 AFE RENOVATION",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1AZ",
+     "description": "CONSTRUCTION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 352873331,
+    "generated_internal_id": "CONT_AWD_FA486125C0025_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125F0312",
+    "Mod": "0",
+    "Action Date": "2025-09-24",
+    "Action Type": null,
+    "Transaction Amount": 44756,
+    "Transaction Description": "HVAC UPGRADE PROJECT FOR BUILDING 584, ROOM 113.",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 353863518,
+    "generated_internal_id": "CONT_AWD_FA486125F0312_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "FA486125C0025",
+    "Mod": "P00002",
+    "Action Date": "2025-09-22",
+    "Action Type": "M",
+    "Transaction Amount": 0,
+    "Transaction Description": "FY25_F7839_7J7853_422TES_FM9 BLDG 878 AFE RENOVATION",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1AZ",
+     "description": "CONSTRUCTION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 352873331,
+    "generated_internal_id": "CONT_AWD_FA486125C0025_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "140P8125P0047",
+    "Mod": "0",
+    "Action Date": "2025-09-18",
+    "Action Type": null,
+    "Transaction Amount": 53488.85,
+    "Transaction Description": "REPLACE BB HOUSING SOLAR INVERTERS",
+    "Recipient Name": "JPEC SERVICES, L.L.C.",
+    "Recipient UEI": "G8A6AT3FNL43",
+    "Awarding Agency": "Department of the Interior",
+    "Awarding Sub Agency": "National Park Service",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J059",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "BOULDER CITY",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "1877",
+     "zip5": "89005"
+    },
+    "internal_id": 277859110,
+    "generated_internal_id": "CONT_AWD_140P8125P0047_1443_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "140P8125C0010",
+    "Mod": "0",
+    "Action Date": "2025-09-16",
+    "Action Type": null,
+    "Transaction Amount": 175761,
+    "Transaction Description": "CONSTRUCTION AND PLACEMENT OF FIBER OPTIC CABLE FOR THE ALAN BIBLE VISITOR CENTER AT LAKE MEAD NATIONAL RECREATION AREA.",
+    "Recipient Name": "BOLDEN, NEWBY & SONS INCORPORATED",
+    "Recipient UEI": "KWPKBBYTYUJ2",
+    "Awarding Agency": "Department of the Interior",
+    "Awarding Sub Agency": "National Park Service",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1NZ",
+     "description": "CONSTRUCTION OF OTHER UTILITIES"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "BOULDER CITY",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "1877",
+     "zip5": "89005"
+    },
+    "internal_id": 277859050,
+    "generated_internal_id": "CONT_AWD_140P8125C0010_1443_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0031",
+    "Mod": "0",
+    "Action Date": "2025-09-10",
+    "Action Type": null,
+    "Transaction Amount": 54688.93,
+    "Transaction Description": "WT15083872 ELECTRICAL PANEL INSTALLATION, B61683",
+    "Recipient Name": "FAR SOLUTIONS LLC",
+    "Recipient UEI": "F8TZGJDAJYQ4",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2JZ",
+     "description": "REPAIR OR ALTERATION OF MISCELLANEOUS BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 353409591,
+    "generated_internal_id": "CONT_AWD_FA486125C0031_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0025",
+    "Mod": "P00001",
+    "Action Date": "2025-09-03",
+    "Action Type": "D",
+    "Transaction Amount": 0,
+    "Transaction Description": "FY25_F7839_7J7853_422TES_FM9 BLDG 878 AFE RENOVATION",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1AZ",
+     "description": "CONSTRUCTION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 352873331,
+    "generated_internal_id": "CONT_AWD_FA486125C0025_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0025",
+    "Mod": "0",
+    "Action Date": "2025-08-22",
+    "Action Type": null,
+    "Transaction Amount": 94128,
+    "Transaction Description": "FY25_F7839_7J7853_422TES_FM9 BLDG 878 AFE RENOVATION",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Y1AZ",
+     "description": "CONSTRUCTION OF OTHER ADMINISTRATIVE FACILITIES AND SERVICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 352873331,
+    "generated_internal_id": "CONT_AWD_FA486125C0025_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125F0263",
+    "Mod": "0",
+    "Action Date": "2025-08-19",
+    "Action Type": null,
+    "Transaction Amount": 11452,
+    "Transaction Description": "KEYPAD AND CARD READER REPLACE-INSTALLATION FOR BUILDING 202",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 352757014,
+    "generated_internal_id": "CONT_AWD_FA486125F0263_9700_FA486125D0008_9700"
+   },
+   {
+    "Award ID": "N6600125P6314",
+    "Mod": "0",
+    "Action Date": "2025-07-30",
+    "Action Type": null,
+    "Transaction Amount": 246700.47,
+    "Transaction Description": "J3 AND NOC SPACES - CABLE INSTALLATION SERVICES",
+    "Recipient Name": "AETOTECH LLC",
+    "Recipient UEI": "YYL7YH8HUDJ5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "5098",
+     "zip5": "89102"
+    },
+    "internal_id": 310982009,
+    "generated_internal_id": "CONT_AWD_N6600125P6314_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125P0111",
+    "Mod": "P00001",
+    "Action Date": "2025-07-17",
+    "Action Type": "M",
+    "Transaction Amount": 0,
+    "Transaction Description": "TRANSFORMER MAINTENANCE",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J059",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 298210005,
+    "generated_internal_id": "CONT_AWD_FA486125P0111_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125P0111",
+    "Mod": "0",
+    "Action Date": "2025-07-11",
+    "Action Type": null,
+    "Transaction Amount": 212016.57,
+    "Transaction Description": "TRANSFORMER MAINTENANCE",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J059",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 298210005,
+    "generated_internal_id": "CONT_AWD_FA486125P0111_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125C0021",
+    "Mod": "0",
+    "Action Date": "2025-07-10",
+    "Action Type": null,
+    "Transaction Amount": 373508,
+    "Transaction Description": "WT15766465 RUN FIBER B259 TO SUNSHADE ROWS 17-24",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2EZ",
+     "description": "REPAIR OR ALTERATION OF OTHER INDUSTRIAL BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 298209634,
+    "generated_internal_id": "CONT_AWD_FA486125C0021_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "N6600125P6259",
+    "Mod": "0",
+    "Action Date": "2025-07-09",
+    "Action Type": null,
+    "Transaction Amount": 62479.65,
+    "Transaction Description": "J0 AND FLO SPACES - CABLE INSTALLATION SERVICES",
+    "Recipient Name": "AETOTECH LLC",
+    "Recipient UEI": "YYL7YH8HUDJ5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "5098",
+     "zip5": "89102"
+    },
+    "internal_id": 310981973,
+    "generated_internal_id": "CONT_AWD_N6600125P6259_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "140R3025F0045",
+    "Mod": "0",
+    "Action Date": "2025-06-27",
+    "Action Type": null,
+    "Transaction Amount": 121387.46,
+    "Transaction Description": "BLDG. 700 AND WATER BLDG SCHEDULED ELECTRICAL ASSESSMENT",
+    "Recipient Name": "RX3 COMMUNICATIONS INC",
+    "Recipient UEI": "F5D3LMMEP8Q8",
+    "Awarding Agency": "Department of the Interior",
+    "Awarding Sub Agency": "Bureau of Reclamation",
+    "Award Type": "DELIVERY ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2AA",
+     "description": "REPAIR OR ALTERATION OF OFFICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "BOULDER CITY",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "01",
+     "zip4": "1470",
+     "zip5": "89006"
+    },
+    "internal_id": 277870892,
+    "generated_internal_id": "CONT_AWD_140R3025F0045_1425_140R3021D0006_1425"
+   },
+   {
+    "Award ID": "FA486125C0019",
+    "Mod": "0",
+    "Action Date": "2025-06-26",
+    "Action Type": null,
+    "Transaction Amount": 97064.97,
+    "Transaction Description": "CONSTRUCT ADDITION / REPAIR INTERIOR, 65 AGRS, B1770A (CABLING), NELLIS AFB NV",
+    "Recipient Name": "NORTH WIND GENERAL CONTRACTORS LLC",
+    "Recipient UEI": "MJG1DJYMASR5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "DEFINITIVE CONTRACT",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2AA",
+     "description": "REPAIR OR ALTERATION OF OFFICE BUILDINGS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0001",
+     "zip5": "89191"
+    },
+    "internal_id": 298209632,
+    "generated_internal_id": "CONT_AWD_FA486125C0019_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "N6600125P6218",
+    "Mod": "0",
+    "Action Date": "2025-06-05",
+    "Action Type": null,
+    "Transaction Amount": 71802.52,
+    "Transaction Description": "INFRASTRUCTURE SUPPORT AND CABLE INSTALLATION SERVICES",
+    "Recipient Name": "AETOTECH LLC",
+    "Recipient UEI": "YYL7YH8HUDJ5",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Navy",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J061",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRIC WIRE AND POWER DISTRIBUTION EQUIPMENT"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "5098",
+     "zip5": "89102"
+    },
+    "internal_id": 310981938,
+    "generated_internal_id": "CONT_AWD_N6600125P6218_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "FA486125P0091",
+    "Mod": "0",
+    "Action Date": "2025-06-04",
+    "Action Type": null,
+    "Transaction Amount": 42560,
+    "Transaction Description": "TRANSFORMER REPAIR/MAINTENANCE AND TESTING OF ONE 69KV DELTA, WAUKESHA TRANSFORMER",
+    "Recipient Name": "LIRA ELECTRIC, LLC",
+    "Recipient UEI": "DKMDFZ47MMF7",
+    "Awarding Agency": "Department of Defense",
+    "Awarding Sub Agency": "Department of the Air Force",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "J059",
+     "description": "MAINT/REPAIR/REBUILD OF EQUIPMENT- ELECTRICAL AND ELECTRONIC EQUIPMENT COMPONENTS"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NELLIS AFB",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "7063",
+     "zip5": "89191"
+    },
+    "internal_id": 298209993,
+    "generated_internal_id": "CONT_AWD_FA486125P0091_9700_-NONE-_-NONE-"
+   },
+   {
+    "Award ID": "36C26125P0781",
+    "Mod": "0",
+    "Action Date": "2025-03-18",
+    "Action Type": null,
+    "Transaction Amount": 98501,
+    "Transaction Description": "GATE INSTALLATION VAMC LAS VEGAS",
+    "Recipient Name": "D&G FACILITY SOLUTIONS LLC",
+    "Recipient UEI": "U3WXZ217D8S7",
+    "Awarding Agency": "Department of Veterans Affairs",
+    "Awarding Sub Agency": "Department of Veterans Affairs",
+    "Award Type": "PURCHASE ORDER",
+    "NAICS": {
+     "code": "238210",
+     "description": "ELECTRICAL CONTRACTORS AND OTHER WIRING INSTALLATION CONTRACTORS"
+    },
+    "PSC": {
+     "code": "Z2QA",
+     "description": "REPAIR OR ALTERATION OF RESTORATION OF REAL PROPERTY (PUBLIC OR PRIVATE)"
+    },
+    "Primary Place of Performance": {
+     "location_country_code": "USA",
+     "country_name": "UNITED STATES",
+     "state_code": "NV",
+     "state_name": "Nevada",
+     "city_name": "NORTH LAS VEGAS",
+     "county_code": "003",
+     "county_name": "CLARK",
+     "congressional_code": "04",
+     "zip4": "0100",
+     "zip5": "89086"
+    },
+    "internal_id": 280383290,
+    "generated_internal_id": "CONT_AWD_36C26125P0781_3600_-NONE-_-NONE-"
+   }
+  ],
+  "page_metadata": {
+   "page": 1,
+   "next": null,
+   "previous": null,
+   "hasNext": false,
+   "hasPrevious": false
+  },
+  "messages": [
+   "For searches, time period start and end dates are currently limited to an earliest date of 2007-10-01.  For data going back to 2000-10-01, use either the Custom Award Download feature on the website or one of our download or bulk_download API endpoints as listed on https://api.usaspending.gov/docs/endpoints. "
+  ]
+ }
+}

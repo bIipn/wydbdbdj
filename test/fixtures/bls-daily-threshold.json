@@ -1,0 +1,25 @@
+{
+ "_about": {
+  "what": "REAL response from the BLS Public Data API v1 (no key) once the address had used its 25 queries for the day: status REQUEST_NOT_PROCESSED and no Results.",
+  "url": "POST https://api.bls.gov/publicAPI/v1/timeseries/data/",
+  "capturedUtc": "2026-11-13T03:56Z",
+  "trimming": "The request asked for 25 series; its seriesid list is cut to the first 3 here. The response is as returned."
+ },
+ "request": {
+  "seriesid": [
+   "OEUS050000000000047211107",
+   "OEUS050000000000047211108",
+   "OEUS050000000000047211109"
+  ],
+  "startyear": "2024",
+  "endyear": "2026"
+ },
+ "response": {
+  "status": "REQUEST_NOT_PROCESSED",
+  "responseTime": 0,
+  "message": [
+   "Request could not be serviced, as the daily threshold for total number of requests allocated to the user with registration key  has been reached."
+  ],
+  "Results": {}
+ }
+}

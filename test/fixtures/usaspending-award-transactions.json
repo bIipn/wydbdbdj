@@ -1,0 +1,65 @@
+{
+ "_about": {
+  "what": "REAL response from the USAspending API: one award's own transaction history, oldest first. This award (FAA delivery order 6973GH26F00119, Nevada, NAICS 238210) is one the transaction SEARCH returned without its Mod 0 row: the search gave only P00002. Signed at $81,994.29; now $78,986.15.",
+  "url": "POST https://api.usaspending.gov/api/v2/transactions/",
+  "capturedUtc": "2026-11-13T03:57Z",
+  "trimming": "none"
+ },
+ "request": {
+  "award_id": "CONT_AWD_6973GH26F00119_6920_6973GH25D00041_6920",
+  "limit": 50,
+  "page": 1,
+  "sort": "action_date",
+  "order": "asc"
+ },
+ "response": {
+  "page_metadata": {
+   "page": 1,
+   "next": null,
+   "previous": null,
+   "hasNext": false,
+   "hasPrevious": false
+  },
+  "results": [
+   {
+    "id": "CONT_TX_6920_6920_6973GH26F00119_0_6973GH25D00041_0",
+    "type": "C",
+    "type_description": "DELIVERY ORDER",
+    "action_date": "2025-12-08",
+    "action_type": null,
+    "action_type_description": null,
+    "modification_number": "0",
+    "description": "F11 FACILITIES AND EQUIPMENT (F&E) FUNDED ERMS OPTIMIZATION FOR VARIOUS SITES VENDOR: ASRC FEDERAL ADVANCED RESEARCH, INC",
+    "federal_action_obligation": 81994.29,
+    "face_value_loan_guarantee": 0,
+    "original_loan_subsidy_cost": 0
+   },
+   {
+    "id": "CONT_TX_6920_6920_6973GH26F00119_P00001_6973GH25D00041_0",
+    "type": "C",
+    "type_description": "DELIVERY ORDER",
+    "action_date": "2025-12-22",
+    "action_type": "M",
+    "action_type_description": "OTHER ADMINISTRATIVE ACTION",
+    "modification_number": "P00001",
+    "description": "F11 FACILITIES AND EQUIPMENT (F&E) FUNDED ERMS OPTIMIZATION FOR VARIOUS SITES VENDOR: ASRC FEDERAL ADVANCED RESEARCH, INC",
+    "federal_action_obligation": 0,
+    "face_value_loan_guarantee": 0,
+    "original_loan_subsidy_cost": 0
+   },
+   {
+    "id": "CONT_TX_6920_6920_6973GH26F00119_P00002_6973GH25D00041_0",
+    "type": "C",
+    "type_description": "DELIVERY ORDER",
+    "action_date": "2026-06-04",
+    "action_type": "D",
+    "action_type_description": "CHANGE ORDER",
+    "modification_number": "P00002",
+    "description": "F11 FACILITIES AND EQUIPMENT (F&E) FUNDED ERMS OPTIMIZATION FOR VARIOUS SITES VENDOR: ASRC FEDERAL ADVANCED RESEARCH, INC",
+    "federal_action_obligation": -3008.14,
+    "face_value_loan_guarantee": 0,
+    "original_loan_subsidy_cost": 0
+   }
+  ]
+ }
+}

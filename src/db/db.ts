@@ -20,9 +20,18 @@ export interface OpenDbOptions {
   sslNoVerify?: boolean;
 }
 
+/** Any fixed number: the advisory-lock key every instance takes before it runs the schema. */
+const SCHEMA_LOCK = 4217001;
+
 export async function openDb(opts: OpenDbOptions = {}): Promise<Db> {
   const db = opts.url ? await openPostgres(opts.url, opts.sslNoVerify) : await openPglite(opts.dataDir, opts.loadDataDir);
-  await db.exec(SCHEMA_SQL);
+  // Two server instances can start at the same moment (serverless cold starts). The schema is
+  // idempotent, but two sessions running its ALTER TABLEs together can deadlock or fail with
+  // "tuple concurrently updated", and that instance would crash on its first request. The lock makes
+  // the second wait for the first. It is held for the transaction, and the whole statement batch is
+  // one implicit transaction, so it is released when the schema is done. The embedded database has a
+  // single connection: nothing to wait for.
+  await db.exec(db.kind === 'postgres' ? `select pg_advisory_xact_lock(${SCHEMA_LOCK});\n${SCHEMA_SQL}` : SCHEMA_SQL);
   return db;
 }
 

@@ -20,7 +20,8 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,530 tests in 60 files as of 2026-11-13, ~50s; simulate.test.ts alone ~25s)
+npm test                   # vitest (~1,530 tests in 61 files as of 2026-11-13, ~50s; simulate.test.ts alone ~25s;
+                           # 1 is skipped unless TEST_DATABASE_URL names a throwaway Postgres: test/pg-startup.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
@@ -174,6 +175,13 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   scan/refresh (the function freezes once it answers) and `/api/cron/tick` runs deadline reminders.
   `GET /api/alerts` returns `lastScan`, so a polling app reloads its feed after a scan.
 - Fixture mode resolves `test/fixtures` from the working directory: run the server from the repo (or link it).
+- Vercel (live at bidswipe-tau.vercel.app, see docs/HANDOFF.md §1): the entry is `server.js` → `dist/`;
+  never `await app.listen()` there (it never reports back: every request hung 60 s); `@fastify/static`
+  cannot load there (`src/static.ts` serves the shell); no `functions` block in vercel.json; the project's
+  production branch is `main`, so a push to a work branch only builds a preview (which scans SAM.gov only).
+- `openDb` takes a Postgres advisory lock before the schema: without it 11 of 12 simultaneous cold starts
+  failed on an empty database (`TEST_DATABASE_URL=… npx vitest run test/pg-startup.test.ts` shows it).
+- Supabase: the app's tables live in schema `bidswipe_app` (the login's own), never `public`.
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

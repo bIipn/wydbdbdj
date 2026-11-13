@@ -69,8 +69,31 @@ federal bids from the free bulk file, store-ready PWA"):**
   390×844 and 1280×800, Pro unlocked from a `?promo=` link, cost check opened; poll mode raised 2 alerts and
   reloaded the deck to 7 bids without a stream.
 - Known gaps: sign-in/promo rate limits are per process (weak on serverless); no in-app account deletion;
-  the privacy page needs a contact email; the bulk download has not been run inside a Vercel function;
-  CA DIR and county prequalification are not scored.
+  the privacy page needs a contact email; CA DIR and county prequalification are not scored.
+- **Live since 2026-11-13: https://bidswipe-tau.vercel.app** (accounts mode, promo codes on).
+  - Host: Vercel project `bidswipe` (team "biipn's projects"), Hobby plan, region sfo1, Node 22. It is
+    linked to this GitHub repository with production branch `main`. The live version was deployed by
+    hand from `claude/affectionate-hypatia-57wdiv`; a push to that branch only builds a preview. Once
+    this work is on `main`, every push to `main` goes live by itself.
+  - Database: Supabase project `bidswipe` (us-west-1, free plan). The app logs in as its own role
+    `bidswipe_app` and keeps every table in the schema of the same name (not `public`, which Supabase
+    exposes through its REST API). The pooler host is `aws-1-us-west-1.pooler.supabase.com:6543`
+    (`aws-0-…` answers "tenant/user not found").
+  - Settings live in the Vercel project's environment variables: `DATABASE_URL`, `ADMIN_TOKEN`,
+    `CRON_SECRET`, `SAM_API_KEY`, `PROMO_CODES` (all marked sensitive), `AUTH_MODE=accounts`, `APP_URL`,
+    `REALTIME_MODE=poll`, `MARKET_REFRESH_AT`, `PG_SSL_NO_VERIFY=1`, `TRUST_PROXY`. Preview builds also
+    get `SOURCES=samgov`, so testing a preview never re-reads the Nevada boards.
+  - Daily jobs (vercel.json, UTC): market 11:40, scan 13:20, tick 14:50.
+  - First live scan: QuestCDN 13, NGEM 44, NevadaEPro 25, SAM.gov bulk 495 (8.2 s for the 222 MB file).
+    **Douglas County answers HTTP 403 to the host's address** (it works from other networks), so that
+    source is FAILED on Vercel until it runs from somewhere else or the county allows it.
+  - Checked on the live site in a phone-size browser: a `?promo=` link gave Pro after a 14-tap,
+    zero-typing onboarding; Browse showed state and federal bids; `/package.json`, `/server.js` and
+    `/config/…` answer 404.
+  - Not done there: phone push (no VAPID keys set), the daily digest email (no Resend key), social
+    sign-in (no Supabase Auth keys), a BLS key (wages and price indexes depend on the no-key limit).
+  - Vercel's Hobby plan is for non-commercial use: move to Pro ($20/month) or another host before
+    charging for BidSwipe Pro.
 
 **Next:** re-run `npm run scan -- --no-notify` live (`.claude/skills/live-scan`) to confirm the source
 fixes; answer the §5 questions; deploy.

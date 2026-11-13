@@ -107,8 +107,17 @@ a line there, `test/serverless-entry.test.ts` checks it). On Vercel the app has 
   Hobby plans allow daily crons only, so reminders run once a day there.
 - Live alerts poll (`REALTIME_MODE=poll` is automatic when `VERCEL` is set): the app asks the inbox about
   once a minute while open and reloads its feed after each scan.
-- The SAM.gov bulk download is ~222 MB plus ~3 s of parsing per scan; if the function's time or memory
-  limit is too small, set `SAM_SOURCE=api` there or run the scan on a longer-lived machine.
+- The SAM.gov bulk download is ~222 MB per scan. Measured in a Vercel function on 2026-11-13: download
+  and parse 8.2 s, 495 federal cards stored, the whole scan 10 s. `SAM_SOURCE=api` is the fallback.
+- Vercel quirks this setup works around (each cost a failed deploy; do not undo them):
+  the entry is plain JavaScript (`server.js`) because Vercel's own TypeScript step fails on this
+  tsconfig; `listen()` is not awaited in serverless mode (it never reports back there);
+  `@fastify/static` cannot load there, so `src/static.ts` serves the shell from a fixed file list;
+  `vercel.json` must not have a `functions` block (rejected for this framework); `TRUST_PROXY` cannot
+  be a `/0` range (use `0.0.0.0/1,128.0.0.0/1,::/1,8000::/1`); `engines.node` is pinned to 22.x.
+- Supabase: connect through the shared pooler in transaction mode (port 6543) as the app's own
+  database login. Keep the tables in that login's own schema, not `public`: Supabase's REST API
+  exposes `public` to anyone with the project's public key.
 - Set `PROMO_CODES` in the project's environment variables, never in the repo. `docs/MICROSOFT-STORE.md`
   has the Store steps (PWABuilder package, listing text, privacy page).
 

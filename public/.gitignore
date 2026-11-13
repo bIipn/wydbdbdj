@@ -1,0 +1,4 @@
+# The serverless host serves this folder from its CDN. Its build copies web/ here (vercel.json).
+# The folder has to exist in the repository for the host to notice it; nothing else in it is committed.
+*
+!.gitignore

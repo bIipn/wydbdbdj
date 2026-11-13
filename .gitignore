@@ -5,5 +5,4 @@ data/
 *.log
 out/
 .claude/settings.local.json
-public/
 .vercel/

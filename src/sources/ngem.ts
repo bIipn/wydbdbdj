@@ -43,8 +43,6 @@ export interface NgemPager {
 
 export interface NgemPage {
   bids: BidDraft[];
-  /** Plain-GET pager links. Only a browser-saved page has them, and the live server ignores them. */
-  pageUrls: string[];
   pager: NgemPager;
   /** false = no bid grid in the HTML at all (layout change, error page). */
   tableFound: boolean;
@@ -168,15 +166,8 @@ export function parseNgemPage(html: string, pageUrl = NGEM_URL): NgemPage {
     });
   });
 
-  const pageUrls = new Set<string>();
-  table.find('tfoot a[href*="rgBidListChangePage="]').each((_, a) => {
-    const abs = absolutize($(a).attr('href'), pageUrl);
-    if (abs) pageUrls.add(abs);
-  });
-
   return {
     bids,
-    pageUrls: [...pageUrls],
     pager: readPager($),
     tableFound: table.length > 0,
     rows: trs.length,
@@ -226,17 +217,17 @@ export const ngemSource: Source = {
   homepage: NGEM_URL,
   async fetch(ctx) {
     // The grid pages by ASP.NET postback: a POST of the page's hidden fields, tied to the cookies
-    // of the first GET. The plain "…ChangePage=2_20" GET links just return page 1 again.
+    // of the first GET. (The "…ChangePage=2_20" links a browser shows just return page 1 again.)
     const session = ctx.http.session?.();
     let html = await (session ?? ctx.http).text(NGEM_URL);
     const first = parseNgemPage(html);
 
-    // Loud beats empty: a page we can't read must show up as FAILED, not as "0 bids".
-    if (first.errorPage) throw new Error('NGEM answered with its "An error has occurred" page');
-    if (!first.tableFound) throw new Error('NGEM: bid grid not found — did the page layout change?');
-    if (first.rows === 0) throw new Error('NGEM: the bid grid has no rows');
-    if (first.bids.length === 0) throw new Error(`NGEM: ${first.rows} rows on page 1 but none could be read`);
-    if (!first.bids.some((b) => b.dueAt)) throw new Error('NGEM: no close date could be read — did the columns move?');
+    // A page we can't read must show up as FAILED in the scan report, never as "0 bids".
+    if (first.errorPage) throw new Error('the board answered with its "An error has occurred" page');
+    if (!first.tableFound) throw new Error('bid grid not found (layout change or error page?)');
+    if (first.rows === 0) throw new Error('bid grid has no rows');
+    if (first.bids.length === 0) throw new Error(`${first.rows} rows listed on page 1 but none could be read`);
+    if (!first.bids.some((b) => b.dueAt)) throw new Error('no close date could be read (columns moved?)');
     if (first.guessedColumns.length) ctx.log(`ngem: header does not name ${first.guessedColumns.join(', ')} — read by position`);
 
     const byId = new Map(first.bids.map((b) => [b.sourceId, b]));

@@ -1,7 +1,7 @@
 /**
  * Manual scan:  npm run scan            (scan + digest)
  *               npm run scan -- --no-notify --source=ngem,questcdn
- *               npm run scan -- --fixtures   (offline: load the captured Nov 11 snapshot)
+ *               npm run scan -- --fixtures   (offline: load the pages captured in test/fixtures)
  *
  * With the embedded database, stop the server first (only one process can open it),
  * or call POST /api/admin/scan on the running server instead.

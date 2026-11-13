@@ -20,7 +20,8 @@ export interface DouglasOpts {
 }
 
 export interface DouglasPage {
-  hasTable: boolean;
+  /** false = the bid table is not in the HTML at all (layout change, error page). */
+  tableFound: boolean;
   /** tr.rfp-item rows in the table, readable or not. */
   rows: number;
   /** Every readable row in page order, open and closed. */
@@ -56,7 +57,7 @@ export function parseDouglasPage(html: string, opts: DouglasOpts = {}): DouglasP
   const $ = cheerio.load(html);
   const pageUrl = opts.pageUrl ?? DOUGLAS_URL;
   const $rows = $('#rfp-table tbody tr.rfp-item, table.open-bid tbody tr.rfp-item');
-  const page: DouglasPage = { hasTable: $('#rfp-table, table.open-bid').length > 0, rows: $rows.length, bids: [], open: [], notes: [] };
+  const page: DouglasPage = { tableFound: $('#rfp-table, table.open-bid').length > 0, rows: $rows.length, bids: [], open: [], notes: [] };
 
   $rows.each((_, tr) => {
     const $tr = $(tr);
@@ -124,10 +125,11 @@ export const douglasCountySource: Source = {
   homepage: DOUGLAS_URL,
   async fetch(ctx) {
     const page = parseDouglasPage(await ctx.http.text(DOUGLAS_URL), { now: ctx.now });
-    // The table always carries dozens of past bids, so an empty result means the page changed: fail loudly.
-    if (!page.hasTable) throw new Error('Douglas County: bid table (#rfp-table) not found, page layout changed?');
-    if (page.rows === 0) throw new Error('Douglas County: bid table has no rfp-item rows, page layout changed?');
-    if (page.bids.length === 0) throw new Error(`Douglas County: none of the ${page.rows} rows could be read (no "View Details" links)`);
+    // A page we can't read must show up as FAILED in the scan report, never as "0 bids". The table always
+    // carries dozens of past bids, so "no rows" means the page changed. (0 open of 90 rows is a normal day.)
+    if (!page.tableFound) throw new Error('bid table (#rfp-table) not found (layout change or error page?)');
+    if (page.rows === 0) throw new Error('bid table has no rfp-item rows (layout change?)');
+    if (page.bids.length === 0) throw new Error(`${page.rows} rows listed but none could be read (no "View Details" links?)`);
     for (const note of page.notes) ctx.log(`douglascounty: ${note}`);
     const unread = page.rows - page.bids.length;
     ctx.log(`douglascounty: ${page.open.length} open of ${page.rows} rows${unread ? ` (${unread} unreadable)` : ''}`);

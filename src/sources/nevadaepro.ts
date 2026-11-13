@@ -130,7 +130,7 @@ export const nevadaEproSource: Source = {
     // A page we can't read must show up as FAILED in the scan report, never as "0 bids".
     if (!page.tableFound) throw new Error('results table not found (layout change or error page?)');
     if (page.bids.length === 0 && page.rows > 0) {
-      throw new Error(`${page.rows} rows listed but none could be parsed (columns changed?)`);
+      throw new Error(`${page.rows} rows listed but none could be read (columns changed?)`);
     }
     if (page.bids.length === 0 && page.total) {
       throw new Error(`board announces ${page.total} open bids but the table has no rows`);

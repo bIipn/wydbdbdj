@@ -20,9 +20,9 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (41 tests, ~6s)
+npm test                   # vitest (108 tests as of 2026-11-13, ~5s)
 npm run build              # tsc → dist/
-npm run scan -- --fixtures # offline: load real bids captured 2026-11-11 into the local DB
+npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
 npm run scan -- --source=ngem        # one source
 npm run dev                # http://localhost:8787 (tsx watch)
@@ -42,12 +42,23 @@ src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts)
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
 web/               index.html, styles.css, app.js (swipe deck, browse, saved, detail sheet)
-test/fixtures/     REAL pages captured 2026-11-11 (except samgov-search.json = synthetic, TEST- ids)
+test/fixtures/     REAL responses, raw as the scanner receives them: HTML captured 2026-11-13, QuestCDN JSON
+                   2026-11-11 (except samgov-search.json = synthetic, TEST- ids)
+test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
+                   · http.test.ts (cookie session) · pipeline / score / server / util · helpers.ts
 ```
 
 ## Rules
 - **Sources:** keep `parse…()` pure (string in → `BidDraft[]` out) and unit-tested against a saved real
   page in `test/fixtures/`. A broken source must never stop the scan (`runScan` already isolates them).
+  A page `fetch()` can't read (table missing, rows but nothing parsed) must throw so the report says
+  FAILED — never return a quiet 0 bids.
+- **Fixtures = the RAW response,** exactly what `ctx.http` receives (e.g. `curl` with the scanner's
+  User-Agent) — never a browser "Save as": page JavaScript rewrites these tables, and fixtures saved that
+  way hid three broken sources until the first live scan (2026-11-13). Keep excerpts verbatim (dropping
+  whole rows is fine; line endings untouched) and replace session-token values (`__VIEWSTATE`, `_csrf`,
+  `javax.faces.ViewState`) with `TRIMMED`. Fixture mode reads them as of `FIXTURES_CAPTURED_AT`
+  (`src/sources/fixtures.ts`) — update it when you re-capture.
 - **Scraping etiquette:** public pages only — never log in, never scrape login-walled boards (PlanHub,
   BuildingConnected, ConstructConnect). Keep the polite User-Agent + per-host delay in `util/http.ts`.
   One scan a day is plenty.
@@ -71,7 +82,17 @@ test/fixtures/     REAL pages captured 2026-11-11 (except samgov-search.json = s
   when there is a body (was a real Undo bug).
 - TypeScript 7 is the native compiler; keep tsconfig on `module/moduleResolution: NodeNext`.
 - QuestCDN and NGEM detail pages open via JavaScript → those cards link to the board + show the number.
-- NevadaEPro's first page = 25 newest open bids; daily scans catch new ones.
+- NevadaEPro's first page = 25 newest open bids; daily scans catch new ones. The log says how many the
+  board announces ("nevadaepro: 25 of 29 listed (first page only)"). Raw cells have no labels: columns
+  are named from `<thead>`.
+- NGEM pages by ASP.NET postback, not links: page 1 is a GET, pages 2+ are a POST of that page's hidden
+  fields through `ctx.http.session()` (cookie jar). Never send a postback without the `ASP.NET_SessionId`
+  + `__AntiXsrfToken` cookies of the first GET: the board answers with an "An error has occurred" page
+  (HTTP 200) and files an error report with its admins. POSTs are never retried; on any doubt NGEM keeps
+  the pages it has and logs "— stopped: <reason>".
+- Douglas County's Open/Close status is not in the HTML (a script stamps it in the browser), so
+  `parseDouglasPage` decides it from `now`: the due time in the legal ad if there is one, else the county's
+  rule (open until the day before `td.deadline-date`, Pacific). Raw page without `now` → it throws.
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

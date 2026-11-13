@@ -1,0 +1,2 @@
+# Captured server responses stay byte-for-byte (some boards send CRLF): no line-ending conversion.
+test/fixtures/* -text

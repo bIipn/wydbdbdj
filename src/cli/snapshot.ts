@@ -2,9 +2,10 @@
  * Builds web/demo-data.json from the real bid-board pages captured in test/fixtures,
  * so the swipe app can run with no server or network (demo mode, artifact preview).
  *
- *   npm run demo:snapshot            # scores relative to right now
- *   npm run demo:snapshot -- --now=2026-11-11T12:00:00-08:00
+ *   npm run demo:snapshot            # scores relative to right now (past-due bids drop out)
+ *   npm run demo:snapshot -- --now=2026-11-13T12:00:00-08:00   # as of the capture day
  *
+ * The pages themselves are always read as of the capture day (see sources/fixtures.ts).
  * The SAM.gov fixture is synthetic test data, so it is deliberately left out.
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -12,23 +13,15 @@ import { resolve } from 'node:path';
 import { loadProfile } from '../profiles.js';
 import { finalizeBid } from '../scan.js';
 import { scoreBid } from '../score/score.js';
-import { parseDouglasRfp } from '../sources/douglascounty.js';
-import { parseNevadaEproOpenBids } from '../sources/nevadaepro.js';
-import { parseNgemPage } from '../sources/ngem.js';
-import { parseQuestJson, QUEST_BOARDS } from '../sources/questcdn.js';
+import { FIXTURES_CAPTURED_AT, fixtureReaders } from '../sources/fixtures.js';
 import type { BidDraft, FeedItem } from '../types.js';
 
-const fx = (f: string) => readFileSync(resolve(process.cwd(), 'test/fixtures', f), 'utf8');
 const nowArg = process.argv.find((a) => a.startsWith('--now='))?.slice(6);
 const now = nowArg ? new Date(nowArg) : new Date();
 const profile = loadProfile(process.env.PROFILE_ID ?? 'lm-electric');
 
-const drafts: BidDraft[] = [
-  ...parseDouglasRfp(fx('douglas-rfp.html')),
-  ...parseQuestJson(JSON.parse(fx('questcdn-spwd.json')), QUEST_BOARDS[0]!),
-  ...parseNgemPage(fx('ngem-page1.html')).bids,
-  ...parseNevadaEproOpenBids(fx('nevadaepro-open-bids.html')),
-];
+const drafts: BidDraft[] = fixtureReaders().flatMap((f) => f.read());
+const capturedAt = FIXTURES_CAPTURED_AT.toISOString().slice(0, 10);
 
 const items: FeedItem[] = drafts
   .map(finalizeBid)
@@ -41,8 +34,8 @@ const items: FeedItem[] = drafts
 
 const out = {
   generatedAt: now.toISOString(),
-  capturedAt: '2026-11-11',
-  note: 'Real public bid listings captured from Douglas County NV, NV State Public Works (QuestCDN), NGEM and NevadaEPro on 2026-11-11. Trimmed sample, not a full feed.',
+  capturedAt,
+  note: `Real public bid listings captured from Douglas County NV, NGEM and NevadaEPro on ${capturedAt}, and from NV State Public Works (QuestCDN) on 2026-11-11. A saved snapshot, not a live feed.`,
   profile: { id: profile.id, name: profile.name, base: profile.base.label, maxDistanceMi: profile.maxDistanceMi, valueRange: profile.valueRange, notifyMinScore: profile.notify.minScore },
   items,
 };

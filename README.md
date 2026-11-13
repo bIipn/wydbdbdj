@@ -18,17 +18,18 @@ sources ──► normalize + locate ──► score per contractor ──► Po
 |---|---|---|
 | `douglascounty` | Douglas County NV (Minden/Gardnerville) bids | public HTML table |
 | `questcdn` | NV State Public Works construction (Carson City, Reno, Yerington…) | QuestCDN board JSON |
-| `ngem` | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged |
+| `ngem` | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged by form postback |
 | `nevadaepro` | NV State Purchasing (goods + services) | public BSO open-bids table |
 | `samgov` | Federal (NV + Tahoe-side CA) | official SAM.gov v2 API — **needs a free key** |
 
-Each source is one file in `src/sources/` with a pure `parse…()` function (unit-tested against real pages
-captured Nov 11 2026 in `test/fixtures/`) plus a small `fetch()` wrapper. A source that breaks never stops
-the others — the scan report shows which one failed.
+Each source is one file in `src/sources/` with a pure `parse…()` function (unit-tested against real
+responses in `test/fixtures/` — the raw server HTML/JSON, captured Nov 13 2026; QuestCDN Nov 11) plus a
+small `fetch()` wrapper. A source that breaks never stops the others — the scan report shows which one
+failed.
 
 **Add a source:** copy `src/sources/douglascounty.ts`, change the URL + parser, add it to `ALL_SOURCES`
-in `src/sources/index.ts`, drop a saved page in `test/fixtures/`, write a test. More QuestCDN boards are
-one line in `QUEST_BOARDS`.
+in `src/sources/index.ts`, drop a saved page in `test/fixtures/` (the raw response, not a browser
+"Save as"), write a test. More QuestCDN boards are one line in `QUEST_BOARDS`.
 
 ## Scoring (the part to tune with L&M)
 
@@ -54,7 +55,7 @@ notes, decisions and roadmap; `docs/KICKOFF_PROMPT.md` is the first message to p
 
 ```bash
 npm install
-npm test                       # 41 tests
+npm test                       # 108 tests
 npm run scan -- --fixtures     # load the captured real bids (no network needed)
 npm run dev                    # http://localhost:8787
 ```

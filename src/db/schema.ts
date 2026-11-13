@@ -1,3 +1,5 @@
+import { PROMO_SCHEMA_SQL } from './schema-promo.js';
+
 /**
  * Plain Postgres. Runs as-is on embedded PGlite (local/dev/tests) and on Supabase.
  * Idempotent — safe to run on every startup.
@@ -215,4 +217,5 @@ alter table market_series add column if not exists preliminary boolean not null 
 -- 'ok', or why the last refresh got nothing for the series: 'not_found' | 'no_data' (+ the publisher's message).
 alter table market_series_meta add column if not exists status text not null default 'ok';
 alter table market_series_meta add column if not exists note text;
+${PROMO_SCHEMA_SQL}
 `;

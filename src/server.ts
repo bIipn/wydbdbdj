@@ -13,6 +13,7 @@ import type { MarketHttp } from './market/refresh.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
 import { startRealtime } from './realtime/index.js';
+import { registerPlainStatic } from './static.js';
 import { register as adminRoutes } from './routes/admin.js';
 import { register as authRoutes } from './routes/auth.js';
 import { register as cronRoutes } from './routes/cron.js';
@@ -51,6 +52,8 @@ export interface ServerOptions {
   trustProxy?: string;
   /** Market refresh clients (tests and the offline demo replay captured pages). Default: polite real clients. */
   marketHttp?: MarketHttp;
+  /** Serve the app shell with the built-in plain file server instead of @fastify/static (hosts that cannot load the plugin). */
+  plainStatic?: boolean;
 }
 
 export interface ServerDeps {
@@ -102,13 +105,16 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     await routes(app, ctx);
   }
 
-  // The app shell. A serverless host serves these files from its CDN (the build copies web/ to
-  // public/) and the folder is not inside the function there, so there is nothing to register.
-  // The plugin is imported only when it is used: Vercel's module loader cannot load it at all
-  // (it require()s an ES-module-only package), and a top-level import crashed every request.
+  // The app shell. @fastify/static is imported only where it is used: Vercel's module loader cannot
+  // load it at all (it require()s an ES-module-only package), and a top-level import crashed every
+  // request there. That host gets the plain file server in src/static.ts instead (the host ships
+  // the whole project with the function, so web/ is on disk there too).
   if (existsSync(WEB_DIR)) {
-    const { default: fastifyStatic } = await import('@fastify/static');
-    await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
+    if (opts.plainStatic) registerPlainStatic(app, WEB_DIR);
+    else {
+      const { default: fastifyStatic } = await import('@fastify/static');
+      await app.register(fastifyStatic, { root: WEB_DIR, prefix: '/', index: ['index.html'] });
+    }
   }
   return { app, ctx };
 }
@@ -145,7 +151,7 @@ function createScanRunner(deps: AppDeps, config: AppConfig, bus: Bus): () => Pro
 }
 
 /** Database, sources, bus, app and realtime wiring: everything except listening and timers. */
-async function boot() {
+async function boot(how: { plainStatic?: boolean } = {}) {
   loadEnv();
   const config = loadConfig();
   const deps = await buildDeps(config);
@@ -154,7 +160,7 @@ async function boot() {
   });
   const scan = createScanRunner(deps, config, bus);
   const { app, ctx } = await buildApp(deps, {
-    config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'),
+    config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'), plainStatic: how.plainStatic,
   });
   return { app, ctx, deps, scan };
 }
@@ -191,7 +197,7 @@ async function main() {
  */
 async function serverless() {
   if (!env('DATABASE_URL')) throw new Error('DATABASE_URL is required on a serverless host: the embedded database does not survive between requests');
-  const { app, ctx } = await boot();
+  const { app, ctx } = await boot({ plainStatic: true });
   startRealtime(ctx); // stores alerts for what a scan publishes; the stream and push hang off the same bus
   await app.listen({ port: Number(env('PORT') ?? 3000), host: '0.0.0.0' });
 }

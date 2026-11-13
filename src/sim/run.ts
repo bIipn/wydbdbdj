@@ -26,10 +26,12 @@ import { createAuth } from '../auth/index.js';
 import { loadConfig, type AppConfig } from '../context.js';
 import { openDb, type Db } from '../db/db.js';
 import { awardCounts, seriesCounts } from '../db/market.js';
+import { getProfile } from '../db/repo.js';
 import { buildProfile, profileIdFor, type OnboardingAnswers } from '../profile/build.js';
 import { createBus, type Bus, type BusEvent } from '../realtime/bus.js';
 import { createRealtime } from '../realtime/index.js';
 import { finalizeBid, runScan, type ScanReport } from '../scan.js';
+import { isCandidate } from '../score/candidates.js';
 import { scoreBid } from '../score/score.js';
 import { buildApp } from '../server.js';
 import { mergeDrafts } from '../sources/dedupe.js';
@@ -44,7 +46,7 @@ import { simTakeoff, targetDollars } from './takeoff.js';
 
 export type MutationId =
   | 'radius' | 'spend-limit' | 'certification' | 'trade' | 'alert-reason' | 'alert-missing' | 'repeat-scan'
-  | 'free-no-premium' | 'estimate-not-silent' | 'stream-cut' | 'nondeterministic';
+  | 'free-no-premium' | 'estimate-not-silent' | 'stream-cut' | 'browse-missing' | 'nondeterministic';
 
 /** Which check each mutation must trip. */
 /**
@@ -63,6 +65,7 @@ export const MUTATIONS: Readonly<Record<MutationId, { check: CheckId; how: strin
   'free-no-premium': { check: 'free-no-premium', how: 'the locked market-awards answer gets a median price added' },
   'estimate-not-silent': { check: 'estimate-not-silent', how: 'the estimate answer is turned into a "complete" estimate with a total of 0' },
   'stream-cut': { check: 'stream-delivery', how: "the bus drops every 'alert' event, so stored alerts never reach an open stream" },
+  'browse-missing': { check: 'browse-complete', how: 'the scan\'s candidate filter uses a quarter of each radius and no home states, so it drops bids worth a look' },
   nondeterministic: { check: 'determinism', how: 'the takeoff seed takes the clock as well as --seed' },
 };
 
@@ -191,7 +194,7 @@ export function pickHoldOut(bids: Bid[], personas: readonly Persona[], seed: num
     .filter((b) => isOpen(b, CAPTURED))
     .filter((b) => profiles.some((pr) => {
       const s = scoreBid(b, pr, CAPTURED);
-      return s.score >= (pr.alerts?.minScore ?? pr.notify.minScore) && !s.rejected && !s.overLimit;
+      return s.score >= (pr.alerts?.minScore ?? pr.notify.minScore) && !s.rejected && !s.overLimit && !s.capped;
     }))
     .map((b) => b.id)
     .sort();
@@ -278,7 +281,11 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
     return list.map((p) => mutateProfile(p, mutation));
   };
   const busForScan = scanBus(bus, mutation, () => phase);
-  const scan = (): Promise<ScanReport> => runScan({ db, sources, profiles: profilesForScan, ctx: sourceCtx, bus: busForScan });
+  // The 'browse-missing' seam: a candidate filter that is far too tight (it stores fewer bids than it must).
+  const candidate = mutation === 'browse-missing'
+    ? (p: Profile, b: Bid) => isCandidate({ ...p, maxDistanceMi: Math.round(p.maxDistanceMi / 4), states: [] }, b)
+    : undefined;
+  const scan = (): Promise<ScanReport> => runScan({ db, sources, profiles: profilesForScan, ctx: sourceCtx, bus: busForScan, ...(candidate ? { candidate } : {}) });
   const { app, ctx } = await buildApp({ db }, {
     config, bus, scan, now: () => CAPTURED,
     auth: createAuth(db, config, { now: () => CAPTURED, ...(opts.fastHash ? { cost: { ln: 10, r: 8, p: 1 } } : {}) }),
@@ -412,6 +419,15 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
         distance: { maxMi, items: (await timed('GET /api/feed (filters)', c.get(`/api/feed?all=1&minScore=0&limit=300&maxDistance=${maxMi}&sort=near`))).body.items },
         due: { days: 14, now: CAPTURED.toISOString(), items: (await timed('GET /api/feed (filters)', c.get('/api/feed?all=1&minScore=0&limit=300&dueWithinDays=14&sort=due'))).body.items },
       };
+      // What Browse must hold: the scorer's own verdict on every open captured bid, with no candidate filter,
+      // for the profile exactly as the scan scored it (mutations included).
+      const scored = mutateProfile((await getProfile(db, pid))!, mutation);
+      o.expectedInBrowse = merged
+        .filter((b) => isOpen(b, CAPTURED))
+        .map((b) => ({ b, s: scoreBid(b, scored, CAPTURED) }))
+        .filter(({ s }) => s.verdict !== 'skip')
+        .map(({ b, s }) => ({ id: b.id, title: b.title, score: s.score }))
+        .sort((x, y) => (x.id < y.id ? -1 : 1));
       o.next = (await timed('GET /api/next', c.get('/api/next'))).body;
       o.asOf = CAPTURED.toISOString();
       o.alerts = (await timed('GET /api/alerts', c.get('/api/alerts?limit=200'))).body.items as Alert[];

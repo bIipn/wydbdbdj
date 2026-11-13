@@ -14,6 +14,8 @@ import { fling } from './actions.js';
 import { closeSheet, openSheet, sheetOpen } from './sheet.js';
 import { deck, state } from './state.js';
 import './live.js';
+// Reads ?promo=CODE at load (before boot) and applies it once the app is entered: src/auth/promo.ts.
+import './promo.js';
 import { openAlerts, openBidById } from './views/alerts.js';
 import './views/cost.js';
 import './views/feed.js';

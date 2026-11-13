@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
 import { lastScan, saveProfileForAccount } from '../db/repo.js';
+import { nearestZip } from '../geo/nearest.js';
 import { lookupZip } from '../geo/zip.js';
 import { featuresFor, type Features } from '../plans.js';
 import { buildProfile, profileIdFor, SET_ASIDES, setAsidePartner, summarize, validateAnswers, type ProfileSummary } from '../profile/build.js';
@@ -59,6 +60,35 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
 
   app.get<{ Params: { zip: string } }>('/api/geo/zip/:zip', async (req, reply) => {
     return lookupZip(req.params.zip) ?? reply.code(404).send({ error: 'zip_not_found' });
+  });
+
+  /**
+   * "Use my location": the browser's point → the nearest ZIP and its town. The client sends lat/lng rounded to
+   * 2 decimals (about 1 km) and nearestZip rounds again; they are used for this lookup only and never stored —
+   * only the ZIP the person then saves is kept. Open before a profile exists, like the ZIP preview above.
+   */
+  app.get<{ Querystring: { lat?: string; lng?: string } }>('/api/geo/nearest-zip', async (req, reply) => {
+    const lat = Number(req.query.lat);
+    const lng = Number(req.query.lng);
+    // Number('') is 0: an empty lat= or lng= must not quietly become the point 0,0 (off Africa).
+    const blank = (v: string | undefined) => v == null || String(v).trim() === '';
+    if (blank(req.query.lat) || blank(req.query.lng) || !Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+      return reply.code(400).send({ error: 'bad_point', message: 'Send lat and lng as numbers.' });
+    }
+    const place = nearestZip(lat, lng);
+    if (!place) return reply.code(404).send({ error: 'zip_not_found', message: 'No US ZIP near that point.' });
+    return { zip: place.zip, city: place.city, state: place.state };
+  });
+
+  /** The saved answers (accounts mode). The same summary /api/me carries, for a client that wants only this. */
+  app.get('/api/profile', async (req, reply) => {
+    if (config.authMode === 'single') {
+      return reply.code(409).send({ error: 'single_profile_mode', message: 'This server runs one profile from config/<PROFILE_ID>.json.' });
+    }
+    const id = await ctx.identify(req);
+    if (!id.account) return reply.code(401).send({ error: 'sign_in_required' });
+    if (!id.profile) return reply.code(409).send({ error: 'onboarding_required' });
+    return { profile: summaryFor(id.profile, featuresFor(id.plan)) };
   });
 
   /**

@@ -1,8 +1,9 @@
-import type { BidDraft, Source } from '../types.js';
+import type { BidDraft, Source, SourceContext } from '../types.js';
 import { parseUsDateTime, samDate } from '../util/time.js';
 import { clean, cleanOrNull, titleCaseIfShouting } from '../util/text.js';
 import { mergeDrafts, samKey } from './dedupe.js';
 import { FLAGS, PROGRAM_CONTRACT_TERMS } from './flags.js';
+import { fetchSamBulk } from './samgov-bulk.js';
 
 /** Official SAM.gov Get Opportunities API v2 — https://open.gsa.gov/api/get-opportunities-public-api/ */
 export const SAM_API = 'https://api.sam.gov/opportunities/v2/search';
@@ -201,39 +202,68 @@ const EMPTY_CODE = /^(?:|none|n\/a|null)$/i;
  * (samKey), so it stays the same when SAM posts the next amendment.
  */
 export function parseSamResponse(json: SamResponse): BidDraft[] {
-  const drafts = (json.opportunitiesData ?? [])
-    .filter((o) => o.noticeId && o.active !== 'No')
-    .map((o): BidDraft => {
-      const place = parseSamPlace(o.placeOfPerformance);
-      const sol = cleanOrNull(o.solicitationNumber);
-      const title = cleanOrNull(o.title) ?? `Federal opportunity ${sol ?? o.noticeId}`;
-      const ownText = o.description && !/^https?:\/\//i.test(o.description.trim()) ? o.description : null; // usually a link
-      const code = clean(o.typeOfSetAside);
-      const setAside = EMPTY_CODE.test(code) ? setAsideFromText([title, ownText].filter(Boolean).join(' · ')) : code;
-      const extra = [o.type, o.typeOfSetAsideDescription].filter(Boolean).join(' · ');
-      const flags: string[] = [];
-      if (isPresolicitation(o)) flags.push(SAM_FLAGS.presolicitation);
-      if (isProgramContract(title) || isProgramContract(ownText)) flags.push(SAM_FLAGS.programContract);
-      return {
-        source: 'samgov',
-        sourceId: samKey(sol, o.noticeId),
-        sourceName: 'SAM.gov (federal)',
-        title,
-        agency: prettyAgency(o.fullParentPathName),
-        description: extra ? `${extra}${sol ? ` · Sol. ${sol}` : ''}` : sol ? `Sol. ${sol}` : null,
-        category: cleanOrNull(o.type),
-        location: { city: place.city, state: place.state, zip: place.zip, label: placeLabel(place) },
-        postedAt: parseUsDateTime(o.postedDate, { defaultTime: [8, 0] }),
-        dueAt: parseUsDateTime(o.responseDeadLine ?? null),
-        estValue: null,
-        naics: cleanOrNull(o.naicsCode),
-        setAside: setAside || null,
-        url: o.uiLink && o.uiLink.startsWith('http') ? o.uiLink : `https://sam.gov/opp/${o.noticeId}/view`,
-        flags,
-        solNumber: sol,
-      };
-    });
+  const drafts = (json.opportunitiesData ?? []).filter((o) => o.noticeId && o.active !== 'No').map(samDraft);
   return mergeDrafts(drafts);
+}
+
+/**
+ * One SAM.gov notice → one draft. Shared by the API (parseSamResponse) and the daily bulk file
+ * (samgov-bulk.ts), so a notice read either way becomes the same card: same id, due time, set-aside and flags.
+ * `description` may be a link (the API) or the notice's own text (the bulk file); only text is read for signals.
+ */
+export function samDraft(o: SamOpportunity): BidDraft {
+  const place = parseSamPlace(o.placeOfPerformance);
+  const sol = cleanOrNull(o.solicitationNumber);
+  const title = cleanOrNull(o.title) ?? `Federal opportunity ${sol ?? o.noticeId}`;
+  const ownText = o.description && !/^https?:\/\//i.test(o.description.trim()) ? o.description : null; // usually a link
+  const code = clean(o.typeOfSetAside);
+  const setAside = EMPTY_CODE.test(code) ? setAsideFromText([title, ownText].filter(Boolean).join(' · ')) : code;
+  const extra = [o.type, o.typeOfSetAsideDescription].filter(Boolean).join(' · ');
+  const flags: string[] = [];
+  if (isPresolicitation(o)) flags.push(SAM_FLAGS.presolicitation);
+  if (isProgramContract(title) || isProgramContract(ownText)) flags.push(SAM_FLAGS.programContract);
+  return {
+    source: 'samgov',
+    sourceId: samKey(sol, o.noticeId),
+    sourceName: 'SAM.gov (federal)',
+    title,
+    agency: prettyAgency(o.fullParentPathName),
+    description: extra ? `${extra}${sol ? ` · Sol. ${sol}` : ''}` : sol ? `Sol. ${sol}` : null,
+    category: cleanOrNull(o.type),
+    location: { city: place.city, state: place.state, zip: place.zip, label: placeLabel(place) },
+    postedAt: parseUsDateTime(o.postedDate, { defaultTime: [8, 0] }),
+    dueAt: parseUsDateTime(o.responseDeadLine ?? null),
+    estValue: null,
+    naics: cleanOrNull(o.naicsCode),
+    setAside: setAside || null,
+    url: o.uiLink && o.uiLink.startsWith('http') ? o.uiLink : `https://sam.gov/opp/${o.noticeId}/view`,
+    flags,
+    solNumber: sol,
+  };
+}
+
+/**
+ * Which way SAM.gov is read. Default: the daily bulk file (samgov-bulk.ts) — the whole country, no key, no
+ * daily limit. `SAM_SOURCE=api` uses the keyed API instead (10 calls a day, Nevada + two California queries).
+ */
+export function samMode(ctx: Pick<SourceContext, 'env'>): 'bulk' | 'api' {
+  return (ctx.env('SAM_SOURCE') ?? '').trim().toLowerCase() === 'api' ? 'api' : 'bulk';
+}
+
+/** The keyed API path (SAM_SOURCE=api). */
+async function fetchSamApi(ctx: SourceContext): Promise<BidDraft[]> {
+  const apiKey = ctx.env('SAM_API_KEY')!;
+  // Overlap a few days. The same solicitation can come back from two queries or two scans: runScan
+  // merges drafts by id (mergeDrafts) and with the stored bid, so it stays one card.
+  const from = new Date(ctx.now.getTime() - 3 * 86_400_000);
+  const out: BidDraft[] = [];
+  for (const q of SAM_QUERIES) {
+    const json = await ctx.http.json<SamResponse>(buildSamUrl({ apiKey, ...q, from, to: ctx.now }));
+    const bids = parseSamResponse(json);
+    ctx.log(`samgov ${q.state}${q.ncode ? `/${q.ncode}` : ''}: ${bids.length}`);
+    out.push(...bids);
+  }
+  return out;
 }
 
 export const samgovSource: Source = {
@@ -241,19 +271,8 @@ export const samgovSource: Source = {
   name: 'SAM.gov (federal)',
   homepage: 'https://sam.gov/search/?index=opp',
   disabledReason: (ctx) =>
-    ctx.env('SAM_API_KEY') ? null : 'SAM_API_KEY not set (free: sam.gov → Account Details → Public API Key)',
-  async fetch(ctx) {
-    const apiKey = ctx.env('SAM_API_KEY')!;
-    // Overlap a few days. The same solicitation can come back from two queries or two scans: runScan
-    // merges drafts by id (mergeDrafts) and with the stored bid, so it stays one card.
-    const from = new Date(ctx.now.getTime() - 3 * 86_400_000);
-    const out: BidDraft[] = [];
-    for (const q of SAM_QUERIES) {
-      const json = await ctx.http.json<SamResponse>(buildSamUrl({ apiKey, ...q, from, to: ctx.now }));
-      const bids = parseSamResponse(json);
-      ctx.log(`samgov ${q.state}${q.ncode ? `/${q.ncode}` : ''}: ${bids.length}`);
-      out.push(...bids);
-    }
-    return out;
-  },
+    samMode(ctx) === 'bulk' || ctx.env('SAM_API_KEY')
+      ? null
+      : 'SAM_SOURCE=api but SAM_API_KEY not set (free: sam.gov → Account Details → Public API Key)',
+  fetch: (ctx) => (samMode(ctx) === 'api' ? fetchSamApi(ctx) : fetchSamBulk(ctx)),
 };

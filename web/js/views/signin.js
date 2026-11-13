@@ -4,6 +4,7 @@
 import { api } from '../api.js';
 import { bolt, h, icon, ICONS } from '../dom.js';
 import { clearErrors, field, formError, showErrors, textInput } from '../form.js';
+import { promoWaiting } from '../promo.js';
 import { enterApp, loadAuthConfig, onSignedOut } from '../session.js';
 import { registerView, render } from '../shell.js';
 import { state } from '../state.js';
@@ -94,6 +95,8 @@ function renderSignIn() {
     h('div', { class: 'panel' },
       h('div', { class: 'seg', role: 'tablist', 'aria-label': 'Sign in or create an account' },
         tabBtn('login', 'Sign in'), tabBtn('signup', 'Create account')),
+      // Came from a ?promo= link: the code is kept and applied once setup is done; say so before the password.
+      promoWaiting() ? h('p', { class: 'promo-waiting' }, 'Your promo code is saved — it’s applied when you finish setting up.') : null,
       form,
       providers.length
         ? h('div', { class: 'providers' },
@@ -103,7 +106,8 @@ function renderSignIn() {
     ),
     h('p', { class: 'fine' },
       creating ? 'Free to start. We never take bids — you bid on the agency’s own site.' : 'We never take bids — you bid on the agency’s own site.',
-      state.authConfig?.demo ? h('span', { class: 'demo-flag' }, 'Demo mode: all features on') : null),
+      state.authConfig?.demo ? h('span', { class: 'demo-flag' }, 'Demo mode: all features on') : null,
+      h('br'), h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy')),
   );
 }
 

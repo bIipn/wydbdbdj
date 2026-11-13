@@ -27,16 +27,32 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   };
 
   // One scan of every source, then scoring. The answer is the scan report (per source: OK or FAILED).
+  // flush(): the scan's alerts queue their pushes on a short timer; send them before answering, because the
+  // host freezes the function as soon as the reply is out and that timer would never fire.
   app.get('/api/cron/scan', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     if (!ctx.scan) return reply.code(501).send({ error: 'scan not configured' });
-    return ctx.scan();
+    const report = await ctx.scan();
+    await ctx.realtime?.flush();
+    return report;
   });
 
   // The market refresh with its price and award watch. A failed refresh is in the status, never a 500.
   app.get('/api/cron/market', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     await ctx.market.runDaily();
+    await ctx.realtime?.flush();
     return ctx.market.status();
+  });
+
+  // The alert rules' periodic job: deadline reminders for saved bids, then any push still waiting. A long-
+  // running server does this every 15 minutes on its own; a serverless host has no timer, so its scheduler
+  // calls this route instead (vercel.json).
+  app.get('/api/cron/tick', async (req, reply) => {
+    if (!allowed(req, reply)) return reply;
+    if (!ctx.realtime) return reply.code(501).send({ error: 'realtime not started' });
+    await ctx.realtime.tick();
+    await ctx.realtime.flush();
+    return { ok: true };
   });
 }

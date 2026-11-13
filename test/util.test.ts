@@ -32,6 +32,9 @@ describe('time', () => {
     expect(parseUsDateTime('11/12/2026 11:00:00 AM (PT)')).toBe('2026-11-12T19:00:00.000Z'); // NGEM
     expect(parseUsDateTime('11/17/2026 10:30 AM PST')).toBe('2026-11-17T18:30:00.000Z'); // QuestCDN
     expect(parseUsDateTime('12/02/2026 12:00 PM')).toBe('2026-12-02T20:00:00.000Z'); // noon is 12 PM
+    // ISO with no offset (SAM.gov's bulk file, 714 rows): the time after the "T" counts, read as Pacific.
+    expect(parseUsDateTime('2026-10-26T10:00:00')).toBe('2026-10-26T17:00:00.000Z'); // was 07:00Z (read as 00:00)
+    expect(parseUsDateTime('2026-12-02T16:00')).toBe('2026-12-03T00:00:00.000Z');
     expect(parseUsDateTime('2026/11/20')).toBe('2026-11-21T01:00:00.000Z'); // date only → 5 PM PT
     expect(parseUsDateTime('2026-12-01T14:00:00-08:00')).toBe('2026-12-01T22:00:00.000Z'); // SAM ISO
     expect(parseUsDateTime('not a date')).toBeNull();

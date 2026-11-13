@@ -1,8 +1,11 @@
+import { readFileSync } from 'node:fs';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import type { FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
+import type { RouteContext } from '../src/context.js';
 import { loadConfig } from '../src/context.js';
 import type { Db } from '../src/db/db.js';
 import { loadProfile } from '../src/profiles.js';
+import { register as cronRoutes } from '../src/routes/cron.js';
 import { buildServer } from '../src/server.js';
 import { memoryDb } from './helpers.js';
 
@@ -41,7 +44,7 @@ afterAll(async () => {
 
 describe('cron routes', () => {
   it('do not exist without CRON_SECRET', async () => {
-    for (const path of ['/api/cron/scan', '/api/cron/market']) {
+    for (const path of ['/api/cron/scan', '/api/cron/market', '/api/cron/tick']) {
       const res = await off.inject({ url: path, headers: { authorization: `Bearer ${SECRET}` } });
       expect(res.statusCode).toBe(404);
     }
@@ -83,5 +86,45 @@ describe('cron routes', () => {
     const res = await on.inject({ method: 'POST', url: '/api/cron/scan', headers: { authorization: `Bearer ${SECRET}` } });
     expect([401, 404]).toContain(res.statusCode); // no such route; the access-code hook answers first here
     expect(scans).toBe(1);
+  });
+});
+
+describe('cron routes on a host without timers (serverless): the alert rules run from the scheduler', () => {
+  // A bare route set with a fake realtime handle: what is tested is the order tick → flush, and flush after a scan.
+  const calls: string[] = [];
+  let app: FastifyInstance;
+  const auth = { authorization: `Bearer ${SECRET}` };
+  beforeAll(async () => {
+    app = Fastify();
+    const ctx = {
+      config: { cronSecret: SECRET },
+      scan: async () => { calls.push('scan'); return { totalBids: 0 }; },
+      market: { runDaily: async () => { calls.push('market'); }, status: () => ({}) },
+      realtime: { tick: async () => { calls.push('tick'); }, flush: async () => { calls.push('flush'); } },
+    } as unknown as RouteContext;
+    await cronRoutes(app, ctx);
+  });
+  afterAll(async () => app.close());
+
+  it('the scan and the market refresh send their queued pushes before answering (the function is frozen after)', async () => {
+    calls.length = 0;
+    expect((await app.inject({ url: '/api/cron/scan', headers: auth })).statusCode).toBe(200);
+    expect((await app.inject({ url: '/api/cron/market', headers: auth })).statusCode).toBe(200);
+    expect(calls).toEqual(['scan', 'flush', 'market', 'flush']);
+  });
+
+  it('GET /api/cron/tick runs deadline reminders, then sends; only with the secret', async () => {
+    calls.length = 0;
+    expect((await app.inject({ url: '/api/cron/tick' })).statusCode).toBe(401);
+    expect(calls).toEqual([]);
+    const res = await app.inject({ url: '/api/cron/tick', headers: auth });
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({ ok: true });
+    expect(calls).toEqual(['tick', 'flush']);
+  });
+
+  it('vercel.json schedules the tick', () => {
+    const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { crons: Array<{ path: string }> };
+    expect(vercel.crons.map((c) => c.path)).toContain('/api/cron/tick');
   });
 });

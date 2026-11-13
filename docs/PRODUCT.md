@@ -23,7 +23,19 @@ and the owner won't trust anything he can't see the reasoning for. Every design 
 
 ## 2. How it works (the 30-second version)
 
-1. **Set up once:** trade, home base, how far you'll drive, job sizes you want, and your **spend limit**.
+1. **Set up once, by taps (about 14 taps, nothing typed):** ✅ built
+   1. **Trades** (chips, one or more).
+   2. **Where's your shop?** "Use my location" (the point becomes the nearest ZIP and is never stored) or a
+      5-digit ZIP, then **how far you'll travel**: 25 / 50 / 100 / 150 / 250 mi.
+   3. **Job sizes** (chips: Under $25K … Over $2M, pick several).
+   4. **Your paperwork**, Yes / No / Not sure each: Nevada SPWD bidder qualification (asked only for a
+      Nevada shop: it is the only state requirement a board marks today), SAM.gov registration, bid and
+      performance bonds, prevailing-wage jobs; then federal certifications (Small business, 8(a), HUBZone,
+      SDVOSB, WOSB, EDWOSB, or None). Built for both kinds of company: a "Yes" says "you have it" on the
+      card, "Not sure" says "check yours", a "No" keeps the bid visible but below the alert line and says
+      what it needs. No answer ever hides a bid; answers can change any time in Settings.
+   5. **When to ping you:** Only great fits (75+) / Good fits (55+, recommended) / Anything worth a look (35+).
+   6. **Business name** (optional; skipped = "My electrical shop"). Spend limits are in Settings.
 2. **Every morning** the scanner pulls new open bids from public boards and scores each one for you.
 3. **Your phone buzzes** for great fits. Open the app → swipe right to save, left to pass.
 4. Tap **"Bid on …"** → you go to the agency's own site to bid. We never take or submit bids.
@@ -112,7 +124,13 @@ Price: start with one Pro plan, monthly + annual. The price is a guess to test w
 ### Codes, free access and "demo mode" — how to do it without getting rejected
 - **Pilot now (L&M):** the **web app** runs in demo mode — full Pro features, no billing — behind the
   shared `ACCESS_CODE` (✅ built). Web apps aren't bound by store rules.
-- **In the iOS app, do NOT build our own "enter a code to unlock Pro" box.** Apple's guideline 3.1.1
+- **Our own promo codes (✅ built, web + Microsoft Store builds only):** `PROMO_CODES` on the host
+  (`CODE:pro[:maxUses][:expiresISO]`) turns on a quiet "Have a promo code?" box on the Settings plan card
+  and `…/?promo=CODE` links (applied right after sign-up and setup). The real codes live only in the
+  host's settings, never in the repository; give each a use limit and an expiry (a business name is easy
+  to guess). Microsoft Store policy 10.8 allows this for a non-game PC app (`docs/MICROSOFT-STORE.md` §7).
+  The iOS build sets `STORE_BUILD = 'ios'`, which hides the box and makes the server refuse redeems.
+- **In the iOS app, do NOT show our own "enter a code to unlock Pro" box.** Apple's guideline 3.1.1
   bars apps from using their own mechanisms (license keys, codes, QR codes…) to unlock features —
   paid features must go through in-app purchase. Apps get rejected for exactly this.
 - **Use the stores' own codes instead:** Apple **Offer Codes** give free or discounted subscription

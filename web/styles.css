@@ -323,6 +323,9 @@ a { color: inherit; }
 .or { display: flex; align-items: center; gap: 10px; color: var(--faint); font-size: 12px; }
 .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }
 .fine { margin: 16px 8px 0; text-align: center; color: var(--faint); font-size: 12px; line-height: 1.5; }
+.fine-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+.fine-link:hover { color: var(--text); }
+.promo-waiting { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(34, 197, 94, 0.1); color: var(--great); font-size: 13px; line-height: 1.4; }
 .demo-flag {
   display: table; margin: 10px auto 0; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 11.5px;
   color: var(--volt); background: rgba(255, 212, 59, 0.08); border: 1px solid rgba(255, 212, 59, 0.25);
@@ -430,6 +433,43 @@ a { color: inherit; }
   background: linear-gradient(180deg, transparent, var(--bg) 30%);
 }
 .step-foot .cta { margin-top: 0; }
+.step-foot.is-auto { display: none; } /* one tap answers the step; Enter in the ZIP box still submits */
+
+/* "Use my location" or a ZIP, side by side */
+.locate-row { display: flex; align-items: center; gap: 10px; }
+.locate-row + .place-line { margin-top: 4px; } /* breathing room under the button row (the -6px suits the plain ZIP field) */
+.cta.locate { flex: 1 1 auto; width: auto; margin-top: 0; display: inline-flex; align-items: center; justify-content: center; gap: 8px; white-space: nowrap; }
+.cta.locate svg { color: var(--volt); }
+.locate-row .zip { flex: 0 0 104px; max-width: 104px; text-align: center; }
+.or-word { color: var(--faint); font-size: 13px; font-weight: 600; }
+
+/* one-tap choices (alerts) */
+.choice-list { display: flex; flex-direction: column; gap: 10px; }
+.choice {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+  padding: 14px 16px; border-radius: 16px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); color: var(--text); font: inherit;
+}
+.choice-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.choice-text strong { font-size: 16px; font-weight: 700; }
+.choice-text small { font-size: 13px; color: var(--muted); }
+.choice-dot { flex: none; width: 24px; height: 24px; border-radius: 50%; border: 2px solid var(--line-2); display: grid; place-items: center; color: transparent; }
+.choice[aria-checked='true'] { border-color: var(--volt); background: rgba(255, 212, 59, 0.07); }
+.choice[aria-checked='true'] .choice-dot { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+
+/* "Your paperwork": a question, then Yes / No / Not sure */
+.qa-list { display: flex; flex-direction: column; }
+/* Light rows, not boxed fields: four quick taps should not feel like paperwork. */
+.qa { padding: 12px 0 14px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 9px; }
+.qa:first-child { border-top: 0; padding-top: 0; }
+.qa-q { margin: 0; font-size: 14.5px; font-weight: 650; line-height: 1.35; }
+.seg3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.seg3-btn {
+  min-height: 40px; padding: 8px 6px; border-radius: 11px; border: 1px solid var(--line-2); background: transparent;
+  color: var(--muted); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer;
+}
+.seg3-btn[aria-checked='true'].is-yes { background: color-mix(in srgb, var(--great) 18%, transparent); border-color: var(--great); color: var(--text); }
+.seg3-btn[aria-checked='true'].is-no { background: color-mix(in srgb, var(--over) 16%, transparent); border-color: var(--over); color: var(--text); }
+.seg3-btn[aria-checked='true'].is-unsure { background: var(--card-2); border-color: var(--line-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
 .cta:disabled { opacity: 0.6; cursor: progress; }
 
 /* ---------------------------------------------------------------- settings */
@@ -443,6 +483,15 @@ a { color: inherit; }
 .plan-badge { flex: none; padding: 6px 12px; border-radius: 999px; font-size: 12px; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase; border: 1px solid var(--line-2); color: var(--muted); }
 .plan-badge.plan-pilot, .plan-badge.plan-pro { color: var(--volt-ink); background: var(--volt); border-color: var(--volt); }
 .plan-text { margin: 12px 0 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
+/* Plan card: the plan's name, and the quiet promo-code row (web/js/promo.js) */
+.plan-name-row { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.plan-name { margin: 0; font-size: 17px; font-weight: 760; letter-spacing: -0.01em; }
+.promo-toggle { display: block; margin-top: 6px; padding: 10px 0 2px; color: var(--text); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+.promo-form { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+.promo-line { display: flex; gap: 8px; align-items: stretch; }
+.promo-line .input { flex: 1; letter-spacing: 0.02em; }
+.promo-apply { flex: none; width: auto; margin: 0; padding: 0 18px; }
+.promo-form.has-error .input { border-color: color-mix(in srgb, var(--error) 70%, transparent); }
 .save-bar { position: sticky; bottom: 0; padding: 14px 0 calc(env(safe-area-inset-bottom) + 4px); background: linear-gradient(180deg, transparent, var(--bg) 35%); z-index: 2; }
 .save-bar .cta { margin-top: 0; }
 .cta.ghost.signout { margin-top: 6px; color: #fda4af; }
@@ -459,7 +508,7 @@ a { color: inherit; }
   content: ''; position: absolute; left: 4px; bottom: 4px; width: 7px; height: 7px; border-radius: 50%;
   background: var(--faint); box-shadow: 0 0 0 2px var(--bg);
 }
-.bell[data-live='live']::after { background: var(--great); }
+.bell[data-live='live']::after, .bell[data-live='polling']::after { background: var(--great); }
 .bell[data-live='retrying']::after, .bell[data-live='connecting']::after { background: var(--maybe); }
 .bell-count {
   position: absolute; top: -5px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px;
@@ -635,6 +684,7 @@ a { color: inherit; }
 .live-line { display: flex; align-items: center; gap: 8px; margin: -4px 2px 12px; font-size: 12.5px; color: var(--muted); }
 .live-dot { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
 .live-line.live .live-dot { background: var(--great); box-shadow: 0 0 8px rgba(34, 197, 94, 0.7); }
+.live-line.polling .live-dot { background: var(--great); } /* working, just not instant: no glow */
 .live-line.retrying .live-dot, .live-line.connecting .live-dot { background: var(--maybe); }
 .push-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .push-head .panel-title { margin: 0; }

@@ -11,7 +11,8 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { loadProfile } from '../src/profiles.js';
 import { finalizeBid } from '../src/scan.js';
-import { programTerm, scoreBid, titleAmount } from '../src/score/score.js';
+import { decideMatch } from '../src/realtime/alerts.js';
+import { CAPPED_FLOOR, programTerm, scoreBid, titleAmount } from '../src/score/score.js';
 import { mergeTrades } from '../src/trades/catalog.js';
 import type { Bid, BidDraft, BidLocation, Profile } from '../src/types.js';
 import { CAPTURED, realBids } from './helpers.js';
@@ -164,9 +165,13 @@ describe('a presolicitation or RFI is not biddable yet', () => {
     expect(rfi.reasons).toContainEqual({ kind: 'minus', text: 'RFI — info only, not a bid' });
   });
 
-  it('the cap follows the alert line: a profile alerting at 35 keeps it at 34', () => {
+  it('a profile alerting at 35: held at the "maybe" floor (it stays in the deck), and still never alerts', () => {
+    // Was "kept at 34": under the deck's 35 line, so the bid vanished from the swipe deck for these companies.
     const low = { ...pilot, alerts: { minScore: 35 } };
-    expect(scoreBid(presol, low, SCAN).score).toBeLessThanOrEqual(34);
+    const s = scoreBid(presol, low, SCAN);
+    expect(s.score).toBeLessThanOrEqual(CAPPED_FLOOR);
+    expect(s.capped).toBe(true);
+    expect(decideMatch({ type: 'match', profileId: low.id, bid: presol, score: s, isNewBid: true }, low, 'pro', SCAN)).toBeNull();
   });
 });
 

@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <meta name="description" content="What BidSwipe stores about you and your business, why, and what it never does." />
+  <title>Privacy — BidSwipe</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* This page only. Every statement below was checked against the code (src/db/schema.ts, src/auth/,
+       src/routes/, web/js/) on 2026-11-13. Change the code → change this page. */
+    .doc { max-width: 680px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 18px 48px; line-height: 1.6; }
+    .doc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .doc-top a { text-decoration: none; }
+    .doc .doc-brand { color: var(--text); }
+    .doc-brand { display: flex; align-items: center; gap: 8px; font-weight: 750; font-size: 19px; letter-spacing: -0.02em; }
+    .doc-brand svg { width: 22px; height: 22px; fill: var(--volt); }
+    .doc .doc-back { color: var(--muted); }
+    .doc-back { font-size: 14px; font-weight: 650; color: var(--muted); border: 1px solid var(--line-2); border-radius: 12px; padding: 7px 12px; }
+    .doc .doc-back:hover { color: var(--text); }
+    .doc h1 { font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; margin: 10px 0 4px; }
+    .doc .dated { color: var(--faint); font-size: 13px; margin: 0 0 22px; }
+    .doc h2 { font-size: 18px; margin: 30px 0 8px; letter-spacing: -0.01em; }
+    .doc p, .doc li { color: #c9d2de; font-size: 15px; }
+    .doc ul { padding-left: 20px; margin: 8px 0; }
+    .doc li { margin: 5px 0; }
+    .doc strong { color: var(--text); }
+    .doc a { color: var(--volt); text-underline-offset: 3px; }
+    .doc .summary { background: var(--card); border: 1px solid var(--line-2); border-radius: 16px; padding: 14px 16px; margin: 0 0 8px; }
+    .doc .summary li { margin: 3px 0; }
+    .doc .todo { background: rgba(251, 146, 60, 0.12); border: 1px dashed var(--over); color: #fed7aa; border-radius: 8px; padding: 1px 6px; font-weight: 700; }
+    .doc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
+    .doc th, .doc td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+    .doc th { color: var(--muted); font-weight: 650; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .doc td:first-child { color: var(--text); font-weight: 600; white-space: nowrap; }
+    @media (max-width: 520px) { .doc td:first-child { white-space: normal; } .doc h1 { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <div class="doc-top">
+      <a class="doc-brand" href="./">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6.1L9.8 22l8.7-11.5h-6.1z" /></svg>
+        <span>BidSwipe</span>
+      </a>
+      <a class="doc-back" href="./">Open the app</a>
+    </div>
+
+    <h1>Privacy policy</h1>
+    <p class="dated">Effective November 13, 2026</p>
+
+    <div class="summary">
+      <ul>
+        <li>We keep what the app needs to find bids for your business: your sign-in, your business profile and what you do with bids.</li>
+        <li>We <strong>do not sell</strong> your information, and the app has <strong>no ads and no ad or analytics trackers</strong>.</li>
+        <li>You can ask us to show you or delete everything we hold about you.</li>
+      </ul>
+    </div>
+
+    <h2>Who we are</h2>
+    <p>BidSwipe shows open public bids (from public agency bid boards) that fit a contractor's trade, area and job size.
+      You bid on the agency's own website; BidSwipe never takes or sees your bid.
+      Questions about this policy: <span class="todo">[CONTACT EMAIL — Ev to fill in before publishing]</span>.</p>
+
+    <h2>What we store, and why</h2>
+    <table>
+      <thead><tr><th>What</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td>Email address and name</td><td>Your account: signing in, and telling you apart from other businesses.</td></tr>
+        <tr><td>Password</td><td>Only a one-way scrypt hash, never the password itself. If you sign in with Google, Apple or Microsoft instead, we store the sign-in service's id for your account and no password.</td></tr>
+        <tr><td>Sign-in sessions</td><td>A cookie keeps you signed in for up to 30 days after your last visit. We store only a hash of it.</td></tr>
+        <tr><td>Business profile</td><td>Business name, your trades, your home base (town and ZIP, turned into map coordinates), how far you travel, the job sizes you want, the paperwork you said you have (bonding, prevailing wage, state and federal registration), spend limits, and the cost numbers you choose to enter. This is what scores each bid for you.</td></tr>
+        <tr><td>Saved and passed bids</td><td>Which bids you saved, passed or opened to bid, so your lists stay the same on every device.</td></tr>
+        <tr><td>Fit scores</td><td>Each bid's score for your business and the reasons, recalculated after every daily scan.</td></tr>
+        <tr><td>Cost checks</td><td>If you use the cost check (Pro), the inputs you enter and the result, so you can come back to them.</td></tr>
+        <tr><td>Alerts and alert settings</td><td>Your alert inbox (new matches, deadlines, award notices, price moves), what you have read, and your settings: minimum score, quiet hours and time zone.</td></tr>
+        <tr><td>Notification devices</td><td>If you turn on phone or desktop alerts: the address your browser's push service gives us for that device, and its encryption keys. Turning alerts off removes it.</td></tr>
+        <tr><td>Plan and promo codes</td><td>Your plan (Free or Pro), and if you redeemed a promo code, a scrambled fingerprint of the code and when you used it, never the code itself.</td></tr>
+      </tbody>
+    </table>
+    <p>On your own device the app keeps a few small things in the browser's storage: an access code if your company's
+      pilot uses one, and a promo code from a link until you finish signing up. Nothing there is sent anywhere else.</p>
+    <p>Like every website, our server sees your device's internet (IP) address with each request. We use it to slow down
+      repeated sign-in attempts, and our hosting provider's request logs may keep it for a short time.</p>
+
+    <h2>What we do not do</h2>
+    <ul>
+      <li>We do not sell, rent or trade your information.</li>
+      <li>No advertising, no ad networks, no analytics or tracking scripts. The app loads its code only from our own server.</li>
+      <li>We do not see or store your bid prices. Bids are sealed and go to the agency, not to us.</li>
+      <li>We do not ask for bank, card or tax ID numbers.</li>
+      <li>We do not track your location. Distances come from the home base you type in.</li>
+    </ul>
+
+    <h2>Who else handles it</h2>
+    <p>Only the services that run the app, and only to run it:</p>
+    <ul>
+      <li><strong>Hosting and database</strong> — the companies that host our server and store the database
+        <span class="todo">[Ev: list the providers you use, e.g. Vercel and Supabase]</span>.</li>
+      <li><strong>Sign-in providers</strong> — if you choose "Continue with Google, Apple or Microsoft", that company tells us your email and an account id.</li>
+      <li><strong>Push services</strong> — if you turn on alerts, the alert's title and short text pass through your browser maker's push service (for example Google, Mozilla, Apple or Microsoft) to reach your device.</li>
+      <li><strong>Email</strong> — if a daily bid email is set up for your company, it is sent through an email delivery service.</li>
+    </ul>
+    <p>We would also share information if the law requires it.</p>
+
+    <h2>Your choices</h2>
+    <ul>
+      <li>Change your business profile and alert settings any time in the app's settings.</li>
+      <li>Turn notifications off in the app or in your browser or Windows settings.</li>
+      <li>To get a copy of your data, or to delete your account and everything tied to it (profile, saved bids, alerts,
+        cost checks, devices), email <span class="todo">[CONTACT EMAIL]</span> from the address you signed up with. We answer within 30 days.</li>
+    </ul>
+
+    <h2>Keeping it safe</h2>
+    <p>Connections to BidSwipe are encrypted (HTTPS). Passwords and session cookies are stored only as one-way hashes.
+      Every business sees only its own profile, lists and alerts.</p>
+
+    <h2>Children</h2>
+    <p>BidSwipe is a tool for businesses and is not meant for children under 13. We do not knowingly collect their information.</p>
+
+    <h2>Changes</h2>
+    <p>If we change what we collect, we update this page and its date before the change takes effect.</p>
+  </main>
+</body>
+</html>

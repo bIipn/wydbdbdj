@@ -12,7 +12,8 @@ import { projectDir } from './paths.js';
 import type { MarketHttp } from './market/refresh.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
-import { startRealtime } from './realtime/index.js';
+import { createRealtime, startRealtime } from './realtime/index.js';
+import { logUrl } from './util/log-url.js';
 import { registerPlainStatic } from './static.js';
 import { register as adminRoutes } from './routes/admin.js';
 import { register as authRoutes } from './routes/auth.js';
@@ -65,7 +66,15 @@ export interface ServerDeps {
 /** The Fastify app plus the context its routes share (main() hands the context to startRealtime). */
 export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Promise<{ app: FastifyInstance; ctx: RouteContext }> {
   // forceCloseConnections: a long-lived /api/stream connection must not keep close() waiting.
-  const options: FastifyServerOptions = { logger: opts.logger ?? false, forceCloseConnections: true, trustProxy: opts.trustProxy ?? false };
+  // The logger writes each request's URL through logUrl: no "Use my location" point and no promo code in a log.
+  const logger = opts.logger
+    ? {
+      serializers: {
+        req: (req: { method?: string; url?: string; ip?: string }) => ({ method: req.method, url: logUrl(req.url), remoteAddress: req.ip }),
+      },
+    }
+    : false;
+  const options: FastifyServerOptions = { logger, forceCloseConnections: true, trustProxy: opts.trustProxy ?? false };
   const app = Fastify(options);
   const base = opts.config ?? loadConfig({});
   const config: AppConfig = {
@@ -192,13 +201,16 @@ async function main() {
 /**
  * Serverless start (Vercel). The host imports this file for each new instance and routes requests to
  * the server that listens; the instance is frozen between requests and thrown away when idle. So:
- * no timers (the host's scheduler calls GET /api/cron/* instead, see vercel.json), and the database
+ * no timers (the host's scheduler calls GET /api/cron/* instead, see vercel.json; that includes the alert
+ * rules' deadline reminders, /api/cron/tick, and the pushes a scan queues), and the database
  * must be a real Postgres (DATABASE_URL): the embedded one would start empty on every instance.
  */
 async function serverless() {
   if (!env('DATABASE_URL')) throw new Error('DATABASE_URL is required on a serverless host: the embedded database does not survive between requests');
   const { app, ctx } = await boot({ plainStatic: true });
-  startRealtime(ctx); // stores alerts for what a scan publishes; the stream and push hang off the same bus
+  // Stores alerts for what a scan publishes; push hangs off the same bus. tickMs 0: no timers here (a frozen
+  // instance never fires them). The cron routes call ctx.realtime.tick() / flush() instead (routes/cron.ts).
+  ctx.realtime = createRealtime(ctx, { tickMs: 0 });
   await app.ready(); // every route is registered before the host sends the first request
   // NOT awaited, on purpose. Vercel takes over the server's listen() and feeds it requests itself;
   // the "now listening" answer never comes back there, so awaiting it hung every request until the

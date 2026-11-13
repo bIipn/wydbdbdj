@@ -1,12 +1,72 @@
 {
+  "id": "/",
   "name": "BidSwipe",
   "short_name": "BidSwipe",
-  "description": "Public bids that fit your trade, one swipe at a time.",
+  "description": "Open public bids that fit your trade and service area, scored for your business with the reasons why. Swipe to save or pass, then bid on the agency's own site.",
+  "lang": "en-US",
+  "dir": "ltr",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "orientation": "portrait",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
   "background_color": "#0a0d12",
   "theme_color": "#0a0d12",
-  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+  "categories": ["business", "productivity"],
+  "prefer_related_applications": false,
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/windows/app-44.png", "sizes": "44x44", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/app-88.png", "sizes": "88x88", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/app-176.png", "sizes": "176x176", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-71.png", "sizes": "71x71", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-142.png", "sizes": "142x142", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-150.png", "sizes": "150x150", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-300.png", "sizes": "300x300", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-310.png", "sizes": "310x310", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-620.png", "sizes": "620x620", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-50.png", "sizes": "50x50", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/square-100.png", "sizes": "100x100", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/wide-310x150.png", "sizes": "310x150", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/wide-620x300.png", "sizes": "620x300", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/splash-1240x600.png", "sizes": "1240x600", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/target-16.png", "sizes": "16x16", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/target-24.png", "sizes": "24x24", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/target-32.png", "sizes": "32x32", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/target-48.png", "sizes": "48x48", "type": "image/png", "purpose": "any" },
+    { "src": "icons/windows/target-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }
+  ],
+  "shortcuts": [
+    {
+      "name": "Swipe bids",
+      "short_name": "Swipe",
+      "description": "The next bid that fits you, one at a time",
+      "url": "./?view=swipe",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Browse all bids",
+      "short_name": "Browse",
+      "description": "Every open bid that fits, as a list you can search and sort",
+      "url": "./?view=browse",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Alerts",
+      "short_name": "Alerts",
+      "description": "New matches, deadlines and award notices",
+      "url": "./?view=alerts",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ],
+  "screenshots": [
+    { "src": "icons/screenshots/narrow-swipe.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Swipe: one bid at a time, with the reasons it fits your business" },
+    { "src": "icons/screenshots/narrow-browse.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Browse: every open bid that fits, best fit first" },
+    { "src": "icons/screenshots/wide-swipe.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "BidSwipe on a desktop: the bid card with why it fits" },
+    { "src": "icons/screenshots/wide-browse.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "BidSwipe on a desktop: the list of open bids" }
+  ]
 }

@@ -93,6 +93,12 @@ export interface RouteContext {
   scan?: () => Promise<ScanReport>;
   /** The market refresh with its price and award watch (admin route, daily schedule, GET /api/market/watch). */
   market: MarketWatcher;
+  /**
+   * The alert rules' periodic job and push queue, once the server started them (src/realtime/index.ts). The
+   * serverless entry has no timers, so its cron routes call these: tick() for deadline reminders, flush() to
+   * send the pushes a scan queued before the function is frozen. Absent in tests that never start realtime.
+   */
+  realtime?: { tick(): Promise<void>; flush(): Promise<void> };
   identify(req: FastifyRequest): Promise<Identity>;
   /**
    * The identity when it has a profile. Otherwise it answers the request itself —

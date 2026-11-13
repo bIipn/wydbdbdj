@@ -33,6 +33,32 @@ export interface HttpOptions {
   retries?: number;
   /** Minimum gap between two requests to the same host — be polite to small agency servers. */
   perHostDelayMs?: number;
+  /** stream(): how long a whole download may take (default 10 minutes; SAM.gov's bulk file is ~222 MB). */
+  streamTimeoutMs?: number;
+}
+
+/** What createHttp returns: the FetchLike every source gets, plus stream() for big downloads. */
+export type Http = FetchLike & {
+  /**
+   * GET a large body as it arrives, chunk by chunk, so it never sits in memory whole. Redirects are followed
+   * by hand (at most 5), and only the first URL can appear in an error or log: a redirect target may be a
+   * signed URL (SAM.gov's bulk file → S3), and its query string is a credential. Retries like text() until
+   * the body starts; a failure in the middle of the body is thrown from the iterator, never retried.
+   */
+  stream(url: string, init?: RequestInit): Promise<AsyncIterable<Uint8Array>>;
+};
+
+const REDIRECTS = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 5;
+
+/** A URL for messages with its whole query string dropped (for redirect targets, which can be signed). */
+export function withoutQuery(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.origin}${u.pathname}${u.search ? '?…' : ''}`;
+  } catch {
+    return '(unreadable URL)';
+  }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -69,7 +95,7 @@ function cookieHeader(jar: CookieJar, url: string): string | null {
  * fetch() with a timeout, retries on 429/5xx/network errors (GET and HEAD only) and per-host pacing.
  * session() returns the same thing plus a cookie jar; all sessions share the pacing.
  */
-export function createHttp(opts: HttpOptions): FetchLike {
+export function createHttp(opts: HttpOptions): Http {
   const timeoutMs = opts.timeoutMs ?? 25_000;
   const retries = opts.retries ?? 2;
   const gap = opts.perHostDelayMs ?? 900;
@@ -131,9 +157,54 @@ export function createHttp(opts: HttpOptions): FetchLike {
     }
   }
 
-  const client = (jar: CookieJar | null): FetchLike => ({
+  async function stream(url: string, init: RequestInit = {}): Promise<AsyncIterable<Uint8Array>> {
+    // One clock for the whole download, body included: the signal stays attached while the body streams.
+    const signal = AbortSignal.timeout(opts.streamTimeoutMs ?? 600_000);
+    let lastErr: unknown;
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) await sleep(1000 * 3 ** (attempt - 1));
+      let at = url;
+      try {
+        for (let hop = 0; ; hop++) {
+          await pace(at);
+          const res = await fetch(at, {
+            ...init,
+            method: 'GET',
+            headers: { 'User-Agent': opts.userAgent, Accept: '*/*', ...(init.headers ?? {}) },
+            signal,
+            redirect: 'manual',
+          });
+          const location = res.headers.get('location');
+          if (REDIRECTS.has(res.status) && location) {
+            await res.body?.cancel();
+            if (hop >= MAX_REDIRECTS) throw new HttpError(res.status, url, `Too many redirects from ${redactUrl(url)}`);
+            at = new URL(location, at).toString();
+            continue;
+          }
+          const shown = at === url ? redactUrl(url) : `${redactUrl(url)} → ${withoutQuery(at)}`;
+          if (res.status === 429 || res.status >= 500) {
+            await res.body?.cancel();
+            throw new HttpError(res.status, url, `HTTP ${res.status} for ${shown}`);
+          }
+          if (!res.ok || !res.body) {
+            await res.body?.cancel();
+            throw new HttpError(res.status, url, `HTTP ${res.status} for ${shown}`);
+          }
+          return res.body as unknown as AsyncIterable<Uint8Array>;
+        }
+      } catch (err) {
+        if (err instanceof HttpError && err.status < 500 && err.status !== 429) throw err;
+        // A redirect target's query string must never reach a message: only the HttpErrors above name it, safely.
+        lastErr = err instanceof HttpError ? err : new Error(`Request failed: ${redactUrl(url)}${err instanceof Error && err.name === 'TimeoutError' ? ' (timed out)' : ''}`);
+      }
+    }
+    throw lastErr instanceof Error ? lastErr : new Error(`Request failed: ${redactUrl(url)}`);
+  }
+
+  const client = (jar: CookieJar | null): Http => ({
     text: (url, init) => text(jar, url, init),
     json: <T>(url: string, init?: RequestInit) => json<T>(jar, url, init),
+    stream,
     session: () => client(new Map()),
     ...(jar ? { cookieNames: (url: string) => [...(jar.get(originOf(url))?.keys() ?? [])] } : {}),
   });

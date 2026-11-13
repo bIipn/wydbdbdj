@@ -9,9 +9,16 @@
   <meta name="apple-mobile-web-app-title" content="BidSwipe" />
   <meta name="description" content="Public bids that fit your trade, one swipe at a time." />
   <title>BidSwipe — bids that fit</title>
+  <meta name="color-scheme" content="dark" />
+  <meta name="application-name" content="BidSwipe" />
+  <meta name="msapplication-TileColor" content="#0a0d12" />
   <link rel="manifest" href="manifest.webmanifest" data-demo-strip />
   <link rel="icon" href="icon.svg" type="image/svg+xml" data-demo-strip />
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192" data-demo-strip />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" data-demo-strip />
   <link rel="stylesheet" href="styles.css" />
+  <!-- Desktop width (Windows / Microsoft Store): media queries only, after styles.css so it wins ties. -->
+  <link rel="stylesheet" href="desktop.css" data-demo-strip />
 </head>
 <body>
   <div class="app" id="app" data-chrome="tabs">
@@ -51,5 +58,7 @@
   <div class="toast" id="toast" role="status" hidden></div>
 
   <script type="module" src="js/main.js"></script>
+  <!-- The service worker from the first visit (installable app, offline page); push.js reuses the same registration. -->
+  <script data-demo-strip>if ('serviceWorker' in navigator && location.protocol !== 'file:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
 </body>
 </html>

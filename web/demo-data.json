@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-13T09:04:06.572Z",
+  "generatedAt": "2026-11-13T23:04:10.986Z",
   "capturedAt": "2026-11-13",
   "note": "Real public bid listings captured from Douglas County NV, NGEM and NevadaEPro on 2026-11-13, and from NV State Public Works (QuestCDN) on 2026-11-11. A saved snapshot, not a live feed.",
   "profile": {
@@ -43,7 +43,7 @@
         "Prevailing wage likely"
       ],
       "id": "questcdn:1903611:10385980",
-      "score": 82,
+      "score": 76,
       "verdict": "great",
       "reasons": [
         {
@@ -55,12 +55,12 @@
           "text": "15 mi from Gardnerville, NV"
         },
         {
-          "kind": "info",
-          "text": "Job size not stated"
+          "kind": "minus",
+          "text": "Only 4 days to bid"
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -73,7 +73,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -105,8 +105,8 @@
         "Prevailing wage likely"
       ],
       "id": "questcdn:1903611:10391457",
-      "score": 77,
-      "verdict": "great",
+      "score": 71,
+      "verdict": "good",
       "reasons": [
         {
           "kind": "plus",
@@ -117,12 +117,12 @@
           "text": "32 mi from Gardnerville, NV"
         },
         {
-          "kind": "info",
-          "text": "Job size not stated"
+          "kind": "minus",
+          "text": "Only 4 days to bid"
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -135,7 +135,7 @@
       ],
       "distanceMi": 32,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -183,7 +183,7 @@
         },
         {
           "kind": "info",
-          "text": "11 days to bid"
+          "text": "10 days to bid"
         },
         {
           "kind": "info",
@@ -192,7 +192,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -244,7 +244,7 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -253,69 +253,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
-      "overLimit": false
-    },
-    {
-      "source": "questcdn",
-      "sourceId": "1903611:10336565",
-      "sourceName": "NV Public Works (QuestCDN)",
-      "title": "Fire Suppression System, Army Aviation Support Fac…",
-      "agency": "Nevada State Public Works Division",
-      "description": "Quest #10336565 · Design: Ainsworth Associat… · Construction Project",
-      "category": "Fire Protection, Detection, Su…",
-      "location": {
-        "city": "Reno",
-        "county": "Washoe",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.5296,
-        "lng": -119.8138,
-        "precision": "city",
-        "label": "Reno, NV"
-      },
-      "postedAt": "2026-08-20T15:00:00.000Z",
-      "dueAt": "2026-11-18T19:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
-      "flags": [
-        "SPWD bidder qualification",
-        "Prevailing wage likely"
-      ],
-      "id": "questcdn:1903611:10336565",
-      "score": 40,
-      "verdict": "maybe",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "Related trade mentioned: “fire protection”"
-        },
-        {
-          "kind": "plus",
-          "text": "41 mi from Gardnerville, NV"
-        },
-        {
-          "kind": "info",
-          "text": "Job size not stated"
-        },
-        {
-          "kind": "info",
-          "text": "5 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "SPWD bidder qualification"
-        },
-        {
-          "kind": "info",
-          "text": "Prevailing wage likely"
-        }
-      ],
-      "distanceMi": 41,
-      "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -372,7 +310,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -412,7 +350,7 @@
         },
         {
           "kind": "plus",
-          "text": "24 days to bid"
+          "text": "23 days to bid"
         },
         {
           "kind": "info",
@@ -429,7 +367,69 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
+      "overLimit": false
+    },
+    {
+      "source": "questcdn",
+      "sourceId": "1903611:10336565",
+      "sourceName": "NV Public Works (QuestCDN)",
+      "title": "Fire Suppression System, Army Aviation Support Fac…",
+      "agency": "Nevada State Public Works Division",
+      "description": "Quest #10336565 · Design: Ainsworth Associat… · Construction Project",
+      "category": "Fire Protection, Detection, Su…",
+      "location": {
+        "city": "Reno",
+        "county": "Washoe",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.5296,
+        "lng": -119.8138,
+        "precision": "city",
+        "label": "Reno, NV"
+      },
+      "postedAt": "2026-08-20T15:00:00.000Z",
+      "dueAt": "2026-11-18T19:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://qcpi.questcdn.com/cdn/posting/?group=1903611&provider=1903611",
+      "flags": [
+        "SPWD bidder qualification",
+        "Prevailing wage likely"
+      ],
+      "id": "questcdn:1903611:10336565",
+      "score": 35,
+      "verdict": "maybe",
+      "reasons": [
+        {
+          "kind": "plus",
+          "text": "Related trade mentioned: “fire protection”"
+        },
+        {
+          "kind": "plus",
+          "text": "41 mi from Gardnerville, NV"
+        },
+        {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "SPWD bidder qualification"
+        },
+        {
+          "kind": "info",
+          "text": "Prevailing wage likely"
+        }
+      ],
+      "distanceMi": 41,
+      "swipe": null,
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -470,7 +470,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "info",
@@ -491,7 +491,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -539,7 +539,7 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -548,7 +548,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -596,7 +596,7 @@
         },
         {
           "kind": "info",
-          "text": "11 days to bid"
+          "text": "10 days to bid"
         },
         {
           "kind": "info",
@@ -605,7 +605,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -662,7 +662,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -703,7 +703,7 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "minus",
@@ -728,7 +728,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -769,7 +769,7 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "minus",
@@ -794,7 +794,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -835,7 +835,7 @@
         },
         {
           "kind": "plus",
-          "text": "75 days to bid"
+          "text": "74 days to bid"
         },
         {
           "kind": "minus",
@@ -860,7 +860,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -905,7 +905,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -926,7 +926,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -971,7 +971,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -992,7 +992,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1037,7 +1037,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1058,7 +1058,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1095,7 +1095,7 @@
       "reasons": [
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "minus",
@@ -1124,105 +1124,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
-      "overLimit": false
-    },
-    {
-      "source": "ngem",
-      "sourceId": "las-vegas-clark-county-library-district:27-02",
-      "sourceName": "NGEM (local agencies)",
-      "title": "Security Officer Services",
-      "agency": "Las Vegas-Clark County Library District",
-      "description": "RFP · 27-02",
-      "category": "RFP",
-      "location": {
-        "city": "Las Vegas",
-        "county": "Clark",
-        "state": "NV",
-        "zip": null,
-        "lat": 36.1699,
-        "lng": -115.1398,
-        "precision": "agency",
-        "label": "Las Vegas, NV"
-      },
-      "postedAt": "2026-10-19T15:00:00.000Z",
-      "dueAt": "2026-11-13T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [],
-      "id": "ngem:las-vegas-clark-county-library-district:27-02",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "Not your trade (“security officer”)"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "Job size not stated"
-        }
-      ],
-      "distanceMi": 317,
-      "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
-      "overLimit": false
-    },
-    {
-      "source": "ngem",
-      "sourceId": "bcn-purchasing:rfp-9144",
-      "sourceName": "NGEM (local agencies)",
-      "title": "UNR - Traffic Control Services for Athletics",
-      "agency": "BCN Purchasing",
-      "description": "RFP · RFP 9144",
-      "category": "RFP",
-      "location": {
-        "city": "Reno",
-        "county": "Washoe",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.5296,
-        "lng": -119.8138,
-        "precision": "agency",
-        "label": "Reno, NV"
-      },
-      "postedAt": "2026-11-02T16:00:00.000Z",
-      "dueAt": "2026-11-13T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [],
-      "id": "ngem:bcn-purchasing:rfp-9144",
-      "score": 0,
-      "verdict": "skip",
-      "reasons": [
-        {
-          "kind": "minus",
-          "text": "Not your trade (“traffic control services”)"
-        },
-        {
-          "kind": "plus",
-          "text": "41 mi from Gardnerville, NV (approx.)"
-        },
-        {
-          "kind": "minus",
-          "text": "Due within 24 hours"
-        },
-        {
-          "kind": "info",
-          "text": "Job size not stated"
-        }
-      ],
-      "distanceMi": 41,
-      "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1260,7 +1162,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 3 days to bid"
+          "text": "Only 2 days to bid"
         },
         {
           "kind": "info",
@@ -1269,7 +1171,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1309,7 +1211,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 3 days to bid"
+          "text": "Only 2 days to bid"
         },
         {
           "kind": "info",
@@ -1322,7 +1224,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1362,7 +1264,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 3 days to bid"
+          "text": "Only 2 days to bid"
         },
         {
           "kind": "info",
@@ -1375,7 +1277,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1413,7 +1315,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 3 days to bid"
+          "text": "Only 2 days to bid"
         },
         {
           "kind": "info",
@@ -1422,7 +1324,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1462,7 +1364,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1479,7 +1381,7 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1519,7 +1421,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1536,7 +1438,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1576,7 +1478,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1589,7 +1491,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1629,7 +1531,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1642,7 +1544,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1682,7 +1584,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1695,7 +1597,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1735,7 +1637,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1748,7 +1650,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1788,7 +1690,7 @@
         },
         {
           "kind": "minus",
-          "text": "Only 4 days to bid"
+          "text": "Only 3 days to bid"
         },
         {
           "kind": "info",
@@ -1805,7 +1707,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1842,17 +1744,17 @@
           "text": "No electrical or construction scope found"
         },
         {
-          "kind": "info",
-          "text": "Job size not stated"
+          "kind": "minus",
+          "text": "Only 4 days to bid"
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1891,12 +1793,12 @@
           "text": "No electrical or construction scope found"
         },
         {
-          "kind": "info",
-          "text": "Job size not stated"
+          "kind": "minus",
+          "text": "Only 4 days to bid"
         },
         {
           "kind": "info",
-          "text": "5 days to bid"
+          "text": "Job size not stated"
         },
         {
           "kind": "info",
@@ -1905,7 +1807,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -1944,21 +1846,21 @@
           "text": "No electrical or construction scope found"
         },
         {
+          "kind": "minus",
+          "text": "Only 4 days to bid"
+        },
+        {
           "kind": "info",
           "text": "Work location not listed — check the bid"
         },
         {
           "kind": "info",
           "text": "Job size not stated"
-        },
-        {
-          "kind": "info",
-          "text": "5 days to bid"
         }
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2005,7 +1907,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2051,12 +1953,12 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2098,12 +2000,12 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         }
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2151,7 +2053,7 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -2160,7 +2062,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2208,7 +2110,7 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -2217,7 +2119,7 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2269,7 +2171,7 @@
         },
         {
           "kind": "info",
-          "text": "6 days to bid"
+          "text": "5 days to bid"
         },
         {
           "kind": "info",
@@ -2278,7 +2180,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2329,7 +2231,7 @@
       ],
       "distanceMi": 1,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2373,7 +2275,7 @@
         },
         {
           "kind": "info",
-          "text": "11 days to bid"
+          "text": "10 days to bid"
         },
         {
           "kind": "info",
@@ -2382,7 +2284,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2426,7 +2328,7 @@
         },
         {
           "kind": "info",
-          "text": "11 days to bid"
+          "text": "10 days to bid"
         },
         {
           "kind": "info",
@@ -2435,7 +2337,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2483,12 +2385,12 @@
         },
         {
           "kind": "info",
-          "text": "12 days to bid"
+          "text": "11 days to bid"
         }
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2528,7 +2430,7 @@
         },
         {
           "kind": "plus",
-          "text": "17 days to bid"
+          "text": "16 days to bid"
         },
         {
           "kind": "info",
@@ -2549,7 +2451,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2589,7 +2491,7 @@
         },
         {
           "kind": "plus",
-          "text": "17 days to bid"
+          "text": "16 days to bid"
         },
         {
           "kind": "info",
@@ -2602,7 +2504,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2640,7 +2542,7 @@
         },
         {
           "kind": "plus",
-          "text": "17 days to bid"
+          "text": "16 days to bid"
         },
         {
           "kind": "minus",
@@ -2653,7 +2555,7 @@
       ],
       "distanceMi": 386,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2691,7 +2593,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "minus",
@@ -2708,7 +2610,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2748,7 +2650,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "info",
@@ -2761,7 +2663,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2801,7 +2703,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "info",
@@ -2814,7 +2716,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2852,7 +2754,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "info",
@@ -2861,7 +2763,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2901,7 +2803,7 @@
         },
         {
           "kind": "plus",
-          "text": "18 days to bid"
+          "text": "17 days to bid"
         },
         {
           "kind": "info",
@@ -2914,7 +2816,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -2958,7 +2860,7 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "info",
@@ -2971,7 +2873,7 @@
       ],
       "distanceMi": 44,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3011,7 +2913,7 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "info",
@@ -3024,7 +2926,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3064,7 +2966,7 @@
         },
         {
           "kind": "plus",
-          "text": "19 days to bid"
+          "text": "18 days to bid"
         },
         {
           "kind": "info",
@@ -3077,7 +2979,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3115,7 +3017,7 @@
         },
         {
           "kind": "plus",
-          "text": "20 days to bid"
+          "text": "19 days to bid"
         },
         {
           "kind": "info",
@@ -3124,7 +3026,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3166,7 +3068,7 @@
         },
         {
           "kind": "plus",
-          "text": "20 days to bid"
+          "text": "19 days to bid"
         },
         {
           "kind": "minus",
@@ -3179,7 +3081,7 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3223,7 +3125,7 @@
         },
         {
           "kind": "plus",
-          "text": "20 days to bid"
+          "text": "19 days to bid"
         },
         {
           "kind": "info",
@@ -3236,7 +3138,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3297,7 +3199,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3337,7 +3239,7 @@
         },
         {
           "kind": "plus",
-          "text": "24 days to bid"
+          "text": "23 days to bid"
         },
         {
           "kind": "info",
@@ -3350,7 +3252,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3394,7 +3296,7 @@
         },
         {
           "kind": "plus",
-          "text": "24 days to bid"
+          "text": "23 days to bid"
         },
         {
           "kind": "info",
@@ -3411,7 +3313,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3451,7 +3353,7 @@
         },
         {
           "kind": "plus",
-          "text": "24 days to bid"
+          "text": "23 days to bid"
         },
         {
           "kind": "info",
@@ -3464,7 +3366,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3502,7 +3404,7 @@
         },
         {
           "kind": "plus",
-          "text": "25 days to bid"
+          "text": "24 days to bid"
         },
         {
           "kind": "info",
@@ -3519,7 +3421,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3559,7 +3461,7 @@
         },
         {
           "kind": "plus",
-          "text": "25 days to bid"
+          "text": "24 days to bid"
         },
         {
           "kind": "info",
@@ -3572,7 +3474,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3612,7 +3514,7 @@
         },
         {
           "kind": "plus",
-          "text": "25 days to bid"
+          "text": "24 days to bid"
         },
         {
           "kind": "info",
@@ -3625,7 +3527,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3666,7 +3568,7 @@
         },
         {
           "kind": "plus",
-          "text": "27 days to bid"
+          "text": "26 days to bid"
         },
         {
           "kind": "info",
@@ -3687,7 +3589,7 @@
       ],
       "distanceMi": 338,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3727,7 +3629,7 @@
         },
         {
           "kind": "plus",
-          "text": "27 days to bid"
+          "text": "26 days to bid"
         },
         {
           "kind": "info",
@@ -3740,7 +3642,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3780,7 +3682,7 @@
         },
         {
           "kind": "plus",
-          "text": "31 days to bid"
+          "text": "30 days to bid"
         },
         {
           "kind": "info",
@@ -3793,7 +3695,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3831,7 +3733,7 @@
         },
         {
           "kind": "plus",
-          "text": "31 days to bid"
+          "text": "30 days to bid"
         },
         {
           "kind": "info",
@@ -3840,7 +3742,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3881,7 +3783,7 @@
         },
         {
           "kind": "plus",
-          "text": "32 days to bid"
+          "text": "31 days to bid"
         },
         {
           "kind": "minus",
@@ -3906,7 +3808,7 @@
       ],
       "distanceMi": 253,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -3946,7 +3848,7 @@
         },
         {
           "kind": "plus",
-          "text": "33 days to bid"
+          "text": "32 days to bid"
         },
         {
           "kind": "info",
@@ -3963,7 +3865,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4003,7 +3905,7 @@
         },
         {
           "kind": "plus",
-          "text": "33 days to bid"
+          "text": "32 days to bid"
         },
         {
           "kind": "info",
@@ -4020,7 +3922,7 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4058,7 +3960,7 @@
         },
         {
           "kind": "plus",
-          "text": "33 days to bid"
+          "text": "32 days to bid"
         },
         {
           "kind": "info",
@@ -4067,7 +3969,7 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4114,7 +4016,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4154,7 +4056,7 @@
         },
         {
           "kind": "plus",
-          "text": "34 days to bid"
+          "text": "33 days to bid"
         },
         {
           "kind": "info",
@@ -4167,7 +4069,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4205,7 +4107,7 @@
         },
         {
           "kind": "plus",
-          "text": "34 days to bid"
+          "text": "33 days to bid"
         },
         {
           "kind": "info",
@@ -4214,7 +4116,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4261,7 +4163,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4299,7 +4201,7 @@
         },
         {
           "kind": "plus",
-          "text": "38 days to bid"
+          "text": "37 days to bid"
         },
         {
           "kind": "info",
@@ -4312,7 +4214,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4359,7 +4261,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4403,7 +4305,7 @@
         },
         {
           "kind": "plus",
-          "text": "48 days to bid"
+          "text": "47 days to bid"
         },
         {
           "kind": "info",
@@ -4416,7 +4318,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4463,7 +4365,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4501,7 +4403,7 @@
         },
         {
           "kind": "plus",
-          "text": "60 days to bid"
+          "text": "59 days to bid"
         },
         {
           "kind": "info",
@@ -4510,7 +4412,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4552,7 +4454,7 @@
         },
         {
           "kind": "plus",
-          "text": "77 days to bid"
+          "text": "76 days to bid"
         },
         {
           "kind": "info",
@@ -4561,7 +4463,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4608,7 +4510,7 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     },
     {
@@ -4661,7 +4563,7 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-13T09:04:06.572Z",
+      "firstSeenAt": "2026-11-13T23:04:10.986Z",
       "overLimit": false
     }
   ]

@@ -1,11 +1,15 @@
-// Onboarding: five short steps, then PUT /api/profile and straight into the feed.
+// Onboarding: six tap-only steps, then PUT /api/profile and straight into the feed.
+//
+// Everything is a chip or a toggle. The only things anyone types: a 5-digit ZIP (only when "Use my location"
+// can't be used) and, on the last step, the business name — optional, skipped = "My electrical shop".
+// A single-choice step (how far, alerts) moves on by itself after the tap; Back always works.
 
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
-import { parseDollars } from '../format.js';
-import { clearErrors, formError, showErrors } from '../form.js';
+import { clearErrors, field, formError, showErrors, textInput } from '../form.js';
 import {
-  alertsSection, answersFrom, emptyDraft, jobsSection, loadTrades, nameSection, tradesSection, whereSection,
+  alertChoices, answersFrom, defaultBusinessName, emptyDraft, homeSection, jobSizeChips, loadTrades, paperworkSection,
+  QUAL_KEYS, tradesSection,
 } from '../profile-form.js';
 import { enterApp, onSignedOut, signOut } from '../session.js';
 import { onAfterRender, registerView, render } from '../shell.js';
@@ -14,35 +18,45 @@ import { deck, state } from '../state.js';
 let trades = null;
 const ui = { step: 0, draft: null, busy: false, pending: null };
 
-/** Each step: its title, the API fields it owns (for routing a 400 back to it), its body, and a quick check. */
+/** The pause after a single-choice tap, so the person sees the chip light up before the screen moves on. */
+const AUTO_NEXT_MS = 220;
+
+/**
+ * Each step: its title, the API fields it owns (for routing a 400 back to it), its body, a quick check, and
+ * `auto` when one tap answers it (no Next button: the tap moves on).
+ */
 const STEPS = [
   {
-    title: 'What’s your business called?', sub: 'Two quick minutes and your first bids are waiting.',
-    owns: ['businessName'], body: (d) => nameSection(d),
-    check: (d) => (d.businessName.trim() ? null : { businessName: 'Enter your business name.' }),
-  },
-  {
     title: 'What work do you do?', sub: 'Pick the trades you bid. We match bids by their scope of work.',
-    owns: ['trades', 'setAsides'], body: (d) => tradesSection(d, trades),
+    owns: ['trades'], body: (d) => tradesSection(d, trades),
     check: (d) => (d.trades.length ? null : { trades: 'Pick at least one trade.' }),
   },
   {
     title: 'Where’s your shop?', sub: 'We measure every bid’s distance from here.',
-    owns: ['zip', 'radiusMi'], body: (d) => whereSection(d),
+    owns: ['zip', 'radiusMi'], auto: true, body: (d) => homeSection(d, { onDone: autoNext }),
     check: (d) => {
-      if (d.place) return null;
-      const digits = /^\s*(\d{5})\s*$/.exec(d.zip)?.[1];
-      return { zip: digits ? `We can’t find ZIP ${digits}. Check the number.` : 'Enter a 5-digit ZIP code.' };
+      if (!d.place) return { zip: d.zip.length === 5 ? `We can’t find ZIP ${d.zip}. Check the number.` : 'Tap “Use my location” or enter your 5-digit ZIP.' };
+      return d.radiusPicked ? null : { radiusMi: 'Pick how far you’ll travel.' };
     },
   },
   {
     title: 'What size jobs fit you?', sub: 'Estimated contract value, from the bid notice.',
-    owns: ['valueRange', 'limits', 'costs'], body: (d) => jobsSection(d),
-    check: (d) => (parseDollars(d.max) == null ? { 'valueRange.max': 'Enter the largest job you want.' } : null),
+    owns: ['valueRange', 'limits'], body: (d) => jobSizeChips(d),
+    check: (d) => (d.sizes.length ? null : { valueRange: 'Pick at least one size.' }),
   },
   {
-    title: 'When should we ping you?', sub: 'Good fits show up in your alerts as soon as we find them.',
-    owns: ['alerts'], body: (d) => alertsSection(d),
+    title: 'Your paperwork', sub: 'Have it or not, you’ll see every bid. We just tell you what each one needs.',
+    owns: ['qualifications', 'setAsides'], body: (d) => paperworkSection(d, { certs: true }),
+    check: () => null,
+  },
+  {
+    title: 'When should we ping you?', sub: 'Good fits land in your alerts as soon as we find them.',
+    owns: ['alerts', 'costs'], auto: true, body: (d) => alertChoices(d, { onPick: autoNext }),
+    check: () => null,
+  },
+  {
+    title: 'What’s your business called?', sub: 'Optional. Skip it and change it any time in Settings.',
+    owns: ['businessName'], body: (d) => nameStep(d),
     check: () => null,
   },
 ];
@@ -51,6 +65,12 @@ const stepFor = (path) => {
   const i = STEPS.findIndex((s) => s.owns.some((k) => path === k || path.startsWith(`${k}.`)));
   return i === -1 ? STEPS.length - 1 : i;
 };
+
+function nameStep(d) {
+  const input = textInput({ value: d.businessName, autocomplete: 'organization', placeholder: defaultBusinessName(d, trades), maxlength: 80, enterkeyhint: 'done' });
+  input.addEventListener('input', () => (d.businessName = input.value));
+  return field({ key: 'businessName', label: 'Business name', help: `Leave it empty and we’ll call you “${defaultBusinessName(d, trades)}”.`, control: input });
+}
 
 /** Start over (a new account, or after sign-out). */
 function resetOnboarding() {
@@ -64,8 +84,13 @@ async function finish(button) {
   ui.busy = true;
   button.disabled = true;
   button.textContent = 'Finding your bids…';
+  const d = ui.draft;
+  // Unanswered paperwork counts as "Not sure" — sent as such, so the cards say "check yours".
+  d.quals ??= Object.fromEntries(QUAL_KEYS.map((k) => [k, 'unsure']));
+  const answers = answersFrom(d);
+  if (!answers.businessName.trim()) answers.businessName = defaultBusinessName(d, trades);
   try {
-    const res = await api.saveProfile(answersFrom(ui.draft));
+    const res = await api.saveProfile(answers);
     ui.busy = false;
     resetOnboarding();
     await enterApp();
@@ -83,12 +108,23 @@ async function finish(button) {
 
 function next(button, form) {
   clearErrors(form);
-  const step = STEPS[ui.step];
-  const problems = step.check(ui.draft);
+  const problems = STEPS[ui.step].check(ui.draft);
   if (problems) return showErrors(form, problems);
   if (ui.step === STEPS.length - 1) return finish(button);
   ui.step += 1;
   render();
+  window.scrollTo({ top: 0 });
+}
+
+/** A one-tap step answered: move on (unless something on it still needs fixing). */
+function autoNext() {
+  const at = ui.step;
+  setTimeout(() => {
+    if (ui.step !== at || state.view !== 'onboarding' || STEPS[at].check(ui.draft)) return;
+    ui.step += 1;
+    render();
+    window.scrollTo({ top: 0 });
+  }, AUTO_NEXT_MS);
 }
 
 function renderOnboarding() {
@@ -105,7 +141,8 @@ function renderOnboarding() {
   const form = h('form', { class: 'step-form', novalidate: true },
     step.body(ui.draft),
     formError(),
-    h('div', { class: 'step-foot' }, nextBtn),
+    // A one-tap step has no Next; the hidden button still lets Enter in the ZIP box submit the step.
+    h('div', { class: `step-foot${step.auto ? ' is-auto' : ''}` }, nextBtn),
   );
   form.addEventListener('submit', (e) => { e.preventDefault(); if (!ui.busy) next(nextBtn, form); });
 

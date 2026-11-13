@@ -1,11 +1,15 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createAuth, isSignInService, type SignInError, type SignInResult } from '../auth/index.js';
 import { normalizeEmail } from '../auth/input.js';
+import { findCode, isLive, parsePromoCodes } from '../auth/promo.js';
 import { clientIp, createRateLimiter } from '../auth/ratelimit.js';
 import { renewedToken, sessionCookie } from '../auth/sessions.js';
 import { OAUTH_PROVIDERS } from '../auth/supabase.js';
 import type { RouteContext } from '../context.js';
 import { isPlan, setPlan } from '../db/accounts.js';
+import { redeemPromo } from '../db/promo.js';
+import { env } from '../env.js';
+import { effectivePlan, featuresFor } from '../plans.js';
 import { requireAdmin } from './shared.js';
 
 /** Sign-up and sign-in attempts allowed per caller address, and per email, in one window. */
@@ -28,6 +32,19 @@ const REFUSALS: Record<SignInError, { status: number; message: string }> = {
   provider_not_supported: { status: 403, message: 'That sign-in method is not supported here.' },
   email_not_verified: { status: 403, message: 'Your sign-in provider has not verified your email address. Verify it there, then try again.' },
 };
+
+/** Promo-code tries allowed per account, and per caller address, in one window (then 429). */
+const PROMO_ATTEMPTS = 5;
+const PROMO_WINDOW_MS = 10 * 60 * 1000;
+/** Unknown, expired and used-up codes all get this one answer: it must not tell a guesser which codes exist. */
+const INVALID_CODE = { error: 'invalid_code', message: 'That code isn’t valid. Check the spelling and try again.' };
+const NOT_AVAILABLE = { error: 'not_available', message: 'Promo codes aren’t available in this version of the app.' };
+
+/**
+ * The iOS App Store build marks every request with this header. Apple guideline 3.1.1: that build must not
+ * unlock features with our own codes, so it never sees the code box and a redeem from it is refused.
+ */
+const fromIosStore = (req: FastifyRequest): boolean => String(req.headers['x-bidswipe-store'] ?? '').trim().toLowerCase() === 'ios';
 
 const fields = (body: unknown): Record<string, unknown> =>
   body !== null && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
@@ -52,6 +69,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const absent = async (_req: FastifyRequest, reply: FastifyReply) => reply.code(404).send({ error: 'not_found' });
     app.get('/api/auth/config', absent);
     for (const path of ['signup', 'login', 'oauth', 'logout']) app.post(`/api/auth/${path}`, absent);
+    app.post('/api/promo/redeem', absent);
     return;
   }
 
@@ -84,10 +102,20 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (token && !reply.hasHeader('set-cookie')) reply.header('set-cookie', sessionCookie(token, config.cookieSecure));
   });
 
-  app.get('/api/auth/config', async () => ({
+  // PROMO_CODES is read once, at start-up, from the host's environment (never from the repo). A bad entry is
+  // logged and skipped; the codes themselves never reach the log or the database (only their sha256 does).
+  const promoCodes = parsePromoCodes(env('PROMO_CODES'), ctx.log);
+  const promoLimiter = createRateLimiter({ limit: PROMO_ATTEMPTS, windowMs: PROMO_WINDOW_MS, now: ctx.now });
+  /** Show the code box? Only with codes set, outside demo mode (everyone has every feature there) and never on iOS. */
+  const promoOn = (req: FastifyRequest): boolean => promoCodes.length > 0 && !config.demoMode && !fromIosStore(req);
+
+  app.get('/api/auth/config', async (req) => ({
     mode: config.authMode,
     providers: ['password', ...(config.supabase ? OAUTH_PROVIDERS : [])],
     demo: config.demoMode,
+    // promo: true when the client may show the promo-code box. Left out (not `false`) when it may not, so the
+    // answer for a server without codes is exactly what it was before codes existed; the client reads absent as off.
+    ...(promoOn(req) ? { promo: true } : {}),
     // Both are public by design: the browser needs them to start a Google / Apple / Microsoft sign-in.
     ...(config.supabase ? { supabase: { url: config.supabase.url, anonKey: config.supabase.anonKey } } : {}),
   }));
@@ -107,6 +135,36 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   app.post('/api/auth/oauth', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     return answer(req, reply, await signIn.oauth(fields(req.body).accessToken));
+  });
+
+  /**
+   * Redeem a promo code: { code } → { plan: 'pro', features } and the account is on Pro from the next request.
+   * Signed in only. 5 tries per 10 minutes per account and per address. Redeeming a code twice is harmless
+   * (200, already: true), and so is redeeming on an account that already has Pro or the pilot plan.
+   */
+  app.post('/api/promo/redeem', async (req, reply) => {
+    if (!promoOn(req)) return reply.code(403).send(NOT_AVAILABLE);
+    const { account } = await ctx.identify(req);
+    if (!account) return reply.code(401).send({ error: 'sign_in_required' });
+    let verdict = promoLimiter.hit(`ip:${clientIp(req)}`);
+    if (verdict.ok) verdict = promoLimiter.hit(`account:${account.id}`);
+    if (!verdict.ok) {
+      return reply.code(429).header('retry-after', verdict.retryAfterSec)
+        .send({ error: 'too_many_attempts', message: 'Too many tries. Wait a few minutes, then try again.' });
+    }
+
+    const code = findCode(promoCodes, fields(req.body).code);
+    const now = ctx.now();
+    if (!code || !isLive(code, now)) return reply.code(400).send(INVALID_CODE);
+    const answer = (plan: typeof account.plan, already: boolean) =>
+      ({ plan, features: featuresFor(effectivePlan(config, { ...account, plan })), ...(already ? { already: true } : {}) });
+    // Pilot (or Pro granted by hand) is already as much as a code gives: never step it down, never count a use.
+    if (account.plan !== 'free') return answer(account.plan, true);
+
+    const outcome = await redeemPromo(db, { accountId: account.id, codeKey: code.keyHex, plan: code.plan, maxUses: code.maxUses, now });
+    if (outcome === 'used_up') return reply.code(400).send(INVALID_CODE);
+    ctx.log(`promo: account ${account.id} ${outcome === 'again' ? 'redeemed a code again' : 'redeemed a code'} → ${code.plan}`);
+    return answer(code.plan, outcome === 'again');
   });
 
   app.post('/api/auth/logout', async (req, reply) => {

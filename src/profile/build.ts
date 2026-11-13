@@ -1,6 +1,6 @@
 import { lookupZip, statesWithin } from '../geo/zip.js';
 import { getTrade, mergeTrades } from '../trades/catalog.js';
-import type { AlertSettings, CostSettings, Profile, SpendLimits } from '../types.js';
+import type { AlertSettings, CostSettings, Profile, QualAnswer, Qualifications, SpendLimits } from '../types.js';
 
 /** What the sign-up / settings form sends (PUT /api/profile). */
 export interface OnboardingAnswers {
@@ -16,6 +16,11 @@ export interface OnboardingAnswers {
   alerts?: AlertSettings;
   /** SAM.gov set-aside codes the business qualifies for. */
   setAsides?: string[];
+  /**
+   * "Your paperwork": optional. Old clients and the simulation send none, and then nothing changes.
+   * A key left out of the object counts as 'unsure' (the screen's "unanswered counts as Not sure").
+   */
+  qualifications?: Qualifications;
 }
 
 /** errors: field name → one plain-English sentence the form shows under that field. */
@@ -75,7 +80,13 @@ function withPairs(codes: readonly string[]): string[] {
 type Dict = Record<string, unknown>;
 type Fail = (field: string, message: string) => void;
 
-const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides'];
+const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides', 'qualifications'];
+/** The four paperwork questions, in the order the screen asks them. */
+export const QUALIFICATION_KEYS = ['statePublicWorks', 'samRegistered', 'bonding', 'prevailingWage'] as const;
+const QUAL_ANSWERS: readonly QualAnswer[] = ['yes', 'no', 'unsure'];
+const QUAL_LABELS: Record<keyof Qualifications, string> = {
+  statePublicWorks: 'State public works', samRegistered: 'SAM.gov registration', bonding: 'Bonding', prevailingWage: 'Prevailing wage',
+};
 const LIMIT_LABELS: Record<keyof SpendLimits, string> = {
   maxJobSize: 'Max job size', maxUpfront: 'Max up-front cost', bondingCapacity: 'Bonding capacity',
 };
@@ -237,6 +248,20 @@ function readSetAsides(v: unknown, fail: Fail): string[] | undefined {
   return [...codes];
 }
 
+/** absent or null → undefined (never asked); an object → all four answers, a missing one as 'unsure'. */
+function readQualifications(v: unknown, fail: Fail): Qualifications | undefined {
+  const src = group(v, 'qualifications', QUALIFICATION_KEYS, fail);
+  if (!src) return undefined;
+  const out = {} as Qualifications;
+  for (const key of QUALIFICATION_KEYS) {
+    const a = src[key];
+    if (a === undefined || a === null) out[key] = 'unsure';
+    else if (typeof a === 'string' && (QUAL_ANSWERS as readonly string[]).includes(a)) out[key] = a as QualAnswer;
+    else fail(`qualifications.${key}`, `${QUAL_LABELS[key]} must be yes, no or unsure.`);
+  }
+  return out;
+}
+
 /**
  * Check and normalize untrusted form input. Nothing gets past it unchecked: unknown keys are errors
  * (at any depth), names are trimmed, trades are de-duplicated into catalog order, the ZIP must exist.
@@ -262,10 +287,12 @@ export function validateAnswers(input: unknown): AnswersResult {
   const costs = amounts(group(input.costs, 'costs', Object.keys(COST_LABELS), fail), 'costs', COST_LABELS, fail);
   const alerts = readAlerts(group(input.alerts, 'alerts', ['minScore', 'push', 'quietHours', 'timeZone', 'kinds'], fail), fail);
   const setAsides = readSetAsides(input.setAsides, fail);
+  const qualifications = readQualifications(input.qualifications, fail);
   if (limits) value.limits = limits;
   if (costs) value.costs = costs;
   if (alerts) value.alerts = alerts;
   if (setAsides) value.setAsides = setAsides;
+  if (qualifications) value.qualifications = qualifications;
 
   return errors.size ? { ok: false, errors: Object.fromEntries(errors) } : { ok: true, value };
 }
@@ -300,6 +327,8 @@ export function buildProfile(profileId: string, answers: OnboardingAnswers): Pro
     limits: { ...answers.limits },
     costs: { ...answers.costs },
     alerts: { minScore: GOOD_FIT, ...answers.alerts },
+    // Only when answered: a profile that was never asked keeps no key, so it scores exactly as before.
+    ...(answers.qualifications ? { qualifications: { ...answers.qualifications } } : {}),
   };
 }
 
@@ -326,6 +355,8 @@ export interface ProfileSummary {
   /** minScore is always filled in (falls back to the digest threshold). */
   alerts: AlertSettings & { minScore: number };
   setAsides: string[];
+  /** Only present when the company answered "Your paperwork". */
+  qualifications?: Qualifications;
 }
 
 export function summarize(profile: Profile): ProfileSummary {
@@ -341,5 +372,6 @@ export function summarize(profile: Profile): ProfileSummary {
     costs: profile.costs ?? {},
     alerts: { ...profile.alerts, minScore: profile.alerts?.minScore ?? profile.notify.minScore },
     setAsides: profile.setAsidesEligible,
+    ...(profile.qualifications ? { qualifications: { ...profile.qualifications } } : {}),
   };
 }

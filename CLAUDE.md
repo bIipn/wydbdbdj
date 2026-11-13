@@ -20,7 +20,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,390 tests in 48 files as of 2026-11-13, ~65s; simulate.test.ts alone ~25s)
+npm test                   # vitest (~1,530 tests in 60 files as of 2026-11-13, ~50s; simulate.test.ts alone ~25s)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
@@ -37,7 +37,10 @@ Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, o
 config profile, optional `ACCESS_CODE`) · `AUTH_MODE=accounts` (sign-up, onboarding, a profile per account)
 · `DEMO_MODE=1` (everyone gets plan "pilot", all features on) · `SOURCES=fixtures` (scan the saved pages)
 · `DATA_DIR=<folder>` (embedded DB folder; one process per folder) · `SCAN_DAILY_AT` / `MARKET_REFRESH_AT`
-(Pacific "HH:MM": the daily scan and the daily market refresh + price/award watch; blank = off).
+(Pacific "HH:MM": the daily scan and the daily market refresh + price/award watch; blank = off)
+· `SAM_SOURCE=bulk|api` (default bulk: SAM.gov's public daily file, no key) · `PROMO_CODES` (`CODE:pro[:uses][:ISO]`,
+real codes only on the host) · `REALTIME_MODE=stream|poll` (poll is the default when `VERCEL` is set) +
+`REALTIME_POLL_MS` · `CRON_SECRET` (serverless cron routes).
 
 ## Map
 ```
@@ -45,15 +48,24 @@ src/sources/*.ts   one file per bid board: pure parse…() + small fetch() — s
 src/sources/flags.ts  the flag strings, program-contract terms and SAM set-aside codes parsers write and
                    score.ts reads — ONE copy (test/federal-chain.test.ts guards it)
 src/sources/dedupe.ts SAM: one card per solicitation (samgov:<sol number>), newest notice wins
+src/sources/samgov-bulk.ts SAM.gov's public daily CSV (~222 MB): streaming RFC 4180 parser, per-field UTF-8 /
+                   Windows-1252 decode, same samDraft() as the API path; drops stale no-deadline notices,
+                   fills a zoneless deadline from a sibling notice (else flags it); <20,000 rows = cut off
 src/geo/           gazetteer (places.ts) + nationwide ZIP table (zip.ts) + locate(): gazetteer town → ZIP →
                    nationwide ZIP / city+state → county → town in text → agency → region → state; a listed
                    address it can't place stays unplaced (no guess)
-src/score/score.ts fit score + plain-English reasons (the product's brain)
+src/score/score.ts fit score + plain-English reasons (the product's brain); paperwork answers
+                   (profile.qualifications) → plus / check / minus lines, a "no" caps the score (capped)
+src/score/candidates.ts which bids a company gets a stored score for at all (its states, or within
+                   max(2×radius, radius+100, 150 mi)); Browse shows candidates only
 config/<id>.json   a contractor profile (keywords, radius, value range…) — tune scoring HERE, not in code
 src/scan.ts        fetch all sources → finalizeBid → upsert → score per profile → record report
 src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here)
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
 src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
+src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time match) + one-statement redeem
+src/geo/nearest.ts "Use my location": a point → nearest ZIP (never stored; src/util/log-url.ts keeps it out of logs)
+src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there)
 src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push
 src/market/        USAspending awards, BLS wages + material indexes, NV prevailing wage (config/prevailing-wage);
                    watch.ts (pure price/award watch rules) + watcher.ts (runs the refresh, publishes 'price'/'award')
@@ -61,10 +73,17 @@ src/cost/          the cost engine (21 modules, integer cents, BigInt where it m
                    API (EstimateRequest → EstimateResult, "needed" instead of guesses); test/cost-oracle re-derives it
 src/sim/           the multi-company simulation (personas, takeoffs, checks, report) behind `npm run simulate`
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
-web/               index.html, styles.css, sw.js, js/*.js (ES modules, no build). main.js imports every view;
+web/               index.html, styles.css, desktop.css (≥900px only), sw.js (registered on every load; bump
+                   SHELL_VERSION when the shell list changes), manifest.webmanifest, icons/ (from icon.svg via
+                   scripts/make-icons.cjs), privacy.html, js/*.js (ES modules, no build). main.js imports every view;
+                   promo.js + promo-link.js: the code box and ?promo= links;
                    views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate) register themselves;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
+serverless-files.cjs every folder the Vercel function ships (web/ and EACH sub-folder, config/): add a line for
+                   a new folder (test/serverless-entry.test.ts)
+docs/              PRODUCT.md (spec) · HANDOFF.md · DATA-SOURCES.md (free data sources, limits, checked) ·
+                   MICROSOFT-STORE.md (Store submission steps)
 test/fixtures/     REAL responses, raw as the scanner receives them: HTML captured 2026-11-13, QuestCDN JSON
                    2026-11-11, SAM.gov JSON (samgov-*.json) 2026-11-13 04:01 UTC, trimmed; BLS JSON 2026-11-13
 test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
@@ -93,9 +112,11 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   in `test/score.test.ts` (or `score-audit.test.ts` on real bids). Prefer editing `config/lm-electric.json`
   over code; the pilot's keyword lists must stay equal to the catalog's electrical template
   (`test/profile.test.ts`). A new flag or set-aside code goes in `src/sources/flags.ts`, never retyped.
-- **Codes & payments:** never add an in-app "enter a code to unlock Pro" box to the iOS build (App Store
-  guideline 3.1.1). Use Apple Offer Codes / Google Play promo codes / RevenueCat promotional
-  entitlements; the web app may keep `ACCESS_CODE` for the pilot. See `docs/PRODUCT.md` §4.
+- **Codes & payments:** a promo-code box (Settings, `?promo=` links) is allowed on the web and Microsoft
+  Store builds, never in an iOS store build (App Store guideline 3.1.1: `STORE_BUILD` in web/js/api.js turns
+  it off there; use Apple Offer Codes / RevenueCat instead). The real codes live only in the host's
+  `PROMO_CODES`: never in the repo, a test, a doc or a commit (tests use `A&Btest` / TEST- codes). Give each
+  real code a use limit and an expiry. See `docs/PRODUCT.md` §4.
 - **Never fabricate bids, awards, wages or prices.** Demo data comes from captured real pages. The SAM.gov
   fixtures are real (trimmed): `npm run simulate` uses them, fixture mode and the demo do not yet. Anything
   synthetic says so (TEST- ids, example.com, "SIM … (simulated)"); simulated persona figures are labelled.
@@ -140,6 +161,19 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   once as "similar job nearby" and again as "Award posted" when its solicitation number arrives. "Nearby"
   needs the state AND the NAICS code to have been loaded before (award_coverage), so a first load is silent.
 - Only SAM.gov bids carry a solicitation number, so only they can be matched to a federal award.
+- SAM.gov's bulk file is ~222 MB a day, streamed through `ctx.http.stream()` (util/http.ts follows the
+  303 to a signed S3 link by hand and never prints its query). Notices with no place of performance are
+  dropped (cannot say they're in the US). Fixture mode (`SOURCES=fixtures`) still loads only the 85 Nevada
+  bids; `fixtureReaders({ samgov: true })` (the simulation) adds the SAM captures.
+- A capped bid (paperwork "no", no measurable site, not open yet) is held at min(54, alert line − 1) but
+  never under 35 (`CAPPED_FLOOR`, the deck's line) and carries `capped: true`, which the scan and the alert
+  rules skip. So it stays in the deck as a "maybe" and never pings anyone, even at alert line 35.
+- `pruneMatches` (a company moved or narrowed its range) keeps swiped bids, closed bids and bids the digest
+  already emailed (`notified_at`), so moving back never emails the same bid twice.
+- Serverless (Vercel): `ctx.realtime` is created with `tickMs: 0`; the cron routes call `flush()` after a
+  scan/refresh (the function freezes once it answers) and `/api/cron/tick` runs deadline reminders.
+  `GET /api/alerts` returns `lastScan`, so a polling app reloads its feed after a scan.
+- Fixture mode resolves `test/fixtures` from the working directory: run the server from the repo (or link it).
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

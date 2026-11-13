@@ -1,7 +1,7 @@
 import { milesBetween } from '../geo/locate.js';
-import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, SET_ASIDES } from '../sources/flags.js';
+import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, REQUIREMENT_FLAGS, SET_ASIDES } from '../sources/flags.js';
 import { tradeNoun } from '../trades/catalog.js';
-import type { Bid, Profile, Reason, ScoreResult, SpendLimits, Verdict } from '../types.js';
+import type { Bid, Profile, Qualifications, Reason, ScoreResult, SpendLimits, Verdict } from '../types.js';
 import { formatMoneyShort, formatRange } from '../util/money.js';
 
 /**
@@ -20,6 +20,7 @@ import { formatMoneyShort, formatRange } from '../util/money.js';
  *   - a program contract (IDIQ, JOC, MATOC, OTA …)                          → hard no ("not a single job")
  *   - a presolicitation or RFI                                              → never alerts, no days-to-bid credit
  *   - a work place we could not measure, outside the home-state boards      → no distance points, never alerts
+ *   - paperwork the company said it does not have (SPWD, SAM, bonds, PW)    → stays visible, never alerts
  * A gate only ever lowers a score; it never raises one.
  *
  * Spend limits (profile.limits) come after the fit and never change the score: they add reasons
@@ -154,9 +155,112 @@ function homeState(p: Profile): string | null {
   return /,\s*([A-Z]{2})\s*$/.exec(p.base.label)?.[1] ?? p.states[0] ?? null;
 }
 
-/** The highest score a gated bid may keep: below every alert line, never above "maybe", never below 0. */
+/**
+ * The highest score a capped bid may keep: one under "good" (55, verdictFor below), so it reads "maybe" at best.
+ * Used by every gate that keeps a bid visible but must not ping anyone: no measurable site, not open yet, and
+ * paperwork the company said it does not have.
+ */
+export const BELOW_ALERT_CAP = 54;
+
+/**
+ * The lowest score a capped bid is held at: the "maybe" line (verdictFor below). Under it a bid reads "skip"
+ * and the swipe deck (web/js/state.js DECK_MIN_SCORE, also 35) drops it. A company whose alert line is 35
+ * ("Anything worth a look") would otherwise lose every capped bid from its deck. A capped bid that sits at or
+ * above that alert line is still never announced: scoreFit marks it `capped`, and the scan and the alert
+ * rules skip capped bids.
+ */
+export const CAPPED_FLOOR = 35;
+
+/** The cap for this profile: BELOW_ALERT_CAP, and also under its own alert lines, never below CAPPED_FLOOR. */
 function capFor(p: Profile): number {
-  return Math.max(0, Math.min(54, p.notify.minScore - 1, (p.alerts?.minScore ?? Infinity) - 1));
+  return Math.max(CAPPED_FLOOR, Math.min(BELOW_ALERT_CAP, p.notify.minScore - 1, (p.alerts?.minScore ?? Infinity) - 1));
+}
+
+// --------------------------------------------------------------- paperwork --
+//
+// Ev's rule: work with companies that have the paperwork AND with companies that do not. A bid is never
+// hidden over an answer; the card says what the bid needs and where the company stands:
+//   yes            → a plus line ("…: you have it"), no points added
+//   unsure / blank → a neutral "check yours" line, no points lost
+//   no             → a minus line, and the score is held at BELOW_ALERT_CAP so nobody is pinged for a job
+//                    they cannot bid today. They still see it, and can get the paperwork.
+// A profile without `qualifications` (the pilot's config, older accounts, the simulation) skips all of this:
+// its flags are listed exactly as before.
+//
+// Which bids need what. The flag strings are written by the parsers (src/util/flags.ts detectFlags, the
+// SPWD board's flags in src/sources/questcdn.ts) from REQUIREMENT_FLAGS in src/sources/flags.ts, and read
+// here from the same table, so no flag string is typed a second time.
+
+/** The SPWD QuestCDN board's flag. NRS 338.1375: the Division "shall not accept a bid" from a contractor not
+ *  qualified under NRS 338.1379 (law.justia.com/codes/nevada/2021/chapter-338/statute-338-1379/). */
+const SPWD_FLAGS: ReadonlySet<string> = new Set([REQUIREMENT_FLAGS.spwd]);
+/** "Bid bond", "Performance/payment bond": what the notice asks for (we make no claim about the law). */
+const BOND_FLAGS: ReadonlySet<string> = new Set([REQUIREMENT_FLAGS.bidBond, REQUIREMENT_FLAGS.perfBond]);
+/** "Prevailing wage", "Prevailing wage likely", "Certified payroll". */
+const PREVAILING_FLAGS: ReadonlySet<string> = new Set([
+  REQUIREMENT_FLAGS.prevailing, REQUIREMENT_FLAGS.prevailingLikely, REQUIREMENT_FLAGS.certifiedPayroll,
+]);
+
+interface Need {
+  key: keyof Qualifications;
+  /** The bid's flags this need covers; their plain info lines are replaced by the one line below. */
+  flags: string[];
+  have: string;
+  check: string;
+  lack: string;
+}
+
+/** What this bid needs on paper, as far as its flags and source tell. Exported for tests. */
+export function paperworkNeeds(bid: Pick<Bid, 'source' | 'flags'>, profile: Profile): Need[] {
+  const needs: Need[] = [];
+  const spwd = bid.flags.filter((f) => SPWD_FLAGS.has(f));
+  if (spwd.length) {
+    needs.push({
+      // The state-public-works answer is about the HOME state's agency. Only a Nevada company's answer is an
+      // answer about SPWD; anyone else gets the neutral line (see `answerFor`).
+      key: 'statePublicWorks', flags: spwd,
+      have: 'SPWD qualification: you have it',
+      check: 'Needs SPWD bidder qualification — check yours',
+      lack: 'Needs SPWD bidder qualification — you said you don’t have it yet',
+    });
+  }
+  if (bid.source === 'samgov') {
+    // FAR 52.204-7(b)(1): "An Offeror is required to be registered in SAM when submitting an offer or
+    // quotation and at time of award" (acquisition.gov/far/52.204-7, FAC 2026-01).
+    needs.push({
+      key: 'samRegistered', flags: [],
+      have: 'SAM.gov registration: you have it',
+      check: 'Federal bid — needs SAM.gov registration, check yours',
+      lack: 'Federal bid — needs SAM.gov registration; you said you’re not registered yet',
+    });
+  }
+  const bonds = bid.flags.filter((f) => BOND_FLAGS.has(f));
+  if (bonds.length) {
+    const what = bonds.join(', ');
+    needs.push({
+      key: 'bonding', flags: bonds,
+      have: `${what}: you can get bonds`,
+      check: `${what} — check you can get bonded`,
+      lack: `${what} — you said you can’t get bonds yet`,
+    });
+  }
+  const pw = bid.flags.filter((f) => PREVAILING_FLAGS.has(f));
+  if (pw.length) {
+    const what = pw.join(', ');
+    needs.push({
+      key: 'prevailingWage', flags: pw,
+      have: `${what}: you take these jobs`,
+      check: `${what} — check you can run certified payroll`,
+      lack: `${what} — you said you don’t take prevailing-wage jobs`,
+    });
+  }
+  return needs;
+}
+
+/** The company's answer for a need; the state-public-works answer only counts for SPWD when home is Nevada. */
+function answerFor(need: Need, q: Qualifications, profile: Profile) {
+  if (need.key === 'statePublicWorks' && homeState(profile) !== 'NV') return 'unsure';
+  return q[need.key] ?? 'unsure';
 }
 
 export function verdictFor(score: number): Verdict {
@@ -365,17 +469,30 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     penalty += 25;
     if (!rejected) minus.push({ kind: 'minus', text: 'No work named in the title — may be a purchase, not a job' });
   } else if (bid.flags.includes('May be supply-only')) penalty += 5;
+  const quals = profile.qualifications;
+  const needs = quals ? paperworkNeeds(bid, profile) : [];
+  const covered = new Set(needs.flatMap((n) => n.flags));
   for (const f of bid.flags) {
     if (supplyOnly && f === 'May be supply-only') continue; // said by the minus above
     if (f === FLAGS.programContract || NOT_OPEN_FLAGS.some(({ flag }) => flag === f)) continue; // said above
+    if (covered.has(f)) continue; // said by its paperwork line below
     info.push({ kind: 'info', text: f });
+  }
+  for (const need of needs) {
+    const a = answerFor(need, quals!, profile);
+    if (a === 'yes') plus.push({ kind: 'plus', text: need.have });
+    else if (a === 'no') {
+      capped = true;
+      minus.push({ kind: 'minus', text: need.lack });
+    } else info.push({ kind: 'info', text: need.check });
   }
 
   const raw = trade + (dist + value + runway) * factor - penalty;
   const fit = Math.max(0, Math.min(100, Math.round(raw)));
   const score = rejected ? 0 : capped ? Math.min(fit, capFor(profile)) : fit;
   const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...plus, ...minus, ...info] : [...plus, ...minus, ...info];
-  return { score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false };
+  // `capped` is only written when true, so results without a gate look exactly as they always did.
+  return { score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false, ...(capped && !rejected ? { capped: true } : {}) };
 }
 
 // -------------------------------------------------------- spend limits --
@@ -470,7 +587,7 @@ function applyLimits(fit: ScoreResult, bid: Bid, limits: SpendLimits | undefined
   if (maxJob !== null && job !== 'ok') {
     minus.push({ kind: 'minus', text: `Est. ${estLabel(est, maxJob)} — ${job === 'over' ? 'over' : 'may run over'} your ${ownMoney(maxJob)} job limit` });
   }
-  const bond = bid.flags.some((f) => /\bbond/i.test(f)) ? against(est, bonding) : 'ok';
+  const bond = bid.flags.some((f) => BOND_FLAGS.has(f)) ? against(est, bonding) : 'ok';
   if (bonding !== null && bond !== 'ok') {
     const verb = bond === 'over' ? 'is over' : 'may run over';
     minus.push({ kind: 'minus', text: `Bond required — est. ${estLabel(est, bonding)} ${verb} your ${ownMoney(bonding)} bonding capacity` });
@@ -478,7 +595,7 @@ function applyLimits(fit: ScoreResult, bid: Bid, limits: SpendLimits | undefined
   const overLimit = job === 'over' || bond === 'over';
 
   const info: Reason[] = [];
-  if (!overLimit && bid.flags.some((f) => /\bbid bond/i.test(f))) {
+  if (!overLimit && bid.flags.includes(REQUIREMENT_FLAGS.bidBond)) {
     const pct = parseBidBondPct(bid.description);
     info.push({ kind: 'info', text: pct === null ? BOND_NOTE : bondMath(pct, est) });
   }

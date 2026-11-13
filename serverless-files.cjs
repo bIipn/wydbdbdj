@@ -14,6 +14,9 @@ module.exports = function shippedFolders() {
     fs.readdirSync(path.join(__dirname, 'web')),
     fs.readdirSync(path.join(__dirname, 'web', 'js')),
     fs.readdirSync(path.join(__dirname, 'web', 'js', 'views')),
+    fs.readdirSync(path.join(__dirname, 'web', 'icons')),
+    fs.readdirSync(path.join(__dirname, 'web', 'icons', 'screenshots')),
+    fs.readdirSync(path.join(__dirname, 'web', 'icons', 'windows')),
     fs.readdirSync(path.join(__dirname, 'config')),
     fs.readdirSync(path.join(__dirname, 'config', 'prevailing-wage')),
   ];

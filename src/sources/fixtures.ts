@@ -6,6 +6,7 @@ import { parseNevadaEproOpenBids } from './nevadaepro.js';
 import { parseNgemPage } from './ngem.js';
 import { parseQuestJson, QUEST_BOARDS } from './questcdn.js';
 import { parseSamResponse, type SamResponse } from './samgov.js';
+import { parseSamBulk } from './samgov-bulk.js';
 
 /**
  * The day the pages in test/fixtures were fetched: 2026-11-13, noon Pacific (the QuestCDN JSON is
@@ -30,9 +31,17 @@ export interface FixtureReader {
  */
 export const SAMGOV_FIXTURES: readonly string[] = ['samgov-nv.json', 'samgov-ca-238210.json', 'samgov-ca-236220.json'];
 
+/**
+ * Whole rows cut, byte for byte, from SAM.gov's daily bulk file of 2026-11-13 (Last-Modified 04:30:18 UTC):
+ * every Nevada construction notice, California and other samples, and rows that exercise each filter.
+ * Read with the same opt-in as the API captures; a notice in both becomes one card (same samgov:<sol> id).
+ */
+export const SAMGOV_BULK_FIXTURE = 'samgov-bulk-sample.csv';
+
 export interface FixtureOptions {
   /**
-   * Add a reader for the real SAM.gov captures (test/fixtures/samgov-*.json). Off by default. Their
+   * Add a reader for the real SAM.gov captures (test/fixtures/samgov-*.json and the bulk-file sample
+   * samgov-bulk-sample.csv). Off by default. Their
    * notices reach back 60 days, so many are already past due on FIXTURES_CAPTURED_AT: the scan stores them
    * and the feed leaves the closed ones out, exactly as with a live scan. Used by `npm run simulate`.
    */
@@ -56,7 +65,11 @@ export function fixtureReaders(dir = resolve(process.cwd(), 'test/fixtures'), op
   if (opts.samgov) {
     readers.push({
       id: 'samgov', name: 'SAM.gov',
-      read: () => SAMGOV_FIXTURES.flatMap((f) => parseSamResponse(JSON.parse(fx(f)) as SamResponse)),
+      read: () => [
+        ...SAMGOV_FIXTURES.flatMap((f) => parseSamResponse(JSON.parse(fx(f)) as SamResponse)),
+        // As the live fetch reads it: notices already past due on the capture day are left out.
+        ...parseSamBulk(readFileSync(resolve(dir, SAMGOV_BULK_FIXTURE)), { now: FIXTURES_CAPTURED_AT }).drafts,
+      ],
     });
   }
   return readers;

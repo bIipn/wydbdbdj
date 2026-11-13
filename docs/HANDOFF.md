@@ -44,6 +44,34 @@ kinds, unsaved-changes guard, sign-out), a free account (every Pro screen locked
 pilot's single mode. Market data was empty on that server (no network), so the price watch was only seen
 "not scheduled" and the wage/award hints only as "not loaded".
 
+**v1.1 (2026-11-13, commit "v1.1: tap-only onboarding with qualification answers, promo codes, nationwide
+federal bids from the free bulk file, store-ready PWA"):**
+- Onboarding is 6 tap-only steps (trades, location or ZIP + distance chips, job-size chips, paperwork
+  Yes/No/Not sure + federal certifications, alert level, optional name). Paperwork answers change the card's
+  lines; a "No" caps the score (never under 35, `capped`, never alerts). The SPWD question is asked only of
+  Nevada shops, the only state requirement a board marks today.
+- Promo codes: `PROMO_CODES` on the host, a Settings box and `?promo=` links (an unencoded `&` in a link
+  works); never in an iOS build. Real codes are not in the repo.
+- SAM.gov now reads the public daily bulk file (no key, the whole US): ~222 MB streamed, 529 cards on the
+  2026-11-13 file. Only candidate bids (own states, or within max(2×radius, radius+100, 150 mi)) get a stored
+  score: the nationwide bench went from 239.8 s / 632,968 rows to 10.6 s / 97,303 rows for 1,016 companies.
+  Stale no-deadline notices (posted over a year ago) are dropped, US territories coded as countries (VIR)
+  are kept, zoneless deadlines borrow a sibling notice's offset or carry a "check the notice" flag, and a
+  download under 20,000 rows fails loudly. Notices with no place of performance are still dropped (511
+  merged cards, 146 open, on 2026-11-13; N6600126Q6298 is in the file but past due and in Okinawa).
+- Store-ready PWA: manifest + icons + service worker on every load, desktop layout (`web/desktop.css`),
+  privacy page (contact email still a placeholder), `docs/MICROSOFT-STORE.md`. Poll mode for serverless
+  hosts (automatic on Vercel) reloads the feed after a scan; cron routes flush pushes and run reminders
+  (`/api/cron/tick`).
+- Checks: typecheck, 1,527 tests in 60 files, build; `npm run simulate -- --seed 20261113` all checks pass,
+  11 of 11 mutations caught; `npm run simulate:cost` sha256 unchanged (70de5331…3830). Browser (built server,
+  accounts mode, `DEMO_MODE` off, `SOURCES=fixtures`, a TEST promo code): sign-up + onboarding by taps at
+  390×844 and 1280×800, Pro unlocked from a `?promo=` link, cost check opened; poll mode raised 2 alerts and
+  reloaded the deck to 7 bids without a stream.
+- Known gaps: sign-in/promo rate limits are per process (weak on serverless); no in-app account deletion;
+  the privacy page needs a contact email; the bulk download has not been run inside a Vercel function;
+  CA DIR and county prequalification are not scored.
+
 **Next:** re-run `npm run scan -- --no-notify` live (`.claude/skills/live-scan`) to confirm the source
 fixes; answer the §5 questions; deploy.
 
@@ -141,6 +169,10 @@ fixes; answer the §5 questions; deploy.
   supply-only → flagged "May be supply-only" with a small penalty. No location field → statewide.
 
 ### SAM.gov (federal) — `samgov`
+- **Default since v1.1: the public daily bulk file** (`src/sources/samgov-bulk.ts`; facts, limits and the
+  URL in `docs/DATA-SOURCES.md` §2). No key, no daily cap, one download serves every company. A personal
+  API key allows only 10 calls a day and must be rotated every 90 days (SAM.gov Terms of Use), so the API
+  path below is kept only behind `SAM_SOURCE=api`.
 - Official `https://api.sam.gov/opportunities/v2/search` with `api_key`, `postedFrom`/`postedTo`
   (MM/dd/yyyy, required), `ptype`, `state`, `ncode`, `limit` (≤1000), `offset`.
 - Key: sam.gov → Account Details → Public API Key. Personal keys can have a very low daily request cap,
@@ -200,6 +232,10 @@ Correctly rejected: janitorial, furniture, traffic-control services, strategic p
 **Done in v1 (2026-11-13):** accounts + onboarding + a profile per account (email/password; Supabase OAuth
 written, not run) · per-account scoring · live alert inbox + SSE + web push wiring · price check · the Pro
 cost check · the daily price and award watch · the multi-company simulation.
+
+**Done in v1.1 (2026-11-13):** tap-only onboarding with paperwork answers · promo codes (web + Microsoft
+Store) · nationwide SAM.gov from the bulk file + candidate-only scoring · installable PWA, desktop layout,
+privacy page, Store guide · poll mode + serverless cron tick.
 
 **Next (multi-user)**
 5. Run Supabase (auth + `DATABASE_URL`) for real; deliver one web push end to end.

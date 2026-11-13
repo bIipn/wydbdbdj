@@ -10,6 +10,7 @@
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { milesBetween } from '../geo/locate.js';
+import { REQUIREMENT_FLAGS } from '../sources/flags.js';
 import { projectDir } from '../paths.js';
 import type { Bid } from '../types.js';
 import { pacificParts } from '../util/time.js';
@@ -293,9 +294,9 @@ const zoneAdd = (addPerHour: number): string => (addPerHour > 0 ? `add ${usd(add
 function stateHint(bid: HintBid, table: PrevailingWageTable, today: string): PrevailingWageHint {
   const limit = thousands(table.thresholdUsd);
   const value = valueBounds(bid.estValue);
-  const noticeSaysSo = bid.flags.some((f) => f === 'Prevailing wage' || f === 'Certified payroll');
+  const noticeSaysSo = bid.flags.some((f) => f === REQUIREMENT_FLAGS.prevailing || f === REQUIREMENT_FLAGS.certifiedPayroll);
   // Some boards (the State Public Works Division's) are tagged by the scanner as usually prevailing wage.
-  const boardSaysLikely = bid.flags.includes('Prevailing wage likely');
+  const boardSaysLikely = bid.flags.includes(REQUIREMENT_FLAGS.prevailingLikely);
   const link = { label: `${table.jurisdictionName} prevailing wage rates (Labor Commissioner)`, url: table.sourceIndexUrl };
   const asOf = `As of ${shortDate(table.effectiveFrom)}`;
   const base = { basis: 'state' as const, asOf, edition: table.editionLabel, checked: table.checkedBy !== null, links: [link] };

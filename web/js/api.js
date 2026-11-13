@@ -13,6 +13,13 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Which build this is: 'web' (the browser and the Microsoft Store wrapper) or 'ios' (a future App Store
+ * wrapper sets this one constant). The iOS build tells the server on every request, and the server then turns
+ * promo codes off for it: Apple guideline 3.1.1 bars unlocking features with our own codes (docs/PRODUCT.md §4).
+ */
+export const STORE_BUILD = 'web';
+
 const WRITES = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 let onAuthLost = null;
 
@@ -28,6 +35,7 @@ export async function req(path, opts = {}) {
   const headers = opts.body !== undefined ? { 'content-type': 'application/json' } : {};
   if (WRITES.has(method)) headers['x-bidswipe'] = '1'; // CSRF proof in accounts mode; harmless in single mode
   if (state.accessCode) headers['x-access-code'] = state.accessCode;
+  if (STORE_BUILD !== 'web') headers['x-bidswipe-store'] = STORE_BUILD;
   const body = opts.body === undefined ? undefined : JSON.stringify(opts.body);
   let res;
   try {
@@ -78,7 +86,11 @@ export const api = {
   logOut: () => req('api/auth/logout', { method: 'POST' }),
   trades: () => req('api/trades'),
   zip: (zip) => req(`api/geo/zip/${encodeURIComponent(zip)}`),
+  // lat/lng already rounded to 2 decimals by the caller; the server answers the ZIP and never stores the point
+  nearestZip: (lat, lng) => req(`api/geo/nearest-zip?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`),
   saveProfile: (answers) => req('api/profile', { method: 'PUT', body: answers }),
+  // promo code → Pro (web and Microsoft Store builds; 403 not_available on iOS, 400 invalid_code, 429 too many tries)
+  redeemPromo: (code) => req('api/promo/redeem', { method: 'POST', body: { code } }),
 
   // feed tools
   browse: (query) => req(`api/feed?${query}`),

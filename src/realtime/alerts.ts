@@ -134,12 +134,13 @@ const usd = (amount: number): string =>
 
 /**
  * A bid that fits: alert when the score reaches the profile's threshold (alerts.minScore, else
- * notify.minScore), it is not a hard no, not over the spend limit, and match alerts are on.
+ * notify.minScore), it is not a hard no, not over the spend limit, not held down by a gate (capped), and
+ * match alerts are on.
  * Title = fit + place; body = the job, the top reason and the time left.
  */
 export function decideMatch(event: BusEventOf<'match'>, profile: Profile, plan: Plan, now: Date): AlertDecision | null {
   const { bid, score } = event;
-  if (!kindOn(profile, 'match') || score.rejected || score.overLimit || score.score < alertThreshold(profile)) return null;
+  if (!kindOn(profile, 'match') || score.rejected || score.overLimit || score.capped || score.score < alertThreshold(profile)) return null;
 
   const place = bid.location.label ?? bid.agency;
   // Lead with a reason to bid; fall back to a neutral note, never to a minus.

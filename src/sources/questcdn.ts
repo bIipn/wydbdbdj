@@ -1,5 +1,6 @@
 import * as cheerio from 'cheerio';
 import type { BidDraft, Source } from '../types.js';
+import { REQUIREMENT_FLAGS } from './flags.js';
 import { clean, cleanOrNull, untruncate } from '../util/text.js';
 import { parseUsDateTime } from '../util/time.js';
 
@@ -22,7 +23,7 @@ export const QUEST_BOARDS: QuestBoard[] = [
     label: 'NV Public Works (QuestCDN)',
     owner: 'Nevada State Public Works Division',
     // publicworks.nv.gov: bidders must be SPWD-qualified and NV-licensed before bid opening.
-    flags: ['SPWD bidder qualification', 'Prevailing wage likely'],
+    flags: [REQUIREMENT_FLAGS.spwd, REQUIREMENT_FLAGS.prevailingLikely],
   },
   // Add more boards here (Douglas County Public Works also posts bid documents on QuestCDN).
 ];

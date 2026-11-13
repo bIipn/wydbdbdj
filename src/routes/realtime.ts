@@ -4,6 +4,8 @@ import {
   alertsAfter, countUnread, deleteSubscription, ensureSingleOwner, latestAlertId, listAlerts, markAlertsRead,
   saveSubscription, singleOwnerId,
 } from '../db/alerts.js';
+import { lastScanAt } from '../db/repo.js';
+import { env } from '../env.js';
 import { featuresFor } from '../plans.js';
 import { parseSubscription, usableVapid } from '../realtime/push.js';
 import { createStreamHub, MAX_STREAMS_PER_ACCOUNT, MAX_STREAMS_SINGLE, REPLAY_LIMIT } from '../realtime/stream.js';
@@ -13,6 +15,37 @@ export interface RealtimeRouteOptions {
   pingMs?: number;
   /** Open streams allowed per account (default 5; 25 for the one shared identity of single mode). */
   maxStreams?: number;
+  /** 'stream' (default) or 'poll'. Default: the REALTIME_MODE environment variable. Tests pass it. */
+  mode?: RealtimeMode;
+  /** How often a polling client asks GET /api/alerts (default 60 s). */
+  pollMs?: number;
+}
+
+/**
+ * How the app hears about new alerts.
+ *
+ *   'stream'  one long-lived GET /api/stream per open app (Server-Sent Events). Instant, but the server
+ *             must hold every connection open: right for one long-running process (the pilot, a VM).
+ *   'poll'    no stream: the app asks GET /api/alerts once a minute while it is on screen. A serverless
+ *             host (Vercel) bills a function for every second it is open and cuts it off after a few
+ *             minutes, and the scan runs in a different function anyway, so a stream there would hear nothing.
+ */
+export type RealtimeMode = 'stream' | 'poll';
+export const POLL_MS = 60_000;
+
+/** REALTIME_POLL_MS (whole milliseconds, at least 15 s) overrides the 60 s poll; anything else is ignored. */
+export function pollInterval(value: string | undefined = env('REALTIME_POLL_MS')): number {
+  const ms = value && /^\d{1,9}$/.test(value) ? Number(value) : NaN;
+  return ms >= 15_000 ? ms : POLL_MS;
+}
+
+/**
+ * REALTIME_MODE=poll turns the stream off; any other value keeps it on. Unset, it follows the host: Vercel
+ * sets VERCEL=1 in every function, and a stream there would hear nothing (see above), so it polls.
+ */
+export function realtimeMode(value: string | undefined = env('REALTIME_MODE'), onVercel: boolean = !!env('VERCEL')): RealtimeMode {
+  if (!value) return onVercel ? 'poll' : 'stream';
+  return value.toLowerCase() === 'poll' ? 'poll' : 'stream';
 }
 
 const MAX_READ_IDS = 500;
@@ -35,6 +68,23 @@ const pushNotConfigured = (reply: FastifyReply) => reply.code(404).send({ error:
  * 'alert' and 'scan' on the bus. The app's own code never passes `opts`; tests do.
  */
 export async function register(app: FastifyInstance, ctx: RouteContext, opts: RealtimeRouteOptions = {}): Promise<void> {
+  const mode = opts.mode ?? realtimeMode();
+  if (mode === 'poll') registerPollMode(app, opts.pollMs ?? pollInterval());
+  else registerStream(app, ctx, opts);
+  registerPushAndInbox(app, ctx);
+}
+
+/**
+ * Poll mode: the stream answers 404 stream_off with how often to poll instead. It answers before any
+ * sign-in check: it reveals nothing, and the app learns the mode with a single request.
+ * (The bus is not listened to at all: nothing would be there to hear it.)
+ */
+function registerPollMode(app: FastifyInstance, pollMs: number): void {
+  app.get('/api/stream', { exposeHeadRoute: false }, async (_req, reply) =>
+    reply.code(404).header('cache-control', 'no-store').send({ error: 'stream_off', pollMs }));
+}
+
+function registerStream(app: FastifyInstance, ctx: RouteContext, opts: RealtimeRouteOptions): void {
   const { db } = ctx;
   const maxStreams = opts.maxStreams ?? (ctx.config.authMode === 'single' ? MAX_STREAMS_SINGLE : MAX_STREAMS_PER_ACCOUNT);
 
@@ -48,8 +98,6 @@ export async function register(app: FastifyInstance, ctx: RouteContext, opts: Re
     for (const off of offs) off();
     hub.close();
   });
-
-  // ------------------------------------------------------------ stream --
 
   // No HEAD twin: a HEAD request would open a stream that never ends.
   app.get('/api/stream', { exposeHeadRoute: false }, async (req, reply) => {
@@ -81,6 +129,11 @@ export async function register(app: FastifyInstance, ctx: RouteContext, opts: Re
     }
     return reply;
   });
+}
+
+/** Web push subscriptions and the alert inbox: the same in both modes (poll mode reads the inbox). */
+function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext): void {
+  const { db } = ctx;
 
   // -------------------------------------------------------------- push --
 
@@ -130,7 +183,9 @@ export async function register(app: FastifyInstance, ctx: RouteContext, opts: Re
     const items = await listAlerts(db, id.profile.id, {
       unread: q.unread === '1' || q.unread === 'true', limit: wholeNumber(q.limit), before: wholeNumber(q.before),
     });
-    return { items, unread: await countUnread(db, id.profile.id) };
+    // lastScan: when the last scan finished. A polling app reloads its feed when this changes, the way a
+    // streaming app does on the stream's 'scan' event (most new fits raise no alert, so alerts alone miss them).
+    return { items, unread: await countUnread(db, id.profile.id), lastScan: await lastScanAt(db) };
   });
 
   app.post('/api/alerts/read', async (req, reply) => {

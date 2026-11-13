@@ -73,6 +73,8 @@ export type FeedQueryResult = { ok: true; query: FeedQuery } | { ok: false; mess
  *   q · minValue / maxValue · hasValue=1 · maxDistance (mi) · dueWithinDays · source · verdict
  *   sort fit | due | near | new | value · overLimit exclude | only
  * Without all=1 this is the swipe deck, which never holds an over-limit bid.
+ * Both read the company's stored scores, and the scan stores scores only for its candidates
+ * (src/score/candidates.ts): a bid certainly out of reach is in neither, by design.
  */
 export function parseFeedQuery(raw: RawQuery): FeedQueryResult {
   try {

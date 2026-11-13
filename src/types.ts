@@ -50,6 +50,11 @@ export interface FetchLike {
    * them, for as long as the returned object lives. Test fakes may leave it out.
    */
   session?(): FetchLike;
+  /**
+   * Opt-in: a GET whose body arrives as it downloads (SAM.gov's ~222 MB bulk file), so it never sits in memory
+   * whole. createHttp (util/http.ts) has it; test fakes may leave it out (samgov-bulk.ts then refuses to run).
+   */
+  stream?(url: string, init?: RequestInit): Promise<AsyncIterable<Uint8Array>>;
   /** Sessions only: the names (never the values) of the cookies held for this URL's host. */
   cookieNames?(url: string): string[];
 }
@@ -102,6 +107,29 @@ export interface Profile {
   limits?: SpendLimits;
   costs?: CostSettings;
   alerts?: AlertSettings;
+  /**
+   * The paperwork the company said it has (onboarding "Your paperwork"). Absent = never asked (config
+   * profiles like the pilot, older accounts, the simulation): scoring then works exactly as before.
+   */
+  qualifications?: Qualifications;
+}
+
+/** One paperwork answer. 'unsure' is also what an unanswered question counts as. */
+export type QualAnswer = 'yes' | 'no' | 'unsure';
+
+/**
+ * What a bid may need on paper, and whether the company has it. We never hide a bid over these:
+ * 'yes' says the need is met, 'unsure' says "check yours", 'no' keeps the bid visible but below the alert line.
+ */
+export interface Qualifications {
+  /** Prequalified with the home state's public-works agency (Nevada: SPWD; California: DIR registration). */
+  statePublicWorks: QualAnswer;
+  /** Registered in SAM.gov (needed for federal work). */
+  samRegistered: QualAnswer;
+  /** Can get bid and performance bonds. */
+  bonding: QualAnswer;
+  /** Takes prevailing-wage jobs (certified payroll). */
+  prevailingWage: QualAnswer;
 }
 
 /** "Never chase work you can't carry." Dollars; null/absent = no limit set. */
@@ -143,6 +171,12 @@ export interface ScoreResult {
   rejected: string | null; // set when the bid is a hard "no" (too far, past due, not our trade)
   /** Over the profile's spend limits (job size or bonding). False when no limits are set. */
   overLimit: boolean;
+  /**
+   * Held below the alert line by a gate (no measurable site, not open yet, paperwork the company lacks).
+   * Present only when true. A capped bid stays in the feed but is never announced, even when the company's
+   * alert line is as low as the cap's floor (src/score/score.ts CAPPED_FLOOR).
+   */
+  capped?: boolean;
 }
 
 export type SwipeAction = 'save' | 'pass' | 'bid';

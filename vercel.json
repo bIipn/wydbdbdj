@@ -5,6 +5,7 @@
   "regions": ["sfo1"],
   "crons": [
     { "path": "/api/cron/market", "schedule": "40 11 * * *" },
-    { "path": "/api/cron/scan", "schedule": "20 13 * * *" }
+    { "path": "/api/cron/scan", "schedule": "20 13 * * *" },
+    { "path": "/api/cron/tick", "schedule": "50 14 * * *" }
   ]
 }

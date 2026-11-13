@@ -9,12 +9,13 @@ import { ELECTRICAL_SIDE, PIPE_SIDE, type Persona } from './personas.js';
 
 export type CheckId =
   | 'radius' | 'spend-limit' | 'certification' | 'trade' | 'alert-reason' | 'alert-missing' | 'repeat-scan'
-  | 'free-no-premium' | 'estimate-not-silent' | 'stream-delivery' | 'filters' | 'next-in-deck' | 'next-rank' | 'determinism';
+  | 'free-no-premium' | 'estimate-not-silent' | 'stream-delivery' | 'filters' | 'next-in-deck' | 'next-rank' | 'browse-complete'
+  | 'determinism';
 
 /** Every per-company check, in report order. */
 export const PERSONA_CHECKS: readonly CheckId[] = [
   'radius', 'spend-limit', 'certification', 'trade', 'alert-reason', 'alert-missing', 'repeat-scan',
-  'free-no-premium', 'estimate-not-silent', 'stream-delivery', 'filters', 'next-in-deck', 'next-rank',
+  'free-no-premium', 'estimate-not-silent', 'stream-delivery', 'filters', 'next-in-deck', 'next-rank', 'browse-complete',
 ];
 
 export interface Violation {
@@ -52,6 +53,12 @@ export interface PersonaObs {
   estimate: { full: EstimateObs; quick: EstimateObs; list: EstimateObs } | null;
   /** The server's clock when the deck and the next pick were read (ISO). Needed for the next-rank check. */
   asOf?: string;
+  /**
+   * Every open captured bid the scorer calls maybe, good or great for this company, worked out by the run itself
+   * (scoreBid on every bid, no candidate filter). Browse must hold each one: the scan stores scores only for
+   * candidates (src/score/candidates.ts), and this is what proves the filter never hides a bid worth a look.
+   */
+  expectedInBrowse?: Array<{ id: string; title: string; score: number }>;
 }
 
 // ------------------------------------------------------------------ tables --
@@ -146,6 +153,7 @@ export function checkCoverage(p: Persona, o: PersonaObs, byId: ReadonlyMap<strin
     'filters (price)': o.filters?.price.items.filter(hasEstimate).length ?? 0,
     'next-in-deck': o.next?.item ? 1 : 0,
     'next-rank': o.next?.item && o.asOf ? 1 : 0,
+    'browse-complete': o.expectedInBrowse?.length ?? 0,
     determinism: 0,
   };
 }
@@ -249,6 +257,14 @@ export function checkPersona(p: Persona, o: PersonaObs, byId: ReadonlyMap<string
     else {
       const better = lastDeck.filter((b) => b.id !== pick.id).map((b) => ({ b, r: nextRank(b, nowMs) })).filter((x) => x.r !== null && x.r > pickRank + 1e-9);
       if (better.length) v('next-rank', `next pick ${short(pick)} ranks ${pickRank.toFixed(1)} but ${short(better[0]!.b)} ranks ${better[0]!.r!.toFixed(1)}`);
+    }
+  }
+
+  // Browse is complete: no bid the scorer calls maybe-or-better is missing (the candidate filter dropped nothing worth seeing).
+  if (o.expectedInBrowse) {
+    const inBrowse = new Set(o.browse.map((b) => b.id));
+    for (const e of o.expectedInBrowse) {
+      if (!inBrowse.has(e.id)) v('browse-complete', `${short(e)} scores ${e.score} for this company but is not in Browse`);
     }
   }
 

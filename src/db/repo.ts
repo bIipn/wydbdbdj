@@ -18,17 +18,47 @@ function bidParams(b: Bid, seenAt: Date): unknown[] {
   ];
 }
 
-/** Insert new bids, refresh existing ones. Returns the ids that were brand new. */
+/**
+ * Rows per statement for the multi-row writes below. A few hundred keeps each statement well under
+ * Postgres' 65,535-parameter limit (bids: 26 columns x 250 = 6,500) while turning thousands of round
+ * trips into a handful. The same SQL runs on PGlite and on node-postgres.
+ */
+export const BID_BATCH = 250;
+export const MATCH_BATCH = 500;
+
+/** "($1, $2::jsonb, ...), ($27, ...)" for `rows` rows of `cols` columns; `cast(i)` adds a cast to column i. */
+function valuesList(rows: number, cols: number, cast: (i: number) => string = () => ''): string {
+  const out: string[] = [];
+  for (let r = 0; r < rows; r++) {
+    const cells: string[] = [];
+    for (let c = 0; c < cols; c++) cells.push(`$${r * cols + c + 1}${cast(c)}`);
+    out.push(`(${cells.join(', ')})`);
+  }
+  return out.join(', ');
+}
+
+function* chunks<T>(items: readonly T[], size: number): Generator<T[]> {
+  for (let i = 0; i < items.length; i += size) yield items.slice(i, i + size);
+}
+
+/**
+ * Insert new bids, refresh existing ones, BID_BATCH rows per statement. Returns the ids that were brand new.
+ * Ids must be unique within one statement (Postgres refuses to update one row twice in it), so a
+ * repeated id keeps its last version.
+ */
 export async function upsertBids(db: Db, bids: Bid[], seenAt = new Date()): Promise<Set<string>> {
   const fresh = new Set<string>();
-  const placeholders = BID_COLS.map((c, i) => (c === 'flags' ? `$${i + 1}::jsonb` : `$${i + 1}`)).join(', ');
+  const unique = [...new Map(bids.map((b) => [b.id, b])).values()];
+  const flagsCol = BID_COLS.indexOf('flags');
   const updates = BID_COLS.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ');
-  const sql = `insert into bids (${BID_COLS.join(', ')}) values (${placeholders})
-    on conflict (id) do update set ${updates}
-    returning id, (xmax = 0) as inserted`;
-  for (const b of bids) {
-    const rows = await db.query<{ id: string; inserted: boolean }>(sql, bidParams(b, seenAt));
-    if (rows[0]?.inserted) fresh.add(b.id);
+  for (const batch of chunks(unique, BID_BATCH)) {
+    const rows = await db.query<{ id: string; inserted: boolean }>(
+      `insert into bids (${BID_COLS.join(', ')}) values ${valuesList(batch.length, BID_COLS.length, (c) => (c === flagsCol ? '::jsonb' : ''))}
+       on conflict (id) do update set ${updates}
+       returning id, (xmax = 0) as inserted`,
+      batch.flatMap((b) => bidParams(b, seenAt)),
+    );
+    for (const r of rows) if (r.inserted) fresh.add(r.id);
   }
   return fresh;
 }
@@ -46,15 +76,50 @@ export async function upsertProfile(db: Db, p: Profile): Promise<void> {
   );
 }
 
+const MATCH_COLS = ['profile_id', 'bid_id', 'score', 'verdict', 'reasons', 'distance_mi', 'over_limit'] as const;
+/** Casts on the first VALUES row's types: a VALUES list is typed before the insert sees it. */
+const MATCH_CASTS: Record<number, string> = { 2: '::integer', 4: '::jsonb', 5: '::double precision', 6: '::boolean' };
+
 export async function upsertMatch(db: Db, profileId: string, bidId: string, s: ScoreResult): Promise<void> {
-  await db.query(
-    `insert into matches (profile_id, bid_id, score, verdict, reasons, distance_mi, over_limit, scored_at)
-     values ($1, $2, $3, $4, $5::jsonb, $6, $7, now())
-     on conflict (profile_id, bid_id) do update set
-       score = excluded.score, verdict = excluded.verdict, reasons = excluded.reasons,
-       distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, scored_at = excluded.scored_at`,
-    [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit],
+  await upsertMatches(db, profileId, [{ bidId, score: s }]);
+}
+
+/** Store one profile's scores, MATCH_BATCH rows per statement. A bid id listed twice keeps its last score. */
+export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyArray<{ bidId: string; score: ScoreResult }>): Promise<void> {
+  const unique = [...new Map(scored.map((x) => [x.bidId, x])).values()];
+  for (const batch of chunks(unique, MATCH_BATCH)) {
+    await db.query(
+      `insert into matches (${MATCH_COLS.join(', ')}, scored_at)
+       select v.*, now() from (values ${valuesList(batch.length, MATCH_COLS.length, (c) => MATCH_CASTS[c] ?? '')}) as v (${MATCH_COLS.join(', ')})
+       on conflict (profile_id, bid_id) do update set
+         score = excluded.score, verdict = excluded.verdict, reasons = excluded.reasons,
+         distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, scored_at = excluded.scored_at`,
+      batch.flatMap(({ bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit]),
+    );
+  }
+}
+
+/**
+ * Take back a profile's stored scores for open bids that are no longer its candidates (it moved, or narrowed
+ * its range): they would otherwise sit in Browse with a score from the old settings. Kept: anything the
+ * company swiped (Saved must not lose a bid), closed bids (the feed already hides them), and bids the digest
+ * already emailed (notified_at): deleting those would forget the "sent" mark, so moving back would email the
+ * same bid again, and the email's link would open nothing.
+ * Returns how many rows went.
+ */
+export async function pruneMatches(db: Db, profileId: string, candidateIds: readonly string[], now: Date): Promise<number> {
+  const rows = await db.query<{ bid_id: string }>(
+    `delete from matches m
+     using bids b
+     where m.profile_id = $1 and b.id = m.bid_id
+       and (b.due_at is null or b.due_at > $2)
+       and not (m.bid_id = any ($3::text[]))
+       and not exists (select 1 from swipes s where s.profile_id = m.profile_id and s.bid_id = m.bid_id)
+       and m.notified_at is null
+     returning m.bid_id`,
+    [profileId, now.toISOString(), [...candidateIds]],
   );
+  return rows.length;
 }
 
 // --------------------------------------------------------------- feed --
@@ -105,6 +170,16 @@ function toFeedItem(r: FeedRow): FeedItem {
 export async function getOpenBids(db: Db, now: Date): Promise<Bid[]> {
   const rows = await db.query<BidRow>('select * from bids where due_at is null or due_at > $1 order by id', [now.toISOString()]);
   return rows.map(toBid);
+}
+
+/** Several stored bids by id, BID_BATCH ids per query. Ids not stored are simply absent from the map. */
+export async function getBids(db: Db, ids: readonly string[]): Promise<Map<string, Bid>> {
+  const out = new Map<string, Bid>();
+  for (const batch of chunks([...new Set(ids)], BID_BATCH * 4)) {
+    const rows = await db.query<BidRow>('select * from bids where id = any ($1::text[])', [batch]);
+    for (const r of rows) out.set(r.id, toBid(r));
+  }
+  return out;
 }
 
 export async function getBid(db: Db, bidId: string): Promise<Bid | null> {
@@ -298,6 +373,12 @@ export async function recordScan(db: Db, startedAt: Date, report: unknown): Prom
     startedAt.toISOString(),
     JSON.stringify(report),
   ]);
+}
+
+/** When the last scan finished (ISO), or null: what a polling app compares to know the feed changed. */
+export async function lastScanAt(db: Db): Promise<string | null> {
+  const rows = await db.query<{ finished_at: Date | string }>('select finished_at from scans order by id desc limit 1');
+  return rows[0] ? new Date(rows[0].finished_at).toISOString() : null;
 }
 
 export async function lastScan(db: Db): Promise<{ finishedAt: string; report: unknown } | null> {

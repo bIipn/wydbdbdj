@@ -15,7 +15,7 @@ import { mergeDrafts } from '../src/sources/dedupe.js';
 import { fixtureReaders, SAMGOV_FIXTURES } from '../src/sources/fixtures.js';
 import { estimate } from '../src/cost/estimate.js';
 import type { FeedItem } from '../src/types.js';
-import { FIXTURE_DIR, realBids } from './helpers.js';
+import { CAPTURED, FIXTURE_DIR, realBids } from './helpers.js';
 
 const SEED = 7;
 /** Six companies that between them cover: the pilot's twin, SDVOSB, 8(a), plumbing, HVAC, free and Pro. */
@@ -74,6 +74,14 @@ describe('the run on a small seed', () => {
   it('every check holds for every company', () => {
     expect(first.report.checks.violations).toEqual([]);
     expect(first.report.personas.map((p) => p.key)).toEqual(SMALL.map((p) => p.key));
+  });
+
+  it('Browse holds every bid the scorer calls maybe or better, for every company (the candidate filter dropped none)', () => {
+    expect(first.report.checks.coverage['browse-complete']!.companies).toBe(SMALL.length);
+    expect(first.report.checks.coverage['browse-complete']!.items).toBeGreaterThan(SMALL.length);
+    // …while Browse is smaller than "every captured bid": out-of-reach bids are not stored at all.
+    const open = mergeDrafts(capturedDrafts(FIXTURE_DIR)).map(finalizeBid).filter((b) => !b.dueAt || Date.parse(b.dueAt) > CAPTURED.getTime());
+    for (const row of first.report.personas) expect(row.bidsSeen, row.key).toBeLessThan(open.length);
   });
 
   it('the same seed gives the same report', () => {
@@ -135,6 +143,7 @@ describe('the checks can fail: one rule broken at a time through a real seam', (
     ['alert-missing', 'alert-missing'],
     ['estimate-not-silent', 'estimate-not-silent'],
     ['stream-cut', 'stream-delivery'],
+    ['browse-missing', 'browse-complete'],
   ] as const)('mutation %s is caught by the %s check', async (mutation, check) => {
     const r = await runSimulation({ ...OPTS, scaleProfiles: 0, mutation });
     expect(r.report.checks.violations.filter((v) => v.check === check).length).toBeGreaterThan(0);
@@ -158,6 +167,14 @@ describe('the checks can fail: mutated observations', () => {
   });
   const run = (o: PersonaObs, persona: Persona = twin) => checkPersona(persona, o, new Map(o.browse.map((b) => [b.id, b])));
   const alert = (bidId: string, body: string) => ({ id: 1, profileId: 'x', kind: 'match' as const, bidId, dedupeKey: bidId, title: 'Great fit', body, data: {}, createdAt: '', pushedAt: null, readAt: null });
+
+  it('browse-complete: a maybe-or-better bid missing from Browse is a violation; present, it passes', () => {
+    const expected = [{ id: 'samgov:TEST-1', title: 'TEST lighting retrofit (synthetic)', score: 40 }];
+    expect(run(obs({ browse: [item({ score: 40, verdict: 'maybe' })], expectedInBrowse: expected })).filter((v) => v.check === 'browse-complete')).toEqual([]);
+    const missing = run(obs({ browse: [], expectedInBrowse: expected })).filter((v) => v.check === 'browse-complete');
+    expect(missing).toHaveLength(1);
+    expect(missing[0]!.detail).toMatch(/samgov:TEST-1 .* scores 40 for this company but is not in Browse/);
+  });
 
   it('clean observations pass', () => {
     const b = item({});

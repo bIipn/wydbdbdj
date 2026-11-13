@@ -150,7 +150,14 @@ function alertRow(a) {
   );
 }
 
-const LIVE_TEXT = { live: 'Live — new matches appear here the moment a scan finds them.', connecting: 'Connecting…', retrying: 'Reconnecting… (alerts you miss are caught up when it’s back)', off: 'Not connected.' };
+const LIVE_TEXT = {
+  live: 'Live — new matches appear here the moment a scan finds them.',
+  // Poll mode (serverless hosts): not "live"; the app asks the inbox on a timer while it is on screen.
+  polling: 'On — checks for new alerts about once a minute while BidSwipe is open.',
+  connecting: 'Connecting…',
+  retrying: 'Reconnecting… (alerts you miss are caught up when it’s back)',
+  off: 'Not connected.',
+};
 
 function renderAlerts() {
   if (!state.alerts && !ui.loading && !ui.error) loadInbox();

@@ -3,6 +3,10 @@
 //
 // EventSource reconnects by itself and sends Last-Event-ID, so the server replays what was missed.
 // It cannot send headers, so with the pilot's access code on we read the same stream with fetch().
+//
+// Poll mode (REALTIME_MODE=poll, serverless hosts): the stream answers 404 { error: 'stream_off', pollMs }.
+// Then the app asks GET /api/alerts every pollMs while the page is on screen, and every alert newer than
+// the last one it knew goes through the same onAlert() as a stream event: same toast, same bell count.
 
 import { api } from './api.js';
 import { loadNext } from './browse.js';
@@ -11,13 +15,16 @@ import { mergeItems, state } from './state.js';
 import { loadFeed, onEnteredApp, onSignedOut } from './session.js';
 import { openSheet } from './sheet.js';
 import { openAlerts } from './views/alerts.js';
-import { render } from './shell.js';
+import { render, setView } from './shell.js';
 
 const ALERT_KINDS = ['match', 'deadline', 'award', 'price'];
 const RETRY_MS = 5000;
 const BUSY_RETRY_MS = 60_000; // 429: too many open connections for this account
 
 const conn = { es: null, abort: null, timer: null, lastId: 0, seen: new Set(), on: false };
+/** Poll mode: pollMs > 0 once the server said the stream is off. `known` = the first poll has set lastId. */
+// lastScan: when the last scan finished, as the inbox answer says; a change means the feed has new bids.
+const poll = { ms: 0, timer: null, known: false, busy: false, lastScan: null };
 
 const setStatus = (s) => {
   if (state.live === s) return;
@@ -125,6 +132,10 @@ async function readWithFetch() {
       headers: { accept: 'text/event-stream', 'x-access-code': state.accessCode ?? '' }, credentials: 'same-origin', signal: ctrl.signal,
     });
     if (res.status === 401) { conn.abort = null; return refused(); }
+    if (res.status === 404) {
+      const off = await streamOff(res);
+      if (off) { conn.abort = null; return startPolling(off); }
+    }
     if (!res.ok || !res.body) { wait = BUSY_RETRY_MS; throw new Error(`HTTP ${res.status}`); }
     setStatus('live');
     const reader = res.body.pipeThrough(new TextDecoderStream()).getReader();
@@ -161,6 +172,17 @@ async function readWithFetch() {
  */
 async function refused() {
   if (!conn.on) return;
+  // Is the stream switched off on this server (poll mode)? A 404 cannot be told apart from a 401 or a
+  // 429 by EventSource, so ask once with fetch(). If the stream is on after all (the server restarted),
+  // that request opened one: it is cancelled at once and EventSource reconnects as before.
+  const ctrl = new AbortController();
+  try {
+    const res = await fetch('api/stream', { headers: { accept: 'text/event-stream' }, credentials: 'same-origin', signal: ctrl.signal });
+    const off = res.status === 404 ? await streamOff(res) : 0;
+    ctrl.abort();
+    if (off) return startPolling(off);
+  } catch { ctrl.abort(); }
+  if (!conn.on) return;
   try {
     await api.me();
   } catch (err) {
@@ -171,6 +193,67 @@ async function refused() {
   }
   if (conn.on) schedule(BUSY_RETRY_MS);
 }
+
+// -------------------------------------------------------------- poll ---
+
+/** The poll interval if this 404 is the server's "stream_off" answer, else 0. Never under 15 s. */
+async function streamOff(res) {
+  const body = await res.json().catch(() => null);
+  if (body?.error !== 'stream_off') return 0;
+  const ms = Number(body.pollMs);
+  return Number.isFinite(ms) && ms > 0 ? Math.max(ms, 15_000) : 60_000;
+}
+
+function startPolling(ms) {
+  if (!conn.on) return;
+  poll.ms = ms;
+  setStatus('polling');
+  if (document.visibilityState === 'visible') pollNow();
+}
+
+/** Ask once now, then again every poll.ms, but only while the page is on screen. */
+async function pollNow() {
+  clearTimeout(poll.timer);
+  poll.timer = null;
+  if (!conn.on || !poll.ms || poll.busy) return;
+  poll.busy = true;
+  try {
+    const res = await api.alerts({ limit: 50 }); // a 401 here goes to the app's sign-in handler, which stops us
+    const items = Array.isArray(res?.items) ? res.items : [];
+    const scanAt = typeof res?.lastScan === 'string' ? res.lastScan : null;
+    if (!poll.known) {
+      // The first answer is the starting point, like the stream's opening cursor: nothing old is toasted.
+      poll.known = true;
+      poll.lastScan = scanAt;
+      for (const a of items) {
+        conn.seen.add(a.id);
+        if (a.id > conn.lastId) conn.lastId = a.id;
+      }
+    } else {
+      // Newest first from the server; announce oldest first, as the stream would have.
+      const fresh = items.filter((a) => typeof a.id === 'number' && a.id > conn.lastId && !conn.seen.has(a.id)).reverse();
+      for (const a of fresh) await onAlert(a);
+      // A scan finished since the last poll: reload the feed, as the stream's 'scan' event does. Most new fits
+      // raise no alert (under the alert line, or not new), so the alerts alone would leave the deck short.
+      if (scanAt && scanAt !== poll.lastScan) {
+        poll.lastScan = scanAt;
+        try { await loadFeed(); } catch { /* the next app open brings them */ }
+      }
+    }
+    if (typeof res?.unread === 'number') state.unread = res.unread; // the server's count wins over our +1s
+    setStatus('polling');
+    render();
+  } catch { /* offline or a restart: the next poll tries again */ }
+  poll.busy = false;
+  if (conn.on && poll.ms && document.visibilityState === 'visible') poll.timer = setTimeout(pollNow, poll.ms);
+}
+
+// Hidden tab or minimized window: stop asking. Back on screen: ask at once, then on the interval.
+document.addEventListener('visibilitychange', () => {
+  if (!conn.on || !poll.ms) return;
+  if (document.visibilityState === 'visible') pollNow();
+  else { clearTimeout(poll.timer); poll.timer = null; }
+});
 
 function schedule(ms) {
   clearTimeout(conn.timer);
@@ -198,8 +281,25 @@ export function stopLive() {
   conn.abort?.abort();
   conn.seen.clear();
   conn.lastId = 0;
+  clearTimeout(poll.timer);
+  Object.assign(poll, { ms: 0, timer: null, known: false, lastScan: null });
   setStatus('off');
 }
 
+/**
+ * App shortcuts (manifest.webmanifest "shortcuts": right-click the taskbar / Start icon on Windows, long-press
+ * on Android) open ./?view=swipe|browse|alerts. Read once, when the app is entered, then dropped from the address.
+ */
+function openShortcut() {
+  const params = new URLSearchParams(location.search);
+  const view = params.get('view');
+  if (!view) return;
+  params.delete('view');
+  history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
+  if (view === 'browse' || view === 'saved') setView(view);
+  else if (view === 'alerts') openAlerts();
+}
+
 onEnteredApp(startLive);
+onEnteredApp(openShortcut);
 onSignedOut(stopLive);

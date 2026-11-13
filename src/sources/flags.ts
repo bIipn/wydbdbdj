@@ -12,6 +12,28 @@ export const FLAGS = {
   programContract: 'Program contract',
   /** NGEM request for information: no bid is taken. Never alerts. */
   rfi: 'RFI — info only, not a bid',
+  /**
+   * SAM.gov bulk file: a deadline written without a time zone, and no other notice of the same solicitation
+   * gave one. It is read as Pacific like every board, but the office may be on the East Coast (3 hours
+   * earlier), so the card says to check. Shown as a plain info line; no points change.
+   */
+  deadlineZoneUnstated: 'Deadline time zone not stated — check the notice',
+} as const;
+
+/**
+ * Requirement flags: what the notice (or the whole board) asks of a bidder. Written by src/util/flags.ts
+ * (detectFlags, from notice text) and src/sources/questcdn.ts (the SPWD board); read by score.ts (the
+ * paperwork answers) and src/market/prevailing.ts. One copy, so a reader never matches by a loose pattern.
+ */
+export const REQUIREMENT_FLAGS = {
+  /** NV State Public Works Division board: bidders must be SPWD-qualified (NRS 338.1375/338.1379). */
+  spwd: 'SPWD bidder qualification',
+  /** The same board: state public works pay prevailing wage, though the notice may not say it. */
+  prevailingLikely: 'Prevailing wage likely',
+  bidBond: 'Bid bond',
+  perfBond: 'Performance/payment bond',
+  prevailing: 'Prevailing wage',
+  certifiedPayroll: 'Certified payroll',
 } as const;
 
 /** Flags that mean "not open for bids yet", with the line the card shows. */

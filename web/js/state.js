@@ -13,7 +13,7 @@ export const state = {
   auth: 'single',
   /** GET /api/me. Single mode: { id, name, base, … }. Accounts: also { account, profile, features, needsOnboarding }. */
   me: null,
-  /** GET /api/auth/config in accounts mode: { mode, providers, demo, supabase? }. */
+  /** GET /api/auth/config in accounts mode: { mode, providers, demo, promo, supabase? }. promo: show the code box. */
   authConfig: null,
   /** The header chip: { name, base }. */
   profile: null,

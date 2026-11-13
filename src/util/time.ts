@@ -68,7 +68,9 @@ export function parseUsDateTime(input: string | null | undefined, opts: ParseOpt
     return Number.isNaN(t) ? null : new Date(t).toISOString();
   }
 
-  const time = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/i.exec(s) ?? /\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/.exec(s);
+  // The 24-hour time starts at a word boundary, or right after the "T" of an ISO date-time with no offset
+  // ("2026-10-26T10:00:00"): "T10" has no boundary, and without (?<=\dT) that read as "00:00".
+  const time = /(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([ap])\.?\s*m\.?/i.exec(s) ?? /(?:\b|(?<=\dT))(\d{1,2}):(\d{2})(?::(\d{2}))?\b/.exec(s);
   const hm = (): [number, number, number] =>
     time ? [to24h(Number(time[1]), time[4]), Number(time[2]), Number(time[3] ?? 0)] : [dh, dm, 0];
 

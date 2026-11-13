@@ -1,10 +1,11 @@
 import type { Db } from './db/db.js';
-import { getBid, getOpenBids, recordScan, upsertBids, upsertMatch, upsertProfile } from './db/repo.js';
+import { getBids, getOpenBids, pruneMatches, recordScan, upsertBids, upsertMatches, upsertProfile } from './db/repo.js';
 import { locate } from './geo/locate.js';
 import type { Bus } from './realtime/bus.js';
+import { isCandidate } from './score/candidates.js';
 import { scoreBid } from './score/score.js';
 import { inheritFromStored, mergeDrafts, placeIsBlank } from './sources/dedupe.js';
-import type { Bid, BidDraft, Profile, Source, SourceContext, SourceId, Verdict } from './types.js';
+import type { Bid, BidDraft, Profile, ScoreResult, Source, SourceContext, SourceId, Verdict } from './types.js';
 
 export interface SourceReport {
   ok: boolean;
@@ -15,7 +16,10 @@ export interface SourceReport {
 }
 
 export interface ProfileReport {
+  /** Candidates scored and stored (src/score/candidates.ts). */
   scored: number;
+  /** Open bids left out as certainly out of reach for this profile: never scored, never stored. */
+  outOfReach?: number;
   byVerdict: Record<Verdict, number>;
   newGood: number;
   /** Set when scoring this profile failed; the other profiles were still scored. */
@@ -49,42 +53,59 @@ export function alertThreshold(profile: Profile): number {
 const noVerdicts = (): Record<Verdict, number> => ({ great: 0, good: 0, maybe: 0, skip: 0 });
 
 /**
- * Score `bids` for one profile and store the matches. With a bus, every match worth an alert
- * (at or above the threshold, not rejected, not over the spend limit) is published as a 'match'
- * event — on every scan, so listeners de-duplicate. Bids in `quiet` are re-scored and stored but never
- * published: they are stored bids this scan did not fetch, re-scored only so "N days to bid" stays true.
+ * Score one profile's candidates and store them. Only `isCandidate` bids are scored at all: a bid certainly
+ * out of reach (placed far beyond the travel radius, or unplaced in a state the company does not work) gets no
+ * row, so storage grows with what is near each company, not with the whole country (src/score/candidates.ts).
+ * Rows are written MATCH_BATCH at a time, then stale rows of bids that stopped being candidates are taken back.
+ *
+ * With a bus, every match worth an alert (at or above the threshold, not rejected, not over the spend limit)
+ * is published as a 'match' event — on every scan, so listeners de-duplicate. Bids in `quiet` are re-scored and
+ * stored but never published: they are stored bids this scan did not fetch, re-scored only so "N days to bid"
+ * stays true. Events go out after the profile's rows are stored, so a listener that reads the match finds it.
  */
 async function scoreBids(
   db: Db, profile: Profile, bids: Bid[], now: Date, fresh: ReadonlySet<string>, bus?: Bus, quiet: ReadonlySet<string> = new Set(),
+  candidate: CandidateTest = isCandidate,
 ): Promise<ProfileReport> {
   const byVerdict = noVerdicts();
   const threshold = alertThreshold(profile);
   let newGood = 0;
+  const scored: Array<{ bid: Bid; bidId: string; score: ScoreResult }> = [];
   for (const bid of bids) {
+    if (!candidate(profile, bid)) continue;
     const s = scoreBid(bid, profile, now);
-    await upsertMatch(db, profile.id, bid.id, s);
+    scored.push({ bid, bidId: bid.id, score: s });
     byVerdict[s.verdict]++;
-    const isNewBid = fresh.has(bid.id);
-    if (isNewBid && s.score >= profile.notify.minScore && !s.overLimit) newGood++;
-    if (bus && !quiet.has(bid.id) && s.score >= threshold && !s.rejected && !s.overLimit) {
-      await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid });
+    if (fresh.has(bid.id) && s.score >= profile.notify.minScore && !s.overLimit && !s.capped) newGood++;
+  }
+  await upsertMatches(db, profile.id, scored);
+  await pruneMatches(db, profile.id, scored.map((x) => x.bidId), now);
+
+  if (bus) {
+    for (const { bid, score: s } of scored) {
+      if (quiet.has(bid.id) || s.score < threshold || s.rejected || s.overLimit || s.capped) continue;
+      await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: fresh.has(bid.id) });
       // Let the event loop run once: the alert's stream frame and push go out now, not when the whole
       // scan ends (the embedded database runs on this thread, so a long scan would otherwise hold them).
       await new Promise<void>((r) => setImmediate(r));
     }
   }
-  return { scored: bids.length, byVerdict, newGood };
+  return { scored: scored.length, outOfReach: bids.length - scored.length, byVerdict, newGood };
 }
 
 /**
- * Score every open bid for one stored profile right now — right after onboarding or a settings
- * change, so the feed is not empty until the next scan. Returns how many bids were scored.
- * 'match' events carry isNewBid: false (the profile is new, the bids are not).
+ * Score every open bid that could matter to one stored profile right now — right after onboarding or a
+ * settings change, so the feed is not empty until the next scan. Only candidates are scored and stored, in
+ * batches; rows left over from the profile's old settings (bids no longer in reach) are taken back.
+ * Returns how many bids were scored. 'match' events carry isNewBid: false (the profile is new, the bids are not).
  */
 export async function scoreProfile(db: Db, profile: Profile, now: Date, bus?: Bus): Promise<number> {
   const bids = await getOpenBids(db, now);
   return (await scoreBids(db, profile, bids, now, new Set(), bus)).scored;
 }
+
+/** Which bids a profile gets a stored score for. Always isCandidate, except in the simulation's mutation run. */
+export type CandidateTest = (profile: Profile, bid: Bid) => boolean;
 
 export interface ScanDeps {
   db: Db;
@@ -94,13 +115,15 @@ export interface ScanDeps {
   ctx: SourceContext;
   /** Publishes 'match' events while scoring and one 'scan' event at the end. */
   bus?: Bus;
+  /** Default isCandidate (src/score/candidates.ts). A seam for `npm run simulate`'s "browse-missing" mutation only. */
+  candidate?: CandidateTest;
 }
 
 /**
- * One scan: pull every source (a broken source never stops the others),
- * merge duplicates, store, then score every open bid for each profile.
+ * One scan: pull every source (a broken source never stops the others), merge duplicates, store (in
+ * batches), then score every open bid that is a candidate for each profile (src/score/candidates.ts).
  */
-export async function runScan({ db, sources, profiles, ctx, bus }: ScanDeps): Promise<ScanReport> {
+export async function runScan({ db, sources, profiles, ctx, bus, candidate = isCandidate }: ScanDeps): Promise<ScanReport> {
   const started = new Date();
   const report: ScanReport = {
     startedAt: started.toISOString(), finishedAt: '', sources: {}, totalBids: 0, newBids: 0, profiles: {},
@@ -128,11 +151,11 @@ export async function runScan({ db, sources, profiles, ctx, bus }: ScanDeps): Pr
 
   // One card per job: drafts with the same id (a SAM solicitation from two queries, or two notices of it)
   // merge, newest first. A place or set-aside that only the stored card still knows is carried over.
-  const bids: Bid[] = [];
-  for (let d of mergeDrafts(drafts)) {
-    if (placeIsBlank(d.location) || !d.setAside) d = inheritFromStored(d, await getBid(db, `${d.source}:${d.sourceId}`));
-    bids.push(finalizeBid(d));
-  }
+  // The stored cards are read in one query per few hundred ids, not one per draft (thousands with SAM's bulk file).
+  const merged = mergeDrafts(drafts);
+  const stored = await getBids(db, merged.filter((d) => placeIsBlank(d.location) || !d.setAside).map((d) => `${d.source}:${d.sourceId}`));
+  const bids: Bid[] = merged.map((d) =>
+    finalizeBid(placeIsBlank(d.location) || !d.setAside ? inheritFromStored(d, stored.get(`${d.source}:${d.sourceId}`) ?? null) : d));
   const fresh = await upsertBids(db, bids, ctx.now);
   report.totalBids = bids.length;
   report.newBids = fresh.size;
@@ -149,7 +172,7 @@ export async function runScan({ db, sources, profiles, ctx, bus }: ScanDeps): Pr
     // One bad profile must not cost everyone else their matches.
     try {
       await upsertProfile(db, profile);
-      report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet);
+      report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet, candidate);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       report.profiles[profile.id] = { scored: 0, byVerdict: noVerdicts(), newGood: 0, error: msg };

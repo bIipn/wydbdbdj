@@ -1,5 +1,6 @@
 // Settings (accounts mode, from the profile chip): the onboarding answers on one page, plus what only
 // settings shows (cost settings, set-aside certifications, alert kinds, time zone), the plan, sign out.
+// "Your paperwork" uses the same Yes / No / Not sure chips as onboarding.
 // Back with unsaved edits asks first: save, discard, or keep editing.
 
 import { api } from '../api.js';
@@ -8,8 +9,9 @@ import { PLAN_LABEL } from '../format.js';
 import { clearErrors, formError, showErrors } from '../form.js';
 import {
   alertsSection, answersFrom, costsSection, draftFromSummary, jobsSection, loadSetAsides, loadTrades, nameSection,
-  setAsidesSection, tradesSection, whereSection,
+  paperworkSection, setAsidesSection, tradesSection, whereSection,
 } from '../profile-form.js';
+import { promoRow } from '../promo.js';
 import { applyMe, loadFeed, onSignedOut, signOut } from '../session.js';
 import { registerView, render, setView } from '../shell.js';
 import { features, state } from '../state.js';
@@ -55,6 +57,22 @@ function back() {
   } else leave();
 }
 
+const PLAN_NAME = { free: 'Free', pro: 'BidSwipe Pro', pilot: 'BidSwipe Pro · pilot' };
+
+/**
+ * A promo code just turned the plan into Pro: cost settings are part of the form now. With nothing edited,
+ * start over from the saved answers; with edits, keep them and only re-take the "saved" snapshot, so Back
+ * still asks about the person's own changes and never about the new section.
+ */
+function planChanged() {
+  if (!ui.draft) return;
+  if (!dirty()) return startEditing();
+  const keep = ui.draft;
+  startEditing();
+  keep.costs = ui.draft.costs; // the saved cost settings, now visible: never overwrite them with blanks
+  ui.draft = keep;
+}
+
 function planCard() {
   const demo = !!state.authConfig?.demo;
   const plan = demo ? 'pilot' : (state.me?.account?.plan ?? 'free');
@@ -66,7 +84,12 @@ function planCard() {
       ),
       h('span', { class: `plan-badge plan-${plan}` }, PLAN_LABEL[plan] ?? plan),
     ),
+    h('div', { class: 'plan-name-row' },
+      h('p', { class: 'eyebrow' }, 'Plan'),
+      h('p', { class: 'plan-name' }, PLAN_NAME[plan] ?? plan),
+    ),
     h('p', { class: 'plan-text' }, demo ? 'Demo mode: all features on. Nothing is billed.' : PLAN_TEXT[plan]),
+    demo ? null : promoRow({ onUnlocked: planChanged }),
   );
 }
 
@@ -129,6 +152,7 @@ function renderSettings() {
     section('Location', whereSection(d)),
     section('Job size and limits', jobsSection(d)),
     section('Cost settings', withCosts() ? costsSection(d) : costsLocked()),
+    section('Your paperwork', paperworkSection(d)),
     section('Set-aside certifications', setAsidesSection(d, ui.setAsides)),
     section('Alerts', alertsSection(d, { kinds: true, timeZone: true, features: f })),
     formError(),
@@ -146,6 +170,8 @@ function renderSettings() {
     planCard(),
     form,
     h('button', { type: 'button', class: 'cta ghost signout', onclick: () => { ui.draft = null; signOut(); } }, 'Sign out'),
+    // The Microsoft Store asks for the privacy policy inside the app too (web/privacy.html, same origin).
+    h('p', { class: 'fine' }, h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy')),
   );
 }
 

@@ -13,7 +13,9 @@ import { features, state } from '../state.js';
 const ui = { zip: '', area: null, awards: null, areaErr: null, awardsErr: null, loadedFor: null, zipError: '', watch: null, watchErr: null, watchAsked: false };
 const reset = () => Object.assign(ui, { zip: '', area: null, awards: null, areaErr: null, awardsErr: null, loadedFor: null, zipError: '', watch: null, watchErr: null, watchAsked: false });
 onSignedOut(reset);
-onFeedLoaded(() => { ui.loadedFor = null; }); // a settings save can move the base: load again next time
+// A settings save can move the base, and a promo unlock turns the price watch on: load both again next time
+// (the watch card would otherwise keep its cached "locked" answer until sign-out).
+onFeedLoaded(() => { Object.assign(ui, { loadedFor: null, watch: null, watchErr: null, watchAsked: false }); });
 
 async function load() {
   const zip = ui.zip;

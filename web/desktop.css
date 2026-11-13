@@ -1,0 +1,76 @@
+/*
+ * BidSwipe at desktop width (Windows / Microsoft Store, a laptop browser).
+ *
+ * styles.css is the phone app: a 480px column. On a 1280–1920px screen that column is fine for the
+ * deck but cramped for lists and forms, and the bottom sheet glued to the bottom edge reads as a phone
+ * leftover. This file only adds rules inside media queries, so a phone never reads a line of it, and it
+ * is loaded after styles.css, so equal selectors here win without !important.
+ *
+ *   ≥ 900px wide   a wider centred column (640px, ~75 characters a line), the deck kept at card size,
+ *                  bid details as a centred dialog instead of a bottom sheet
+ *   mouse/trackpad hover states; at desk width the hint also names the arrow keys (main.js handles them)
+ */
+
+@media (min-width: 900px) {
+  .app {
+    max-width: 640px;
+    padding-top: 22px;
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+
+  /* The swipe card stays card-sized: a 600px-wide card would be a stretched phone, not a desktop app. */
+  .swipe-view .deck,
+  .swipe-view .next,
+  .swipe-view .actions,
+  .swipe-view .hint {
+    width: 100%;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  /* Bid details: a dialog in the middle of the screen. Same element, same open/close code (sheet.js). */
+  .sheet {
+    top: 50%;
+    bottom: auto;
+    width: min(600px, calc(100vw - 48px));
+    max-height: min(86vh, 900px);
+    border-bottom: 1px solid var(--line-2);
+    border-radius: 22px;
+    padding: 18px 26px 24px;
+    transform: translate(-50%, -50%);
+    animation: desk-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+  }
+  .sheet-grip { display: none; }
+  .sheet .desc { max-height: 40vh; }
+
+  .toast { top: 22px; }
+}
+
+@keyframes desk-pop {
+  from { transform: translate(-50%, -48%) scale(0.98); opacity: 0; }
+  to { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+}
+
+/* Very wide screens: a touch more room for the reading views; the deck stays as above. */
+@media (min-width: 1600px) {
+  .app { max-width: 700px; }
+}
+
+/* A real pointer (mouse, trackpad): show what can be clicked. Touch screens never get stuck hover colours. */
+@media (hover: hover) and (pointer: fine) {
+  .row { cursor: pointer; transition: border-color 0.15s ease, background 0.15s ease; }
+  .row:hover { background: var(--card-2); border-color: var(--line-2); }
+  .round:hover { background: var(--card-2); transform: translateY(-1px); }
+  .tab:hover:not(.is-active) { color: var(--text); }
+}
+/* The arrow keys (main.js) only matter at a desk: a keyboard and a wide screen. */
+@media (min-width: 900px) and (hover: hover) and (pointer: fine) {
+  .swipe-view .hint::after { content: ' · or use the ← → keys'; }
+}
+
+@media (min-width: 900px) and (prefers-reduced-motion: reduce) {
+  .sheet { animation: none; }
+}

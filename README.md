@@ -20,11 +20,15 @@ sources ──► normalize + locate ──► score per contractor ──► Po
 | `questcdn` | NV State Public Works construction (Carson City, Reno, Yerington…) | QuestCDN board JSON |
 | `ngem` | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged by form postback |
 | `nevadaepro` | NV State Purchasing (goods + services) | public BSO open-bids table |
-| `samgov` | Federal (NV + Tahoe-side CA) | official SAM.gov v2 API — **needs a free key** |
+| `samgov` | Federal, the whole US (construction + trade NAICS) | SAM.gov's public daily bulk file (no key, ~222 MB, streamed); `SAM_SOURCE=api` uses the v2 API instead (key, 10 calls/day) |
 
 Each source is one file in `src/sources/` with a pure `parse…()` function (unit-tested against real
 responses in `test/fixtures/` — the raw server HTML/JSON, captured Nov 13 2026; QuestCDN Nov 11) plus a
-small `fetch()` wrapper. A source that breaks never stops the others — the scan report shows which one
+small `fetch()` wrapper. The SAM.gov bulk file (`src/sources/samgov-bulk.ts`) is parsed as it downloads
+(RFC 4180, each field decoded as UTF-8 or Windows-1252 on its own); `test/fixtures/samgov-bulk-sample.csv`
+holds 82 raw rows of the 2026-11-13 file. A download with under 20,000 rows (`SAM_BULK_MIN_ROWS`) is
+treated as cut off and fails loudly. Only bids that could matter to a company (its states, or within
+max(2 × radius, radius + 100 mi, 150 mi)) get a stored score: `src/score/candidates.ts`. A source that breaks never stops the others — the scan report shows which one
 failed.
 
 **Add a source:** copy `src/sources/douglascounty.ts`, change the URL + parser, add it to `ALL_SOURCES`
@@ -55,15 +59,19 @@ notes, decisions and roadmap; `docs/KICKOFF_PROMPT.md` is the first message to p
 
 ```bash
 npm install
-npm test                       # ~1,390 tests (vitest, ~65 s)
+npm test                       # ~1,530 tests in 60 files (vitest, ~50 s)
 npm run scan -- --fixtures     # load the captured real bids (no network needed)
 npm run dev                    # http://localhost:8787
 ```
 
 Modes, set in `.env`: `AUTH_MODE=single` (default) is the pilot — one profile from `config/`, no sign-in,
 optional `ACCESS_CODE`. `AUTH_MODE=accounts` is the multi-company app: email + password sign-up (Google /
-Apple / Microsoft buttons appear only when `SUPABASE_URL` is set — never run for real yet), a 5-step
-onboarding (business, trades, ZIP + radius, job sizes and spend limits, alerts) and a profile per account.
+Apple / Microsoft buttons appear only when `SUPABASE_URL` is set — never run for real yet), a 6-step
+onboarding done by taps (trades → "Use my location" or ZIP + travel distance → job sizes → your paperwork:
+SPWD / SAM.gov / bonds / prevailing wage, Yes / No / Not sure, plus federal certifications → alert level →
+optional business name) and a profile per account. A paperwork "No" never hides a bid: it holds the score
+under the alert line and says why on the card. `PROMO_CODES` turns on a promo-code box in Settings and
+`?promo=CODE` links (web + Microsoft Store builds only; see `docs/PRODUCT.md` §4).
 `DEMO_MODE=1` puts everyone on plan "pilot" (all features on, nothing billed). `SOURCES=fixtures` makes
 scans read the saved pages instead of the boards. Phone alerts need `VAPID_*` keys (`npm run push:keys`).
 
@@ -82,13 +90,33 @@ a same-seed hash and mutation runs that prove the checks can fail. `npm run simu
 Environment (all in `.env`, see `.env.example`): `PORT`, `HOST`, `DATA_DIR` (embedded DB folder),
 `DATABASE_URL`, `AUTH_MODE`, `DEMO_MODE`, `SOURCES`, `ACCESS_CODE`, `ADMIN_TOKEN`, `SCAN_DAILY_AT` and
 `MARKET_REFRESH_AT` (Pacific `HH:MM`, blank = off), `PRICE_WATCH_THRESHOLD_PCT` (price alert threshold,
-default 2), `SAM_API_KEY`, `BLS_API_KEY`, `RESEND_API_KEY` + `DIGEST_TO`, `VAPID_*`, `APP_URL`.
+default 2), `SAM_SOURCE` (`bulk` default / `api`), `SAM_API_KEY` (api mode only), `SAM_BULK_MIN_ROWS`,
+`PROMO_CODES` (`CODE:pro[:maxUses][:expiresISO]`, comma-separated; real codes only on the host),
+`REALTIME_MODE` (`stream` / `poll`; poll is the default on Vercel) + `REALTIME_POLL_MS`, `CRON_SECRET`
+(serverless cron routes), `BLS_API_KEY`, `RESEND_API_KEY` + `DIGEST_TO`, `VAPID_*`, `APP_URL`.
+
+## Deploy on Vercel (serverless)
+
+`vercel.json` builds with `npm run build` and starts `server.js`, which imports `serverless-files.cjs`
+(names every folder the function must ship: `web/` and each sub-folder, `config/`; a new sub-folder needs
+a line there, `test/serverless-entry.test.ts` checks it). On Vercel the app has no timers:
+
+- `DATABASE_URL` is required (Supabase): the embedded database would start empty on every instance.
+- The host's scheduler calls `GET /api/cron/market`, `/api/cron/scan` and `/api/cron/tick` (deadline
+  reminders + waiting pushes) with `Authorization: Bearer $CRON_SECRET`. Without `CRON_SECRET` they 404.
+  Hobby plans allow daily crons only, so reminders run once a day there.
+- Live alerts poll (`REALTIME_MODE=poll` is automatic when `VERCEL` is set): the app asks the inbox about
+  once a minute while open and reloads its feed after each scan.
+- The SAM.gov bulk download is ~222 MB plus ~3 s of parsing per scan; if the function's time or memory
+  limit is too small, set `SAM_SOURCE=api` there or run the scan on a longer-lived machine.
+- Set `PROMO_CODES` in the project's environment variables, never in the repo. `docs/MICROSOFT-STORE.md`
+  has the Store steps (PWABuilder package, listing text, privacy page).
 
 ## Deploy on the VPS (PM2 + Caddy)
 
 ```bash
 git clone … bidswipe && cd bidswipe
-cp .env.example .env          # fill in SAM_API_KEY, ACCESS_CODE, ADMIN_TOKEN, RESEND_API_KEY, DIGEST_TO, APP_URL
+cp .env.example .env          # fill in ACCESS_CODE, ADMIN_TOKEN, RESEND_API_KEY, DIGEST_TO, APP_URL
 npm ci && npm run build
 npm run scan:prod -- --no-notify   # first scan, check every source says OK
 pm2 start ecosystem.config.cjs && pm2 save
@@ -116,13 +144,15 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/saved` | saved, soonest deadline first |
 | `GET /api/me`, `GET /api/health` | who/what profile (401 `sign_in_required`, 409 `onboarding_required` in accounts mode), status |
 | `GET /api/auth/config`, `POST /api/auth/{signup,login,logout,oauth}` | accounts mode sign-in (cookie session) |
-| `GET /api/trades`, `GET /api/geo/zip/:zip`, `PUT /api/profile` | onboarding / settings |
-| `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox, live events (SSE) |
+| `GET /api/trades`, `GET /api/geo/zip/:zip`, `GET /api/geo/nearest-zip?lat=&lng=`, `GET`/`PUT /api/profile` | onboarding / settings (the location point is used once, never stored or logged) |
+| `POST /api/promo/redeem {code}` | accounts mode, `PROMO_CODES` set: 200 `{plan, features}` · 400 `invalid_code` · 403 `not_available` (no codes, demo mode, iOS build) · 429 after 5 tries in 10 min |
+| `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox (`lastScan` tells a polling app to reload its feed), live events (SSE; 404 `stream_off` in poll mode) |
 | `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts |
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
 | `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature |
 | `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`) |
+| `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it) |
 
 Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
 mode), the app asks for it once and sends it as `x-access-code`.
@@ -135,8 +165,13 @@ mode), the app asks for it once and sends it as `x-access-code`.
   project/bid number.
 - NevadaEPro is mostly supply purchases — those cards are flagged "May be supply-only".
 - Distances are straight-line miles.
-- SAM.gov needs `SAM_API_KEY`; without it the federal source is skipped. Its saved responses are in
-  `test/fixtures/samgov-*.json`; `npm run simulate` uses them, `--fixtures` mode and the demo do not yet.
+- SAM.gov reads the public bulk file (no key). Notices that name no place of performance (511 merged
+  cards on 2026-11-13, 146 of them still open) are left out: we cannot say they are in the US or near
+  anyone. No-deadline notices posted over a year ago are dropped as stale. A deadline written without a
+  time zone is read as Pacific unless a sibling notice gives the offset, and the card says to check.
+  Captured API responses are in `test/fixtures/samgov-*.json` and the bulk sample beside them;
+  `npm run simulate` uses them, `--fixtures` mode and the demo do not yet.
+- Sign-in and promo rate limits live in memory per process; on serverless each instance counts on its own.
 - None of the 111 bids captured so far lists an estimated value, so spend limits and the value filter
   never bite on real data (the simulation reports those checks as "not exercised").
 - Phone push has never been delivered end to end. Alerts are as fresh as the last scan (once a day by

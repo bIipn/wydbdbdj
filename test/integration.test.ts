@@ -27,9 +27,12 @@ import { fixtureSources } from '../src/sources/fixtures.js';
 import { ALL_SOURCES, selectSources } from '../src/sources/index.js';
 import { mergeTrades, tradeNoun, TRADES, withCatalogLists } from '../src/trades/catalog.js';
 import type { Alert, Bid, BidDraft, FeedItem, Profile, Source } from '../src/types.js';
-import { accountsConfig, fakeAuth, memoryDb, NOW, resetDb, scanCtx, seedAccount, testBid, testProfile } from './helpers.js';
+import { accountsConfig, CAPTURED, fakeAuth, memoryDb, NOW, realBids, resetDb, scanCtx, seedAccount, testBid, testProfile } from './helpers.js';
 
-const now = () => NOW;
+/** The server's clock: the capture day, so every real bid in the fixtures is open. */
+const now = () => CAPTURED;
+/** How many real bids the captured pages hold (85 on the 2026-11-13 capture). */
+const REAL = realBids().length;
 /** Fast password hashes for tests (the real default is far heavier). */
 const COST = { ln: 10, r: 8, p: 1 };
 const CSRF = { 'x-bidswipe': '1' };
@@ -152,13 +155,13 @@ describe('reasons name the company\'s own trade', () => {
   });
 
   it('on the real captured bids, no other trade is ever told its work is electrical', async () => {
-    const real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx())))).flat().map(finalizeBid);
-    expect(real).toHaveLength(32);
+    const real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx(CAPTURED))))).flat().map(finalizeBid);
+    expect(real).toHaveLength(REAL);
     const pilotWords = /^Electrical (scope|work mentioned)|electrical contractors$|specs for electrical$|^No electrical/;
     for (const trade of TRADES.filter((t) => t.id !== 'electrical')) {
       const profile = company([trade.id]);
       for (const bid of real) {
-        for (const text of reasonTexts(bid, profile)) expect(text, `${trade.id}: ${bid.title}`).not.toMatch(pilotWords);
+        for (const { text } of scoreBid(bid, profile, CAPTURED).reasons) expect(text, `${trade.id}: ${bid.title}`).not.toMatch(pilotWords);
       }
     }
   });
@@ -192,11 +195,12 @@ describe('a catalog edit reaches stored profiles at the next scan', () => {
 
     const profiles = scanProfiles({ db, profile: null });
     expect(typeof profiles).toBe('function');
-    const report = await runScan({ db, sources: fixtureSources(), profiles, ctx: scanCtx(NOW) });
-    expect(report.profiles[saved.id]!.scored).toBe(32);
-    // The Yerington job is "fire alarm" work: a great fit with today's list, nothing with the stale one.
+    const report = await runScan({ db, sources: fixtureSources(), profiles, ctx: scanCtx(CAPTURED) });
+    expect(report.profiles[saved.id]!.scored).toBe(REAL);
+    // The State Public Works "Fire Sprinkler System Installation and Fire Alarm" job and the cell-door
+    // intercom job are great fits with today's list, and nothing is with the stale one.
     expect(report.profiles[saved.id]!.byVerdict.great).toBeGreaterThanOrEqual(1);
-    const staleOnly = await runScan({ db, sources: fixtureSources(), profiles: [saved], ctx: scanCtx(NOW) });
+    const staleOnly = await runScan({ db, sources: fixtureSources(), profiles: [saved], ctx: scanCtx(CAPTURED) });
     expect(staleOnly.profiles[saved.id]!.byVerdict.great).toBe(0);
 
     expect((await getProfileByAccount(db, owner.id))!.keywords.strong).toEqual(['TEST-stale-word']);
@@ -216,8 +220,8 @@ describe('SOURCES', () => {
     const offline = selectSources('fixtures');
     expect(offline.map((s) => s.id).sort()).toEqual(['douglascounty', 'nevadaepro', 'ngem', 'questcdn']);
     for (const s of offline) expect(s.name).toMatch(/\(snapshot\)$/);
-    const drafts = (await Promise.all(offline.map((s) => s.fetch(scanCtx())))).flat(); // scanCtx has no network
-    expect(drafts).toHaveLength(32);
+    const drafts = (await Promise.all(offline.map((s) => s.fetch(scanCtx(CAPTURED))))).flat(); // scanCtx has no network
+    expect(drafts).toHaveLength(REAL);
     expect(drafts.filter((d) => /^TEST-/.test(d.sourceId))).toEqual([]);
     expect(selectSources(' Fixtures ').map((s) => s.name)).toEqual(offline.map((s) => s.name));
   });
@@ -306,7 +310,7 @@ describe('accounts mode, end to end', () => {
     for (const type of ['match', 'scan', 'alert'] as const) bus.on(type, (e) => void events.push(e.type));
     const config = accountsConfig({ demoMode: true, adminToken: 'TEST-admin', vapid: testVapid });
     const extraSource: Source = { id: 'samgov', name: 'TEST source', homepage: '', fetch: async () => extra };
-    scan = () => runScan({ db, sources: [...fixtureSources(), extraSource], profiles: scanProfiles({ db, profile: null }), ctx: scanCtx(NOW), bus });
+    scan = () => runScan({ db, sources: [...fixtureSources(), extraSource], profiles: scanProfiles({ db, profile: null }), ctx: scanCtx(CAPTURED), bus });
     const built = await buildApp({ db }, { config, bus, auth: createAuth(db, config, { now, cost: COST }), scan, now });
     app = track(built.app);
     rt = createRealtime(built.ctx, { sender: async (_device, message) => (pushes.push(message), { ok: true }), tickMs: 0, coalesceMs: 0 });
@@ -353,7 +357,7 @@ describe('accounts mode, end to end', () => {
   it('onboarding: answers → profile → every open bid scored at once', async () => {
     const res = await call('PUT', '/api/profile', ANSWERS);
     expect(res.statusCode, res.body).toBe(200);
-    expect(res.json().scored).toBe(32);
+    expect(res.json().scored).toBe(REAL);
     expect(res.json().profile).toMatchObject({
       businessName: 'TEST Owner Electric (simulated)', trades: ['electrical'], zip: '89410', base: 'Gardnerville, NV', radiusMi: 90,
       valueRange: { min: 10_000, max: 50_000 }, limits: { maxJobSize: 100_000 }, alerts: { minScore: 55 },
@@ -365,15 +369,16 @@ describe('accounts mode, end to end', () => {
 
   it('the feed: the deck by default, then search, distance, deadline and sort', async () => {
     const all = await items('all=1&minScore=0&limit=300');
-    expect(all).toHaveLength(32);
+    expect(all).toHaveLength(REAL);
     const deck = await items();
     expect(deck.length).toBeGreaterThanOrEqual(3);
     expect(deck.map((b) => b.id).sort()).toEqual(all.filter((b) => b.score >= 35).map((b) => b.id).sort());
     expect(deck.map((b) => b.score)).toEqual([...deck.map((b) => b.score)].sort((a, b) => b - a));
     expect(deck[0]!.reasons[0]!.text).toMatch(/^Electrical scope: “/);
 
+    // The 2026-11-13 capture has one fire alarm job (State Public Works' sprinkler + fire alarm install).
     const alarm = await items('all=1&minScore=0&q=fire+alarm');
-    expect(alarm.length).toBeGreaterThanOrEqual(2);
+    expect(alarm.length).toBeGreaterThanOrEqual(1);
     for (const b of alarm) expect(`${b.title} ${b.description} ${b.category}`.toLowerCase()).toContain('alarm');
 
     const near = await items('all=1&minScore=0&maxDistance=30&sort=near');
@@ -383,7 +388,7 @@ describe('accounts mode, end to end', () => {
     expect(near.map((b) => b.id).sort()).toEqual(all.filter((b) => b.distanceMi !== null && b.distanceMi <= 30).map((b) => b.id).sort());
 
     const soon = await items('all=1&minScore=0&dueWithinDays=7&sort=due');
-    const weekOut = NOW.getTime() + 7 * 86_400_000;
+    const weekOut = CAPTURED.getTime() + 7 * 86_400_000;
     expect(soon.length).toBeGreaterThanOrEqual(1);
     expect(soon.every((b) => b.dueAt !== null && Date.parse(b.dueAt) <= weekOut)).toBe(true);
     expect(soon.map((b) => b.dueAt)).toEqual([...soon.map((b) => b.dueAt!)].sort());
@@ -418,7 +423,7 @@ describe('accounts mode, end to end', () => {
     events.length = 0;
     const report = await scan();
     await rt.flush();
-    expect(report).toMatchObject({ totalBids: 32, newBids: 0 });
+    expect(report).toMatchObject({ totalBids: REAL, newBids: 0 });
     expect(events.filter((e) => e === 'match')).toHaveLength(before.length); // re-announced on the bus…
     expect(events.filter((e) => e === 'alert')).toEqual([]); // …and recognised as already told
     expect(events.at(-1)).toBe('scan');
@@ -477,7 +482,7 @@ describe('accounts mode, end to end', () => {
       businessName: 'TEST Roofer (simulated)', trades: ['roofing'], zip: '89701', radiusMi: 60, valueRange: { min: 10_000, max: 250_000 },
     }, other);
     expect(onboard.statusCode, onboard.body).toBe(200);
-    expect(onboard.json().scored).toBe(34); // the 32 real bids and the two synthetic ones
+    expect(onboard.json().scored).toBe(REAL + 2); // the real bids and the two synthetic ones
 
     const roofs = await items('', other);
     expect(roofs.length).toBeGreaterThanOrEqual(3); // the three real Carson City re-roofs
@@ -528,7 +533,7 @@ describe('accounts mode, end to end', () => {
     expect((await call('POST', '/api/admin/scan', undefined, '', {})).json()).toEqual({ error: 'admin_token_required' });
     const res = await call('POST', '/api/admin/scan', undefined, '', { 'x-admin-token': 'TEST-admin' });
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toMatchObject({ totalBids: 34, newBids: 0 });
+    expect(res.json()).toMatchObject({ totalBids: REAL + 2, newBids: 0 });
     expect(Object.keys(res.json().profiles)).toHaveLength(2);
   });
 });
@@ -540,7 +545,7 @@ describe('single mode is still the pilot', () => {
     await resetDb(db);
     const pilot = loadProfile('lm-electric');
     const bus = createBus();
-    await runScan({ db, sources: fixtureSources(), profiles: scanProfiles({ db, profile: pilot }), ctx: scanCtx(NOW), bus });
+    await runScan({ db, sources: fixtureSources(), profiles: scanProfiles({ db, profile: pilot }), ctx: scanCtx(CAPTURED), bus });
     const app = track(await buildServer({ db, profile: pilot }, { now }));
 
     expect((await app.inject('/api/me')).json()).toEqual({
@@ -548,7 +553,7 @@ describe('single mode is still the pilot', () => {
     });
     const feed = (await app.inject('/api/feed?all=1&minScore=0&limit=300')).json();
     expect(Object.keys(feed).sort()).toEqual(['items', 'lastScan']);
-    expect(feed.items).toHaveLength(32);
+    expect(feed.items).toHaveLength(REAL);
     expect((feed.items as FeedItem[]).every((b) => b.overLimit === false)).toBe(true); // the pilot has set no limits
     const best = (feed.items as FeedItem[])[0]!;
     expect(best.reasons[0]!.text).toMatch(/^Electrical scope: “/);

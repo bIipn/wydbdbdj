@@ -14,11 +14,16 @@ import { openDb, type Db } from '../src/db/db.js';
 import { SCHEMA_SQL } from '../src/db/schema.js';
 import { loadProfile } from '../src/profiles.js';
 import { finalizeBid } from '../src/scan.js';
-import { FIXTURES_CAPTURED_AT } from '../src/sources/fixtures.js';
+import { FIXTURES_CAPTURED_AT, fixtureReaders } from '../src/sources/fixtures.js';
 import { parseQuestJson, QUEST_BOARDS } from '../src/sources/questcdn.js';
 import type { Account, Bid, BidDraft, Profile, Source, SourceContext } from '../src/types.js';
 
-/** The fixtures were captured on 2026-11-11; this "now" is before their deadlines. */
+/**
+ * 2026-11-11: the clock for tests built on SYNTHETIC bids (testBid(), hand-written drafts), whose dates
+ * were written against it ("due 2026-11-14" = "Only 3 days to bid"), and for questSource() alone — the
+ * QuestCDN JSON is the one fixture captured that day. Tests that load the HTML captures (fixtureSources(),
+ * realBids()) use CAPTURED below, the day those pages were fetched.
+ */
 export const NOW = new Date('2026-11-11T20:00:00Z');
 
 export const fx = (file: string): string => readFileSync(fileURLToPath(new URL(`./fixtures/${file}`, import.meta.url)), 'utf8');
@@ -81,7 +86,7 @@ export function scanCtx(now: Date = NOW, log: (msg: string) => void = () => {}):
   return { http: { text: async () => '', json: async () => ({}) as never }, now, env: () => undefined, log };
 }
 
-/** The captured NV State Public Works board: 13 real bids. */
+/** The captured NV State Public Works board: 13 real bids (JSON captured 2026-11-11, so NOW is its day). */
 export function questSource(): Source {
   return { id: 'questcdn', name: 'q', homepage: '', fetch: async () => parseQuestJson(JSON.parse(fx('questcdn-spwd.json')), QUEST_BOARDS[0]!) };
 }
@@ -130,8 +135,20 @@ export function testBid(over: Partial<BidDraft> = {}): Bid {
 
 export const FIXTURE_DIR = fileURLToPath(new URL('./fixtures', import.meta.url));
 
-/** The day the HTML fixtures were fetched (2026-11-13, noon Pacific). */
+/**
+ * The day the HTML fixtures were fetched (2026-11-13, noon Pacific). Every real bid in them is open on
+ * this clock, so any test that loads them (fixtureSources(), realBids()) scores and scans as of CAPTURED.
+ */
 export const CAPTURED = FIXTURES_CAPTURED_AT;
+
+/**
+ * Every real bid in test/fixtures, parsed and finalized the way `npm run scan -- --fixtures` reads them.
+ * Counts come from here rather than being written into tests, so a re-capture changes one place: the
+ * per-board counts pinned in sources.test.ts.
+ */
+export function realBids(): Bid[] {
+  return fixtureReaders(FIXTURE_DIR).flatMap((r) => r.read()).map(finalizeBid);
+}
 
 /** Change a fixture in memory with cheerio and hand back the HTML. */
 export function edit(html: string, change: ($: cheerio.CheerioAPI) => void): string {

@@ -341,7 +341,7 @@ const EXCLUDE = [
   'software', 'saas', 'website', 'internet service*', 'telephone service*', 'study', 'feasibility',
   'strategic plan*', 'master plan*', 'surveying', 'architectural services', 'engineering services',
   'design services', 'exhibit design', 'technical assistance', 'traffic control services', 'mowing', 'weed control',
-  'snow removal', 'trash collection', 'waste collection',
+  'snow removal', 'trash collection', 'waste collection', 'scale calibration',
   // goods
   'furniture', 'uniform*', 'apparel', 'clothing', 'office supplies', 'medical supplies', 'pharmaceutical*',
   'food products', 'food supplies', 'groceries', 'meat', 'dairy products', 'produce', 'bread', 'milk',

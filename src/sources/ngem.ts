@@ -1,7 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { BidDraft, FetchLike, Source } from '../types.js';
 import { absolutize } from '../util/http.js';
-import { clean, cleanOrNull, slugify } from '../util/text.js';
+import { clean, cleanOrNull, slugify, unescapeLeftover } from '../util/text.js';
 import { parseUsDateTime } from '../util/time.js';
 
 /**
@@ -139,7 +139,8 @@ export function parseNgemPage(html: string, pageUrl = NGEM_URL): NgemPage {
     const type = cell('colTypeTitle');
     const addendum = /\baddendum\s+(\d+)\s*$/i.exec(rawNumber);
     const bidNumber = addendum ? rawNumber.slice(0, addendum.index).trim() : rawNumber;
-    const title = cell('colTitle') || bidNumber; // a few rows have a blank title
+    // The board escapes some titles twice ("Portal &amp;amp; AMI"). The id below keeps the raw org text, so it never changes.
+    const title = unescapeLeftover(cell('colTitle')) || bidNumber; // a few rows have a blank title
 
     const link = $(tr).find('a[href*="SourceEvent"], a[href*="Event.aspx"]').first().attr('href');
     const flags: string[] = [];
@@ -152,7 +153,7 @@ export function parseNgemPage(html: string, pageUrl = NGEM_URL): NgemPage {
       sourceId: `${slugify(org)}:${slugify(bidNumber)}`,
       sourceName: 'NGEM (local agencies)',
       title,
-      agency: cleanOrNull(org),
+      agency: cleanOrNull(unescapeLeftover(org)),
       description: `${type || 'Solicitation'} · ${rawNumber}`,
       category: cleanOrNull(type),
       location: { state: 'NV' },

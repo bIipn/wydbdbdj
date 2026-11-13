@@ -18,7 +18,7 @@ import { buildApp, buildServer } from '../src/server.js';
 import { fixtureSources } from '../src/sources/fixtures.js';
 import { mergeTrades, TRADES } from '../src/trades/catalog.js';
 import type { Account, Bid, FeedItem, Profile } from '../src/types.js';
-import { accountsConfig, fakeAuth, memoryDb, NOW, questSource, resetDb, scanCtx, seedAccount } from './helpers.js';
+import { accountsConfig, CAPTURED, fakeAuth, memoryDb, questSource, resetDb, scanCtx, seedAccount } from './helpers.js';
 
 const pilot = loadProfile('lm-electric');
 const TRADE_IDS = TRADES.map((t) => t.id);
@@ -46,9 +46,9 @@ function built(answers: unknown, id = 'test-company'): Profile {
   return buildProfile(id, r.value);
 }
 
-let real: Bid[]; // the 32 real bids captured on 2026-11-11
+let real: Bid[]; // the real bids captured on 2026-11-13; every test here scores them as of that day (CAPTURED)
 beforeAll(async () => {
-  real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx())))).flat().map(finalizeBid);
+  real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx(CAPTURED))))).flat().map(finalizeBid);
 });
 
 // ------------------------------------------------------------ validation --
@@ -241,21 +241,27 @@ describe('buildProfile', () => {
     expect(p.base.label).toBe(pilot.base.label);
   });
 
-  it('with the pilot\'s home base, scores every one of the 32 real bids exactly as the pilot profile does', () => {
+  it('with the pilot\'s home base, scores every real bid exactly as the pilot profile does', () => {
     const twin = { ...built(PILOT_ANSWERS), base: pilot.base };
     const differentWording: string[] = [];
     for (const b of real) {
-      const mine = scoreBid(b, twin, NOW);
-      const theirs = scoreBid(b, pilot, NOW);
+      const mine = scoreBid(b, twin, CAPTURED);
+      const theirs = scoreBid(b, pilot, CAPTURED);
       expect({ score: mine.score, verdict: mine.verdict, distanceMi: mine.distanceMi, overLimit: mine.overLimit }, b.title)
         .toEqual({ score: theirs.score, verdict: theirs.verdict, distanceMi: theirs.distanceMi, overLimit: theirs.overLimit });
       expect(!!mine.rejected, b.title).toBe(!!theirs.rejected);
       if (JSON.stringify(mine) !== JSON.stringify(theirs)) differentWording.push(b.title);
     }
-    // Three rejected bids give another reason for the same 0: the pilot's config names them by words
-    // tuned to that day's sample ("concession", "customer portal", "wifi services"); the generic list does not.
-    expect(differentWording).toEqual(['REPOST: Gaming Concession', 'Customer Portal & AMI Technology', 'NDSP Wifi Services']);
-    for (const title of differentWording) expect(scoreBid(real.find((b) => b.title === title)!, twin, NOW).rejected).toMatch(/No .*scope found/);
+    // Only rejected bids may be worded differently, and only in why: the pilot's config names them by
+    // words tuned to the captured sample ("kiosk", "customer portal", "jackets", "elderly"…) where the
+    // generic list just finds no construction scope. Same 0, same skip.
+    expect(differentWording.length).toBeGreaterThan(0);
+    expect(differentWording).toContain('Customer Portal & AMI Technology');
+    for (const title of differentWording) {
+      const b = real.find((bid) => bid.title === title)!;
+      expect(scoreBid(b, pilot, CAPTURED).rejected, title).toMatch(/^Not your trade/);
+      expect(scoreBid(b, twin, CAPTURED).rejected, title).toMatch(/No .*scope found/);
+    }
   });
 
   it('from ZIP 89410 itself, scores a real bid the same as the pilot whenever it lands in the same distance band', () => {
@@ -264,8 +270,8 @@ describe('buildProfile', () => {
     const band = (mi: number | null) => (mi === null ? 'none' : mi > 90 ? 'out' : mi <= 25 ? '25' : mi <= 50 ? '50' : mi <= 75 ? '75' : '90');
     let sameBand = 0;
     for (const b of real) {
-      const mine = scoreBid(b, twin, NOW);
-      const theirs = scoreBid(b, pilot, NOW);
+      const mine = scoreBid(b, twin, CAPTURED);
+      const theirs = scoreBid(b, pilot, CAPTURED);
       if (band(mine.distanceMi) !== band(theirs.distanceMi)) continue;
       sameBand++;
       expect(mine.score, b.title).toBe(theirs.score);
@@ -273,7 +279,7 @@ describe('buildProfile', () => {
     }
     expect(sameBand).toBeGreaterThanOrEqual(28);
     // Named examples, straight off the real pages.
-    const score = (title: RegExp, p: Profile) => scoreBid(real.find((b) => title.test(b.title))!, p, NOW).score;
+    const score = (title: RegExp, p: Profile) => scoreBid(real.find((b) => title.test(b.title))!, p, CAPTURED).score;
     for (const title of [/^Generator$/, /^Replace Cell Doors, Locks, Intercoms/, /^Elevator Modernization \(Bryan/, /^Water Well Repair$/, /^Roofing Replacement, State Museum/]) {
       expect(score(title, twin), String(title)).toBe(score(title, pilot));
     }
@@ -430,12 +436,12 @@ describe('simulated companies', () => {
         const far = built({ ...noLimits, radiusMi: Math.min(500, answers.radiusMi + extraMiles) });
         expect(far.states).toEqual(expect.arrayContaining(near.states));
         for (const b of real) {
-          const r = scoreBid(b, near, NOW);
+          const r = scoreBid(b, near, CAPTURED);
           expect(Number.isInteger(r.score) && r.score >= 0 && r.score <= 100, `${b.title}: ${r.score}`).toBe(true);
           expect(r.verdict).toBe(verdictFor(r.score));
           if (r.distanceMi !== null && r.distanceMi > near.maxDistanceMi) expect(r.rejected, b.title).toBeTruthy();
           if (r.rejected) expect(r.score).toBe(0);
-          else expect(scoreBid(b, far, NOW).score, b.title).toBe(r.score);
+          else expect(scoreBid(b, far, CAPTURED).score, b.title).toBe(r.score);
         }
       }),
       { numRuns: 50 },
@@ -461,14 +467,14 @@ describe('profile routes', () => {
 
   beforeAll(async () => {
     db = await memoryDb();
-    const opts = { bus, auth: fakeAuth(() => who), now: () => NOW };
+    const opts = { bus, auth: fakeAuth(() => who), now: () => CAPTURED };
     app = (await buildApp({ db }, { ...opts, config: accountsConfig() })).app;
     demo = await buildServer({ db }, { ...opts, config: accountsConfig({ demoMode: true }) });
   });
   beforeEach(async () => {
     await resetDb(db);
     // 13 real open bids (NV State Public Works), no profiles yet.
-    await runScan({ db, sources: [questSource()], profiles: [], ctx: scanCtx() });
+    await runScan({ db, sources: [questSource()], profiles: [], ctx: scanCtx(CAPTURED) });
     matches.length = 0;
     who = null;
   });
@@ -510,7 +516,7 @@ describe('profile routes', () => {
     expect(stored).toEqual(built(PILOT_ANSWERS, summary.id));
     const items = await feed();
     expect(items).toHaveLength(13);
-    for (const item of items) expect(item.score, item.title).toBe(scoreBid(item, stored, NOW).score);
+    for (const item of items) expect(item.score, item.title).toBe(scoreBid(item, stored, CAPTURED).score);
     expect(items.map((b) => b.score)).toEqual(items.map((b) => b.score).sort((x, y) => y - x));
     expect(items.find((b) => b.title.startsWith('Replace Cell Doors, Locks, Intercoms'))).toMatchObject({ score: 82, verdict: 'great' });
     expect(items[0]!.score).toBe(82);
@@ -641,7 +647,7 @@ describe('profile routes', () => {
   });
 
   it('single mode (the pilot): PUT /api/profile answers 409, and /api/me keeps its v0 shape', async () => {
-    const single = await buildServer({ db, profile: pilot }, { now: () => NOW });
+    const single = await buildServer({ db, profile: pilot }, { now: () => CAPTURED });
     try {
       const res = await single.inject({ method: 'PUT', url: '/api/profile', payload: PILOT_ANSWERS });
       expect(res.statusCode).toBe(409);

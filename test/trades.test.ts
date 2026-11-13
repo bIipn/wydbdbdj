@@ -10,7 +10,7 @@ import { compileKeywords, scoreBid } from '../src/score/score.js';
 import { fixtureSources } from '../src/sources/fixtures.js';
 import { getTrade, mergeTrades, NAICS_TITLES, TRADES } from '../src/trades/catalog.js';
 import type { Bid, Profile } from '../src/types.js';
-import { NOW, scanCtx, testBid, testProfile } from './helpers.js';
+import { CAPTURED, NOW, realBids, scanCtx, testBid, testProfile } from './helpers.js';
 
 const pilot = loadProfile('lm-electric');
 const IDS = TRADES.map((t) => t.id);
@@ -25,9 +25,9 @@ function company(tradeIds: string[]): Profile {
 /** Any 1 to 4 trades, in any order. */
 const anyMix = fc.shuffledSubarray(IDS, { minLength: 1, maxLength: 4 });
 
-let real: Bid[]; // the 32 real bids captured on 2026-11-11
+let real: Bid[]; // the real bids captured on 2026-11-13, scored as of that day (CAPTURED)
 beforeAll(async () => {
-  real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx())))).flat().map(finalizeBid);
+  real = (await Promise.all(fixtureSources().map((s) => s.fetch(scanCtx(CAPTURED))))).flat().map(finalizeBid);
 });
 
 describe('trade catalog', () => {
@@ -228,12 +228,13 @@ describe('mergeTrades', () => {
   });
 });
 
-describe('the templates on real bids (captured 2026-11-11)', () => {
+describe('the templates on real bids (captured 2026-11-13)', () => {
   const titled = (re: RegExp) => real.filter((b) => re.test(b.title));
-  const scores = (p: Profile, bids: Bid[]) => bids.map((b) => scoreBid(b, p, NOW).score);
+  const scores = (p: Profile, bids: Bid[]) => bids.map((b) => scoreBid(b, p, CAPTURED).score);
 
-  it('reads all 32 real bids', () => {
-    expect(real).toHaveLength(32);
+  it('reads every real bid on the captured pages, as the fixtures scan does', () => {
+    expect(real).toEqual(realBids());
+    expect(real.length).toBeGreaterThan(0);
   });
 
   it('a roofer sees the four real roofing jobs as good fits; an electrician still does not', () => {
@@ -247,7 +248,7 @@ describe('the templates on real bids (captured 2026-11-11)', () => {
   it('each systems trade finds its own real job', () => {
     const top = (tradeId: string) => {
       const p = company([tradeId]);
-      return [...real].sort((a, b) => scoreBid(b, p, NOW).score - scoreBid(a, p, NOW).score)[0]!.title;
+      return [...real].sort((a, b) => scoreBid(b, p, CAPTURED).score - scoreBid(a, p, CAPTURED).score)[0]!.title;
     };
     expect(top('hvac')).toBe('Northern Nevada - HVAC Maintenance Services');
     expect(top('plumbing')).toBe('OTAG Water Heater Replacement');
@@ -256,10 +257,11 @@ describe('the templates on real bids (captured 2026-11-11)', () => {
   });
 
   it('janitorial and other non-construction bids are a hard no for every trade', () => {
-    const notWork = titled(/Janitorial Services|Furniture Walls|Strategic Plan/);
-    expect(notWork).toHaveLength(4);
+    // Two janitorial contracts, a library strategic plan, security officers and vending, all off the 2026-11-13 pages.
+    const notWork = titled(/Janitorial Services|Strategic Plan|Security Officer Services|Vending Services/);
+    expect(notWork).toHaveLength(5);
     for (const t of TRADES) {
-      for (const b of notWork) expect(scoreBid(b, company([t.id]), NOW).rejected, `${t.id}: ${b.title}`).toBeTruthy();
+      for (const b of notWork) expect(scoreBid(b, company([t.id]), CAPTURED).rejected, `${t.id}: ${b.title}`).toBeTruthy();
     }
   });
 
@@ -270,7 +272,7 @@ describe('the templates on real bids (captured 2026-11-11)', () => {
         const mixed = company([id, ...others]);
         const strong = compileKeywords(getTrade(id)!.keywords.strong);
         for (const b of real.filter((bid) => strong.test(bid.title))) {
-          expect(scoreBid(b, mixed, NOW).score, `${id} + ${others.join(',')}: ${b.title}`).toBeGreaterThanOrEqual(scoreBid(b, alone, NOW).score);
+          expect(scoreBid(b, mixed, CAPTURED).score, `${id} + ${others.join(',')}: ${b.title}`).toBeGreaterThanOrEqual(scoreBid(b, alone, CAPTURED).score);
         }
       }),
     );
@@ -281,7 +283,7 @@ describe('the templates on real bids (captured 2026-11-11)', () => {
       fc.property(anyMix, (ids) => {
         const p = company(ids);
         for (const b of real) {
-          const r = scoreBid(b, p, NOW);
+          const r = scoreBid(b, p, CAPTURED);
           expect(Number.isInteger(r.score) && r.score >= 0 && r.score <= 100, `${b.title}: ${r.score}`).toBe(true);
           if (r.rejected) expect(r.score).toBe(0);
         }

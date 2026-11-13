@@ -1,10 +1,10 @@
 /**
  * Price statistics and "similar awards" selection. Real numbers come from the captured USAspending
- * pages (Nevada electrical awards, 2026-11-13) and real ZIP points from the `zipcodes` package.
+ * pages (Nevada electrical awards, 2026-11-13) and real ZIP points from the product's own lookup (src/geo/zip.ts).
  * Property tests use made-up amounts and TEST ZIP codes: arithmetic only, nothing a user sees.
  */
 import fc from 'fast-check';
-import zipcodes from 'zipcodes';
+import { lookupZip } from '../src/geo/zip.js';
 import { describe, expect, it } from 'vitest';
 import {
   AWARD_LADDER, hasPriceAtAward, isMinimumGuarantee, loadedSpan, MIN_PRICED_AWARDS, normalizeCounty, percentile, priceStats, selectSimilarAwards,
@@ -23,10 +23,8 @@ const awards: AwardPoint[] = nevada.map((a) => ({
   actionDate: a.actionDate, zip: a.zip, county: a.county, state: a.state,
 }));
 
-const realZip: ZipLookup = (zip) => {
-  const z = zipcodes.lookup(zip);
-  return z ? { lat: z.latitude, lng: z.longitude, state: z.state } : null;
-};
+/** The product's own ZIP lookup (src/geo/zip.ts, the `zipcodes` table), as the market routes use it. */
+const realZip: ZipLookup = lookupZip;
 
 const amounts = fc.array(fc.integer({ min: 1, max: 5_000_000_00 }).map((cents) => cents / 100), { minLength: 1, maxLength: 60 });
 

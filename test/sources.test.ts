@@ -233,6 +233,12 @@ describe('NGEM / IonWave (raw server HTML)', () => {
     });
   });
 
+  it('undoes the board\'s double escaping in a title (the raw page says "Portal &amp;amp; AMI")', () => {
+    expect(p2).toContain('Customer Portal &amp;amp; AMI Technology');
+    expect(byId('city-of-north-las-vegas:rfp-2026-024').title).toBe('Customer Portal & AMI Technology');
+    expect(all.filter((b) => /&(amp|lt|gt|quot|#39);/.test(`${b.title} ${b.agency}`))).toEqual([]);
+  });
+
   it('makes addenda keep the same id and flags them', () => {
     // The board shows the number as "607998-26 Addendum 1".
     expect(byId('clark-county-nevada:607998-26')).toMatchObject({

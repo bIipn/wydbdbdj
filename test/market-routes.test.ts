@@ -1,10 +1,11 @@
 /**
  * Market routes: area wages + material trends, award history (plan gated), and the admin refresh.
  * The database is filled from REAL captured pages (USAspending, BLS, the NV State Public Works bid
- * board); ZIP points are real ones from the `zipcodes` package. Accounts are simulated (TEST ids).
+ * board). ZIP points and the states a radius reaches come from the product's own lookup (src/geo/zip.ts,
+ * the `zipcodes` table): the routes run with their real defaults unless a test injects a stand-in and says
+ * so. Accounts are simulated (TEST ids).
  */
 import Fastify, { type FastifyInstance } from 'fastify';
-import zipcodes from 'zipcodes';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { AuthService } from '../src/auth/index.js';
 import { createContext, loadConfig, type AppConfig } from '../src/context.js';
@@ -70,11 +71,6 @@ function blsHttp(): FetchLike & { calls: number; asked: string[][] } {
   return http;
 }
 
-const realZip: NonNullable<MarketRouteDeps['lookupZip']> = (zip) => {
-  const z = zipcodes.lookup(zip);
-  return z ? { lat: z.latitude, lng: z.longitude, state: z.state, city: z.city } : null;
-};
-
 let db: Db;
 const apps: FastifyInstance[] = [];
 
@@ -85,7 +81,8 @@ async function build(opts: { config?: AppConfig; auth?: AuthService; profile?: P
     db: opts.db ?? db, config, bus: createBus(), auth: opts.auth ?? fakeAuth(null), now: () => opts.now ?? NOW,
     profile: config.authMode === 'single' ? (opts.profile ?? pilot) : null,
   });
-  await register(app, ctx, { lookupZip: realZip, env: () => undefined, ...opts.deps });
+  // No lookupZip / statesWithin here: the route's real ones (src/geo/zip.ts) unless opts.deps says otherwise.
+  await register(app, ctx, { env: () => undefined, ...opts.deps });
   apps.push(app);
   return app;
 }
@@ -152,10 +149,14 @@ describe('GET /api/market/awards', () => {
 
   it('by ZIP and radius: uses the radius when it holds enough priced awards', async () => {
     const body = (await app.inject('/api/market/awards?naics=238210&zip=89191&radiusMi=50&months=24')).json();
+    // 50 miles from ZIP 89191 (Nellis AFB) crosses into Arizona, and only Nevada was pulled: the answer says so.
     expect(body).toMatchObject({
-      scope: { level: 'zip_radius', label: 'within 50 mi of ZIP 89191', radiusMi: 50, months: 24 },
+      scope: {
+        level: 'zip_radius', label: 'within 50 mi of ZIP 89191', radiusMi: 50, months: 24,
+        coverage: { states: ['NV'], nationwide: false, missingStates: ['AZ'], partialStates: [] },
+      },
       stats: { count: 27, median: 53488.85 }, excludedNoPrice: 0, enough: true,
-      summary: `Based on 27 federal awards within 50 mi of ZIP 89191, 2025-03-18 to 2026-08-21. ${AMOUNT}`,
+      summary: `Based on 27 federal awards within 50 mi of ZIP 89191, 2025-03-18 to 2026-08-21. ${AMOUNT} Awards in Arizona are not loaded, so they are left out.`,
     });
     expect(body.ladder).toEqual([{ level: 'zip_radius', priced: 27, excludedNoPrice: 0 }]);
   });
@@ -221,7 +222,8 @@ describe('GET /api/market/awards', () => {
     const body = (await app.inject('/api/market/awards?zip=89191&radiusMi=50&months=120')).json();
     expect(body.scope).toMatchObject({ level: 'zip_radius', months: 120, window: { from: '2024-11-11', to: '2026-11-11' }, coverage: { states: ['NV'] } });
     expect(body.stats.count).toBe(27);
-    expect(body.summary).toBe(`Based on 27 federal awards within 50 mi of ZIP 89191, 2025-03-18 to 2026-08-21. ${AMOUNT} Our federal award records for Nevada start 2024-11-11.`);
+    expect(body.summary).toBe(`Based on 27 federal awards within 50 mi of ZIP 89191, 2025-03-18 to 2026-08-21. ${AMOUNT} Our federal award records for Nevada start 2024-11-11.`
+      + ' Awards in Arizona are not loaded, so they are left out.');
   });
 
   it('a window our pulls stop short of: the window ends where they do; one they never reach: "not loaded"', async () => {
@@ -238,7 +240,8 @@ describe('GET /api/market/awards', () => {
   });
 
   it('a radius that reaches into states we never pulled names them', async () => {
-    // Which states a circle reaches comes from src/geo/zip.ts; here a stand-in answers for Las Vegas + 120 mi.
+    // A STAND-IN statesWithin first, to pin down the route's handling of what it is given: lower case,
+    // a code that is not a US state ("BC"), and a state loaded for only part of the window (CA).
     const wide = await build({ deps: { statesWithin: () => ['nv', 'AZ', 'UT', 'CA', 'BC'] } });
     await recordAwardCoverage(db, 'CA', ['238210'], '2026-07-11', '2026-11-11', NOW);
     try {
@@ -253,10 +256,14 @@ describe('GET /api/market/awards', () => {
     } finally {
       await db.exec("delete from award_coverage where scope = 'CA'");
     }
-    // The default seam answers an empty list in this build ("not known"): nothing is claimed either way.
-    const plain = (await app.inject('/api/market/awards?zip=89191&radiusMi=120')).json();
-    expect(plain.scope.coverage).toEqual({ states: ['NV'], nationwide: false, missingStates: [], partialStates: [] });
-    expect(plain.summary).toBe(`Based on 27 federal awards within 120 mi of ZIP 89191, 2025-03-18 to 2026-08-21. ${AMOUNT}`);
+    // Then the REAL lookup (src/geo/zip.ts): 120 miles from Las Vegas reaches Arizona, California and Utah,
+    // none of them pulled, from Nellis (89191) and from downtown (89101) alike.
+    for (const zip of ['89191', '89101']) {
+      const plain = (await app.inject(`/api/market/awards?zip=${zip}&radiusMi=120`)).json();
+      expect(plain.scope.coverage, zip).toEqual({ states: ['NV'], nationwide: false, missingStates: ['AZ', 'CA', 'UT'], partialStates: [] });
+      expect(plain.summary, zip).toBe(`Based on 27 federal awards within 120 mi of ZIP ${zip}, 2025-03-18 to 2026-08-21. ${AMOUNT}`
+        + ' Awards in Arizona, California, Utah are not loaded, so they are left out.');
+    }
   });
 
   it('a nationwide pull loads every state, and only then is "in the United States" used', async () => {
@@ -343,7 +350,7 @@ describe('GET /api/market/awards: plans', () => {
       stats: { count: 27 },
       scope: {
         level: 'zip_radius', label: 'within 50 mi of ZIP 89191', naics: ['238210'], months: 24, window: { from: '2024-11-11', to: '2026-11-11' }, radiusMi: 50,
-        coverage: { states: ['NV'], nationwide: false, missingStates: [], partialStates: [] },
+        coverage: { states: ['NV'], nationwide: false, missingStates: ['AZ'], partialStates: [] }, // 50 mi reaches Arizona
       },
       dateRange: { from: '2025-03-18', to: '2026-08-21' },
       source: expect.objectContaining({ name: 'USAspending.gov' }),
@@ -491,7 +498,7 @@ describe('GET /api/market/area', () => {
       const app2 = Fastify();
       apps.push(app2);
       const ctx = createContext({ db: empty, config: loadConfig({}), bus: createBus(), auth: fakeAuth(null), profile: pilot, now: () => NOW });
-      await register(app2, ctx, { lookupZip: realZip });
+      await register(app2, ctx);
       const body = (await app2.inject('/api/market/area?zip=89410')).json();
       expect(body).toMatchObject({ wages: [], materials: [], accessed: null, missing: ['No wage data has been loaded yet.', 'No material price indexes have been loaded yet.'] });
       expect(body.disclaimer).toBe('BLS.gov cannot vouch for the data or analyses derived from these data after the data have been retrieved from BLS.gov.');

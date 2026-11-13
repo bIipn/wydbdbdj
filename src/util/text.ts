@@ -5,6 +5,16 @@ export function clean(s: string | null | undefined): string {
   return (s ?? '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
 }
 
+/**
+ * Undo one leftover layer of HTML escaping. Some boards escape a value twice: NGEM serves
+ * "Customer Portal &amp;amp; AMI Technology", which reads "Customer Portal &amp; AMI Technology" even
+ * in a browser. Call it on text that has already been through the HTML parser once.
+ */
+export function unescapeLeftover(s: string): string {
+  const named: Record<string, string> = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", '#39': "'" };
+  return s.replace(/&(amp|lt|gt|quot|apos|#39);/g, (_, e: string) => named[e]!);
+}
+
 /** Empty string → null, otherwise the cleaned string. */
 export function cleanOrNull(s: string | null | undefined): string | null {
   const c = clean(s);

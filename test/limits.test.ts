@@ -10,7 +10,7 @@ import { BOND_NOTE, parseBidBondPct, scoreBid, scoreFit } from '../src/score/sco
 import { parseDouglasRfp } from '../src/sources/douglascounty.js';
 import { parseQuestJson, QUEST_BOARDS } from '../src/sources/questcdn.js';
 import type { Bid, Profile, Reason, SpendLimits } from '../src/types.js';
-import { fx, NOW, testBid, testProfile } from './helpers.js';
+import { CAPTURED, fx, NOW, testBid, testProfile } from './helpers.js';
 
 const pilot = loadProfile('lm-electric'); // has no limits
 const withLimits = (limits: SpendLimits | undefined): Profile => testProfile('test-limits', { limits });
@@ -228,18 +228,27 @@ describe('parseBidBondPct', () => {
   });
 });
 
-describe('real notices (Douglas County, captured 2026-11-11)', () => {
-  const bids = parseDouglasRfp(fx('douglas-rfp.html'), { includeClosed: true }).map(finalizeBid);
+describe('real notices (Douglas County, captured 2026-11-13)', () => {
+  // The raw page has no Open/Close stamps, so the parser needs the capture day to tell them apart.
+  const bids = parseDouglasRfp(fx('douglas-rfp.html'), { includeClosed: true, now: CAPTURED }).map(finalizeBid);
   const plc = bids.find((b) => b.id === 'douglascounty:jobs_peak_w_t_p_p_l_c_replacement_project')!;
   // These three are closed, so score them the week their ads ran.
   const then = new Date('2026-07-01T20:00:00Z');
 
-  it('reads the 5% bid bond out of the real legal ads', () => {
+  it('reads the 5% bid bond out of the real legal ads, and guesses nothing from a bare "Bid Bond" form', () => {
     const bonded = bids.filter((b) => b.flags.includes('Bid bond'));
-    expect(bonded).toHaveLength(3);
-    for (const b of bonded) {
-      expect(b.description).toMatch(/Bid Bond in an amount not less than five percent \(5%\) of the bid/);
-      expect(parseBidBondPct(b.description), b.title).toBe(5);
+    expect(bonded).toHaveLength(5);
+    // Two ads state the figure (the Jobs Peak PLC job and the Walley's / Genoa Lakes electrical work)…
+    const stated = bonded.filter((b) => /Bid Bond in an amount not less than five percent \(5%\) of the bid/.test(b.description ?? ''));
+    expect(stated.map((b) => b.id)).toEqual([
+      'douglascounty:jobs_peak_w_t_p_p_l_c_replacement_project',
+      'douglascounty:electrical_improvements_at_walley_s___genoa_lakes',
+    ]);
+    for (const b of stated) expect(parseBidBondPct(b.description), b.title).toBe(5);
+    // …the other three only list a "Bid Bond.doc" among the bid documents: no percentage to read.
+    for (const b of bonded.filter((x) => !stated.includes(x))) {
+      expect(b.description, b.title).toMatch(/Bid Bond\.(doc|pdf)/);
+      expect(parseBidBondPct(b.description), b.title).toBeNull();
     }
   });
 
@@ -264,7 +273,8 @@ describe('real notices (Douglas County, captured 2026-11-11)', () => {
     const quest = parseQuestJson(JSON.parse(fx('questcdn-spwd.json')), QUEST_BOARDS[0]!).map(finalizeBid);
     expect(pilot.limits).toBeUndefined();
     for (const b of [...quest, ...bids]) expect(scoreBid(b, pilot, NOW), b.id).toEqual(scoreFit(b, pilot, NOW));
-    // The v0 scores for the 13 State Public Works bids, in board order.
+    // The v0 scores for the 13 State Public Works bids, in board order, on the day that JSON was captured
+    // (2026-11-11 = NOW; it is the one fixture the 2026-11-13 re-capture did not replace).
     expect(quest.map((b) => scoreBid(b, pilot, NOW).score)).toEqual([7, 7, 7, 77, 40, 82, 27, 2, 53, 53, 0, 0, 7]);
     // No estimates on that board, so even a $1 limit changes nothing there.
     const strict = testProfile('lm-electric', { limits: { maxJobSize: 1, bondingCapacity: 1 } });

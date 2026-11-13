@@ -508,9 +508,14 @@ export function buildBid(input: BidInput): BidBreakdown {
   validateTiers(ch.tiers);
   let tiers = ch.tiers;
   let bondApplied = ch.tiers.length > 0;
+  // spec 2.13 'auto' + 4.2: the trigger applies to the contract price C, which is the price actually bid (2.14),
+  // so the no-bond price is rounded the same way before the test (spec issue: 2.13 is silent on rounding).
+  const bondNeededAt = (Sx: Cents): boolean => {
+    const pNoBond = grossUp(Sx, ch, []).P;
+    return ch.bondRequiredAuto!(input.bidRoundingUnit !== undefined ? bidRounding(pNoBond, input.bidRoundingUnit) : pNoBond);
+  };
   if (ch.bondRequiredAuto) {
-    const pNoBond = grossUp(SnoFin, ch, []).P;
-    bondApplied = ch.bondRequiredAuto(pNoBond);
+    bondApplied = bondNeededAt(SnoFin);
     if (!bondApplied) tiers = [];
   }
 
@@ -523,6 +528,13 @@ export function buildBid(input: BidInput): BidBreakdown {
     assumptions.push({ id: 'A-20', text: 'financing cost placed after profit, computed in one pass', value: `${FIN} cents` });
   }
   const S = total('S', 'Price before price-based charges', toCents(BigInt(SnoFin) + BigInt(FIN), 'S'), '2.12 S = BE + PR + FIN');
+  // spec 2.13 + 2.12: P_nobond is the price on S, and S includes FIN, so decide again once FIN is in.
+  // FIN >= 0 and grossUp is monotone, so the decision can only change from no bond to bond. FIN itself stays the
+  // one-pass figure at the price without FIN (A-20).
+  if (ch.bondRequiredAuto && !bondApplied && FIN > 0 && bondNeededAt(S)) {
+    bondApplied = true;
+    tiers = ch.tiers;
+  }
 
   // 2.13 fixed point
   const gu = grossUp(S, ch, tiers);

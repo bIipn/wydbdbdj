@@ -185,7 +185,7 @@ describe('accounts mode', () => {
     const me = (await app.inject('/api/me')).json();
     expect(me).toEqual({
       account: who, profile: null, needsOnboarding: true,
-      features: { instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: true },
+      features: { instantPush: false, awardHistory: false, costSettings: false, awardWatch: false, priceAlerts: false, estimator: false },
     });
     for (const url of ['/api/feed', '/api/saved', '/api/next']) {
       const res = await app.inject(url);

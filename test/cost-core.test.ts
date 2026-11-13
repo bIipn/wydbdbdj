@@ -1235,6 +1235,32 @@ describe('supporting checks (sections 2.3, 2.11 to 2.15)', () => {
     expect(bond.bondApplied).toBe(true);
     expect(bond.totals.premium).toBeGreaterThan(0);
   });
+  test("61 2.13 + 2.12: bond 'auto' is decided on S including FIN (FIN lifts the no-bond price over the trigger)", () => {
+    const base = i1Input();
+    // without FIN the no-bond price is 4,912,575; FIN 12,345 lifts S to 4,895,445 and the no-bond price above 4,915,000
+    const auto = (pp: number) => pp > 4_915_000;
+    const b = buildBid({ ...base, financing: { include: true, amount: c(12_345) }, charges: { ...base.charges, tiers: CLASS_B, bondRequiredAuto: auto } });
+    expect(b.bondApplied).toBe(true);
+    expect(b.totals.premium).toBeGreaterThan(0);
+    expect(b.totals.P).toBe(grossUp(c(4_895_445), { ...base.charges, tiers: CLASS_B }, CLASS_B).P);
+    // just below the trigger with FIN: no bond
+    const lo = buildBid({ ...base, financing: { include: true, amount: c(12_345) }, charges: { ...base.charges, tiers: CLASS_B, bondRequiredAuto: (pp) => pp > 10_000_000 } });
+    expect(lo.bondApplied).toBe(false);
+  });
+  test("61 2.13 + 2.14 + 4.2: bond 'auto' tests the contract price as bid (rounding can cross the trigger)", () => {
+    const base = i1Input();
+    // P_nobond 4,912,575 <= 4,915,000 < P_bid 4,920,000 with a 300-dollar unit (does not divide the threshold)
+    const auto = (pp: number) => pp > 4_915_000;
+    const b = buildBid({ ...base, bidRoundingUnit: c(30_000), charges: { ...base.charges, tiers: CLASS_B, bondRequiredAuto: auto } });
+    expect(b.bondApplied).toBe(true);
+    expect(b.totals.premium).toBeGreaterThan(0);
+    expect(auto(b.totals.Pbid)).toBe(true);
+    // a unit that divides the threshold cannot cross it: still no bond
+    const u = buildBid({ ...base, bidRoundingUnit: c(5_000), charges: { ...base.charges, tiers: CLASS_B, bondRequiredAuto: auto } });
+    expect(u.totals.Pbid).toBe(4_915_000);
+    expect(u.bondApplied).toBe(false);
+    expect(u.totals.premium).toBe(0);
+  });
   test('bid items through the build-up; assumptions are surfaced when defaults are used', () => {
     const base = i1Input();
     const { smallToolsPpm: _st, contingencyPpm: _c, ...rest } = base;

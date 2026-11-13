@@ -1,0 +1,618 @@
+{
+ "_about": {
+  "what": "REAL response from the BLS Public Data API v1 (no key), startyear 2025 / endyear 2026: status is REQUEST_SUCCEEDED although one series does not exist (PCU335122335122) and one has no data in either year (PCU335311335311G). OEWS series carry a \"No Data Available ... 2026\" message next to their 2025 value.",
+  "url": "POST https://api.bls.gov/publicAPI/v1/timeseries/data/",
+  "capturedUtc": "2026-11-13T02:32Z",
+  "trimming": "The request asked for 25 series; Results.series keeps these 13 complete: WPUSI019011, WPU057303, PCU335311335311G, PCU335122335122, OEUS480000000000047211103, OEUM003562000000047211103, OEUM003990000000047101103, OEUM003990000000047301303, OEUM003990000000047211113, OEUM003990000000047211101, OEUM320000600000047211106, OEUM320000600000047211110, OEUM320000600000047215203. status, responseTime and message are as returned."
+ },
+ "request": {
+  "seriesid": [
+   "WPUSI019011",
+   "WPU102502",
+   "WPU101706",
+   "WPU057303",
+   "PCU335311335311",
+   "PCU335311335311G",
+   "PCU236222236222",
+   "PCU236223236223",
+   "PCU236221236221",
+   "PCU236211236211",
+   "PCU236224236224",
+   "PCU331420331420A",
+   "PCU335122335122",
+   "PCU335132335132",
+   "PCU335931335931",
+   "WPU1173",
+   "OEUS480000000000047211103",
+   "OEUM003562000000047211103",
+   "OEUM003990000000047101103",
+   "OEUM003990000000047301303",
+   "OEUM003990000000047211113",
+   "OEUM003990000000047211101",
+   "OEUM320000600000047211106",
+   "OEUM320000600000047211110",
+   "OEUM320000600000047215203"
+  ],
+  "startyear": "2025",
+  "endyear": "2026"
+ },
+ "response": {
+  "status": "REQUEST_SUCCEEDED",
+  "responseTime": 124,
+  "message": [
+   "No Data Available for Series OEUS480000000000047211103 Year: 2026",
+   "No Data Available for Series OEUM003562000000047211103 Year: 2026",
+   "Series does not exist for Series PCU335122335122",
+   "No Data Available for Series OEUM003990000000047101103 Year: 2026",
+   "No Data Available for Series OEUM003990000000047211101 Year: 2026",
+   "No Data Available for Series OEUM003990000000047211113 Year: 2026",
+   "No Data Available for Series OEUM003990000000047301303 Year: 2026",
+   "No Data Available for Series OEUM320000600000047211106 Year: 2026",
+   "No Data Available for Series OEUM320000600000047211110 Year: 2026",
+   "No Data Available for Series OEUM320000600000047215203 Year: 2026",
+   "No Data Available for Series PCU335311335311G Year: 2025",
+   "No Data Available for Series PCU335311335311G Year: 2026"
+  ],
+  "Results": {
+   "series": [
+    {
+     "seriesID": "WPUSI019011",
+     "data": [
+      {
+       "year": "2026",
+       "period": "M09",
+       "periodName": "September",
+       "latest": "true",
+       "value": "809.454",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M08",
+       "periodName": "August",
+       "value": "802.927",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M07",
+       "periodName": "July",
+       "value": "774.554",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M06",
+       "periodName": "June",
+       "value": "766.088",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M05",
+       "periodName": "May",
+       "value": "776.537",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M04",
+       "periodName": "April",
+       "value": "744.532",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M03",
+       "periodName": "March",
+       "value": "733.429",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M02",
+       "periodName": "February",
+       "value": "709.573",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M01",
+       "periodName": "January",
+       "value": "712.076",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M12",
+       "periodName": "December",
+       "value": "658.833",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M11",
+       "periodName": "November",
+       "value": "632.545",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M10",
+       "periodName": "October",
+       "value": "611.849",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M09",
+       "periodName": "September",
+       "value": "564.284",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M08",
+       "periodName": "August",
+       "value": "601.081",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M07",
+       "periodName": "July",
+       "value": "609.904",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M06",
+       "periodName": "June",
+       "value": "599.068",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M05",
+       "periodName": "May",
+       "value": "584.529",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M04",
+       "periodName": "April",
+       "value": "585.297",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M03",
+       "periodName": "March",
+       "value": "583.964",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M02",
+       "periodName": "February",
+       "value": "568.097",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M01",
+       "periodName": "January",
+       "value": "562.640",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "WPU057303",
+     "data": [
+      {
+       "year": "2026",
+       "period": "M09",
+       "periodName": "September",
+       "latest": "true",
+       "value": "675.626",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M08",
+       "periodName": "August",
+       "value": "543.930",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M07",
+       "periodName": "July",
+       "value": "463.725",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M06",
+       "periodName": "June",
+       "value": "475.571",
+       "footnotes": [
+        {
+         "code": "P",
+         "text": "Preliminary. All indexes are subject to monthly revisions up to four months after original publication."
+        }
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M05",
+       "periodName": "May",
+       "value": "581.230",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M04",
+       "periodName": "April",
+       "value": "494.104",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M03",
+       "periodName": "March",
+       "value": "437.312",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M02",
+       "periodName": "February",
+       "value": "315.983",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2026",
+       "period": "M01",
+       "periodName": "January",
+       "value": "266.645",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M12",
+       "periodName": "December",
+       "value": "273.099",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M11",
+       "periodName": "November",
+       "value": "331.580",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M10",
+       "periodName": "October",
+       "value": "298.930",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M09",
+       "periodName": "September",
+       "value": "313.893",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M08",
+       "periodName": "August",
+       "value": "307.151",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M07",
+       "periodName": "July",
+       "value": "316.858",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M06",
+       "periodName": "June",
+       "value": "286.957",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M05",
+       "periodName": "May",
+       "value": "288.363",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M04",
+       "periodName": "April",
+       "value": "287.438",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M03",
+       "periodName": "March",
+       "value": "290.379",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M02",
+       "periodName": "February",
+       "value": "312.948",
+       "footnotes": [
+        {}
+       ]
+      },
+      {
+       "year": "2025",
+       "period": "M01",
+       "periodName": "January",
+       "value": "305.530",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "PCU335311335311G",
+     "data": []
+    },
+    {
+     "seriesID": "PCU335122335122",
+     "data": []
+    },
+    {
+     "seriesID": "OEUS480000000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "28.50",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003562000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "42.63",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047101103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "42.17",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047301303",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "21.56",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047211113",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "72800",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047211101",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "1490",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047211106",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "22.57",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047211110",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "58.25",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047215203",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "35.58",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

@@ -32,6 +32,7 @@ export interface Bid {
   setAside: string | null; // SAM.gov set-aside code, e.g. "SBA", "SDVOSBC"
   url: string; // where the contractor goes to bid (the source platform)
   flags: string[]; // e.g. "Bid bond", "Prevailing wage", "Mandatory pre-bid"
+  solNumber?: string | null; // solicitation / bid number when the source has one
 }
 
 /** What a source hands back before location resolution fills in lat/lng. */
@@ -93,6 +94,37 @@ export interface Profile {
   /** SAM.gov set-aside codes this business qualifies for. Others get a penalty. */
   setAsidesEligible: string[];
   notify: { minScore: number };
+  // ---- v1 (all optional, so config/<id>.json profiles stay valid) ----
+  /** Trade ids from src/trades/catalog.ts, e.g. ['electrical']. */
+  trades?: string[];
+  /** Home ZIP the base was resolved from. */
+  zip?: string;
+  limits?: SpendLimits;
+  costs?: CostSettings;
+  alerts?: AlertSettings;
+}
+
+/** "Never chase work you can't carry." Dollars; null/absent = no limit set. */
+export interface SpendLimits {
+  maxJobSize?: number | null; // est. value above this = over limit
+  maxUpfront?: number | null; // what they can float before the first pay app (used by the estimator)
+  bondingCapacity?: number | null; // single-job bonding limit (applies when a bond is required)
+}
+
+/** The contractor's own numbers. We never invent these. */
+export interface CostSettings {
+  laborRate?: number | null; // $/hr they pay or charge out, before burden
+  burdenPct?: number | null; // payroll burden %
+  overheadPct?: number | null;
+  profitPct?: number | null;
+}
+
+export interface AlertSettings {
+  minScore?: number; // default: profile.notify.minScore
+  push?: boolean; // wants phone push
+  quietHours?: { start: string; end: string } | null; // "21:00".."06:00" in timeZone
+  timeZone?: string; // IANA, default America/Los_Angeles
+  kinds?: { match?: boolean; deadline?: boolean; award?: boolean; price?: boolean };
 }
 
 export type ReasonKind = 'plus' | 'minus' | 'info';
@@ -109,6 +141,8 @@ export interface ScoreResult {
   reasons: Reason[];
   distanceMi: number | null;
   rejected: string | null; // set when the bid is a hard "no" (too far, past due, not our trade)
+  /** Over the profile's spend limits (job size or bonding). False when no limits are set. */
+  overLimit: boolean;
 }
 
 export type SwipeAction = 'save' | 'pass' | 'bid';
@@ -121,4 +155,62 @@ export interface FeedItem extends Bid {
   distanceMi: number | null;
   swipe: SwipeAction | null;
   firstSeenAt: string;
+  /** Never alerted, never in the deck or "next bid"; Browse shows it with an "Over your limit" tag. */
+  overLimit: boolean;
+}
+
+// --------------------------------------------------------------- accounts --
+
+export type Plan = 'free' | 'pro' | 'pilot';
+
+export interface Account {
+  id: string;
+  email: string;
+  name: string | null;
+  plan: Plan;
+  createdAt: string; // ISO-8601 (UTC)
+}
+
+// ----------------------------------------------------------------- alerts --
+
+export type AlertKind = 'match' | 'deadline' | 'award' | 'price';
+
+/** One row of the in-app inbox (table `alerts`). Unique on (profileId, kind, dedupeKey). */
+export interface Alert {
+  id: number;
+  profileId: string;
+  kind: AlertKind;
+  bidId: string | null;
+  dedupeKey: string;
+  title: string;
+  body: string;
+  data: Record<string, unknown>;
+  createdAt: string;
+  pushedAt: string | null;
+  readAt: string | null;
+}
+
+// ----------------------------------------------------------------- market --
+
+/** A real awarded contract (table `awards`). Values are stored verbatim from the source. */
+export interface Award {
+  id: string; // `${source}:${awardId}`
+  source: string; // e.g. "usaspending"
+  awardId: string | null;
+  solNumber: string | null;
+  recipient: string | null;
+  amount: number | null;
+  actionDate: string | null; // YYYY-MM-DD
+  naics: string | null;
+  psc: string | null;
+  agency: string | null;
+  description: string | null;
+  city: string | null;
+  county: string | null;
+  state: string | null;
+  zip: string | null;
+  lat: number | null;
+  lng: number | null;
+  url: string | null;
+  fetchedAt: string;
 }

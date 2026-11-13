@@ -1,0 +1,50 @@
+{
+ "_about": {
+  "what": "REAL response from the USAspending API: how many awards match (NAICS 238210, Nevada, new awards 2024-11-13..2026-11-13).",
+  "url": "POST https://api.usaspending.gov/api/v2/search/spending_by_award_count/",
+  "capturedUtc": "2026-11-13T02:20Z",
+  "trimming": "none"
+ },
+ "request": {
+  "filters": {
+   "award_type_codes": [
+    "A",
+    "B",
+    "C",
+    "D"
+   ],
+   "naics_codes": {
+    "require": [
+     "238210"
+    ]
+   },
+   "place_of_performance_locations": [
+    {
+     "country": "USA",
+     "state": "NV"
+    }
+   ],
+   "time_period": [
+    {
+     "start_date": "2024-11-13",
+     "end_date": "2026-11-13",
+     "date_type": "new_awards_only"
+    }
+   ]
+  }
+ },
+ "response": {
+  "results": {
+   "contracts": 36,
+   "direct_payments": 0,
+   "grants": 0,
+   "idvs": 0,
+   "loans": 0,
+   "other": 0
+  },
+  "spending_level": "awards",
+  "messages": [
+   "For searches, time period start and end dates are currently limited to an earliest date of 2007-10-01.  For data going back to 2000-10-01, use either the Custom Award Download feature on the website or one of our download or bulk_download API endpoints as listed on https://api.usaspending.gov/docs/endpoints. "
+  ]
+ }
+}

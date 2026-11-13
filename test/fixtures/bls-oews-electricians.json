@@ -1,0 +1,472 @@
+{
+ "_about": {
+  "what": "REAL response from the BLS Public Data API v1 (no key): OEWS wages for Electricians (47-2111), May 2025 survey: hourly mean (03), hourly median (08) and annual mean (04) for Nevada, Reno, Las Vegas, Carson City, California, Sacramento, the nation and Balance of Nevada, plus national employment (01). Sent with no year range, so BLS added \"No Data Available\" messages for 2023 and 2024.",
+  "url": "POST https://api.bls.gov/publicAPI/v1/timeseries/data/",
+  "capturedUtc": "2026-11-13T02:29Z",
+  "trimming": "none"
+ },
+ "request": {
+  "seriesid": [
+   "OEUS320000000000047211103",
+   "OEUS320000000000047211108",
+   "OEUS320000000000047211104",
+   "OEUM003990000000047211103",
+   "OEUM003990000000047211108",
+   "OEUM003990000000047211104",
+   "OEUM002982000000047211103",
+   "OEUM002982000000047211108",
+   "OEUM002982000000047211104",
+   "OEUM001618000000047211103",
+   "OEUM001618000000047211108",
+   "OEUM001618000000047211104",
+   "OEUS060000000000047211103",
+   "OEUS060000000000047211108",
+   "OEUS060000000000047211104",
+   "OEUM004090000000047211103",
+   "OEUM004090000000047211108",
+   "OEUM004090000000047211104",
+   "OEUN000000000000047211103",
+   "OEUN000000000000047211108",
+   "OEUN000000000000047211104",
+   "OEUM320000600000047211103",
+   "OEUM320000600000047211108",
+   "OEUM320000600000047211104",
+   "OEUN000000000000047211101"
+  ]
+ },
+ "response": {
+  "status": "REQUEST_SUCCEEDED",
+  "responseTime": 169,
+  "message": [
+   "No Data Available for Series OEUS320000000000047211103 Year: 2023",
+   "No Data Available for Series OEUS320000000000047211103 Year: 2024",
+   "No Data Available for Series OEUS320000000000047211108 Year: 2023",
+   "No Data Available for Series OEUS320000000000047211108 Year: 2024",
+   "No Data Available for Series OEUM003990000000047211103 Year: 2023",
+   "No Data Available for Series OEUM003990000000047211103 Year: 2024",
+   "No Data Available for Series OEUM003990000000047211108 Year: 2023",
+   "No Data Available for Series OEUM003990000000047211108 Year: 2024",
+   "No Data Available for Series OEUM002982000000047211103 Year: 2023",
+   "No Data Available for Series OEUM002982000000047211103 Year: 2024",
+   "No Data Available for Series OEUM002982000000047211108 Year: 2023",
+   "No Data Available for Series OEUM002982000000047211108 Year: 2024",
+   "No Data Available for Series OEUM001618000000047211103 Year: 2023",
+   "No Data Available for Series OEUM001618000000047211103 Year: 2024",
+   "No Data Available for Series OEUS060000000000047211103 Year: 2023",
+   "No Data Available for Series OEUS060000000000047211103 Year: 2024",
+   "No Data Available for Series OEUS060000000000047211108 Year: 2023",
+   "No Data Available for Series OEUS060000000000047211108 Year: 2024",
+   "No Data Available for Series OEUS060000000000047211104 Year: 2023",
+   "No Data Available for Series OEUS060000000000047211104 Year: 2024",
+   "No Data Available for Series OEUM004090000000047211103 Year: 2023",
+   "No Data Available for Series OEUM004090000000047211103 Year: 2024",
+   "No Data Available for Series OEUM004090000000047211108 Year: 2023",
+   "No Data Available for Series OEUM004090000000047211108 Year: 2024",
+   "No Data Available for Series OEUM004090000000047211104 Year: 2023",
+   "No Data Available for Series OEUM004090000000047211104 Year: 2024",
+   "No Data Available for Series OEUN000000000000047211103 Year: 2023",
+   "No Data Available for Series OEUN000000000000047211103 Year: 2024",
+   "No Data Available for Series OEUN000000000000047211108 Year: 2023",
+   "No Data Available for Series OEUN000000000000047211108 Year: 2024",
+   "No Data Available for Series OEUN000000000000047211104 Year: 2023",
+   "No Data Available for Series OEUN000000000000047211104 Year: 2024",
+   "No Data Available for Series OEUN000000000000047211101 Year: 2023",
+   "No Data Available for Series OEUN000000000000047211101 Year: 2024",
+   "No Data Available for Series OEUM001618000000047211104 Year: 2023",
+   "No Data Available for Series OEUM001618000000047211104 Year: 2024",
+   "No Data Available for Series OEUM001618000000047211108 Year: 2023",
+   "No Data Available for Series OEUM001618000000047211108 Year: 2024",
+   "No Data Available for Series OEUM002982000000047211104 Year: 2023",
+   "No Data Available for Series OEUM002982000000047211104 Year: 2024",
+   "No Data Available for Series OEUM003990000000047211104 Year: 2023",
+   "No Data Available for Series OEUM003990000000047211104 Year: 2024",
+   "No Data Available for Series OEUM320000600000047211103 Year: 2023",
+   "No Data Available for Series OEUM320000600000047211103 Year: 2024",
+   "No Data Available for Series OEUM320000600000047211104 Year: 2023",
+   "No Data Available for Series OEUM320000600000047211104 Year: 2024",
+   "No Data Available for Series OEUM320000600000047211108 Year: 2023",
+   "No Data Available for Series OEUM320000600000047211108 Year: 2024",
+   "No Data Available for Series OEUS320000000000047211104 Year: 2023",
+   "No Data Available for Series OEUS320000000000047211104 Year: 2024"
+  ],
+  "Results": {
+   "series": [
+    {
+     "seriesID": "OEUS320000000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "36.40",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUS320000000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "35.37",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUS320000000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "75710",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "35.20",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "35.00",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM003990000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "73210",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM002982000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "36.16",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM002982000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "34.08",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM002982000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "75210",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM001618000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "40.86",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM001618000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "39.36",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM001618000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "85000",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUS060000000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "41.28",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUS060000000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "36.62",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUS060000000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "85860",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM004090000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "38.40",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM004090000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "35.98",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM004090000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "79870",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUN000000000000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "34.37",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUN000000000000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "30.38",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUN000000000000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "71490",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047211103",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "38.81",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047211108",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "38.42",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUM320000600000047211104",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "80730",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    },
+    {
+     "seriesID": "OEUN000000000000047211101",
+     "data": [
+      {
+       "year": "2025",
+       "period": "A01",
+       "periodName": "Annual",
+       "latest": "true",
+       "value": "757220",
+       "footnotes": [
+        {}
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ }
+}

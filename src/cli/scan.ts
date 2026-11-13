@@ -6,7 +6,7 @@
  * With the embedded database, stop the server first (only one process can open it),
  * or call POST /api/admin/scan on the running server instead.
  */
-import { buildDeps } from '../app.js';
+import { buildDeps, scanProfiles } from '../app.js';
 import { env, loadEnv } from '../env.js';
 import { getFeed } from '../db/repo.js';
 import { sendDigest } from '../notify/send.js';
@@ -31,31 +31,38 @@ const deps = await buildDeps().catch((err: Error) => {
 
 try {
   const sources = args.has('fixtures') ? fixtureSources() : args.has('source') ? selectSources(args.get('source')) : deps.sources;
-  const report = await runScan({ db: deps.db, sources, profiles: [deps.profile], ctx: deps.makeCtx() });
+  const report = await runScan({ db: deps.db, sources, profiles: scanProfiles(deps), ctx: deps.makeCtx() });
 
   console.log('\nSources');
   for (const [id, r] of Object.entries(report.sources)) {
     const status = r.skipped ? `skipped — ${r.skipped}` : r.ok ? `${r.fetched} bids in ${r.ms} ms` : `FAILED — ${r.error}`;
     console.log(`  ${id.padEnd(14)} ${status}`);
   }
-  const p = report.profiles[deps.profile.id];
   console.log(`\n${report.totalBids} open bids (${report.newBids} new).`);
-  if (p) console.log(`${deps.profile.name}: great ${p.byVerdict.great} · good ${p.byVerdict.good} · maybe ${p.byVerdict.maybe} · skip ${p.byVerdict.skip}`);
-
-  const top = await getFeed(deps.db, deps.profile.id, { minScore: 35, limit: 10 });
-  if (top.length) {
-    console.log('\nTop matches');
-    for (const b of top) {
-      console.log(`  ${String(b.score).padStart(3)}  ${b.title.slice(0, 64).padEnd(64)}  ${b.distanceMi ?? '?'} mi`);
-    }
+  for (const [id, p] of Object.entries(report.profiles)) {
+    const name = id === deps.profile?.id ? deps.profile.name : id;
+    console.log(p.error
+      ? `${name}: FAILED — ${p.error}`
+      : `${name}: great ${p.byVerdict.great} · good ${p.byVerdict.good} · maybe ${p.byVerdict.maybe} · skip ${p.byVerdict.skip}`);
   }
 
-  if (!args.has('no-notify')) {
-    await sendDigest(deps.db, deps.profile, {
-      resendApiKey: env('RESEND_API_KEY'), from: env('DIGEST_FROM'),
-      to: (env('DIGEST_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
-      appUrl: env('APP_URL') ?? 'http://localhost:8787',
-    });
+  // Top matches and the emailed digest are the pilot's (single mode); accounts read theirs in the app.
+  if (deps.profile) {
+    const top = await getFeed(deps.db, deps.profile.id, { minScore: 35, limit: 10 });
+    if (top.length) {
+      console.log('\nTop matches');
+      for (const b of top) {
+        console.log(`  ${String(b.score).padStart(3)}  ${b.title.slice(0, 64).padEnd(64)}  ${b.distanceMi ?? '?'} mi`);
+      }
+    }
+
+    if (!args.has('no-notify')) {
+      await sendDigest(deps.db, deps.profile, {
+        resendApiKey: env('RESEND_API_KEY'), from: env('DIGEST_FROM'),
+        to: (env('DIGEST_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
+        appUrl: deps.config.appUrl,
+      });
+    }
   }
   if (args.has('json')) console.log(JSON.stringify(report, null, 2));
 } finally {

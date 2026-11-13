@@ -1,0 +1,75 @@
+{
+  "_about": "Owner-maintained. Typed in from the Nevada Labor Commissioner's 2026-2027 prevailing wage PDFs (Amendment #01), read on 2026-11-13. Nobody on the owner's side has compared these numbers with the PDFs yet: checkedBy stays null until someone does. When the state posts a new amendment, update the rates, editionLabel, effectiveFrom and the source links, then set checkedBy and checkedAt.",
+  "jurisdiction": "NV",
+  "jurisdictionName": "Nevada",
+  "editionLabel": "Nevada 2026-2027 prevailing wage rates, Amendment #01",
+  "determinationDate": "2026-10-01",
+  "effectiveFrom": "2026-10-13",
+  "effectiveTo": "2027-09-30",
+  "effectiveNote": "Front page of the PDFs: applicable for public works projects over $100,000 bid/awarded October 1, 2026 through September 30, 2027. The state amends rates mid-cycle; a newer amendment replaces this one.",
+  "thresholdUsd": 100000,
+  "thresholdNote": "From the PDF front page (\"public works projects over $100,000\"). NRS 338.080 itself has not been read by us, so user copy keeps the word \"normally\".",
+  "sourceIndexUrl": "https://labor.nv.gov/PrevailingWage/2026-2027_Prevailing_Wages/",
+  "retrievedOn": "2026-11-13",
+  "checkedBy": null,
+  "checkedAt": null,
+  "regions": [
+    {
+      "code": "WASHOE",
+      "name": "Washoe County Region",
+      "counties": ["Washoe"],
+      "sourceUrl": "https://labor.nv.gov/uploadedFiles/labornvgov/content/PrevailingWage/Washoe%20County%20Region%202026-2027-Amendment%2001.pdf",
+      "sourcePage": 15
+    },
+    {
+      "code": "NORTHERN_RURAL",
+      "name": "Northern Nevada Rural Region",
+      "counties": ["Carson City", "Churchill", "Douglas", "Elko", "Eureka", "Humboldt", "Lander", "Lyon", "Mineral", "Storey", "Pershing", "White Pine"],
+      "sourceUrl": "https://labor.nv.gov/uploadedFiles/labornvgov/content/PrevailingWage/Northern%20Nevada%20Rural%20Region%202026-2027-Amendment%2001.pdf",
+      "sourcePage": 16
+    },
+    {
+      "code": "CLARK",
+      "name": "Clark County Region",
+      "counties": ["Clark"],
+      "sourceUrl": null,
+      "sourcePage": null
+    },
+    {
+      "code": "SOUTHERN_RURAL",
+      "name": "Southern Nevada Rural Region",
+      "counties": ["Esmeralda", "Lincoln", "Nye"],
+      "sourceUrl": null,
+      "sourcePage": null
+    }
+  ],
+  "crafts": [
+    {
+      "craft": "Electrician Wireman",
+      "rateType": "Union Rate",
+      "regionCodes": ["WASHOE", "NORTHERN_RURAL"],
+      "rateBasis": "All-in: the base rate plus all applicable fringes, in one number. The PDF gives no base / fringe split.",
+      "rates": [
+        { "classification": "Wireman", "totalHourly": 83.81, "basicHourly": null, "fringeHourly": null },
+        { "classification": "Wireman-Cable Splicer", "totalHourly": 91.61, "basicHourly": null, "fringeHourly": null },
+        { "classification": "Wireman Foreman", "totalHourly": 91.61, "basicHourly": null, "fringeHourly": null },
+        { "classification": "Wireman General Foreman", "totalHourly": 96.81, "basicHourly": null, "fringeHourly": null }
+      ],
+      "zoneAdders": {
+        "measuredFrom": {
+          "label": "Washoe County Courthouse, Reno, Nevada",
+          "lat": 39.5296,
+          "lng": -119.8138,
+          "pointNote": "Reno town centre from src/geo/places.ts, standing in for the courthouse. The PDF gives no coordinates and says \"miles\" without saying road or straight-line, so any zone we work out is an estimate."
+        },
+        "zones": [
+          { "zone": 1, "fromMi": 0, "toMi": 50, "addPerHour": 0.0 },
+          { "zone": 2, "fromMi": 51, "toMi": 70, "addPerHour": 3.0 },
+          { "zone": 3, "fromMi": 71, "toMi": 90, "addPerHour": 10.0 },
+          { "zone": 4, "fromMi": 91, "toMi": null, "addPerHour": 15.0 }
+        ]
+      },
+      "overtimeNote": "The PDF says overtime and double time are calculated on the base rate of pay, and it does not publish that base rate. Never multiply the all-in rate for overtime."
+    }
+  ]
+}

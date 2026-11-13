@@ -15,19 +15,21 @@ export interface OpenDbOptions {
   url?: string;
   /** PGlite storage directory. "memory://" for throwaway (tests). */
   dataDir?: string;
+  /** PGlite only: start from a data-directory dump (PGlite's dumpDataDir) instead of an empty cluster. */
+  loadDataDir?: Blob;
   sslNoVerify?: boolean;
 }
 
 export async function openDb(opts: OpenDbOptions = {}): Promise<Db> {
-  const db = opts.url ? await openPostgres(opts.url, opts.sslNoVerify) : await openPglite(opts.dataDir);
+  const db = opts.url ? await openPostgres(opts.url, opts.sslNoVerify) : await openPglite(opts.dataDir, opts.loadDataDir);
   await db.exec(SCHEMA_SQL);
   return db;
 }
 
-async function openPglite(dataDir = resolve(process.cwd(), 'data/pglite')): Promise<Db> {
+async function openPglite(dataDir = resolve(process.cwd(), 'data/pglite'), loadDataDir?: Blob): Promise<Db> {
   const { PGlite } = await import('@electric-sql/pglite');
   if (!dataDir.startsWith('memory://')) mkdirSync(dataDir, { recursive: true });
-  const pg = new PGlite(dataDir);
+  const pg = new PGlite(dataDir, { loadDataDir });
   await pg.waitReady;
   return {
     kind: 'pglite',

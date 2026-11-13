@@ -214,5 +214,5 @@ export function scoreBid(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const raw = trade + (dist + value + runway) * factor - penalty;
   const score = rejected ? 0 : Math.max(0, Math.min(100, Math.round(raw)));
   const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...plus, ...minus, ...info] : [...plus, ...minus, ...info];
-  return { score, verdict: verdictFor(score), reasons, distanceMi, rejected };
+  return { score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false };
 }

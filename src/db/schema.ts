@@ -70,4 +70,113 @@ create table if not exists scans (
   finished_at  timestamptz not null,
   report       jsonb not null
 );
+
+-- ---------------------------------------------------------------- v1 --
+-- Sign-in. One account owns one business profile (profiles.account_id).
+create table if not exists accounts (
+  id             text primary key,
+  email          text not null unique,
+  name           text,
+  password_hash  text,                        -- null for OAuth-only accounts
+  plan           text not null default 'free',
+  created_at     timestamptz not null default now(),
+  last_login_at  timestamptz
+);
+
+-- External sign-in identities (e.g. provider "supabase", subject = their user id).
+create table if not exists identities (
+  provider    text not null,
+  subject     text not null,
+  account_id  text not null references accounts(id) on delete cascade,
+  primary key (provider, subject)
+);
+
+-- Cookie sessions. Only a hash of the token is stored.
+create table if not exists sessions (
+  token_hash  text primary key,
+  account_id  text not null references accounts(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  expires_at  timestamptz not null
+);
+
+alter table profiles add column if not exists account_id text references accounts(id) on delete cascade;
+create unique index if not exists profiles_account_idx on profiles (account_id) where account_id is not null;
+alter table bids add column if not exists sol_number text;
+alter table matches add column if not exists over_limit boolean not null default false;
+
+create table if not exists push_subscriptions (
+  endpoint     text primary key,
+  account_id   text not null references accounts(id) on delete cascade,
+  keys         jsonb not null,
+  created_at   timestamptz not null default now(),
+  last_ok_at   timestamptz,
+  fail_count   int not null default 0
+);
+
+-- In-app inbox + de-duplication: nothing is ever alerted twice.
+create table if not exists alerts (
+  id          bigserial primary key,
+  profile_id  text not null references profiles(id) on delete cascade,
+  kind        text not null,
+  bid_id      text,
+  dedupe_key  text not null,
+  title       text not null,
+  body        text not null,
+  data        jsonb not null default '{}'::jsonb,
+  created_at  timestamptz not null default now(),
+  pushed_at   timestamptz,
+  read_at     timestamptz,
+  unique (profile_id, kind, dedupe_key)
+);
+
+-- Real awarded prices, verbatim from the source.
+create table if not exists awards (
+  id           text primary key,
+  source       text not null,
+  award_id     text,
+  sol_number   text,
+  recipient    text,
+  amount       numeric,
+  action_date  date,
+  naics        text,
+  psc          text,
+  agency       text,
+  description  text,
+  city         text,
+  county       text,
+  state        text,
+  zip          text,
+  lat          double precision,
+  lng          double precision,
+  url          text,
+  fetched_at   timestamptz not null default now()
+);
+create index if not exists awards_naics_state_idx on awards (naics, state);
+
+-- Published time series (BLS etc.), verbatim values.
+create table if not exists market_series (
+  series_id  text not null,
+  period     text not null,
+  value      numeric not null,
+  primary key (series_id, period)
+);
+create table if not exists market_series_meta (
+  series_id   text primary key,
+  kind        text not null,
+  title       text not null,
+  area        text,
+  unit        text,
+  source      text not null,
+  source_url  text,
+  fetched_at  timestamptz not null default now()
+);
+
+create table if not exists estimates (
+  id          bigserial primary key,
+  profile_id  text not null references profiles(id) on delete cascade,
+  bid_id      text,
+  inputs      jsonb not null,
+  result      jsonb not null,
+  created_at  timestamptz not null default now()
+);
 `;

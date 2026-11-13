@@ -1,4 +1,4 @@
-import type { Bid, FeedItem, Profile, Reason, ScoreResult, SwipeAction, Verdict } from '../types.js';
+import type { Bid, FeedItem, Profile, Reason, ScoreResult, SourceId, SwipeAction, Verdict } from '../types.js';
 import type { Db } from './db.js';
 
 // --------------------------------------------------------------- bids --
@@ -118,6 +118,8 @@ const FEED_SELECT = `
   join bids b on b.id = m.bid_id
   left join swipes s on s.profile_id = m.profile_id and s.bid_id = m.bid_id`;
 
+export type FeedSort = 'fit' | 'due' | 'near' | 'new' | 'value';
+
 export interface FeedQuery {
   minScore?: number;
   limit?: number;
@@ -125,21 +127,77 @@ export interface FeedQuery {
   includeSwiped?: boolean;
   /** Leave out bids over the profile's spend limits (the swipe deck never shows them). */
   hideOverLimit?: boolean;
+  /** Same idea with a third choice, 'only' (just the over-limit bids). Wins over hideOverLimit when set. */
+  overLimit?: 'include' | 'exclude' | 'only';
+  /** Search words. Every word must appear in the title, agency, description, category, place or bid number; case does not matter. */
+  q?: string;
+  /** Dollars. Keeps bids whose estimate range overlaps [minValue, maxValue]; either end may be left open. */
+  minValue?: number;
+  maxValue?: number;
+  /** Drop bids with no estimate. Without it they are kept, whatever minValue / maxValue say. */
+  hasValue?: boolean;
+  /** Miles from the profile's base. Bids whose distance is unknown are dropped. */
+  maxDistance?: number;
+  /** Deadline no later than this many days from `now`. Bids with no deadline are dropped. */
+  dueWithinDays?: number;
+  sources?: SourceId[];
+  verdicts?: Verdict[];
+  /** Default 'fit'. */
+  sort?: FeedSort;
   now?: Date;
 }
 
-/** Open bids for the swipe deck: best fit first, then soonest deadline. */
+/** Fixed ORDER BY clauses: nothing from a request is ever put into the SQL text. */
+const FEED_ORDER: Record<FeedSort, string> = {
+  fit: 'm.score desc, b.due_at asc nulls last, b.first_seen_at desc', // best fit, then soonest deadline
+  due: 'b.due_at asc nulls last, m.score desc', // soonest deadline; "no deadline" last
+  near: 'm.distance_mi asc nulls last, m.score desc', // closest; unknown distance last
+  new: 'coalesce(b.posted_at, b.first_seen_at) desc, m.score desc', // newest posting (or first sighting when the board gives no date)
+  value: 'coalesce(b.est_max, b.est_min) desc nulls last, m.score desc', // biggest estimate; "not listed" last
+};
+
+/**
+ * What the search box looks through. category and loc_label are there because a board often says
+ * "Electrical" or "Sparks, NV" only in those; source_id is the board's own number, for bids with no
+ * solicitation number.
+ */
+const FEED_SEARCH_TEXT = `concat_ws(' ', b.title, b.agency, b.description, b.category, b.loc_label, b.sol_number, b.source_id)`;
+
+/** Search words → ILIKE patterns, with LIKE's own wildcards (% _ \) in the user's text made literal. */
+function searchPatterns(q: string | undefined): string[] {
+  return (q ?? '').split(/\s+/).filter(Boolean).map((word) => `%${word.replace(/[\\%_]/g, '\\$&')}%`);
+}
+
+/**
+ * Open bids for one profile, filtered and sorted in SQL. The defaults are the swipe deck's:
+ * score ≥ 35, not yet swiped, best fit first, 100 at most.
+ */
 export async function getFeed(db: Db, profileId: string, q: FeedQuery = {}): Promise<FeedItem[]> {
+  const now = q.now ?? new Date();
+  const dueBy = q.dueWithinDays == null ? null : new Date(now.getTime() + q.dueWithinDays * 86_400_000).toISOString();
   const rows = await db.query<FeedRow>(
     `${FEED_SELECT}
      where m.profile_id = $1
        and m.score >= $2
        and (b.due_at is null or b.due_at > $3)
        and ($4::boolean or s.action is null)
-       and not ($6::boolean and m.over_limit)
-     order by m.score desc, b.due_at asc nulls last, b.first_seen_at desc
-     limit $5`,
-    [profileId, q.minScore ?? 35, (q.now ?? new Date()).toISOString(), q.includeSwiped ?? false, q.limit ?? 100, q.hideOverLimit ?? false],
+       and ($5::text = 'include' or m.over_limit = ($5::text = 'only'))
+       and ${FEED_SEARCH_TEXT} ilike all ($6::text[])
+       and case when b.est_min is null and b.est_max is null then not $7::boolean
+                else ($8::numeric is null or b.est_max is null or b.est_max >= $8::numeric)
+                 and ($9::numeric is null or b.est_min is null or b.est_min <= $9::numeric) end
+       and ($10::double precision is null or m.distance_mi <= $10::double precision)
+       and ($11::timestamptz is null or b.due_at <= $11::timestamptz)
+       and ($12::text[] is null or b.source = any ($12::text[]))
+       and ($13::text[] is null or m.verdict = any ($13::text[]))
+     order by ${FEED_ORDER[q.sort ?? 'fit']}, b.id
+     limit $14`,
+    [
+      profileId, q.minScore ?? 35, now.toISOString(), q.includeSwiped ?? false,
+      q.overLimit ?? (q.hideOverLimit ? 'exclude' : 'include'), searchPatterns(q.q),
+      q.hasValue ?? false, q.minValue ?? null, q.maxValue ?? null, q.maxDistance ?? null, dueBy,
+      q.sources?.length ? q.sources : null, q.verdicts?.length ? q.verdicts : null, q.limit ?? 100,
+    ],
   );
   return rows.map(toFeedItem);
 }

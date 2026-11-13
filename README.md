@@ -44,7 +44,8 @@ job look good. Every score comes with plain-English reasons on the card.
 
 ## Working with Claude Code
 
-`CLAUDE.md` is the project memory Claude Code loads every session. `docs/HANDOFF.md` has the research
+`CLAUDE.md` is the project memory Claude Code loads every session. `docs/PRODUCT.md` is the product
+spec (what the app is supposed to be). `docs/HANDOFF.md` has the research
 notes, decisions and roadmap; `docs/KICKOFF_PROMPT.md` is the first message to paste in. Project skills:
 `/verify` (typecheck + tests + build, also runs before commits), `/add-source <agency or URL>`,
 `/live-scan`. CI (`.github/workflows/ci.yml`) runs the same checks on every push.

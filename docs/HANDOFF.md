@@ -1,6 +1,7 @@
 # BidSwipe — handoff notes (v0, 2026-11-12)
 
-Everything learned while building v0, so nobody has to re-research it.
+Everything learned while building v0, so nobody has to re-research it. The product vision (price
+action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 
 ## 1. Where things stand
 

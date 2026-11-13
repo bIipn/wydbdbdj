@@ -7,6 +7,8 @@ Indeed list"). Contractors bid on the agency's own site via the card's link — 
 - **Pilot customer:** L&M Electric, a small electrical contractor in Gardnerville/Minden, NV. They want
   $10K–$50K jobs within ~90 mi, and the owner must see *why* a bid fits before trusting it.
 - **Goal after the pilot:** App Store + Google Play, thousands of mostly-free users, paid tier later.
+- **Product spec:** `docs/PRODUCT.md` — the full vision: contracts feed, price action, spend limit, phone
+  alerts, the Pro "bot", Free vs Pro, codes/demo mode (and the App Store rules around codes).
 - **Read next:** `README.md` (setup/deploy/API) and `docs/HANDOFF.md` (research notes, decisions, roadmap).
 
 ## Stack
@@ -53,6 +55,9 @@ test/fixtures/     REAL pages captured 2026-11-11 (except samgov-search.json = s
   (`parseUsDateTime`, `findDueInText`), never `new Date(string)` on board text. Store ISO UTC.
 - **Scoring:** reasons are user-facing copy; keep them short and specific. Behavior changes need a test
   in `test/score.test.ts`. Prefer editing `config/lm-electric.json` over code.
+- **Codes & payments:** never add an in-app "enter a code to unlock Pro" box to the iOS build (App Store
+  guideline 3.1.1). Use Apple Offer Codes / Google Play promo codes / RevenueCat promotional
+  entitlements; the web app may keep `ACCESS_CODE` for the pilot. See `docs/PRODUCT.md` §4.
 - **Never fabricate bids.** Demo data comes from captured real pages; the SAM.gov fixture is synthetic
   and must never ship in a demo.
 - **Secrets** live in `.env` (gitignored). Never print or commit keys.

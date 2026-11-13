@@ -6,8 +6,9 @@ You're picking up **BidSwipe**, a working v0 I built with Claude in chat. It's a
 phone swipe app ("Tinder deck + Indeed list" for contracts). The pilot customer is L&M Electric in
 Gardnerville, NV; the long-term goal is the App Store and Google Play with thousands of mostly-free users.
 
-Before doing anything, read `CLAUDE.md`, `README.md` and `docs/HANDOFF.md`, then give me a 5-line
-summary of the project and the plan so I know you've got it.
+Before doing anything, read `CLAUDE.md`, `docs/PRODUCT.md` (what the app is supposed to be),
+`README.md` and `docs/HANDOFF.md`, then give me a 5-line summary of the project and the plan so I
+know you've got it.
 
 Then work through this in order:
 

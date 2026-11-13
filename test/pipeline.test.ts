@@ -52,7 +52,11 @@ describe('scan pipeline on PGlite', () => {
     expect(feed[0]!.title).toBe('Replace Cell Doors, Locks, Intercoms & Controls in…');
     expect(feed[0]!.verdict).toBe('great');
     expect(feed.every((b) => b.score >= 35)).toBe(true);
-    expect(feed.some((b) => b.title.includes('Janitorial'))).toBe(false);
+    // A poor fit that IS in this scan: Douglas County's library plan, close by but not electrical work.
+    const LIBRARY_PLAN = 'RFP Library 5-year Strategic Plan';
+    const everything = await getFeed(db, profile.id, { now: NOW, minScore: 0 });
+    expect(everything.find((b) => b.title === LIBRARY_PLAN)?.verdict).toBe('skip');
+    expect(feed.some((b) => b.title === LIBRARY_PLAN)).toBe(false);
     expect(feed[0]!.location.label).toBe('Carson City, NV');
     expect(feed[0]!.reasons[0]!.kind).toBe('plus');
   });

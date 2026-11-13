@@ -146,9 +146,13 @@ const sent = (calls: Call[]) => calls.map((c) => `${c.via} ${c.method}`);
 
 describe('NGEM fetch(): paging by postback', () => {
   it('walks all three pages, each POST built from the page before', async () => {
-    // Give pages 1 and 2 their own token (in memory) to see whose form each POST carries.
+    // Give pages 1 and 2 their own token (in memory) to see whose form each POST carries, and page 2
+    // its own name for the page-3 link (still ctl07 to the fake board) to see whose pager is followed.
     const state = (html: string, token: string) => html.replace('value="TRIMMED"', `value="${token}"`);
-    const { bids, calls, logs } = await scanNgem({ pages: { 1: state(p1, 'STATE-1'), 2: state(p2, 'STATE-2'), 3: p3 } });
+    const moved = ngemTarget(3).replace('ctl01', 'ctl02');
+    const page2 = state(p2, 'STATE-2').replace(ngemTarget(3), () => moved);
+    expect(parseNgemPager(page2).targets[3]).toBe(moved);
+    const { bids, calls, logs } = await scanNgem({ pages: { 1: state(p1, 'STATE-1'), 2: page2, 3: p3 } });
 
     expect(bids).toHaveLength(46);
     expect(new Set(bids.map((b) => b.sourceId)).size).toBe(46);
@@ -159,7 +163,7 @@ describe('NGEM fetch(): paging by postback', () => {
     expect(calls[1]).toMatchObject({ contentType: 'application/x-www-form-urlencoded' });
     expect(calls[1]!.form!.get('__EVENTTARGET')).toBe(ngemTarget(2));
     expect(calls[1]!.form!.get('__VIEWSTATE')).toBe('STATE-1');
-    expect(calls[2]!.form!.get('__EVENTTARGET')).toBe(ngemTarget(3));
+    expect(calls[2]!.form!.get('__EVENTTARGET')).toBe(moved); // page 2's link, not the one page 1 listed
     expect(calls[2]!.form!.get('__VIEWSTATE')).toBe('STATE-2');
   });
 
@@ -206,8 +210,8 @@ describe('NGEM fetch(): paging by postback', () => {
     expect(logs).toEqual(['ngem: 20 of 46 listed (pages 1/3) — stopped: no cookie session']);
   });
 
-  it('never posts without both session cookies', async () => {
-    const { bids, calls, logs } = await scanNgem({ pages: { 1: p1, 2: p2, 3: p3 }, cookies: ['ASP.NET_SessionId'] });
+  it.each([[['ASP.NET_SessionId']], [['__AntiXsrfToken']], [[]]])('never posts without both session cookies (holding %j)', async (cookies) => {
+    const { bids, calls, logs } = await scanNgem({ pages: { 1: p1, 2: p2, 3: p3 }, cookies });
     expect(bids).toHaveLength(20);
     expect(sent(calls)).toEqual(['session GET']);
     expect(logs).toEqual(['ngem: 20 of 46 listed (pages 1/3) — stopped: session cookies missing']);

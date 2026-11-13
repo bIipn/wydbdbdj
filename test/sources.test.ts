@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseDouglasPage, parseDouglasRfp } from '../src/sources/douglascounty.js';
 import { fixtureSources } from '../src/sources/fixtures.js';
 import { parseNevadaEproOpenBids, parseNevadaEproPage, parseNevadaEproTotal } from '../src/sources/nevadaepro.js';
@@ -21,6 +21,8 @@ describe('Douglas County (raw server HTML)', () => {
   const GENERATOR = 'animal_services_emergency_generator_project';
   const DANGBERG = 'dangberg_home_ranch_foundation_restoration';
   const LIGHTING = 'Fairground_Arena_Lighting_Project';
+  const SERVICE = 'electrical_service_upgrade';
+  const WATERLOO = 'r_f_p___waterloo_lampe_park_rd_realignment_project';
 
   it('returns only open rows by default', () => {
     const page = parseDouglasPage(raw, { now: CAPTURED });
@@ -36,6 +38,26 @@ describe('Douglas County (raw server HTML)', () => {
       dueAt: '2026-11-21T01:00:00.000Z', // 2026/11/20, no time given → 5 PM PST
     });
     expect(parseDouglasRfp(raw, { now: CAPTURED })).toEqual(page.open);
+  });
+
+  it('takes id and url from "View Details" (the last link), even when the ad links to the board', () => {
+    // As in the live row "Safe Streets for All Action Plan" (not in this excerpt): the ad carries the board's URL.
+    const boardLink = '<a href="https://www.douglascountynv.gov/r_f_p__b_i_d_s">https://www.douglascountynv.gov/r_f_p__b_i_d_s</a>';
+    const withBoardLink = edit(raw, ($) => $('tr.rfp-item').first().children('td').eq(2).prepend(boardLink));
+    expect(withBoardLink).toContain(boardLink);
+    expect(parseDouglasPage(withBoardLink, { now: CAPTURED }).bids[0]).toMatchObject({
+      sourceId: LIBRARY,
+      url: 'https://www.douglascountynv.gov/rfp-bids/library_strategic_plan',
+    });
+  });
+
+  it('never shows Cloudflare\'s "[email protected]" placeholder', () => {
+    // The raw HTML has <a class="__cf_email__">[email protected]</a> wherever a browser shows an address.
+    expect(raw).toContain('class="__cf_email__"');
+    const all = parseDouglasRfp(raw, { now: CAPTURED, includeClosed: true });
+    expect(all.filter((b) => /\[email.protected\]/.test(b.description ?? ''))).toEqual([]);
+    const library = all.find((b) => b.sourceId === LIBRARY)!;
+    expect(library.description).toContain('emailed to the following address (e-mail address on the county page)');
   });
 
   it('cannot tell open from closed without "now", and says so instead of returning 0 bids', () => {
@@ -74,9 +96,48 @@ describe('Douglas County (raw server HTML)', () => {
     });
 
     it('uses the right midnight in summer too (PDT, UTC-7)', () => {
-      // Fairground Arena Lighting: deadline cell 2022/08/25, date only. Midnight PDT is 07:00Z, not 08:00Z.
-      expect(openIds('2022-08-25T06:59:59Z')).toContain(LIGHTING); // Aug 24, 11:59 PM PDT
-      expect(openIds('2022-08-25T07:00:00Z')).not.toContain(LIGHTING); // Aug 25, 12:00 AM PDT
+      // Electrical Service Upgrade: deadline cell 2018/10/19, no date or time in the ad. Midnight PDT is 07:00Z, not 08:00Z.
+      expect(openIds('2018-10-19T06:59:59Z')).toContain(SERVICE); // Oct 18, 11:59 PM PDT
+      expect(openIds('2018-10-19T07:00:00Z')).not.toContain(SERVICE); // Oct 19, 12:00 AM PDT
+    });
+
+    it('reads the due time from the short ads too, not 5 PM by default', () => {
+      const all = parseDouglasRfp(raw, { now: CAPTURED, includeClosed: true });
+      // "Electronic proposals must be received by November 9, 2026 no later than 2:00pm PST." 2 PM PST = 22:00Z.
+      expect(all.find((b) => b.sourceId === WATERLOO)!.dueAt).toBe('2026-11-09T22:00:00.000Z');
+      expect(openIds('2026-11-09T21:59:59Z')).toContain(WATERLOO); // due day, 1:59 PM
+      expect(openIds('2026-11-09T22:00:00Z')).not.toContain(WATERLOO); // 2:00 PM: over
+      // Fairground Arena Lighting: "Bid Due Date: 2PM Thursday August 25, 2022". 2 PM PDT = 21:00Z.
+      expect(all.find((b) => b.sourceId === LIGHTING)!.dueAt).toBe('2022-08-25T21:00:00.000Z');
+      expect(openIds('2022-08-25T20:59:59Z')).toContain(LIGHTING);
+      expect(openIds('2022-08-25T21:00:00Z')).not.toContain(LIGHTING);
+    });
+
+    it('an ad that leaves the year out gets it from the deadline cell', () => {
+      // As in the live Herbig Park row (not in this excerpt): "on or before 2:00 pm Thursday, June 20th."
+      // Here the generator ad with its ", 2024" taken out (in memory); the deadline cell says 2024/12/19.
+      const noYear = raw.replace('on or before 2PM December 19, 2024.', 'on or before 2PM December 19.');
+      expect(noYear).not.toBe(raw);
+      const row = parseDouglasRfp(noYear, { now: CAPTURED, includeClosed: true }).find((b) => b.sourceId === GENERATOR)!;
+      expect(row.dueAt).toBe('2024-12-19T22:00:00.000Z'); // 2 PM PST, not the cell's 5 PM default
+    });
+
+    it('a date without a time in the ad is not a due time: closed from that day on, like the county', () => {
+      // The Fairground ad with its "2PM" taken out (in memory): the 5 PM in dueAt is our default, not the ad's word.
+      const dateOnly = raw.replace('</strong>2PM Thursday August 25, 2022', '</strong>Thursday August 25, 2022');
+      expect(dateOnly).not.toBe(raw);
+      const row = parseDouglasRfp(dateOnly, { now: CAPTURED, includeClosed: true }).find((b) => b.sourceId === LIGHTING)!;
+      expect(row.dueAt).toBe('2022-08-26T00:00:00.000Z'); // Aug 25, 5 PM PDT
+      expect(openIds('2022-08-25T06:59:59Z', dateOnly)).toContain(LIGHTING); // Aug 24, 11:59 PM PDT
+      expect(openIds('2022-08-25T07:00:00Z', dateOnly)).not.toContain(LIGHTING); // the due day itself, long before 5 PM
+
+      // The ad's date, not the cell's: Dangberg Home Ranch without its "2:00 pm on" (in memory); cell 2024/06/21.
+      const otherDay = raw.replace('on or before 2:00 pm on Thursday June 6', 'on or before Thursday June 6');
+      expect(otherDay).not.toBe(raw);
+      expect(openIds('2024-06-06T06:59:59Z', otherDay)).toContain(DANGBERG); // June 5, 11:59 PM PDT
+      expect(parseDouglasPage(otherDay, { now: new Date('2024-06-06T07:00:00Z') }).notes).toEqual([
+        `${DANGBERG}: closed, the ad says bids were due 2024-06-07T00:00:00.000Z (date only in the ad, 5 PM assumed); the county's page still shows it open (deadline cell: 2024/06/21)`,
+      ]);
     });
 
     it('a due time in the ad beats the deadline cell: open until that moment', () => {
@@ -330,6 +391,10 @@ describe('NevadaEPro (raw server HTML)', () => {
   it('makes the relative detail link absolute', () => {
     expect(byId('55AGR-S4066').url).toBe('https://nevadaepro.com/bso/external/bidDetail.sda?docId=55AGR-S4066&external=true&parentUrl=close');
     expect(bids.every((b) => b.url === `https://nevadaepro.com/bso/external/bidDetail.sda?docId=${b.sourceId}&external=true&parentUrl=close`)).toBe(true);
+    // Another page URL proves the link is read from the row: the built-in fallback always says nevadaepro.com.
+    expect(parseNevadaEproOpenBids(raw, 'https://example.test/a/b.xhtml')[0]!.url).toBe(
+      'https://example.test/bso/external/bidDetail.sda?docId=72DOW-S4085&external=true&parentUrl=close',
+    );
   });
 
   it('ignores the hidden duplicate columns', () => {
@@ -403,10 +468,18 @@ describe('SAM.gov', () => {
 
 describe('fixture mode (npm run scan -- --fixtures)', () => {
   it('reads the captured pages as of the capture day, whatever the real date is', async () => {
-    // A clock long after every deadline: the saved Douglas page must still give its open row.
-    const { ctx } = fakeCtx('', new Date('2030-01-01T20:00:00Z'));
-    const counts: Record<string, number> = {};
-    for (const source of fixtureSources(FIXTURE_DIR)) counts[source.id] = (await source.fetch(ctx)).length;
-    expect(counts).toEqual({ douglascounty: 1, questcdn: 13, ngem: 46, nevadaepro: 25 }); // no synthetic SAM.gov data
+    // Both clocks long after every deadline, the scan's (ctx.now) and the machine's (new Date()):
+    // the saved Douglas page must still give its open row.
+    const later = new Date('2030-01-01T20:00:00Z');
+    const { ctx } = fakeCtx('', later);
+    vi.useFakeTimers({ toFake: ['Date'], now: later });
+    try {
+      expect(new Date().getUTCFullYear()).toBe(2030);
+      const counts: Record<string, number> = {};
+      for (const source of fixtureSources(FIXTURE_DIR)) counts[source.id] = (await source.fetch(ctx)).length;
+      expect(counts).toEqual({ douglascounty: 1, questcdn: 13, ngem: 46, nevadaepro: 25 }); // no synthetic SAM.gov data
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

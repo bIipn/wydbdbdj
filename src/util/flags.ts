@@ -1,9 +1,13 @@
+// "not mandatory" / "non-mandatory" says the opposite. Douglas County's standard line:
+// "Attendance at the pre-bid conference is highly encouraged but is not mandatory."
+const MANDATORY = String.raw`(?<!\bnot\s+(?:(?:a|be)\s+)?|\bnon[\s-]?)\bmandatory\b`;
+
 /** Requirements a contractor wants to know about before opening the bid package. */
 const RULES: Array<[RegExp, string]> = [
   [/\bbid (?:bond|security)\b/i, 'Bid bond'],
   [/\b(?:performance|payment) bond/i, 'Performance/payment bond'],
   [/\bprevailing wage/i, 'Prevailing wage'],
-  [/\bmandatory\b[^.]{0,60}\bpre-?bid|\bpre-?bid\b[^.]{0,80}\bmandatory\b/i, 'Mandatory pre-bid'],
+  [new RegExp(String.raw`${MANDATORY}[^.]{0,60}\bpre-?bid|\bpre-?bid\b[^.]{0,80}${MANDATORY}`, 'i'), 'Mandatory pre-bid'],
   [/\bcertified payroll/i, 'Certified payroll'],
   [/\b(?:qualified as a bidder|prequalif(?:ied|ication))/i, 'Bidder prequalification'],
   [/\bc-?2\b[^.]{0,40}licen|licen[^.]{0,40}\bc-?2\b/i, 'NV C-2 license'],

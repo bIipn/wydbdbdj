@@ -4,13 +4,15 @@ import { detectFlags } from '../util/flags.js';
 import { absolutize } from '../util/http.js';
 import { findEstimate } from '../util/money.js';
 import { clean, htmlToText, humanizeSlug } from '../util/text.js';
-import { findDueInText, pacificParts, parseUsDateTime } from '../util/time.js';
+import { findDue, pacificParts, parseUsDateTime } from '../util/time.js';
 
 /** Douglas County, NV (Minden/Gardnerville) — county RFP & bid table, open + closed rows. */
 export const DOUGLAS_URL = 'https://www.douglascountynv.gov/rfp-bids';
 
 const OPEN = 'County bid';
 const CLOSED = 'County bid (closed)';
+/** Shown where the county's page has an e-mail address (we don't decode what the county chose to hide from scrapers). */
+const EMAIL_HIDDEN = '(e-mail address on the county page)';
 
 export interface DouglasOpts {
   /** "Now" for the open/closed decision. Needed for the raw page: its rows carry no status. */
@@ -65,11 +67,15 @@ export function parseDouglasPage(html: string, opts: DouglasOpts = {}): DouglasP
     const href = absolutize($tr.find('a[href*="/rfp-bids/"], a[href*="r_f_p__b_i_d_s"]').last().attr('href'), pageUrl);
     if (!href) return;
     const slug = new URL(href).pathname.split('/').filter(Boolean).pop() ?? href;
+    // Raw HTML: Cloudflare swaps every e-mail address for "[email protected]"; only a browser script puts it back.
+    tds.eq(2).find('.__cf_email__, [data-cfemail]').replaceWith(EMAIL_HIDDEN);
     const descText = htmlToText(tds.eq(2).html());
     const deadlineCell = clean($tr.find('td.deadline-date').text());
-    // The legal-ad text has the real bid-opening time; the table's "Deadline" is sometimes just the posting end date.
-    const adDue = findDueInText(descText);
     const cellDue = parseUsDateTime(deadlineCell);
+    // The legal-ad text has the real bid-opening time; the table's "Deadline" is sometimes just the posting end date.
+    // An ad without a year ("on or before 2:00 pm Thursday, June 20th") takes the year nearest the deadline cell.
+    const ad = findDue(descText, { near: cellDue });
+    const adDue = ad?.iso ?? null;
 
     const status = clean($tr.find('td.status').text()).toLowerCase();
     let isOpen: boolean;
@@ -82,12 +88,13 @@ export function parseDouglasPage(html: string, opts: DouglasOpts = {}): DouglasP
       // Raw page: our call. A due time stated in the ad decides: open until that moment, closed after it.
       // The deadline cell alone can be early (Jobs Peak PLC: cell 7/20 = pre-bid meeting, bids due 7/30 2 PM)
       // or late (posting end), and a bid must never show as open past its real due time.
-      // No time in the ad → the county's rule on the deadline cell.
+      // No time in the ad → the county's rule (closed from the due day on), on the ad's date if it gives one.
       const county = countyListsOpen(cellDue, opts.now);
-      isOpen = adDue ? Date.parse(adDue) > opts.now.getTime() : county;
+      isOpen = ad?.hasTime ? Date.parse(ad.iso) > opts.now.getTime() : countyListsOpen(adDue ?? cellDue, opts.now);
       const cell = `deadline cell: ${deadlineCell || 'empty'}`;
-      if (isOpen && !county) page.notes.push(`${slug}: open, the ad says bids are due ${adDue}; the county's page already shows it closed (${cell})`);
-      if (!isOpen && county) page.notes.push(`${slug}: closed, the ad says bids were due ${adDue}; the county's page still shows it open (${cell})`);
+      const adSays = ad?.hasTime ? adDue : `${adDue} (date only in the ad, 5 PM assumed)`;
+      if (isOpen && !county) page.notes.push(`${slug}: open, the ad says bids are due ${adSays}; the county's page already shows it closed (${cell})`);
+      if (!isOpen && county) page.notes.push(`${slug}: closed, the ad says bids were due ${adSays}; the county's page still shows it open (${cell})`);
     }
 
     const bid: BidDraft = {

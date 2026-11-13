@@ -48,10 +48,22 @@ against those saved pages, not against the live boards.
 - Quirks: name cell is sometimes empty → title recovered from the ad ("SOLICITATION OF BIDS / <name>").
   `deadline-date` is not always the bid opening → real deadline parsed from the ad ("until 2:00 p.m.
   local time on Thursday, July 30, 2026"). On the 2026-11-13 page the ad's day differs from the cell in
-  2 of 90 rows (Jobs Peak PLC: cell 7/20, bids due 7/30; Dangberg Home Ranch: cell 6/21, ad 6/6); the
-  scan logs each such row while it matters. `findDueInText` finds a time in about half the ads (44 of
-  90); the rest fall back to the date-only rule. Ads include the engineer's estimate ("$81,000.00") and
-  bid bond / prevailing wage → parsed into `estValue` and `flags`.
+  4 of 90 rows (Jobs Peak PLC: cell 7/20, bids due 7/30; Dangberg Home Ranch: cell 6/21, ad 6/6; Herbig
+  Park: cell 6/21, ad "Thursday, June 20th" with no year; DCSO Records: cell 2022/01/17, ad 02/17/2022);
+  the scan logs each such row while it matters.
+- Due time: `findDue` (util/time.ts) reads a clock time in 62 of the 90 ads, which is every ad on that
+  page that states one. The short ads word it many ways ("received by November 9, 2026 no later than
+  2:00pm", "Bid Due Date: 2PM Thursday August 25, 2022", "due by 9AM, March 21, 2024"); the first
+  version missed 14 of them and showed 5:00 PM instead. Each wording is a test in `test/util.test.ts`:
+  when the county words one a new way, add it there first. 1 ad gives a date only ("Deadline
+  9/23/2021") and 27 give nothing: those rows keep the 5 PM default and the county's date-only rule.
+- E-mail addresses: the raw HTML has Cloudflare's placeholder "[email protected]" in 46 of 90 ads (a
+  browser script puts the address back). The parser shows "(e-mail address on the county page)"
+  instead. Decoding is possible (`data-cfemail`, XOR with the first byte) but would republish addresses
+  the county hides from scrapers. Ev's call.
+- Ads include the engineer's estimate ("$81,000.00") and bid bond / prevailing wage → parsed into
+  `estValue` and `flags`. The county's standard line "Attendance at the pre-bid conference is highly
+  encouraged but is not mandatory" must not raise "Mandatory pre-bid" (it did, on 6 ads).
 - Bid documents themselves are on QuestCDN (Douglas County Public Works has its own board — group id
   not found yet; worth adding to `QUEST_BOARDS`).
 - On 2026-11-13 only 1 open row (a library strategic plan) — the county is quiet; electrical jobs do

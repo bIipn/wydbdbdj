@@ -1,0 +1,5 @@
+# Add to your existing Caddyfile on the VPS, then `sudo systemctl reload caddy`.
+bids.yourdomain.com {
+	encode zstd gzip
+	reverse_proxy 127.0.0.1:8787
+}

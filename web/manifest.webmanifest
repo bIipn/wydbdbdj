@@ -1,0 +1,12 @@
+{
+  "name": "BidSwipe",
+  "short_name": "BidSwipe",
+  "description": "Public bids that fit your trade, one swipe at a time.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

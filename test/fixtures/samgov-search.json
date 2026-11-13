@@ -1,0 +1,63 @@
+{
+  "_comment": "SYNTHETIC test fixture shaped like the SAM.gov Get Opportunities v2 response (field names per open.gsa.gov docs). These are NOT real notices; IDs start with TEST-. Never shown in demos.",
+  "totalRecords": 3,
+  "limit": 1000,
+  "offset": 0,
+  "opportunitiesData": [
+    {
+      "noticeId": "TEST-0001",
+      "title": "Electrical Service Upgrade and LED Lighting Retrofit, Federal Building",
+      "solicitationNumber": "TEST-SOL-0001",
+      "fullParentPathName": "GENERAL SERVICES ADMINISTRATION.PUBLIC BUILDINGS SERVICE.PBS R9",
+      "fullParentPathCode": "047.47PA.47PL",
+      "postedDate": "2026-11-02",
+      "type": "Solicitation",
+      "baseType": "Solicitation",
+      "archiveType": "autocustom",
+      "archiveDate": "2026-12-31",
+      "typeOfSetAsideDescription": "Total Small Business Set-Aside (FAR 19.5)",
+      "typeOfSetAside": "SBA",
+      "responseDeadLine": "2026-12-01T14:00:00-08:00",
+      "naicsCode": "238210",
+      "classificationCode": "Z2DA",
+      "active": "Yes",
+      "pointOfContact": [{ "type": "primary", "fullName": "Test Contact", "email": "test@example.gov", "phone": "000-000-0000" }],
+      "description": "https://api.sam.gov/prod/opportunities/v1/noticedesc?noticeid=TEST-0001",
+      "organizationType": "OFFICE",
+      "officeAddress": { "zipcode": "94102", "city": "San Francisco", "countryCode": "USA", "state": "CA" },
+      "placeOfPerformance": { "city": { "code": "09700", "name": "Carson City" }, "state": { "code": "NV", "name": "Nevada" }, "zip": "89701", "country": { "code": "USA", "name": "UNITED STATES" } },
+      "uiLink": "https://sam.gov/opp/TEST-0001/view",
+      "links": []
+    },
+    {
+      "noticeId": "TEST-0002",
+      "title": "Repair Electrical Distribution, Building 1000",
+      "solicitationNumber": "TEST-SOL-0002",
+      "fullParentPathName": "DEPT OF DEFENSE.DEPT OF THE AIR FORCE",
+      "postedDate": "2026-11-05",
+      "type": "Combined Synopsis/Solicitation",
+      "baseType": "Combined Synopsis/Solicitation",
+      "typeOfSetAsideDescription": "Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14)",
+      "typeOfSetAside": "SDVOSBC",
+      "responseDeadLine": "2026-11-20T10:00:00-08:00",
+      "naicsCode": "238210",
+      "active": "Yes",
+      "placeOfPerformance": { "city": { "name": "Las Vegas" }, "state": { "code": "NV" }, "zip": "89191" },
+      "uiLink": "https://sam.gov/opp/TEST-0002/view"
+    },
+    {
+      "noticeId": "TEST-0003",
+      "title": "Custodial Services, Reno Field Office",
+      "solicitationNumber": "TEST-SOL-0003",
+      "fullParentPathName": "DEPARTMENT OF THE INTERIOR.BUREAU OF LAND MANAGEMENT",
+      "postedDate": "2026-11-06",
+      "type": "Solicitation",
+      "typeOfSetAside": null,
+      "responseDeadLine": "2026-12-04T15:00:00-08:00",
+      "naicsCode": "561720",
+      "active": "Yes",
+      "placeOfPerformance": { "city": { "name": "Reno" }, "state": { "code": "NV" }, "zip": "89502" },
+      "uiLink": "https://sam.gov/opp/TEST-0003/view"
+    }
+  ]
+}

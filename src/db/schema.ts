@@ -1,0 +1,73 @@
+/**
+ * Plain Postgres. Runs as-is on embedded PGlite (local/dev/tests) and on Supabase.
+ * Idempotent — safe to run on every startup.
+ */
+export const SCHEMA_SQL = /* sql */ `
+create table if not exists bids (
+  id             text primary key,            -- "<source>:<sourceId>"
+  source         text not null,
+  source_id      text not null,
+  source_name    text not null,
+  title          text not null,
+  agency         text,
+  description    text,
+  category       text,
+  city           text,
+  county         text,
+  state          text,
+  zip            text,
+  lat            double precision,
+  lng            double precision,
+  loc_precision  text not null default 'unknown',
+  loc_label      text,
+  posted_at      timestamptz,
+  due_at         timestamptz,
+  est_min        numeric,
+  est_max        numeric,
+  naics          text,
+  set_aside      text,
+  url            text not null,
+  flags          jsonb not null default '[]'::jsonb,
+  first_seen_at  timestamptz not null default now(),
+  last_seen_at   timestamptz not null default now()
+);
+create index if not exists bids_due_idx on bids (due_at);
+
+-- A contractor/business. Today: L&M. Later: every app user's business.
+create table if not exists profiles (
+  id          text primary key,
+  name        text not null,
+  prefs       jsonb not null,
+  updated_at  timestamptz not null default now()
+);
+
+-- How well a bid fits a profile. Re-scored every scan.
+create table if not exists matches (
+  profile_id   text not null references profiles(id) on delete cascade,
+  bid_id       text not null references bids(id) on delete cascade,
+  score        integer not null,
+  verdict      text not null,
+  reasons      jsonb not null,
+  distance_mi  double precision,
+  scored_at    timestamptz not null default now(),
+  notified_at  timestamptz,
+  primary key (profile_id, bid_id)
+);
+create index if not exists matches_feed_idx on matches (profile_id, score desc);
+
+-- Swipe decisions: save (right), pass (left), bid (tapped "Bid on …").
+create table if not exists swipes (
+  profile_id  text not null references profiles(id) on delete cascade,
+  bid_id      text not null references bids(id) on delete cascade,
+  action      text not null check (action in ('save', 'pass', 'bid')),
+  created_at  timestamptz not null default now(),
+  primary key (profile_id, bid_id)
+);
+
+create table if not exists scans (
+  id           bigserial primary key,
+  started_at   timestamptz not null,
+  finished_at  timestamptz not null,
+  report       jsonb not null
+);
+`;

@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BidSwipe" />
+  <meta name="description" content="Public bids that fit your trade, one swipe at a time." />
+  <title>BidSwipe — bids that fit</title>
+  <link rel="manifest" href="manifest.webmanifest" data-demo-strip />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" data-demo-strip />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app" id="app">
+    <header class="topbar">
+      <div class="brand">
+        <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6.1L9.8 22l8.7-11.5h-6.1z" /></svg>
+        <span>BidSwipe</span>
+      </div>
+      <button class="profile-chip" id="profileChip" type="button" aria-label="Profile">
+        <span id="profileName">Loading…</span><span class="dot">·</span><span id="profileBase"></span>
+      </button>
+    </header>
+
+    <nav class="tabs" role="tablist" aria-label="Views">
+      <button role="tab" class="tab is-active" data-view="swipe" aria-selected="true">Swipe <span class="count" id="countSwipe"></span></button>
+      <button role="tab" class="tab" data-view="browse" aria-selected="false">Browse <span class="count" id="countBrowse"></span></button>
+      <button role="tab" class="tab" data-view="saved" aria-selected="false">Saved <span class="count" id="countSaved"></span></button>
+    </nav>
+
+    <main class="view" id="view" aria-live="polite"></main>
+    <p class="footnote" id="footnote"></p>
+  </div>
+
+  <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+  <section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden>
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <div class="sheet-body" id="sheetBody"></div>
+  </section>
+
+  <div class="toast" id="toast" role="status" hidden></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

@@ -60,6 +60,8 @@ export interface StreamHub {
   alert(profileId: string, alert: Alert): void;
   /** A scan finished. Each client hears the totals and its own profile's numbers, nobody else's. */
   scan(report: ScanReport): void;
+  /** End every open stream of one owner (their sessions were ended). Returns how many were closed. */
+  closeOwner(owner: string): number;
   /** End every stream and stop pinging. */
   close(): void;
 }
@@ -147,6 +149,13 @@ export function createStreamHub(opts: { now?: () => Date; pingMs?: number } = {}
           profile: mine ? { scored: mine.scored, byVerdict: mine.byVerdict, newGood: mine.newGood } : null,
         });
       }
+    },
+
+    closeOwner(owner) {
+      const theirs = [...everyone()].filter((c) => c.owner === owner);
+      // end(): the client sees a normal end of stream, reconnects, and is answered 401 like any signed-out request.
+      for (const c of theirs) c.res.end();
+      return theirs.length;
     },
 
     close() {

@@ -77,17 +77,20 @@ loser's result, messages, both agreed, job done, service fee "recorded, not coll
     `job_tombstones` line (title, own bid, why), `GET /api/jobs/:id` answers 410 `gone` to them, it shows under
     Finished on their Jobs tab, and a service fee already recorded for an agreed job is **waived** (the row stays).
 - **Forgot password**: `POST /api/auth/forgot` → a one-hour, single-use link `<APP_URL>/#reset=<token>` (the token
-  is in the fragment, so no server ever logs it; only its sha256 is stored; asking again replaces the link), the
+  is in the fragment, so no server ever logs it; only its sha256 is stored; an earlier link stays good until one of
+  them is used, so nobody else can cancel the link you are about to open), the
   same answer for every address, 3 an hour per address and 5 per caller. `POST /api/auth/reset` sets the new
-  password in one statement, signs every other device out and signs this one in. Mail goes through
+  password in one statement, signs every other device out (sessions, stored push devices, open live streams)
+  and signs this one in. Mail goes through
   src/notify/email.ts (Resend). **The live host has no `RESEND_API_KEY`, so today the sign-in screen says
   "Password reset by email is not available yet" and nothing is sent.** To switch it on: a domain verified with
-  Resend, then `RESEND_API_KEY` and `EMAIL_FROM` on the host. The real email has never been sent.
+  Resend, then `RESEND_API_KEY` and `EMAIL_FROM` on the host (`APP_URL` is already set there; without it there is
+  no mailer, because the link would point at localhost). The real email has never been sent.
 - An older database is upgraded in place at start-up (the `do $upgrade$` block in src/db/schema-jobs.ts).
 - web/privacy.html ("Deleting your account": what is deleted, what is kept and why) and web/terms.html say
   exactly this. One new placeholder for Ev in the privacy page: how long the providers keep backups and logs.
 
-Checks (2026-11-14): typecheck, the full test suite (1,663 passed; test/account-delete.test.ts and
+Checks (2026-11-14): typecheck, the full test suite (1,665 passed; test/account-delete.test.ts and
 test/password-reset.test.ts are new) and build pass. `npm run simulate:jobs -- --seed 20261114`: 15 checks,
 same-seed hash, 10 of 10 mutations caught. On a real Postgres 16 (the container's own, `TEST_DATABASE_URL`):
 the 5 Postgres tests pass, including ten deletions of one account at the same moment (one deletes it), and the
@@ -104,6 +107,23 @@ Known gaps (marketplace):
 - Legal: the NV/CA licence lines and the after-the-fact no-show fee rest on search snippets, not pages read in
   full; one paid hour before real money moves (docs/MARKETPLACE.md §8). Terms and privacy still have Ev's
   placeholders (contact email, providers) to fill in before publishing.
+- A second reader went through the first commit of this work and found no way for one account to delete or
+  reset another. What it found and was fixed: open live streams survived a reset, phone alerts died silently
+  after one, a new reset link cancelled the earlier one, a mailer without `APP_URL` would have emailed a
+  localhost link, and two privacy sentences said more than the code does. What it found and is left open:
+  - An account with no password (social sign-in) confirms a deletion with a sign-in from the last 10 minutes.
+    That is only as strong as the provider: a phone where Google is still signed in asks for nothing.
+  - **Before social sign-in is switched on:** deleting an account here does not remove the person's record in
+    Supabase Auth (that needs its service-role key, a new secret, or a manual step). The privacy page has a
+    placeholder for it.
+  - When a poster deletes their account their jobs go, so those jobs no longer count in the winner's record
+    (won, agreed, done, and also no-shows), while a no-show fee line stays in the ledger. Keeping the record
+    would mean keeping the job rows without their poster: a bigger change, not made.
+  - A refused reset email answers 502 only for an address that has an account (sign-up tells the same thing).
+  - Deleting an account frees its use of a limited promo code.
+  - A job whose winner left shows under "Needs you" for 3 days counted from its contact deadline, so an agreed
+    job whose winner leaves long after that goes straight to Finished (the poster is still told by an alert).
+  - A device's phone alerts now follow whoever is signed in on it (it re-registers when the app is entered).
 - Account deletion: an alert that was already in someone else's inbox (a message preview, a job title) stays
   there; other people's saved cost checks on a deleted local job keep its id; a request of the deleted account
   that is in flight at that very instant may be refused with a server error (a foreign key refuses its write; not seen, not tested). `job_tombstones` rows

@@ -36,9 +36,11 @@ const fields = (body: unknown): Record<string, unknown> =>
  *                                  themselves (locked out, forgot the password where reset by email is off) and
  *                                  asked by email from that address. The same statement, the same endings.
  *
- * The delete asks for the password again: a phone left unlocked must not be enough. Then ONE statement removes
- * the account and everything tied to it (src/jobs/repo.ts deleteAccount), the people on the other side of its
- * live jobs are told, and the session cookie is dropped. It cannot be undone.
+ * The delete asks for the password again: a phone left unlocked must not be enough. (An account with no
+ * password cannot be asked for one: it needs a sign-in from the last 10 minutes, which is only as strong as the
+ * sign-in provider makes it. If Google is still signed in on that phone, signing in again asks for nothing.)
+ * Then ONE statement removes the account and everything tied to it (src/jobs/repo.ts deleteAccount), the people
+ * on the other side of its live jobs are told, and the session cookie is dropped. It cannot be undone.
  */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
   const { config, db } = ctx;
@@ -88,6 +90,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     }
 
     await jobs.deleteAccount(deps, account.id, now);
+    await ctx.bus.emit({ type: 'signed_out', accountId: account.id }); // its other devices' live streams end here
     // The people left on the other side were just told: send their pushes before a serverless host freezes.
     await ctx.realtime?.flush();
     return reply.header('set-cookie', sessionCookie(null, config.cookieSecure)).send({ ok: true });
@@ -104,6 +107,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     await jobs.settleDue(deps, now);
     const found = await findCredentials(db, email);
     if (!found || !(await jobs.deleteAccount(deps, found.account.id, now))) return reply.code(404).send({ error: 'account_not_found' });
+    await ctx.bus.emit({ type: 'signed_out', accountId: found.account.id });
     await ctx.realtime?.flush();
     ctx.log('account deleted by an operator');
     return { ok: true };

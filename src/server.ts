@@ -177,7 +177,7 @@ async function boot(how: { plainStatic?: boolean } = {}) {
   const scan = createScanRunner(deps, config, bus);
   const { app, ctx } = await buildApp(deps, {
     config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'), plainStatic: how.plainStatic,
-    mailer: mailerFromEnv(env),
+    mailer: mailerFromEnv(env, (msg) => console.warn(`[email] ${msg}`)),
   });
   return { app, ctx, deps, scan };
 }

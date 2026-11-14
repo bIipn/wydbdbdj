@@ -57,7 +57,13 @@ export type BusEvent =
     previousPeriod?: string; yearChangePct?: number | null; preliminary?: boolean;
   }
   /** A local job changed in a way one person should hear about (see JobEvent). */
-  | JobEvent;
+  | JobEvent
+  /**
+   * Every session of an account was just ended on the server (a password reset, the account's deletion). A
+   * live /api/stream connection is checked only when it opens, so the stream hub closes that account's
+   * connections on this event: whoever was listening has to sign in again, like on every other route.
+   */
+  | { type: 'signed_out'; accountId: string };
 
 export type BusEventType = BusEvent['type'];
 export type BusEventOf<T extends BusEventType> = Extract<BusEvent, { type: T }>;

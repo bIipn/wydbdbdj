@@ -5,14 +5,17 @@
  * collects the emails in an array instead of sending them. Nothing here touches the network.
  */
 import { createHash } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAuth, RESET_TTL_MS } from '../src/auth/index.js';
 import * as passwords from '../src/auth/password.js';
 import type { ScryptCost } from '../src/auth/password.js';
 import type { AppConfig } from '../src/context.js';
-import { createAccount } from '../src/db/accounts.js';
+import { addResetToken, createAccount } from '../src/db/accounts.js';
 import type { Db } from '../src/db/db.js';
+import { saveProfileForAccount } from '../src/db/repo.js';
+import { buildProfile, profileIdFor } from '../src/profile/build.js';
 import { EmailError, mailerFromEnv, resendMailer, resetEmail, type Email, type Mailer } from '../src/notify/email.js';
 import { loadProfile } from '../src/profiles.js';
 import { buildApp, buildServer } from '../src/server.js';
@@ -111,13 +114,19 @@ describe('when the server cannot send email (no RESEND_API_KEY)', () => {
     expect((await (await server(false)).inject({ url: '/api/auth/config' })).json()).toEqual({ mode: 'accounts', providers: ['password'], demo: false });
   });
 
-  it('mailerFromEnv: off without a key or without a sender; DIGEST_FROM is the fallback sender', () => {
+  it('mailerFromEnv: off without a key, a sender or APP_URL; DIGEST_FROM is the fallback sender', () => {
     const env = (vars: Record<string, string>) => (name: string) => vars[name];
+    const on = { RESEND_API_KEY: 'TEST-key', EMAIL_FROM: 'BidSwipe <test@example.com>', APP_URL };
     expect(mailerFromEnv(env({}))).toBeNull();
-    expect(mailerFromEnv(env({ RESEND_API_KEY: 'TEST-key' }))).toBeNull();
-    expect(mailerFromEnv(env({ EMAIL_FROM: 'BidSwipe <test@example.com>' }))).toBeNull();
-    expect(mailerFromEnv(env({ RESEND_API_KEY: 'TEST-key', EMAIL_FROM: 'BidSwipe <test@example.com>' }))).not.toBeNull();
-    expect(mailerFromEnv(env({ RESEND_API_KEY: 'TEST-key', DIGEST_FROM: 'BidSwipe <test@example.com>' }))).not.toBeNull();
+    expect(mailerFromEnv(env({ ...on, RESEND_API_KEY: '' }))).toBeNull();
+    expect(mailerFromEnv(env({ RESEND_API_KEY: 'TEST-key', APP_URL }))).toBeNull();
+    expect(mailerFromEnv(env(on))).not.toBeNull();
+    expect(mailerFromEnv(env({ RESEND_API_KEY: 'TEST-key', DIGEST_FROM: 'BidSwipe <test@example.com>', APP_URL }))).not.toBeNull();
+    // A key and a sender but no APP_URL: the link in the email would point at localhost, so there is no mailer,
+    // and the start-up log says why (never the key).
+    const said: string[] = [];
+    expect(mailerFromEnv(env({ ...on, APP_URL: '' }), (m) => said.push(m))).toBeNull();
+    expect(said).toEqual(['email to account holders is off: RESEND_API_KEY is set but APP_URL is not, and a reset link has to point at this app']);
   });
 });
 
@@ -188,18 +197,39 @@ describe('asking for a reset link', () => {
     expect(outbox).toEqual([]);
   });
 
-  it('a newer link replaces the older one: only the newest works', async () => {
+  it('asking again does not cancel the earlier link (nobody else can kill yours); using one cancels the rest', async () => {
     const app = await server();
     await signUp(app);
-    await forgot(app, EMAIL);
+    await forgot(app, EMAIL, '203.0.113.1'); // the owner asks
     clock += 5 * MIN;
-    await forgot(app, EMAIL);
+    await forgot(app, EMAIL, '198.51.100.7'); // someone else who knows the address asks too
     const [first, second] = outbox.map(tokenIn);
     expect(first).not.toBe(second);
-    expect((await resets()).map((r) => r.token_hash)).toEqual([sha256(second!)]);
-    expect((await reset(app, first, NEW)).statusCode).toBe(400);
-    expect((await login(app, OLD)).statusCode).toBe(200);
-    expect((await reset(app, second, NEW)).statusCode).toBe(200);
+    expect((await resets()).map((r) => r.token_hash)).toEqual([sha256(first!), sha256(second!)]);
+
+    // The owner's link still works...
+    expect((await reset(app, first, NEW)).statusCode).toBe(200);
+    // ...and using it ended the other one: it cannot set the password a second time.
+    expect((await resets()).map((r) => r.token_hash)).toEqual([sha256(first!)]);
+    expect((await reset(app, second, 'TEST-a-third-password')).statusCode).toBe(400);
+    expect((await login(app, NEW)).statusCode).toBe(200);
+  });
+
+  it('an account never holds more than five live links, whatever the limiter let through: the oldest go', async () => {
+    const app = await server();
+    await signUp(app);
+    const accountId = (await db.query<{ id: string }>('select id from accounts where email = $1', [EMAIL]))[0]!.id;
+    // Straight to the statement, past the 3-an-hour limit (which is per server process): seven links, a minute apart.
+    for (let i = 1; i <= 7; i++) {
+      clock += MIN;
+      await addResetToken(db, accountId, `TEST-hash-${i}`, now(), new Date(clock + RESET_TTL_MS));
+    }
+    expect((await resets()).map((r) => r.token_hash)).toEqual(['TEST-hash-3', 'TEST-hash-4', 'TEST-hash-5', 'TEST-hash-6', 'TEST-hash-7']);
+    // A link that has run out is swept by the next request, anybody's.
+    clock += RESET_TTL_MS - 3 * MIN; // links 3 and 4 are past their hour now
+    await forgot(app, EMAIL);
+    expect((await resets()).map((r) => r.token_hash).slice(0, 3)).toEqual(['TEST-hash-5', 'TEST-hash-6', 'TEST-hash-7']);
+    expect(await resets()).toHaveLength(4);
   });
 
   it('when the delivery service refuses the email, it says nothing was sent instead of "we emailed it"', async () => {
@@ -280,6 +310,35 @@ describe('choosing the new password', () => {
       expect(logs.join('\n')).not.toContain(secret);
     }
     expect((await resets())[0]!.used_at).not.toBeNull();
+  });
+
+  it('ends the live streams that were opened with the old sessions', async () => {
+    const app = await server();
+    const old = await signUp(app);
+    const accountId = (await db.query<{ id: string }>('select id from accounts where email = $1', [EMAIL]))[0]!.id;
+    await saveProfileForAccount(db, accountId, buildProfile(profileIdFor(accountId), {
+      businessName: 'TEST Forgetful (simulated)', trades: ['electrical'], zip: '89410', radiusMi: 90, valueRange: { min: 10_000, max: 50_000 },
+    }));
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    const base = `http://127.0.0.1:${(app.server.address() as AddressInfo).port}`;
+
+    // Someone who got in with the old password is listening on the live stream.
+    const stream = await fetch(`${base}/api/stream`, { headers: { cookie: old } });
+    expect(stream.status).toBe(200);
+    const reader = stream.body!.getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain(': connected');
+
+    await forgot(app, EMAIL);
+    expect((await reset(app, tokenIn(outbox[0]), NEW)).statusCode).toBe(200);
+
+    // The stream ends (it used to stay open until the connection dropped by itself)...
+    const ended = await Promise.race([
+      (async () => { for (;;) if ((await reader.read()).done) return true; })(),
+      new Promise<false>((resolve) => setTimeout(() => resolve(false), 5_000)),
+    ]);
+    expect(ended).toBe(true);
+    // ...and cannot be opened again with the old cookie.
+    expect((await fetch(`${base}/api/stream`, { headers: { cookie: old } })).status).toBe(401);
   });
 
   it('works once: the same link a second time changes nothing', async () => {

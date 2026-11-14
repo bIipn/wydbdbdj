@@ -157,17 +157,26 @@ export async function deleteExpiredSessions(db: Db, now: Date): Promise<void> {
 
 // ----------------------------------------------------- password resets --
 
+/** Live reset links one account may have at once, the new one included. Older ones go first. */
+const MAX_LIVE_RESETS = 5;
+
 /**
- * Store a new reset link for an account (only the token's hash). One live link per account: the account's
- * earlier ones go in the same statement, and so does every link of anybody's that has run out.
+ * Store a new reset link for an account (only the token's hash). An earlier link of the account stays good:
+ * were a new request to cancel it, anyone who knows the address could keep killing the link its owner is about
+ * to open. Using one link ends all of them (useResetToken). The same statement sweeps out every link of
+ * anybody's that has run out, and this account's oldest beyond MAX_LIVE_RESETS.
  */
-export async function replaceResetToken(db: Db, accountId: string, tokenHash: string, now: Date, expiresAt: Date): Promise<void> {
+export async function addResetToken(db: Db, accountId: string, tokenHash: string, now: Date, expiresAt: Date): Promise<void> {
   await db.query(
     `with old as (
-       delete from password_resets where account_id = $2 or expires_at <= $3
+       delete from password_resets
+       where expires_at <= $3
+          or (account_id = $2 and token_hash not in (
+                select token_hash from password_resets where account_id = $2 and expires_at > $3
+                order by created_at desc, token_hash limit $5))
      )
      insert into password_resets (token_hash, account_id, created_at, expires_at) values ($1, $2, $3, $4)`,
-    [tokenHash, accountId, now.toISOString(), expiresAt.toISOString()],
+    [tokenHash, accountId, now.toISOString(), expiresAt.toISOString(), MAX_LIVE_RESETS - 1],
   );
 }
 
@@ -180,10 +189,10 @@ export async function isLiveResetToken(db: Db, tokenHash: string, now: Date): Pr
 }
 
 /**
- * Use a reset link: ONE statement marks it used, stores the new password hash and ends every session and
- * push subscription of the account (whoever knew the old password is signed out everywhere). The link's
- * state is in the WHERE, so of two requests with the same link exactly one gets the account back; the other,
- * like a link that ran out or was never ours, gets null and nothing is changed.
+ * Use a reset link: ONE statement marks it used, stores the new password hash, ends every session and push
+ * subscription of the account (whoever knew the old password is signed out everywhere) and deletes the
+ * account's other reset links. The link's state is in the WHERE, so of two requests with the same link exactly
+ * one gets the account back; the other, like a link that ran out or was never ours, gets null and nothing is changed.
  */
 export async function useResetToken(db: Db, tokenHash: string, passwordHash: string, now: Date): Promise<Account | null> {
   const rows = await db.query<AccountRow>(
@@ -198,6 +207,8 @@ export async function useResetToken(db: Db, tokenHash: string, passwordHash: str
        delete from sessions where account_id in (select account_id from used)
      ), unsubscribed as (
        delete from push_subscriptions where account_id in (select account_id from used)
+     ), other_links as (
+       delete from password_resets where account_id in (select account_id from used) and token_hash <> $1
      )
      select ${ACCOUNT_COLS} from changed`,
     [tokenHash, passwordHash, now.toISOString()],

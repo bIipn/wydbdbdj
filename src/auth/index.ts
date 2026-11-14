@@ -3,8 +3,8 @@ import type { FastifyRequest } from 'fastify';
 import type { JWTVerifyGetKey } from 'jose';
 import type { AppConfig } from '../context.js';
 import {
-  createAccount, findAccountByIdentity, findCredentials, findCredentialsById, isLiveResetToken, linkVerifiedIdentity, recordLogin,
-  replaceResetToken, setPasswordHash, useResetToken,
+  addResetToken, createAccount, findAccountByIdentity, findCredentials, findCredentialsById, isLiveResetToken, linkVerifiedIdentity,
+  recordLogin, setPasswordHash, useResetToken,
 } from '../db/accounts.js';
 import type { Db } from '../db/db.js';
 import type { Account } from '../types.js';
@@ -72,12 +72,12 @@ export interface SignInService extends AuthService {
   /**
    * "Forgot password": a new reset link for the account with this email, or null when there is nothing to send
    * (not an address, no account, or an account that signs in through a provider and has no password). The caller
-   * emails it and answers the same either way. Asking again replaces the earlier link.
+   * emails it and answers the same either way. An earlier link stays good until one of them is used.
    */
   startReset(email: unknown): Promise<ResetLink | null>;
   /**
-   * Set a new password with a reset link's token. On success every session of the account is ended and a new
-   * one opened for this browser. Errors: invalid_password, reset_link_invalid.
+   * Set a new password with a reset link's token. On success every session of the account is ended, its other
+   * reset links with them, and a new session is opened for this browser. Errors: invalid_password, reset_link_invalid.
    */
   finishReset(input: { token?: unknown; password?: unknown }): Promise<SignInResult>;
   /** Which proof confirmOwner will ask this account for. */
@@ -87,6 +87,7 @@ export interface SignInService extends AuthService {
    * account). An account with a password must give it again. An account without one (it signs in through
    * Google, Apple or Microsoft) has nothing to type that a borrowed phone does not already show, so it needs a
    * session opened in the last RECENT_SIGN_IN_MS, which means signing in again, and its own email as `confirm`.
+   * That is only as strong as the provider's own sign-in: a provider still signed in on that phone asks nothing.
    */
   confirmOwner(req: FastifyRequest, account: Account, input: { password?: unknown; confirm?: unknown }): Promise<OwnerResult>;
 }
@@ -193,7 +194,7 @@ export function createAuth(db: Db, config: AppConfig, opts: AuthOptions = {}): S
       const token = newToken();
       const at = now();
       const expiresAt = new Date(at.getTime() + RESET_TTL_MS);
-      await replaceResetToken(db, found.account.id, hashToken(token), at, expiresAt);
+      await addResetToken(db, found.account.id, hashToken(token), at, expiresAt);
       return { email: found.account.email, token, expiresAt };
     },
 

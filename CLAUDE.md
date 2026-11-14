@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,668 tests in 70 files as of 2026-11-14, ~80s; simulate.test.ts ~25s,
+npm test                   # vitest (~1,670 tests in 70 files as of 2026-11-14, ~80s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -179,11 +179,13 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   (never the email) and `ledgerTotals` stays true. A new table that hangs off `accounts` needs `on delete cascade`
   or a line in that statement; web/privacy.html "Deleting your account" and web/terms.html must say what it does.
 - **Forgot password:** `POST /api/auth/forgot` answers every address the same and emails a link only to an
-  account with a password; `POST /api/auth/reset` uses it once (one statement) and signs every other device out.
+  account with a password; `POST /api/auth/reset` uses it once (one statement) and signs every other device out
+  (sessions, stored push devices, and open live streams through the bus event `signed_out`). A new link never
+  cancels an earlier one (anyone who knows the address could keep killing the owner's); using one cancels the rest.
   The token rides in the link's FRAGMENT (`/#reset=…`, never sent to a server) and is never logged; only its
-  sha256 is stored. **No `RESEND_API_KEY` (+ `EMAIL_FROM` or `DIGEST_FROM`) = no mailer**: the route answers 503
-  `reset_unavailable` and the screen says reset by email is not available yet. Never answer "we emailed it" when
-  nothing was sent (a refused send is 502 `email_failed`).
+  sha256 is stored. **No `RESEND_API_KEY` (+ `EMAIL_FROM` or `DIGEST_FROM`, + `APP_URL`) = no mailer**: the route
+  answers 503 `reset_unavailable` and the screen says reset by email is not available yet. Never answer "we
+  emailed it" when nothing was sent (a refused send is 502 `email_failed`).
 - **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
   are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
   the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
@@ -263,6 +265,10 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   job) besides 404; 'poster_left' exists only in that answer's alert, never in `jobs.outcome` (the row is gone).
 - The sign-in limiter (10 tries per caller per 15 min) also counts `POST /api/auth/reset`; "forgot" and "delete my
   account" have their own. They are per process, like the others (weak on serverless).
+- `/api/stream` checks the session only when the stream opens. Anything that ends an account's sessions on the
+  server must also `bus.emit({ type: 'signed_out', accountId })` (the stream hub closes that account's connections).
+- A device with phone alerts on re-registers itself every time the app is entered (web/js/push.js `syncPush`):
+  a reset deletes the stored devices, and the device's alerts follow whoever is signed in on it.
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

@@ -75,7 +75,7 @@
         <tr><td>Email address and name</td><td>Your account: signing in, and telling you apart from other businesses.</td></tr>
         <tr><td>Password</td><td>Only a one-way scrypt hash, never the password itself. If you sign in with Google, Apple or Microsoft instead, we store the sign-in service's id for your account and no password.</td></tr>
         <tr><td>Sign-in sessions</td><td>A cookie keeps you signed in for up to 30 days after your last visit. We store only a hash of it.</td></tr>
-        <tr><td>Password reset links</td><td>If you ask for one: a hash of the link's secret (never the link itself), when you asked, and when it was used. A link works once, for one hour. Where reset by email is not set up, the app says so and nothing is sent or stored.</td></tr>
+        <tr><td>Password reset links</td><td>If you ask for one: a hash of the link's secret (never the link itself), when you asked, and when it was used. A link works once, for one hour; using it removes any other link of yours. Where reset by email is not set up, the app says so and nothing is sent or stored.</td></tr>
         <tr><td>Business profile</td><td>Business name, your trades, your home base (town and ZIP, turned into map coordinates), how far you travel, the job sizes you want, the paperwork you said you have (bonding, prevailing wage, state and federal registration), spend limits, and the cost numbers you choose to enter. This is what scores each bid for you.</td></tr>
         <tr><td>Saved and passed bids</td><td>Which bids you saved, passed or opened to bid, so your lists stay the same on every device.</td></tr>
         <tr><td>Fit scores</td><td>Each bid's score for your business and the reasons, recalculated after every daily scan.</td></tr>
@@ -139,7 +139,8 @@
       <li>Every sign-in session, so every device is signed out, and every notification device.</li>
       <li>Your business profile, fit scores, saved and passed bids, alerts and cost checks, and your work profile.</li>
       <li>Every local job you posted, in any state: its title, description, address and phone, the bids on it and its
-        messages. It also leaves every other person's feed, saved list and bid alerts.</li>
+        messages. It also leaves every other person's feed, saved list and bid alerts, and it no longer counts in
+        the record (jobs won, agreed, done, no-shows) of the person who won it.</li>
       <li>Your own bids, messages and reports on other people's jobs.</li>
     </ul>
 
@@ -154,9 +155,14 @@
         the job's title, their own bid (and a fee that was waived for them, if there was one), the day it ended, and
         that it ended because the poster's account was deleted. Only they can see it. Nothing else about the job or about you.</li>
       <li><strong>A job you had won</strong> belongs to the person who posted it and stays theirs, without you:
-        it shows that the winner deleted their account, and the winning amount. Your name, card and messages are gone from it.</li>
+        your name, card, bid and messages are gone from it. It keeps the winning amount and how it ended; a job that
+        was still running shows that the winner deleted their account.</li>
       <li><strong>What is already in other people's inboxes.</strong> An alert someone received earlier (for example
         “New message” with its first words, or the title of your job) stays in their inbox.</li>
+      <li><strong>The sign-in service's own record</strong>, if you signed in with Google, Apple or Microsoft. We
+        delete our link to it, but the service that handles those sign-ins for us keeps its own record of you (your
+        email address and that provider's id) until it is removed there
+        <span class="todo">[Ev: before switching social sign-in on, say here how and when that record is removed]</span>.</li>
       <li><strong>Backups and logs.</strong> Our hosting providers' backups and request logs can hold a copy until they
         are replaced <span class="todo">[Ev: say how long your database and hosting providers keep backups and logs]</span>.</li>
     </ul>

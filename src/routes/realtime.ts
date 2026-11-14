@@ -94,6 +94,8 @@ function registerStream(app: FastifyInstance, ctx: RouteContext, opts: RealtimeR
   const offs = [
     ctx.bus.on('alert', (e) => hub.alert(e.profileId, e.alert)),
     ctx.bus.on('scan', (e) => hub.scan(e.report)),
+    // A password reset or an account deletion ended this account's sessions: its open streams end with them.
+    ctx.bus.on('signed_out', (e) => void hub.closeOwner(e.accountId)),
   ];
   // preClose, not onClose: open streams would keep the server from closing.
   app.addHook('preClose', async () => {

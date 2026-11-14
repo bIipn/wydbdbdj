@@ -5,14 +5,16 @@ import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { fmtDay, clock } from '../format.js';
 import { jobsOn, openJob } from '../jobs-data.js';
-import { currentSubscription, pushKey, pushSupport, turnOffPush, turnOnPush } from '../push.js';
-import { homeView, onSignedOut } from '../session.js';
+import { currentSubscription, pushKey, pushSupport, syncPush, turnOffPush, turnOnPush } from '../push.js';
+import { homeView, onEnteredApp, onSignedOut } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { registerView, render, setView } from '../shell.js';
 import { features, intent, mergeItems, state } from '../state.js';
 
 const ui = { back: 'swipe', loading: false, error: null, push: 'checking', pushNote: '' };
 onSignedOut(() => { ui.push = 'checking'; });
+// A device with phone alerts on registers itself again under whoever just came in (web/js/push.js syncPush).
+onEnteredApp(() => { syncPush(); });
 
 const KIND = {
   match: 'New match', deadline: 'Deadline', award: 'Award', price: 'Price move',

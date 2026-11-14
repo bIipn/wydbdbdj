@@ -102,8 +102,8 @@ default 2), `SAM_SOURCE` (`bulk` default / `api`), `SAM_API_KEY` (api mode only)
 `PROMO_CODES` (`CODE:pro[:maxUses][:expiresISO]`, comma-separated; real codes only on the host),
 `REALTIME_MODE` (`stream` / `poll`; poll is the default on Vercel) + `REALTIME_POLL_MS`, `CRON_SECRET`
 (serverless cron routes), `BLS_API_KEY`, `RESEND_API_KEY` + `DIGEST_TO` (the pilot's digest) + `EMAIL_FROM`
-(the sender of password reset links; without the key and a sender the app says reset by email is not
-available yet), `VAPID_*`, `APP_URL`.
+(the sender of password reset links; without the key, a sender and `APP_URL` the app says reset by email is
+not available yet), `VAPID_*`, `APP_URL`.
 
 ## Deploy on Vercel (serverless)
 
@@ -164,7 +164,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/me`, `GET /api/health` | who/what profile (401 `sign_in_required`, 409 `onboarding_required` in accounts mode), status |
 | `GET /api/auth/config`, `POST /api/auth/{signup,login,logout,oauth}` | accounts mode sign-in (cookie session). `config.passwordReset` is `true` only when the server can send email |
 | `POST /api/auth/forgot {email}` | forgot password: the same 200 for every address, and a one-hour, single-use link emailed (`<APP_URL>/#reset=<token>`) when the address has an account with a password. 503 `reset_unavailable` when no `RESEND_API_KEY` is set (nothing is sent, and it says so) · 502 `email_failed` · 429 after 3 an hour per address or 5 per caller |
-| `POST /api/auth/reset {token, password}` | choose the new password → signed in; every other session and phone-alert device of the account ends. 400 `reset_link_invalid` (used, expired, replaced or made up) · 400 `invalid_password` |
+| `POST /api/auth/reset {token, password}` | choose the new password → signed in; every other session, open live stream and stored phone-alert device of the account ends, and so do its other reset links. 400 `reset_link_invalid` (used, expired or made up) · 400 `invalid_password` |
 | `GET /api/account/deletion` | what deleting the account would end (`ends`: jobs removed, people told, jobs handed back, fee lines kept) and how it is confirmed (`confirmWith`: `password`, or `recent_sign_in` for an account with no password). Changes nothing |
 | `DELETE /api/account {password}` | delete the account and everything tied to it, at once, for good (`{confirm: <email>}` and a sign-in from the last 10 minutes for an account with no password). 401 `wrong_password` · 403 `recent_sign_in_required` · 429 after 5 tries in 15 min |
 | `POST /api/admin/account/delete {email}` | operator (`x-admin-token`): the same deletion for someone who asked by email and cannot do it themselves. 404 `account_not_found` |

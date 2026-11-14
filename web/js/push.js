@@ -68,6 +68,23 @@ export async function turnOnPush(key) {
   }
 }
 
+/**
+ * Phone alerts were turned on from this device before (the browser still holds its subscription): make sure the
+ * server has it under the account that is signed in NOW. Called every time the app is entered. It asks the
+ * person nothing. Why it is needed: a password reset (and an account taken over by its verified owner) deletes
+ * the account's stored devices on purpose, and without this the Alerts screen would go on saying "on" while no
+ * push could ever arrive. Storing the same device twice changes nothing.
+ */
+export async function syncPush() {
+  const sub = await currentSubscription();
+  if (!sub) return;
+  try {
+    await api.pushSubscribe(sub.toJSON(), { quiet: true });
+  } catch {
+    // No push on this server, or no connection: the Alerts screen says which when it is opened.
+  }
+}
+
 export async function turnOffPush() {
   const sub = await currentSubscription();
   if (!sub) return;

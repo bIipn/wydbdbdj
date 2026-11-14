@@ -164,8 +164,11 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
    * "Forgot password": { email } → the same 200 for every address, and an email with a one-hour, single-use link
    * when the address has an account with a password. Without a mailer nothing can be sent, so nothing is
    * promised: 503 reset_unavailable. Only a hash of the link's token is stored; the token is never logged.
-   * (A request for a real account takes as long as the email service does, so its timing can differ from an
-   * unknown address's. Sign-up already tells a taken address from a free one; the limits above cap the probing.)
+   * A new link does not cancel an earlier one (using any of them cancels the rest), so somebody else asking for
+   * this address cannot kill the link its owner is about to open.
+   * (Two things can tell a real account from an unknown address here: the request takes as long as the email
+   * service does, and a refused send answers 502. Sign-up already tells a taken address from a free one, and
+   * "never say we emailed it when we did not" comes first; the limits above cap the probing.)
    */
   app.post('/api/auth/forgot', async (req, reply) => {
     if (!ctx.mailer) return reply.code(503).send(RESET_UNAVAILABLE);
@@ -194,12 +197,17 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
 
   /**
    * Choose a new password with the link's token: { token, password } → signed in, like a login. The link is
-   * used up, every other session of the account ends, and so do its phone-alert subscriptions.
+   * used up with every other link of the account, every other session ends (open live streams included), and so
+   * do its phone-alert subscriptions (a device registers again the next time the app is opened signed in).
    */
   app.post('/api/auth/reset', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     const result = await signIn.finishReset(fields(req.body));
-    if (result.ok) ctx.log(`password reset: account ${result.account.id} chose a new password`);
+    if (result.ok) {
+      ctx.log(`password reset: account ${result.account.id} chose a new password`);
+      // Every earlier session is gone from the database; a live stream opened with one of them must end too.
+      await ctx.bus.emit({ type: 'signed_out', accountId: result.account.id });
+    }
     return answer(req, reply, result);
   });
 

@@ -115,7 +115,7 @@ export const api = {
   alerts: (opts = {}) => req(`api/alerts?limit=${opts.limit ?? 50}${opts.before ? `&before=${opts.before}` : ''}`),
   readAlerts: (ids) => req('api/alerts/read', { method: 'POST', body: ids === 'all' ? { all: true } : { ids } }),
   pushKey: () => req('api/push/key', { quiet: true }),
-  pushSubscribe: (subscription) => req('api/push/subscribe', { method: 'POST', body: { subscription } }),
+  pushSubscribe: (subscription, opts) => req('api/push/subscribe', { method: 'POST', body: { subscription }, ...opts }),
   pushUnsubscribe: (endpoint) => req('api/push/subscribe', { method: 'DELETE', body: { endpoint } }),
 
   // price check

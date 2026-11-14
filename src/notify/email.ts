@@ -50,12 +50,18 @@ export function resendMailer(opts: ResendOptions): Mailer {
 
 /**
  * The mailer the environment configures, or null when email is off. EMAIL_FROM is the sender for mail to
- * account holders; DIGEST_FROM (the pilot's digest sender) is used when it is not set.
+ * account holders; DIGEST_FROM (the pilot's digest sender) is used when it is not set. APP_URL must be set too:
+ * the reset email carries a link to this app, and without it that link would point at localhost.
  */
-export function mailerFromEnv(env: (name: string) => string | undefined): Mailer | null {
+export function mailerFromEnv(env: (name: string) => string | undefined, log: (msg: string) => void = () => {}): Mailer | null {
   const apiKey = env('RESEND_API_KEY');
   const from = env('EMAIL_FROM') ?? env('DIGEST_FROM');
-  return apiKey && from ? resendMailer({ apiKey, from }) : null;
+  if (!apiKey || !from) return null;
+  if (!env('APP_URL')) {
+    log('email to account holders is off: RESEND_API_KEY is set but APP_URL is not, and a reset link has to point at this app');
+    return null;
+  }
+  return resendMailer({ apiKey, from });
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);

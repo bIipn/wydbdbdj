@@ -184,8 +184,12 @@ describe('who may delete, and how it is confirmed', () => {
     expect((await call(p, 'GET', '/api/me')).status).toBe(200);
 
     clock += 16 * MIN; // five tries were used up: a new window
+    const signedOut: string[] = [];
+    const off = ctx.bus.on('signed_out', (e) => void signedOut.push(e.accountId));
     const done = await del(p);
+    off();
     expect(done).toMatchObject({ status: 200, json: { ok: true } });
+    expect(signedOut).toEqual([p.account.id]); // the stream hub closes this account's live connections on it
     expect(done.setCookie).toMatch(/^bs_session=; .*Max-Age=0/); // the browser drops its cookie
     expect(await n('select 1 from accounts where id = $1 or email = $2', [p.account.id, p.email])).toBe(0);
 
@@ -261,7 +265,11 @@ describe('the operator can delete an account for someone who cannot (POST /api/a
     expect((await admin({ email: 'test.nobody.here@example.com' })).json()).toEqual({ error: 'account_not_found' });
     expect(await n('select 1 from accounts where id = $1', [locked.account.id])).toBe(1);
 
+    const signedOut: string[] = [];
+    const off = ctx.bus.on('signed_out', (e) => void signedOut.push(e.accountId));
     const done = await admin({ email: ` ${locked.email.toUpperCase()} ` });
+    off();
+    expect(signedOut).toEqual([locked.account.id]);
     expect(done.statusCode).toBe(200);
     expect(done.json()).toEqual({ ok: true });
     expect(await n('select 1 from accounts where id = $1', [locked.account.id])).toBe(0);

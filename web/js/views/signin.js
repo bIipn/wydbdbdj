@@ -115,7 +115,7 @@ function resetPanel() {
   if (ui.stale || !ui.token) {
     return h('div', { class: 'panel auth-note' }, title,
       h('p', { class: 'auth-plain' }, 'That reset link is no longer valid.'),
-      h('p', {}, 'A link works once, for an hour, and a newer link replaces an older one. Your password was not changed.'),
+      h('p', {}, 'A link works once, for an hour. Your password was not changed.'),
       h('button', { type: 'button', class: 'cta', onclick: () => { Object.assign(ui, { tab: 'forgot', token: null, stale: false, sent: null }); render(); } }, 'Ask for a new link'),
       h('button', { type: 'button', class: 'text-btn auth-back', onclick: leaveReset }, 'Back to BidSwipe'));
   }

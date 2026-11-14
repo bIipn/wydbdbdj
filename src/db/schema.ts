@@ -105,6 +105,24 @@ create table if not exists sessions (
 
 alter table profiles add column if not exists account_id text references accounts(id) on delete cascade;
 create unique index if not exists profiles_account_idx on profiles (account_id) where account_id is not null;
+
+-- The five things in prefs that decide whether a bid can matter to a profile at all (src/score/candidates.ts
+-- isCandidate, src/scan.ts seesLocalJobs), as small columns the database keeps itself: generated from prefs on
+-- every write, so they cannot drift and no code writes them. "Which profiles could this new job matter to?"
+-- (candidateProfilesFor in repo.ts) then reads these for every row and opens prefs (a few kB of keyword lists)
+-- only for the rows it returns. A value of the wrong type in prefs gives null here, never an error.
+-- Adding one rewrites the table once; to change one, drop it and add it again.
+alter table profiles add column if not exists base_lat double precision generated always as
+  (case when jsonb_typeof(prefs->'base'->'lat') = 'number' then (prefs->'base'->>'lat')::double precision end) stored;
+alter table profiles add column if not exists base_lng double precision generated always as
+  (case when jsonb_typeof(prefs->'base'->'lng') = 'number' then (prefs->'base'->>'lng')::double precision end) stored;
+alter table profiles add column if not exists max_distance_mi double precision generated always as
+  (case when jsonb_typeof(prefs->'maxDistanceMi') = 'number' then (prefs->>'maxDistanceMi')::double precision end) stored;
+alter table profiles add column if not exists states jsonb generated always as (prefs->'states') stored;
+-- at least one trade or one strong keyword (anything that is not absent, null or an empty list counts)
+alter table profiles add column if not exists does_work boolean generated always as
+  (coalesce(prefs->'trades', 'null'::jsonb) not in ('null'::jsonb, '[]'::jsonb)
+   or coalesce(prefs->'keywords'->'strong', 'null'::jsonb) not in ('null'::jsonb, '[]'::jsonb)) stored;
 alter table bids add column if not exists sol_number text;
 alter table matches add column if not exists over_limit boolean not null default false;
 -- Federal product-service code (SAM.gov ClassificationCode, upper case), null for every other board.

@@ -118,6 +118,9 @@ a same-seed hash and mutation runs that prove the checks can fail. `npm run simu
 2000 --seed 4242` stress-runs the cost engine on seeded simulated companies. `npm run simulate:jobs -- --seed
 20261114 --out out/sim-jobs` runs 38 simulated people through the real marketplace (post, sealed bids, award,
 contact window, fees): 15 checks, a same-seed hash and 10 mutations at real seams; about 8 minutes.
+`npm run bench:jobs -- --profiles 3000 --jobs 300` fills an in-memory database with simulated people and jobs
+and measures the marketplace's two busiest requests (posting a job, "my jobs"): wall time and database
+statements per request, plus digests of what they produced, so two versions of the code can be compared.
 
 Environment (all in `.env`, see `.env.example`): `PORT`, `HOST`, `DATA_DIR` (embedded DB folder),
 `DATABASE_URL`, `AUTH_MODE`, `DEMO_MODE`, `SOURCES`, `ACCESS_CODE`, `ADMIN_TOKEN`, `SCAN_DAILY_AT` and

@@ -27,8 +27,8 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,050 tests in 83 files as of 2026-11-14, ~100s; simulate.test.ts ~25s,
-                           # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
+npm test                   # vitest (~2,070 tests in 87 files as of 2026-11-14, ~100s; simulate.test.ts ~25s,
+                           # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
@@ -45,6 +45,9 @@ npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run:
 npm run simulate:jobs -- --seed 20261114 --out out/sim-jobs  # 38 SIMULATED people through the real marketplace
                            # (post, sealed bids, award, contact window, fees): 15 checks, same-seed hash, 10 mutations
                            # at real seams; ~8 min for its 12 runs; exit 1 on any miss
+npm run bench:jobs -- --profiles 3000 --jobs 300   # seeded in-memory DB of SIMULATED people and jobs: wall time and
+                           # database statements per POST /api/jobs and GET /api/jobs/mine, plus digests of what
+                           # they produced (run it on two versions: same digests = same behaviour); ~1 min
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
 `POST /api/admin/scan` on the running server. Modes (env): `AUTH_MODE=single` (default, the pilot: one
@@ -91,7 +94,9 @@ src/score/candidates.ts which bids a company gets a stored score for at all (its
                    max(2×radius, radius+100, 150 mi)); Browse shows candidates only
 config/<id>.json   a contractor profile (keywords, radius, value range…) — tune scoring HERE, not in code
 src/scan.ts        fetch all sources → finalizeBid → upsert → score per profile → record report
-src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here)
+src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here); profiles carries five
+                   generated columns copied from prefs (base_lat, base_lng, max_distance_mi, states, does_work) for
+                   candidateProfilesFor(): "which profiles could this ONE new bid matter to?" without opening prefs
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
 src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
 src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time match) + one-statement redeem
@@ -106,7 +111,9 @@ src/sim/           the multi-company simulation (personas, takeoffs, checks, rep
                    src/sim/jobs/ the marketplace simulation behind `npm run simulate:jobs` (plan, expect, checks, mutations)
 src/jobs/          the marketplace: rules.ts (pure: winner, fee lines in ppm/BigInt, the state machine settle()),
                    config.ts (JOB_* settings), repo.ts (ALL its SQL: every state-dependent write is ONE conditional
-                   statement), service.ts (post/bid/award/contact/confirm/back-out, settleDue, mirrorBid),
+                   statement; reads for many jobs or people at once are ONE statement each: bidsForJobs, feesForJobs,
+                   statsForAccounts), service.ts (post/bid/award/contact/confirm/back-out, settleDue, mirrorBid,
+                   loadViews: every view of a request from one set of reads),
                    view.ts (what ONE viewer may see: hidden fields are null/[], never missing), stats.ts
 src/profile/work.ts + person.ts + src/db/work.ts  work profiles (headline, experience, licence as typed, résumé
                    link) and the PersonCard (never email/phone/address); src/routes/work.ts, src/routes/jobs.ts
@@ -130,7 +137,8 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
                    · http.test.ts (cookie session) · pipeline / score / server / util · cost/ + cost-oracle/
                    · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
                    · simulate.test.ts · jobs-api / jobs-rules / jobs-score / jobs-reach / jobs-pg /
-                   simulate-jobs / work-profile · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
+                   simulate-jobs / work-profile · jobs-scale (counts database statements through a wrapped Db: a post
+                   and "my jobs" must cost the same for a little data as for a lot) · bench-jobs · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
 ```
 
 ## Rules
@@ -268,6 +276,21 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - A scan never stores, overwrites or removes a `local` row. Local jobs are scored only for profiles an
   account owns that do work (`seesLocalJobs` in src/scan.ts): never the pilot's config profile, never a
   "Get work done" profile (no trades), never the poster's own.
+- A posted job is scored inside the poster's request (`scoreNewBid`), so that path is set-based and must stay so
+  (`test/jobs-scale.test.ts` fails on one statement per row): `candidateProfilesFor` (src/db/repo.ts) lets the
+  database pick the profiles that can be candidates, from the generated columns of `profiles` (the database
+  fills them from `prefs`; no code writes them; a wrong type in prefs gives null, never an error); the query is
+  `isCandidate` + `seesLocalJobs` in SQL with 1 mi of slack (`CANDIDATE_QUERY_SLACK_MI`: Postgres and V8 round a
+  distance differently), so `scoreNewBid` still asks both rules about every row it gets; scores go in
+  `MATCH_BATCH` rows per statement (a failed statement is retried row by row, so one vanished profile costs
+  one row). Change the candidate rule in src/score/candidates.ts AND in that query's WHERE: the test compares
+  them. The 'match' alerts are still stored one at a time by src/realtime (two statements per alerted profile).
+- Every job view (`loadViews` in src/jobs/service.ts: `GET /api/jobs/mine`, a job page, the answer to a bid)
+  reads the bids, the fee rows and the people's cards of ALL its jobs in five statements. Cards of bidders are
+  read only for jobs the viewer posted, and each job's view is handed its own people only; what is shown is
+  still decided in view.ts alone.
+- The scorer compiles one pattern per keyword TEXT and shares it between profiles (src/score/keywords.ts
+  `keywordPattern`): thousands of profiles carry the same catalog words. Never give those patterns a g or y flag.
 - One live repost per job (`jobs_one_repost_idx`): a second "Post again" answers 409.
 - A "Get work done" account (intent 'hire', accounts mode) sees only Jobs + the bell + the profile chip:
   web/js/shell.js `hiddenFor()` hides Swipe/Browse/Saved/Market and `render()` sends those views to 'jobs'.

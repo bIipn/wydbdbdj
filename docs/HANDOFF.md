@@ -104,8 +104,17 @@ Known gaps (marketplace):
   placeholders (contact email, providers) to fill in before publishing.
 - No account deletion yet; when built it must delete the account's `local:<id>` feed rows and decide what
   happens to fee rows.
-- A newly posted job is scored by looping over every profile in the request; batch it before thousands of
-  users. `GET /api/jobs/mine` loads every job one at a time (median ~33 ms in the simulation).
+- Fixed 2026-11-14 (was: a newly posted job scored by looping over every profile in the request; `GET
+  /api/jobs/mine` loading every job one at a time). Both are set-based now: the database picks the candidate
+  profiles (generated columns on `profiles`), scores go in 500 rows per statement, and every job view of a
+  request is built from five reads. `npm run bench:jobs -- --profiles 3000 --jobs 300` (3,001 profiles, 300
+  jobs, 1,746 bids, embedded database, 4 CPUs; each post scored for ~1,291 profiles): a post went from
+  1,446 ms / 1,300 statements to 238 ms / 15 statements, "my jobs" for someone with 210 jobs from 1,937 ms /
+  3,284 statements to 53 ms / 10. Same stored scores, alerts and answers (the bench's three digests, and the
+  `simulate:jobs` hash, are unchanged). `test/jobs-scale.test.ts` fails if either goes back to a statement per row.
+  What is left in a post: reading and scoring the candidates themselves (everyone in the job's state is one), and
+  the alert rules, which still store one 'match' alert at a time (two statements per ALERTED profile: with them
+  listening the same post is 356 ms / 207 statements for ~101 alerts). Batch that next if posts get slow.
 - On a multi-connection Postgres a bid sent in the exact millisecond of closing could, in theory, be swept to
   'lost' (very unlikely; the embedded database cannot hit it).
 - The 'match' alert of a 3-day job says "2 days left" (whole-day rounding). A "Get work done" account still

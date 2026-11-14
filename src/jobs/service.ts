@@ -15,7 +15,7 @@ import type { Db } from '../db/db.js';
 import { upsertBids } from '../db/repo.js';
 import { lookupZip } from '../geo/zip.js';
 import { LOCAL_JOB_FLAG } from '../sources/flags.js';
-import { personCard, type PersonCard } from '../profile/person.js';
+import { ANONYMOUS_NAME, personCards, type PersonCard } from '../profile/person.js';
 import type { Bus, JobEvent } from '../realtime/bus.js';
 import { scoreNewBid } from '../scan.js';
 import { getTrade } from '../trades/catalog.js';
@@ -24,7 +24,7 @@ import { publicRules } from './config.js';
 import * as repo from './repo.js';
 import type { BidRecord, JobRecord } from './repo.js';
 import { contactDeadlineFor, endOfContact, FEE_OUTCOMES, feeLine, formatUsd, pickWinner, type JobRules } from './rules.js';
-import { jobStats } from './stats.js';
+import { jobStatsFor } from './stats.js';
 import { inThread, tradeLabels, viewJob, viewMessages, type JobView, type MessageView, type PersonLite } from './view.js';
 
 export interface JobsDeps {
@@ -164,28 +164,48 @@ export function validatePost(body: unknown, rules: JobRules): Result<PostInput> 
 
 // ---------------------------------------------------------------- views --
 
-/** A person's card for someone allowed to see it; until the work-profile card exists, the lite one. */
-async function cardFor(db: Db, accountId: string, basics: Map<string, repo.AccountBasics>): Promise<PersonCard | PersonLite> {
-  const full = await personCard(db, accountId);
-  if (full) return full;
-  const b = basics.get(accountId);
-  return { id: accountId, name: b?.name ?? 'BidSwipe member', memberSince: b?.memberSince ?? new Date(0).toISOString(), stats: await jobStats(db, accountId) };
+const lite = (c: PersonCard | PersonLite): PersonLite => ({ id: c.id, name: c.name, memberSince: c.memberSince, stats: c.stats });
+
+/**
+ * The cards of several people at once (three statements, src/profile/person.ts). Someone whose account is gone
+ * still gets the plain card: no name, no join date, the record the jobs tables hold.
+ */
+async function cardsFor(db: Db, accountIds: readonly string[]): Promise<Map<string, PersonCard | PersonLite>> {
+  const cards = new Map<string, PersonCard | PersonLite>(await personCards(db, accountIds));
+  const gone = [...new Set(accountIds)].filter((id) => !cards.has(id));
+  if (gone.length) {
+    const stats = await jobStatsFor(db, gone);
+    for (const id of gone) cards.set(id, { id, name: ANONYMOUS_NAME, memberSince: new Date(0).toISOString(), stats: stats.get(id)! });
+  }
+  return cards;
 }
 
-const lite = (c: PersonCard | PersonLite): PersonLite => ({ id: c.id, name: c.name, memberSince: c.memberSince, stats: c.stats });
+/**
+ * Everything one viewer may see of several jobs, read fresh, in the same few statements for one job or for
+ * two hundred: the bids of all of them, their fee rows, and the cards of the people on them (test/jobs-scale.test.ts
+ * counts the statements). What the viewer is then shown of each job is decided in view.ts alone, job by job.
+ */
+export async function loadViews(deps: JobsDeps, jobs: readonly JobRecord[], viewerId: string | null, now: number): Promise<JobView[]> {
+  if (jobs.length === 0) return [];
+  const { db } = deps;
+  const ids = jobs.map((j) => j.id);
+  const [bids, fees] = await Promise.all([repo.bidsForJobs(db, ids), repo.feesForJobs(db, ids)]);
+  // Cards of the winner and the bidders are for the poster only: they are not even read for anyone else.
+  const shown = (job: JobRecord): string[] => (viewerId === job.posterId
+    ? [...new Set([...(job.winnerId ? [job.winnerId] : []), ...(bids.get(job.id) ?? []).map((b) => b.bidderId)])]
+    : []);
+  const cards = await cardsFor(db, jobs.flatMap((j) => [j.posterId, ...shown(j)]));
+  const rules = publicRules(deps.rules);
+  return jobs.map((job) => viewJob({
+    job, bids: bids.get(job.id) ?? [], fees: fees.get(job.id) ?? [], poster: lite(cards.get(job.posterId)!),
+    // Each job is handed the cards of its own people only, never the whole request's.
+    cards: new Map(shown(job).map((id) => [id, cards.get(id)!])),
+  }, viewerId, now, rules));
+}
 
 /** Everything one viewer may see of a job, read fresh. */
 export async function loadView(deps: JobsDeps, job: JobRecord, viewerId: string | null, now: number): Promise<JobView> {
-  const { db } = deps;
-  const [bids, fees] = await Promise.all([repo.listBids(db, job.id), repo.listFees(db, job.id)]);
-  const isPoster = viewerId === job.posterId;
-  // Cards of the winner and the bidders are for the poster only: they are not even read for anyone else.
-  const people = isPoster ? [...new Set([...(job.winnerId ? [job.winnerId] : []), ...bids.map((b) => b.bidderId)])] : [];
-  const basics = await repo.accountBasics(db, [job.posterId, ...people]);
-  const cards = new Map<string, PersonCard | PersonLite>();
-  for (const id of people) cards.set(id, await cardFor(db, id, basics));
-  const poster = lite(await cardFor(db, job.posterId, basics));
-  return viewJob({ job, bids, fees, poster, cards }, viewerId, now, publicRules(deps.rules));
+  return (await loadViews(deps, [job], viewerId, now))[0]!;
 }
 
 export async function getJobFor(deps: JobsDeps, jobId: string, viewerId: string | null, now: number): Promise<Result<{ job: JobView; messages: MessageView[] }>> {
@@ -195,14 +215,11 @@ export async function getJobFor(deps: JobsDeps, jobId: string, viewerId: string 
   return ok({ job: await loadView(deps, job, viewerId, now), messages });
 }
 
+/** The jobs someone posted and the jobs they bid on: two lists read, then every view built from one set of reads. */
 export async function myJobs(deps: JobsDeps, accountId: string, now: number): Promise<{ posted: JobView[]; bidding: JobView[] }> {
   const [posted, bidding] = await Promise.all([repo.jobsPostedBy(deps.db, accountId), repo.jobsBidOnBy(deps.db, accountId)]);
-  const views = async (jobs: JobRecord[]) => {
-    const out: JobView[] = [];
-    for (const j of jobs) out.push(await loadView(deps, j, accountId, now));
-    return out;
-  };
-  return { posted: await views(posted), bidding: await views(bidding) };
+  const views = await loadViews(deps, [...posted, ...bidding], accountId, now);
+  return { posted: views.slice(0, posted.length), bidding: views.slice(posted.length) };
 }
 
 // ------------------------------------------------------------- the feed --

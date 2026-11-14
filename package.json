@@ -11,6 +11,7 @@
     "simulate": "tsx src/cli/simulate.ts",
     "simulate:cost": "tsx src/cli/simulate-cost.ts",
     "simulate:jobs": "tsx src/cli/simulate-jobs.ts",
+    "bench:jobs": "tsx src/cli/bench-jobs.ts",
     "market:refresh": "tsx src/cli/market.ts",
     "market:refresh:prod": "node dist/cli/market.js",
     "push:keys": "web-push generate-vapid-keys",

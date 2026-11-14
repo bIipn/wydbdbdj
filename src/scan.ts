@@ -1,9 +1,11 @@
 import type { Db } from './db/db.js';
-import { getBids, getOpenBids, listProfiles, pruneMatches, recordScan, upsertBids, upsertMatches, upsertProfile } from './db/repo.js';
+import {
+  candidateProfilesFor, getBids, getOpenBids, MATCH_BATCH, pruneMatches, recordScan, upsertBids, upsertMatches, upsertMatchesForBid, upsertProfile,
+} from './db/repo.js';
 import { accountProfileIds, ownLocalBidIds } from './jobs/repo.js';
 import { locate } from './geo/locate.js';
 import type { Bus } from './realtime/bus.js';
-import { isCandidate } from './score/candidates.js';
+import { CANDIDATE_REACH, isCandidate } from './score/candidates.js';
 import { scoreBid } from './score/score.js';
 import { inheritFromStored, mergeDrafts, placeIsBlank } from './sources/dedupe.js';
 import { FLAGS } from './sources/flags.js';
@@ -144,28 +146,66 @@ export function seesLocalJobs(profile: Profile, hasAccount: boolean): boolean {
  * nobody is shown their own job), store the scores, and raise the normal 'match' events for the good fits.
  * This is what makes a job someone just posted reach the people who fit it without waiting for a scan.
  * Returns how many profiles got a stored score.
+ *
+ * It runs inside the poster's request, so it must cost what the job's neighbourhood costs, not what the whole
+ * user base costs. The database picks the profiles that can be candidates at all (candidateProfilesFor: the
+ * bid's state, or within the candidate limit; for a local job only accounts that do work, never the poster),
+ * only those are read and scored here, and their scores go in with the scan's multi-row statement: a handful
+ * of statements however many profiles there are (test/jobs-scale.test.ts counts them).
+ * The rules themselves are still asked here, row by row: the query is a pre-filter with a little slack.
+ * Events go out in profile-id order after the scores are stored, so a listener that reads the match finds it.
  */
 export async function scoreNewBid(
   db: Db, bid: Bid, now: Date, bus?: Bus, opts: { exceptProfileId?: string | null } = {},
 ): Promise<number> {
-  let n = 0;
-  const withAccount = bid.source === 'local' ? await accountProfileIds(db) : null;
-  for (const profile of await listProfiles(db)) {
-    if (profile.id === opts.exceptProfileId || !isCandidate(profile, bid)) continue;
-    if (withAccount && !seesLocalJobs(profile, withAccount.has(profile.id))) continue;
+  const local = bid.source === 'local';
+  const failed = (profileId: string, err: unknown): void =>
+    console.error(`[scan] scoring ${bid.id} for ${profileId} failed: ${err instanceof Error ? err.message : String(err)}`);
+
+  const scored: Array<{ profile: Profile; profileId: string; score: ScoreResult }> = [];
+  const inReach = await candidateProfilesFor(db, bid.location, CANDIDATE_REACH, { accountsThatWork: local, exceptProfileId: opts.exceptProfileId ?? null });
+  for (const { profile, hasAccount } of inReach) {
+    // One bad profile must not keep the job from everyone else (the same rule as a scan).
     try {
-      const s = scoreBid(bid, profile, now);
-      await upsertMatches(db, profile.id, [{ bidId: bid.id, score: s }]);
-      n++;
-      if (bus && mayAnnounce(s, alertThreshold(profile))) {
-        await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: true });
-      }
+      if (profile.id === opts.exceptProfileId || !isCandidate(profile, bid)) continue;
+      if (local && !seesLocalJobs(profile, hasAccount)) continue;
+      scored.push({ profile, profileId: profile.id, score: scoreBid(bid, profile, now) });
     } catch (err) {
-      // One bad profile must not keep the job from everyone else (the same rule as a scan).
-      console.error(`[scan] scoring ${bid.id} for ${profile.id} failed: ${err instanceof Error ? err.message : String(err)}`);
+      failed(profile.id, err);
     }
   }
-  return n;
+
+  // One statement per MATCH_BATCH profiles. Should a statement fail (a profile deleted since the query above
+  // is enough to fail all its rows), its rows are written one at a time, so only the row at fault is lost.
+  const stored: typeof scored = [];
+  for (let i = 0; i < scored.length; i += MATCH_BATCH) {
+    const batch = scored.slice(i, i + MATCH_BATCH);
+    try {
+      await upsertMatchesForBid(db, bid.id, batch);
+      stored.push(...batch);
+    } catch {
+      for (const one of batch) {
+        try {
+          await upsertMatchesForBid(db, bid.id, [one]);
+          stored.push(one);
+        } catch (err) {
+          failed(one.profileId, err);
+        }
+      }
+    }
+  }
+
+  if (bus) {
+    for (const { profile, score: s } of stored) {
+      try {
+        if (!mayAnnounce(s, alertThreshold(profile))) continue;
+        await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: true });
+      } catch (err) {
+        failed(profile.id, err);
+      }
+    }
+  }
+  return stored.length;
 }
 
 /** Which bids a profile gets a stored score for. Always isCandidate, except in the simulation's mutation run. */

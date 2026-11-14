@@ -1,5 +1,5 @@
 import type { Db } from '../db/db.js';
-import { dealtWith, statsFor } from './repo.js';
+import { dealtWith, statsFor, statsForAccounts } from './repo.js';
 
 /** What someone's history on the job marketplace adds up to. Shown on their card to the people they deal with. */
 export interface JobStats {
@@ -24,6 +24,13 @@ export const NO_JOB_STATS: JobStats = { posted: 0, won: 0, agreed: 0, completed:
 /** Counted from the jobs tables (removed jobs do not count, for or against anyone). */
 export async function jobStats(db: Db, accountId: string): Promise<JobStats> {
   return { ...NO_JOB_STATS, ...(await statsFor(db, accountId)) };
+}
+
+/** The same for several accounts in one statement, by account id. Every id asked for is there (zeros when it has no jobs). */
+export async function jobStatsFor(db: Db, accountIds: readonly string[]): Promise<Map<string, JobStats>> {
+  const out = new Map<string, JobStats>();
+  for (const [id, row] of await statsForAccounts(db, accountIds)) out.set(id, { ...NO_JOB_STATS, ...row });
+  return out;
 }
 
 /**

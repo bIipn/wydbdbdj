@@ -2,7 +2,7 @@
 // Mutate fields in place (state.items = …); never reassign `state` itself.
 
 import { defaultFilters } from './filters.js';
-import { byFit, dueInfo, isOpen } from './format.js';
+import { byFit, dueInfo, isOpen, tierOf } from './format.js';
 
 export const DECK_MIN_SCORE = 35;
 
@@ -18,6 +18,10 @@ export const state = {
   /** The header chip: { name, base }. */
   profile: null,
   items: [],
+  /** GET /api/feed `counts` for the whole feed ({ fit, sub, other }: open, unswiped candidates), null if not sent. */
+  counts: null,
+  /** The same counts for Browse's current search and filters (any tier), null if not sent. */
+  browseCounts: null,
   note: '',
   lastScan: null,
   view: 'swipe',
@@ -54,8 +58,36 @@ export const intent = () => state.me?.intent ?? 'work';
 /** Live features (Next up, alerts, market) need the API; the bundled demo has none. */
 export const isLive = () => state.mode === 'live' && !!state.me;
 
-/** The swipe deck: open, unswiped, a fit, and never a bid over the company's spend limits. */
-export const deck = () => state.items.filter((i) => !i.swipe && !i.overLimit && i.score >= DECK_MIN_SCORE && isOpen(i)).sort(byFit);
+/** The general-building trade (src/trades/catalog.ts): a company with it IS the prime, so it never gets sub work. */
+export const PRIME_TRADE = 'general-building';
+
+/** Does this company get a sub-work tier at all? Not a general contractor; the pilot (single mode) and the demo do. */
+export const hasSubTier = () => !(state.me?.profile?.trades ?? []).includes(PRIME_TRADE);
+
+/** Settings' "Show sub work" switch (missing = on). Off keeps sub work out of the deck; Browse still lists it. */
+export const subWorkShown = () => hasSubTier() && state.me?.profile?.showSubWork !== false;
+
+/** Own-trade fits before sub work, each best first: a sub card never sits above a real fit. */
+const deckOrder = (a, b) => (tierOf(a) === 'sub') - (tierOf(b) === 'sub') || byFit(a, b);
+
+/**
+ * The swipe deck: open, unswiped, at the deck line, and never a bid over the company's spend limits. Sub work is
+ * in it (36–50 on its own scale) unless "Show sub work" is off.
+ */
+export const deck = () => state.items.filter((i) => !i.swipe && !i.overLimit && i.score >= DECK_MIN_SCORE && isOpen(i)
+  && (subWorkShown() || tierOf(i) !== 'sub')).sort(deckOrder);
+
+/**
+ * { fit, sub, other }: the open bids in reach not yet swiped. Counted from the loaded list (so a swipe shows at
+ * once); the server's counts win when the list was cut off at its limit. null = nothing loaded.
+ */
+export function feedCounts() {
+  const out = { fit: 0, sub: 0, other: 0 };
+  for (const i of state.items) if (!i.swipe && isOpen(i)) out[tierOf(i)] += 1;
+  const server = state.counts;
+  if (server && server.fit + server.sub + server.other > out.fit + out.sub + out.other && state.items.length >= 300) return { ...server };
+  return out;
+}
 
 export const savedList = () =>
   state.items.filter((i) => i.swipe === 'save' || i.swipe === 'bid').sort((a, b) => dueInfo(a.dueAt).days - dueInfo(b.dueAt).days);

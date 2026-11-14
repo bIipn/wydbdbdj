@@ -130,9 +130,10 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     // The intent lives in the work profile (GET /api/me reports it). Answers without one leave it as it is.
     if (answers.value.intent && answers.value.intent !== storedIntent) await saveIntent(db, id.account.id, answers.value.intent, ctx.now());
     const scored = await scoreProfile(db, stored, ctx.now(), ctx.bus);
-    // What the onboarding's last step says: the open bids now scored for this company, by tier (Browse's
-    // "Everything" filters: every score, unswiped, not past due). Real counts from the rows just stored.
-    const counts = await getFeedCounts(db, stored.id, { minScore: 0, now: ctx.now() });
+    // What the onboarding's last step says: the open bids now scored for this company, by tier, unswiped, not past
+    // due. Real counts from the rows just stored. minScore 1 leaves out the hard no's (a rejected bid always scores
+    // 0: out of range, out of the states, not the trade), so "other" is open bids the company could still look at.
+    const counts = await getFeedCounts(db, stored.id, { minScore: 1, now: ctx.now() });
     return { profile: summaryFor(stored, features), scored, counts };
   });
 }

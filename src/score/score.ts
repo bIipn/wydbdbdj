@@ -1,6 +1,6 @@
 import { milesBetween } from '../geo/locate.js';
 import { compileKeywords, type Matcher } from './keywords.js';
-import { tradesForPsc } from '../sources/psc.js';
+import { isEquipmentPsc, tradesForPsc } from '../sources/psc.js';
 import { pscLabel, subWorkFor } from './subwork.js';
 import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, REQUIREMENT_FLAGS, SET_ASIDES } from '../sources/flags.js';
 import { getTrade, tradeNoun } from '../trades/catalog.js';
@@ -304,21 +304,26 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const relatedTitle = m.related.test(title);
   const relatedBody = relatedTitle ? null : m.related.test(body);
   const general = m.general.test(title) ?? m.general.test(body);
-  // A federal product-service code of one of the company's trades counts like its own NAICS code.
-  const pscTrade = !naicsStrong && !!bid.psc && tradesForPsc(bid.psc).some((t) => m.tradeIds.includes(t));
+  // A federal product-service code of one of the company's trades: a building, facility or service code (Y, Z, S,
+  // F, P, M) counts like the trade's own NAICS code. An equipment code (J, N, K, H: repair, installation of
+  // equipment) is only a weak signal unless the title names the scope: group 059 "electrical and electronic equipment components" is
+  // radar, avionics and radio repair as often as it is building electrical (real 2026-11-14 notices).
+  const pscHit = !naicsStrong && !!bid.psc && tradesForPsc(bid.psc).some((t) => m.tradeIds.includes(t));
+  const pscEquip = pscHit && isEquipmentPsc(bid.psc);
+  const pscTrade = pscHit && !pscEquip;
   const posted = strongTitle || naicsStrong || pscTrade ? null : postedTrade(bid, profile);
   const supplyOnly = bid.flags.includes('May be supply-only') && !WORK_WORDS.test(title);
   const otherInTitle = !strongTitle ? m.otherTrades.test(title) : null;
   // Sub work (src/score/subwork.ts) is decided before the weaker trade signals: a building or road prime whose
   // only tie to the trade is its text, a broad NAICS code or a generic word is a GC's job, not a fit.
   const sub = subWorkFor(bid, m.tradeIds, {
-    fitInTitle: !!(strongTitle || naicsStrong || pscTrade || posted || relatedTitle), otherInTitle, supplyOnly,
+    fitInTitle: !!(strongTitle || naicsStrong || pscHit || posted || relatedTitle), otherInTitle, supplyOnly,
     program: programTerm(bid) !== null,
   });
 
   let trade = 0;
   let factor = 0;
-  if (strongTitle && (naicsStrong || pscTrade)) {
+  if (strongTitle && (naicsStrong || pscHit)) {
     trade = 45; factor = 1;
     plus.push({ kind: 'plus', text: `${m.words.scope}: “${strongTitle}” + ${naicsStrong ? `NAICS ${bid.naics}` : `PSC ${bid.psc}`}` });
   } else if (strongTitle) {
@@ -345,6 +350,10 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   } else if (naicsRelated) {
     trade = 15; factor = 0.75;
     plus.push({ kind: 'plus', text: `NAICS ${bid.naics} — related construction` });
+  } else if (pscEquip) {
+    // Weak on its own: at most 8 + 55 × 0.45 ≈ 33, under the deck line, unless the title names the trade's scope.
+    trade = 8; factor = 0.45;
+    plus.push({ kind: 'plus', text: `Filed as ${pscLabel(bid.psc!)} — equipment work, check the scope` });
   } else if (relatedBody) {
     trade = 12; factor = 0.75;
     plus.push({ kind: 'plus', text: `Related trade mentioned: “${relatedBody}”` });
@@ -403,6 +412,10 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   } else if (loc.state && !profile.states.includes(loc.state)) {
     rejected ??= `Out of your states (${loc.state})`;
     dist = 0;
+  } else if (atOffice) {
+    // The title names the job's state, not the office's (src/geo/locate.ts stateInTitle): a state, no point.
+    dist = 0; capped = true;
+    minus.push({ kind: 'minus', text: `Work site not named — only the state is known (${loc.state ?? '?'}), check the distance` });
   } else {
     // No point to measure. Only a home-state board listing (state known, no site given) keeps the neutral
     // points; anything else could be anywhere, so it gets none and cannot alert.
@@ -517,7 +530,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     if (supplyOnly && f === 'May be supply-only') continue; // said by the minus above
     if (f === FLAGS.programContract || NOT_OPEN_FLAGS.some(({ flag }) => flag === f)) continue; // said above
     if (covered.has(f)) continue; // said by its paperwork line below
-    if (f === FLAGS.placeFromOffice && atOffice && distanceMi !== null) continue; // said by the distance line
+    if (f === FLAGS.placeFromOffice && atOffice) continue; // said by the distance line
     info.push({ kind: 'info', text: f });
   }
   for (const need of needs) {
@@ -540,7 +553,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     ];
     const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...lead, ...plus, ...minus, ...info] : [...lead, ...plus, ...minus, ...info];
     return {
-      score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false,
+      score, verdict: verdictFor(score), reasons, distanceMi: atOffice ? null : distanceMi, rejected, overLimit: false,
       ...(rejected ? {} : { capped: true }),
       tier: rejected ? 'other' : 'sub',
     };
@@ -548,12 +561,15 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
 
   const raw = trade + (dist + value + runway) * factor - penalty;
   const fit = Math.max(0, Math.min(100, Math.round(raw)));
-  const score = rejected ? 0 : capped ? Math.min(fit, capFor(profile)) : fit;
+  // No point and no state: the job could be anywhere, abroad included ("USAG Humphreys"). It stays in Browse but is
+  // held under the deck line, so it is never counted a fit (sub work has the same rule, src/score/subwork.ts).
+  const nowhere = loc.lat == null && !loc.state;
+  const score = rejected ? 0 : nowhere ? Math.min(fit, CAPPED_FLOOR - 1) : capped ? Math.min(fit, capFor(profile)) : fit;
   const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...plus, ...minus, ...info] : [...plus, ...minus, ...info];
   // `capped` is only written when true, so results without a gate look exactly as they always did.
   return {
-    score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false,
-    ...(capped && !rejected ? { capped: true } : {}),
+    score, verdict: verdictFor(score), reasons, distanceMi: atOffice ? null : distanceMi, rejected, overLimit: false,
+    ...((capped || nowhere) && !rejected ? { capped: true } : {}),
     tier: tierFor(score),
   };
 }
@@ -639,6 +655,8 @@ export const BOND_NOTE = 'Bid bond is often 5–10% of the bid — check the not
  * With no limit set, or no estimate to compare, nothing is added.
  */
 function applyLimits(fit: ScoreResult, bid: Bid, limits: SpendLimits | undefined): ScoreResult {
+  // Sub work: the estimate and the bond belong to the prime bidder, not to the company's part of it.
+  if (fit.tier === 'sub') return fit;
   const maxJob = limitOf(limits?.maxJobSize);
   const bonding = limitOf(limits?.bondingCapacity);
   const est = bid.estValue;

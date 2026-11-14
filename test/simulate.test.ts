@@ -144,6 +144,7 @@ describe('the checks can fail: one rule broken at a time through a real seam', (
     ['estimate-not-silent', 'estimate-not-silent'],
     ['stream-cut', 'stream-delivery'],
     ['browse-missing', 'browse-complete'],
+    ['sub-alerts', 'sub-silent'],
   ] as const)('mutation %s is caught by the %s check', async (mutation, check) => {
     const r = await runSimulation({ ...OPTS, scaleProfiles: 0, mutation });
     expect(r.report.checks.violations.filter((v) => v.check === check).length).toBeGreaterThan(0);
@@ -159,7 +160,7 @@ describe('the checks can fail: mutated observations', () => {
     location: { city: null, county: null, state: 'NV', zip: null, lat: null, lng: null, precision: 'city', label: 'TEST, NV' },
     postedAt: null, dueAt: '2026-12-01T22:00:00.000Z', estValue: null, naics: null, setAside: null, url: 'https://example.com/t', flags: [],
     score: 80, verdict: 'great', reasons: [{ kind: 'plus', text: 'Electrical scope: “lighting”' }], distanceMi: 20, swipe: null,
-    firstSeenAt: '2026-11-13T20:00:00.000Z', overLimit: false, tier: 'fit', ...over,
+    firstSeenAt: '2026-11-13T20:00:00.000Z', overLimit: false, tier: (over.score ?? 80) >= 35 ? 'fit' : 'other', ...over,
   });
   const obs = (over: Partial<PersonaObs>, persona: Persona = twin): PersonaObs => ({
     key: persona.key, plan: persona.plan, features: { estimator: persona.plan === 'pro' }, decks: [[]], browse: [], filters: null, next: null, alerts: [],
@@ -174,6 +175,25 @@ describe('the checks can fail: mutated observations', () => {
     const missing = run(obs({ browse: [], expectedInBrowse: expected })).filter((v) => v.check === 'browse-complete');
     expect(missing).toHaveLength(1);
     expect(missing[0]!.detail).toMatch(/samgov:TEST-1 .* scores 40 for this company but is not in Browse/);
+  });
+
+  it('sub-silent: sub work that alerts, is the next pick, leaves 36–50 or is not said first is a violation', () => {
+    const sub = item({
+      title: 'TEST library renovation (synthetic)', score: 44, verdict: 'maybe', tier: 'sub',
+      reasons: [{ kind: 'info', text: 'Sub work: a general contractor bids this building job (“renovat”); electrical is usually subcontracted' }],
+    });
+    const subChecks = (o: PersonaObs, persona: Persona = twin) => run(o, persona).filter((v) => v.check === 'sub-silent');
+    expect(subChecks(obs({ decks: [[sub]], browse: [sub] }))).toEqual([]);
+    expect(subChecks(obs({ browse: [sub], alerts: [alert(sub.id, 'TEST — renovation')] }))).toHaveLength(1);
+    expect(subChecks(obs({ browse: [sub], next: { item: sub, why: [] } }))).toHaveLength(1);
+    expect(subChecks(obs({ browse: [{ ...sub, score: 55, verdict: 'good' }] }))).toHaveLength(1);
+    expect(subChecks(obs({ browse: [{ ...sub, reasons: [{ kind: 'info', text: 'Job size not stated' }] }] }))).toHaveLength(1);
+    expect(subChecks(obs({ browse: [{ ...sub, title: 'TEST switchgear replacement (synthetic)', naics: '238210' }] }))).toHaveLength(1); // its own trade
+    const gc = PERSONAS.find((p) => p.answers.trades.includes('general-building'))!;
+    expect(subChecks(obs({ browse: [sub] }, gc), gc)).toHaveLength(1); // the prime gets no sub tier
+    expect(subChecks(obs({ browse: [item({ score: 30, verdict: 'skip', tier: 'fit' })] }))).toHaveLength(1);
+    // A reserved prime is no bar to quoting its bidders: not a certification violation as sub work.
+    expect(run(obs({ decks: [[{ ...sub, setAside: 'SDVOSBC' }]] })).map((v) => v.check)).toEqual([]);
   });
 
   it('clean observations pass', () => {

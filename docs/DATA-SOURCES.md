@@ -146,26 +146,26 @@ gathering, web scraping tools are prohibited" for the website, and names the API
   Measured with the real parser (`SamBulkParser`, `now` = 2026-11-14 05:27 UTC, the download time) on that day's
   full file (222,454,232 bytes, 72,204 rows, all active); states after locate():
 
-  | | before (HEAD 697369e) | after |
+  | | before (HEAD 697369e) | after (final, 2026-11-14) |
   |---|---:|---:|
-  | notices kept by the row filters | 8,816 | 9,787 (971 by PSC alone) |
-  | **cards** | **508** | **706** |
-  | of them placed at the contracting office | — | 136 (9 in CA) |
-  | of them in by PSC alone (NAICS not a trade code) | — | 80 (8 in CA) |
+  | notices kept by the row filters | 8,816 | 9,631 (815 by PSC or trade title alone) |
+  | **cards** | **508** | **668** |
+  | of them placed at the contracting office | — | 130 (16 moved to the state their title names) |
   | left out: not an open-bid type | 23,386 | 23,386 |
-  | left out: not construction/trades (NAICS and PSC) | 39,826 | 38,813 |
-  | left out: abroad | 176 | 218 |
-  | left out: no place given (and no US office) | 522 | 98 |
-  | left out: past due | 1,244 | 1,760 |
-  | left out: stale (no deadline, posted over a year ago) | 29 | 67 |
-  | **California** | **36** | **52** |
-  | LA / VA / WA / CO / TX | 73 / 16 / 23 / 14 / 23 | 77 / 57 / 34 / 30 / 29 |
-  | NY / IL / OK / OR / NM / DC | 25 / 22 / — / 12 / — / 10 | 28 / 27 / 17 / 17 / 16 / 15 |
-  | no state at all | 18 | 24 |
+  | left out: not construction/trades (NAICS, PSC and title) | 39,826 | 38,965 |
+  | left out: abroad | 176 | 432 |
+  | left out: no place given (and no US office) | 522 | 7 |
+  | left out: past due | 1,244 | 1,619 |
+  | left out: stale (no deadline, posted over a year ago) | 29 | 59 |
+  | **California** | **36** | **51** |
+  | no state at all | 18 | 9 |
 
-  Most PSC-kept notices were amendments of a few solicitations already past due (971 notices → 80 cards), so the
-  gain is +198 cards, not the ~600 a count of every J/S/H/C notice suggested. The rest of the volume has to come
-  from state and local boards. Fixture: `test/fixtures/samgov-bulk-2026-11-14.csv` (44 whole rows, byte for byte).
+  The first wider cut gave 706 cards; review then took out what was not trade work (group 059 radar, avionics and
+  radio repair, aircraft parts, leases, A/E design, carpet cleaning, janitorial) and every job abroad that had been
+  placed at a US office (Kuwait, Korea, Okinawa…). Most PSC-kept notices were amendments of a few solicitations
+  already past due, so the gain is +160 cards, not the ~600 a count of every J/S/H/C notice suggested. The rest of
+  the volume has to come from state and local boards. Fixture: `test/fixtures/samgov-bulk-2026-11-14.csv` (66 whole
+  rows, byte for byte).
 
 ## 3. Awards and prices paid
 

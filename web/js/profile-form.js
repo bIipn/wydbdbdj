@@ -57,6 +57,7 @@ export function emptyDraft() {
     quals: null,
     sizes: [], // onboarding's job-size chips (ids from JOB_SIZES); settings edits min/max directly
     intent: 'work', // "what brings you here": 'work' | 'hire' | 'both' (stored in the work profile)
+    showSubWork: true, // Settings' "Show sub work" switch (missing on the server = on)
   };
 }
 
@@ -85,6 +86,7 @@ export function draftFromSummary(p, intent = 'work') {
   d.timeZone = timeZone ?? '';
   d.keep = { push };
   d.quals = p.qualifications ? { ...p.qualifications } : null;
+  d.showSubWork = p.showSubWork !== false;
   return d;
 }
 
@@ -133,6 +135,7 @@ export function answersFrom(d, { withCosts = false } = {}) {
   body.setAsides = [...d.setAsides];
   if (d.quals) body.qualifications = { ...d.quals };
   body.intent = d.intent;
+  body.showSubWork = d.showSubWork !== false;
   return body;
 }
 

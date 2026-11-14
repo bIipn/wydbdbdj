@@ -193,7 +193,9 @@ export function subWorkFor(
     // A new building (for the trades that are only in new ones): a new-work word and nothing that says the job is
     // inside an existing building; or, with no word, a "Construction of …" PSC on a title that says new / replacement.
     const inside = renoWord !== null || INSIDE_WORK.test(title) !== null;
-    const isNew = !inside && (newWord !== null || (builds && /\b(?:new|replacement)\b/i.test(title)));
+    // A Z1 (maintenance) or Z2 (repair or alteration) code is work on an existing building, whatever the title says.
+    const existing = psc !== null && /^Z[12]/.test(psc);
+    const isNew = !inside && !existing && (newWord !== null || (builds && /\b(?:new|replacement)\b/i.test(title)));
     // No word, but the PSC is "Construction of …" a building: the code is the evidence, and the reason says so.
     const word = newWord ?? renoWord;
     const trades = tradeIds.filter((id) => {

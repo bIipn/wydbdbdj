@@ -93,7 +93,7 @@ export function inheritFromStored(draft: BidDraft, stored: Bid | null): BidDraft
   const place = FIRM.has(loc.precision) && !storedAtOffice ? { city: loc.city, county: loc.county, state: loc.state, zip: loc.zip } : undefined;
   // Today's notices name no work site and were placed at the contracting office, but an earlier scan read a real
   // one (from a notice that has since left the file): the real work site wins and the office flag goes.
-  // (src/scan.ts calls this only for a draft with a blank place or no set-aside; see the federal report.)
+  // (src/scan.ts calls this for a draft with a blank place, no set-aside, or this flag.)
   if (place && (draft.flags ?? []).includes(FLAGS.placeFromOffice)) {
     const flags = (draft.flags ?? []).filter((f) => f !== FLAGS.placeFromOffice);
     return fillFrom({ ...draft, location: { ...place }, flags }, { setAside: stored.setAside });

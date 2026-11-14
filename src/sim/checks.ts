@@ -79,6 +79,9 @@ export const isReserved = (code: string | null): code is string => code !== null
 const ELEC = /\b(electric\w*|lighting|led|switchgear|generator|circuit breakers?|feeders?|panelboards?|wiring|streetlights?|power distribution|transformers?)\b/i;
 const PIPE = /\b(plumb\w*|piping|pipes?|water heaters?|boilers?|hvac|heating|air[- ]condition\w*|heat exchangers?|chillers?|backflow|sewer|mechanical|valves?|restrooms?)\b/i;
 
+/** The pipe trades' own work named in a title (no "restroom": a restroom remodel is a GC's job with a plumbing sub). */
+const PIPE_TRADE = /\b(plumb\w*|piping|water heaters?|boilers?|hvac|air[- ]condition\w*|chillers?|backflow)\b/i;
+
 const text = (b: Pick<FeedItem, 'title' | 'description' | 'category'>) => `${b.title} ${b.description ?? ''} ${b.category ?? ''}`;
 
 /** An electrical-only job: electrical NAICS or electrical words in the title, and no pipe-trade word anywhere. */
@@ -191,8 +194,9 @@ export function checkPersona(p: Persona, o: PersonaObs, byId: ReadonlyMap<string
   }
 
   // certification: a reserved job the company is not certified for never reaches it; a certified one is never blocked.
+  // Sub work is the exception: the set-aside says who may bid the PRIME, and sub work is quoted to those bidders.
   for (const { where, item } of shown) {
-    if (isReserved(item.setAside) && !certifiedFor(p, item.setAside)) v('certification', `${where}: ${short(item)} is reserved (${item.setAside}) and the company is not certified`);
+    if (isReserved(item.setAside) && !certifiedFor(p, item.setAside) && item.tier !== 'sub') v('certification', `${where}: ${short(item)} is reserved (${item.setAside}) and the company is not certified`);
   }
   for (const item of o.browse) {
     if (isReserved(item.setAside) && certifiedFor(p, item.setAside) && /^(Reserved for|Sole source to)/.test(item.reasons[0]?.text ?? '')) {
@@ -290,7 +294,7 @@ export function checkPersona(p: Persona, o: PersonaObs, byId: ReadonlyMap<string
     if (item.tier === 'sub') {
       if (item.score < SUB_MIN || item.score > SUB_MAX || item.verdict !== 'maybe') v('sub-silent', `sub work ${short(item)} scores ${item.score} (${item.verdict}); it must stay ${SUB_MIN}–${SUB_MAX}, "maybe"`);
       if (generalBuilder) v('sub-silent', `${short(item)} is sub work for a general-building company, which is the prime`);
-      if ((elecCo && electricalOnly(item)) || (pipeCo && pipeOnly(item))) v('sub-silent', `${short(item)} is the company's own trade's job but is labelled sub work`);
+      if ((elecCo && electricalOnly(item)) || (pipeCo && PIPE_TRADE.test(item.title) && !ELEC.test(text(item)))) v('sub-silent', `${short(item)} is the company's own trade's job but is labelled sub work`);
       if (!/^Sub work: /.test(item.reasons[0]?.text ?? '')) v('sub-silent', `sub work ${short(item)} does not say so first: “${item.reasons[0]?.text ?? ''}”`);
     } else if (item.tier === 'fit' && item.score < 35) v('sub-silent', `${short(item)} is a "fit" at ${item.score}, under the deck line`);
     else if (item.tier === 'other' && item.score >= 35) v('sub-silent', `${short(item)} is "other" at ${item.score}, at or over the deck line`);

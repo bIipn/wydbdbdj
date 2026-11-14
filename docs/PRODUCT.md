@@ -59,6 +59,17 @@ and the owner won't trust anything he can't see the reasoning for. Every design 
 - Every card: fit score (0–100) with plain-English reasons, where + how far, days left to bid,
   estimated value, requirements (bid bond, prevailing wage, prequalification, licenses).
 - Link-out bidding only — no liability, no bid handling.
+- **Sub work** (built 2026-11-14): a building or facility job a general contractor bids, where your trade is
+  usually subcontracted (electrical, plumbing, HVAC, fire protection, painting…; roofing, site work and concrete
+  only on new buildings). It is labelled SUB WORK, scored on its own short scale (never above 50, always a
+  "maybe"), sits in the deck below your own fits and never sends an alert or an email. Its first lines say why it
+  is sub work and what to do: quote the bidders (the plan holders on the agency's page, or the interested vendors
+  list on SAM.gov), not the agency. A general contractor gets no sub work: it is their own job. Switch it off in
+  Settings ("Show sub work").
+- **Volume, honestly:** Browse filters Fits · Sub work · Everything with real counts; a finished deck offers the
+  next step (sub work, Browse everything, a wider reach). The onboarding ends by saying how many open bids are in
+  reach, by tier. Federal notices filed under repair, maintenance and installation codes are kept, and one that
+  names no work site is shown at its contracting office, labelled so.
 
 ### 3.2 Price action — the money side of every contract 🟡
 *Ev's term. Read as: what a job is worth, what similar jobs actually went for, and what moves your

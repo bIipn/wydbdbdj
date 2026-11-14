@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,630 tests in 68 files as of 2026-11-14, ~85s; simulate.test.ts ~25s,
+npm test                   # vitest (~1,700 tests in 70 files as of 2026-11-14, ~140s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -61,6 +61,8 @@ real codes only on the host) · `REALTIME_MODE=stream|poll` (poll is the default
 src/sources/*.ts   one file per bid board: pure parse…() + small fetch() — see .claude/skills/add-source
 src/sources/flags.ts  the flag strings, program-contract terms and SAM set-aside codes parsers write and
                    score.ts reads — ONE copy (test/federal-chain.test.ts guards it)
+src/sources/psc.ts federal Product and Service Codes: which mark trade work (tradesForPsc), the bulk filter's PSC
+                   half (pscLetsIn: never products, leases, A/E design or group 059 alone), verbatim manual titles
 src/sources/dedupe.ts SAM: one card per solicitation (samgov:<sol number>), newest notice wins
 src/sources/samgov-bulk.ts SAM.gov's public daily CSV (~222 MB): streaming RFC 4180 parser, per-field UTF-8 /
                    Windows-1252 decode, same samDraft() as the API path; drops stale no-deadline notices,
@@ -70,6 +72,8 @@ src/geo/           gazetteer (places.ts) + nationwide ZIP table (zip.ts) + locat
                    address it can't place stays unplaced (no guess)
 src/score/score.ts fit score + plain-English reasons (the product's brain); paperwork answers
                    (profile.qualifications) → plus / check / minus lines, a "no" caps the score (capped)
+src/score/subwork.ts the Sub work tier: a building/facility prime whose trade is ordinarily subcontracted
+                   (catalog SUB_WORK), its reasons and "Quote the bidders" action; tiers are fit · sub · other
 src/score/candidates.ts which bids a company gets a stored score for at all (its states, or within
                    max(2×radius, radius+100, 150 mi)); Browse shows candidates only
 config/<id>.json   a contractor profile (keywords, radius, value range…) — tune scoring HERE, not in code
@@ -132,6 +136,9 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   One scan a day is plenty.
 - **Times:** boards list Pacific wall-clock times with no offset — always go through `util/time.ts`
   (`parseUsDateTime`, `findDueInText`), never `new Date(string)` on board text. Store ISO UTC.
+- **Tiers:** every score has a tier (fit ≥ 35 · sub · other). Sub work scores 36–50, is always "maybe" and capped,
+  never alerts, never enters a digest or Next up, ignores spend limits (they are the prime's) and its first reason
+  says "Sub work: …". A general-building profile gets none; `showSubWork: false` keeps it out of the deck.
 - **Scoring:** reasons are user-facing copy; keep them short and specific. Behavior changes need a test
   in `test/score.test.ts` (or `score-audit.test.ts` on real bids). Prefer editing `config/lm-electric.json`
   over code; the pilot's keyword lists must stay equal to the catalog's electrical template
@@ -204,6 +211,11 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   303 to a signed S3 link by hand and never prints its query). Notices with no place of performance are
   dropped (cannot say they're in the US). Fixture mode (`SOURCES=fixtures`) still loads only the 85 Nevada
   bids; `fixtureReaders({ samgov: true })` (the simulation) adds the SAM captures.
+- `FLAGS.placeFromOffice`: a SAM notice that names no work site is placed at its contracting office (city precision,
+  label "Contracting office: … (job site not named)"), capped, `distanceMi` null (the miles are to the office). Its
+  title's state wins when it names another one ("CA-SAN LUIS…" from a VA office → CA, no point). Never for a job
+  abroad: a foreign PopCountry on any notice, an AA/AE/AP office or a foreign place in the text drops the card. A bid
+  with no point and no state is held at 34 (out of the deck, 'other').
 - A capped bid (paperwork "no", no measurable site, not open yet) is held at min(54, alert line − 1) but
   never under 35 (`CAPPED_FLOOR`, the deck's line) and carries `capped: true`, which the scan and the alert
   rules skip. So it stays in the deck as a "maybe" and never pings anyone, even at alert line 35.

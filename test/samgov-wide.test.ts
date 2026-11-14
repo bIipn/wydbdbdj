@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { locate } from '../src/geo/locate.js';
+import { locate, stateInTitle } from '../src/geo/locate.js';
 import { finalizeBid } from '../src/scan.js';
 import { inheritFromStored } from '../src/sources/dedupe.js';
 import { FLAGS } from '../src/sources/flags.js';
@@ -94,26 +94,72 @@ describe('src/sources/psc.ts: which service codes are trade work', () => {
     expect(isTradeNotice('334416', '6120')).toBe(false); // a transformer bought as a product
     expect(isTradeNotice('561710', 'S207')).toBe(false); // rodent abatement
   });
+
+  it('the PSC half refuses products, leases, design and the electronics group (pscLetsIn)', () => {
+    expect(isTradeNotice('811210', 'J059', 'TRS-3D /AN/SPS-75 Radar repairs/ overhaul services')).toBe(false);
+    expect(isTradeNotice('334511', 'J059', 'Sniper Comprehensive Advanced Targeting Pod')).toBe(false);
+    expect(isTradeNotice('811310', 'J059', 'TEST electrical components (synthetic)')).toBe(false); // 059 never alone
+    expect(isTradeNotice('238210', 'J059', 'TEST')).toBe(true); // with a trade NAICS it is in, as before
+    expect(isTradeNotice('336413', 'J041', 'Overhaul of C-5 Ram Air Fan')).toBe(false);
+    expect(isTradeNotice('53', 'Z1QA', 'Enhanced Use Leasing Project Edwards Air Force Base')).toBe(false);
+    expect(isTradeNotice('541330', 'Y1FF', 'CCTV System Design A/E Services')).toBe(false);
+    expect(isTradeNotice('541350', 'H961', 'Tri-Annual Electrical Inspection')).toBe(true); // inspection stays
+    expect(isTradeNotice('561740', 'S214', '637TRSS Carpet Cleaning')).toBe(false);
+    expect(isTradeNotice('561210', 'S214', 'TEST carpet cleaning (synthetic)')).toBe(false);
+    expect(isTradeNotice('561720', 'S216', 'BARSTOW/DUMONT JANITORIAL SERVICES')).toBe(false);
+    expect(isTradeNotice('561210', 'S216', 'TEST base operations support (synthetic)')).toBe(true);
+    // A service notice filed under an unrelated equipment group is kept on a plain trade title.
+    expect(isTradeNotice('561210', 'J065', 'J065--KG - HVAC upgrades')).toBe(true);
+    expect(isTradeNotice('811310', 'J036', 'USDA-DFRC Preventative Maintenance Services for two Chiller Units')).toBe(true);
+    expect(isTradeNotice('811310', 'J036', 'TEST pump overhaul (synthetic)')).toBe(false);
+    expect(isTradeNotice('336413', 'J029', 'TEST aircraft generator overhaul (synthetic)')).toBe(false);
+  });
 });
 
 describe('the 2026-11-14 rows: what is kept, what is left out, and why', () => {
   const { drafts, stats } = parseSamBulk(RAW, { now: NOW });
   const card = (sol: string) => drafts.find((d) => d.sourceId === sol);
 
-  it('counts every row and card (44 rows of 10 solicitations → 6 cards)', () => {
-    expect(records().slice(1)).toHaveLength(44);
+  it('counts every row and card (66 rows of 18 solicitations → 7 cards)', () => {
+    expect(records().slice(1)).toHaveLength(66);
     expect(stats).toMatchObject({
-      bytes: RAW.length, rows: 44, active: 44, kept: 33, keptByPsc: 22, cards: 6, placedAtOffice: 2, malformed: 0,
-      dropped: { inactive: 0, type: 0, naics: 11, country: 0, noPlace: 1, pastDue: 0, stale: 0, noId: 0 },
+      bytes: RAW.length, rows: 66, active: 66, kept: 40, keptByPsc: 22, cards: 7, placedAtOffice: 2, malformed: 0,
+      dropped: { inactive: 0, type: 0, naics: 26, country: 2, noPlace: 1, pastDue: 0, stale: 0, noId: 0 },
     });
     expect(drafts.map((d) => d.sourceId).sort()).toEqual([
-      '36C25627Q0085', '36C26127Q0140', '89503326RWA000049', 'N6247326R9953', 'N6893627Q0023', 'W9128F27QA002',
+      '124PSA27Q0029', '140FF027Q0035', '36C25627Q0085', '36C26127Q0140', '89503326RWA000049', 'N6247326R9953', 'W9128F27QA002',
     ]);
     expect(bulkSummary(stats)).toBe(
-      'samgov (bulk file): 6 cards from 33 notices (22 by service code alone), 2 placed at the contracting office (no work ' +
-      'site named) — 44 rows, 44 active; left out: 0 not open bids, 11 not construction/trades, 0 abroad, 1 no place given, ' +
+      'samgov (bulk file): 7 cards from 40 notices (22 by service code alone), 2 placed at the contracting office (no work ' +
+      'site named) — 66 rows, 66 active; left out: 0 not open bids, 26 not construction/trades, 2 abroad, 1 no place given, ' +
       '0 past due (0.1 MB)',
     );
+  });
+
+  it('a job abroad is never placed at its US office (Apache Alert: no place, Virginia office, text says Kuwait)', () => {
+    expect(records().slice(1).filter((r) => r[col('Sol#')] === 'W912ER26RA016')).toHaveLength(6);
+    expect(card('W912ER26RA016')).toBeUndefined();
+    // USAG Humphreys (Korea): an address line, no state, an office at a military post office abroad (AP).
+    expect(card('W51LL527QA003')).toBeUndefined();
+  });
+
+  it('PSC-only notices that are not trade work stay out: radar, avionics, aircraft parts, a land lease, carpet cleaning', () => {
+    expect(card('70Z08526RRJ001B00')).toBeUndefined(); // J059 / 811210: TRS-3D AN/SPS-75 radar repairs
+    expect(card('N6893627Q0023')).toBeUndefined(); // J059 / 811210: China Lake calibration
+    expect(card('FA811827RB010')).toBeUndefined(); // J041 / 336413: overhaul of C-5 ram air fan
+    expect(card('AFCEC-27-R-0001')).toBeUndefined(); // Z1QA / NAICS 53: Edwards AFB enhanced use lease
+    expect(card('FA301626Q0012')).toBeUndefined(); // S214 / 561740: 637TRSS carpet cleaning
+  });
+
+  it('a plain trade title keeps a service notice filed under an unrelated PSC (J036 chiller maintenance)', () => {
+    expect(card('124PSA27Q0029')).toMatchObject({ psc: 'J036', naics: '811310', location: { state: 'WI' } });
+  });
+
+  it('an office-placed notice whose title names another state is put in that state, with no point', () => {
+    // "CA-SAN LUIS NWR-FIRE SYSTEM REHAB": no place of performance, a Falls Church, VA office.
+    expect(finalizeBid(card('140FF027Q0035')!).location).toMatchObject({
+      state: 'CA', lat: null, precision: 'state', label: 'CA: work site not named (contracting office: Falls Church, VA)',
+    });
   });
 
   it('every card carries its PSC as SAM wrote it', () => {
@@ -135,16 +181,12 @@ describe('the 2026-11-14 rows: what is kept, what is left out, and why', () => {
   });
 
   it('no place of performance + a US contracting office: placed at the office, flagged, and the label says so', () => {
-    // WAPA series capacitor design-build: 11 notices, none with a work site; office Folsom, CA.
+    // WAPA series capacitor design-build: 10 notices, none with a work site; office Folsom, CA.
     const wapa = card('89503326RWA000049')!;
     expect(wapa.location).toEqual({ city: 'Folsom', state: 'CA', zip: '95630', label: null });
     expect(wapa.flags).toEqual([FLAGS.placeFromOffice]);
     expect(finalizeBid(wapa).location).toMatchObject({
       city: 'Folsom', state: 'CA', precision: 'city', label: 'Contracting office: Folsom, CA (job site not named)',
-    });
-    // NAWC China Lake calibration (J059, PSC alone): office ZIP 93555-6018 puts it at Ridgecrest.
-    expect(finalizeBid(card('N6893627Q0023')!).location).toMatchObject({
-      state: 'CA', precision: 'city', label: 'Contracting office: Ridgecrest, CA (job site not named)',
     });
   });
 
@@ -165,7 +207,8 @@ describe('the 2026-11-14 rows: what is kept, what is left out, and why', () => {
     expect(card('47QSSC27Q0028')).toBeUndefined(); // 6120, 334416: "Purchase Olsun Electrics 225 KVA Transformer"
     expect(card('W9123827QA001')).toBeUndefined(); // S207, 561710: Pine Flat rodent abatement
     expect(card('191BWC26R0009')).toBeUndefined(); // M1ND, 221320: O&M of the South Bay wastewater plant
-    expect(stats.dropped.naics).toBe(4 + 4 + 3); // every notice of those three solicitations
+    // every notice of those three, plus the J059, C-5 fan, land-lease and carpet-cleaning ones (2 + 7 + 1 + 2 + 3)
+    expect(stats.dropped.naics).toBe(4 + 4 + 3 + 15);
   });
 });
 
@@ -191,6 +234,18 @@ describe('contracting-office fallback (TEST rows)', () => {
       ['TEST-US-1', { city: 'Reno', state: 'NV', zip: '89502-1234', label: null }],
     ]);
     expect(r.stats).toMatchObject({ placedAtOffice: 1, dropped: { noPlace: 2 } });
+  });
+
+  it('a notice abroad (country, text or a military post office) is never placed at a US office', () => {
+    const r = parseSamBulk(withRows(
+      testRow({ NoticeId: 'TEST-k1', 'Sol#': 'TEST-KW-1', Description: 'TEST hangar for an air base in Kuwait (synthetic)', State: 'VA', City: 'WINCHESTER', CountryCode: 'USA' }),
+      testRow({ NoticeId: 'TEST-k2', 'Sol#': 'TEST-JP-1', PopCountry: 'JPN', PopCity: 'Yokota' }),
+      testRow({ NoticeId: 'TEST-k3', 'Sol#': 'TEST-JP-1', State: 'VA', City: 'NORFOLK', CountryCode: 'USA' }),
+      testRow({ NoticeId: 'TEST-k4', 'Sol#': 'TEST-AP-1', PopStreetAddress: 'TEST garrison (synthetic)', State: 'AP', City: 'APO', CountryCode: 'USA' }),
+      testRow({ NoticeId: 'TEST-k5', 'Sol#': 'TEST-WW-1', PopStreetAddress: 'Worldwide - CONUS and OCONUS (synthetic)', State: 'TX', City: 'SAN ANTONIO', CountryCode: 'USA' }),
+    ), { now: NOW });
+    expect(r.drafts).toEqual([]);
+    expect(r.stats.dropped.country).toBe(5); // the JPN row, then four cards (its sibling, Kuwait, AP, worldwide)
   });
 
   it('a state given for the work site (and nothing else) is kept as a state-wide card, not moved to the office', () => {
@@ -231,6 +286,17 @@ describe('the API path places the same way (officeAddress)', () => {
     const [b] = parseSamResponse({ opportunitiesData: [{ ...base, placeOfPerformance: { city: { name: 'Carson City' }, state: { code: 'NV' } } }] });
     expect(b!.flags).not.toContain(FLAGS.placeFromOffice);
   });
+
+  it('a notice whose only place is a foreign country is not placed at its US office', () => {
+    const [c] = parseSamResponse({ opportunitiesData: [{
+      noticeId: 'TEST-api-2', title: 'TEST hangar repair (synthetic)', solicitationNumber: 'TEST-API-2', type: 'Solicitation',
+      postedDate: '2026-11-10', responseDeadLine: '2026-12-15T14:00:00-08:00', naicsCode: '236220', classificationCode: 'Z2BA',
+      placeOfPerformance: { country: { code: 'JPN' } },
+      officeAddress: { zipcode: '23511', city: 'NORFOLK', countryCode: 'USA', state: 'VA' }, uiLink: 'https://example.com/test',
+    }] });
+    expect(c!.flags).not.toContain(FLAGS.placeFromOffice);
+    expect(c!.location).toMatchObject({ city: null, state: null, zip: null });
+  });
 });
 
 describe('locate() and the stored card for an office-placed notice', () => {
@@ -251,6 +317,16 @@ describe('locate() and the stored card for an office-placed notice', () => {
   it('a gazetteer town with its state is still the gazetteer town (the ZIP rule is for a missing state only)', () => {
     expect(locate(draft({ location: { city: 'Jackson', state: 'CA', zip: null, label: null } }))).toMatchObject({ city: 'Jackson', state: 'CA' });
     expect(locate(draft({ location: { city: 'Jackson', state: null, zip: '95642', label: null } }))).toMatchObject({ city: 'Jackson', state: 'CA' });
+  });
+
+  it('stateInTitle: a leading state code or exactly one state named (never "VA-…", never Washington Navy Yard)', () => {
+    expect(stateInTitle('CA-SAN LUIS NWR-FIRE SYSTEM REHAB')).toBe('CA');
+    expect(stateInTitle('AK-AK MARITIME NWR')).toBe('AK');
+    expect(stateInTitle('Snow Removal Services Detroit Michigan')).toBe('MI');
+    expect(stateInTitle('TEST hangar, FORT WORTH, TEXAS (synthetic)')).toBe('TX');
+    expect(stateInTitle('VA-27-TEST repair (synthetic)')).toBeNull();
+    expect(stateInTitle('TEST Washington Navy Yard roof (synthetic)')).toBeNull();
+    expect(stateInTitle('TEST Nevada and California work (synthetic)')).toBeNull();
   });
 
   it('a real work site stored by an earlier scan replaces today\'s office placement, and the office flag goes', () => {

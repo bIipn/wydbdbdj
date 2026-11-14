@@ -13,14 +13,15 @@ import { h, icon, ICONS, showToast } from '../dom.js';
 import { clearErrors, field, formError, showErrors, textInput } from '../form.js';
 import {
   alertChoices, answersFrom, defaultBusinessName, emptyDraft, hireAnswersFrom, homeSection, INTENTS, jobSizeChips, loadTrades,
-  paperworkSection, QUAL_KEYS, tradesSection,
+  paperworkSection, QUAL_KEYS, RADIUS, tradesSection,
 } from '../profile-form.js';
 import { enterApp, onSignedOut, signOut } from '../session.js';
 import { onAfterRender, registerView, render } from '../shell.js';
-import { deck, state } from '../state.js';
+import { deck, PRIME_TRADE, state } from '../state.js';
 
 let trades = null;
-const ui = { step: 0, draft: null, busy: false, pending: null };
+// result: after the profile is saved, what is in reach ({ counts, answers }); shown before the deck.
+const ui = { step: 0, draft: null, busy: false, pending: null, result: null };
 
 /** The pause after a single-choice tap, so the person sees the chip light up before the screen moves on. */
 const AUTO_NEXT_MS = 220;
@@ -100,7 +101,7 @@ const stepFor = (path) => {
 function intentChoices(d) {
   const list = h('div', { class: 'intent-list', role: 'radiogroup', 'aria-label': 'What brings you here?' });
   const paint = () => list.replaceChildren(...INTENTS.map((c) => {
-    const on = d.intentPicked && d.intent === c.id;
+    const on = !!d.intentPicked && d.intent === c.id;
     const b = h('button', { type: 'button', class: `intent intent-${c.id}`, role: 'radio', 'aria-checked': String(on) },
       h('span', { class: 'intent-text' }, h('strong', {}, c.label), h('small', {}, c.help)),
       h('span', { class: 'choice-dot', 'aria-hidden': 'true' }, icon(ICONS.check)));
@@ -140,6 +141,7 @@ function resetOnboarding() {
   ui.step = 0;
   ui.draft = null;
   ui.pending = null;
+  ui.result = null;
 }
 onSignedOut(resetOnboarding);
 
@@ -160,6 +162,14 @@ async function finish(button) {
   try {
     const res = await api.saveProfile(answers);
     ui.busy = false;
+    // PUT /api/profile answers with the open bids now scored for this company, by tier. Show them before the
+    // deck. An answer without counts (an older server) goes straight in, as before: never a made-up number.
+    if (!hire && isCounts(res.counts)) {
+      ui.result = { counts: res.counts, answers, widened: false };
+      render();
+      window.scrollTo({ top: 0 });
+      return;
+    }
     resetOnboarding();
     await enterApp();
     if (hire) return showToast('All set — post a job whenever you’re ready');
@@ -173,6 +183,80 @@ async function finish(button) {
     ui.pending = fields;
     render();
   }
+}
+
+const isCounts = (c) => !!c && ['fit', 'sub', 'other'].every((k) => Number.isInteger(c[k]) && c[k] >= 0);
+
+/** Fewer own-trade fits and sub-work jobs than this: say what widens the list, with one tap to do it. */
+const SMALL = 10;
+/** The wider reaches offered on the summary (the server takes up to RADIUS.max). */
+const WIDER = [150, 250, RADIUS.max];
+
+/** One tap on "Travel N mi": save the same answers with the wider reach, and show the new real numbers. */
+async function widen(mi) {
+  if (ui.busy || !ui.result) return;
+  ui.busy = true;
+  render();
+  const answers = { ...ui.result.answers, radiusMi: mi };
+  try {
+    const res = await api.saveProfile(answers);
+    if (isCounts(res.counts)) ui.result = { counts: res.counts, answers, widened: true };
+    else ui.result = { ...ui.result, answers };
+  } catch (err) {
+    showToast(err.message || 'That did not save. Try again.');
+  }
+  ui.busy = false;
+  render();
+}
+
+async function goToBids() {
+  if (ui.busy) return;
+  ui.busy = true;
+  render();
+  try {
+    resetOnboarding();
+    await enterApp();
+  } finally {
+    ui.busy = false;
+  }
+}
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** The last screen: "In your reach right now: 5 fits · 46 sub work · 87 other open bids", from PUT /api/profile. */
+function renderResult() {
+  const { counts: c, answers, widened } = ui.result;
+  const withSub = !(answers.trades ?? []).includes(PRIME_TRADE);
+  const total = c.fit + c.sub + c.other;
+  const tile = (n, label, cls, help) => h('div', { class: `reach-tile ${cls}` }, h('b', {}, n), h('span', {}, label), h('small', {}, help));
+  const small = c.fit + (withSub ? c.sub : 0) < SMALL;
+  const wider = WIDER.filter((mi) => mi > answers.radiusMi);
+  const tip = !small ? null : h('section', { class: 'panel reach-tip' },
+    h('h2', { class: 'panel-title' }, total ? 'Want more to look at?' : 'Nothing in reach yet'),
+    wider.length
+      ? h('p', {}, `You travel ${answers.radiusMi} mi. A wider reach takes in more towns and can turn more open bids into fits.`)
+      : h('p', {}, `You’re at the widest reach (${answers.radiusMi} mi). New bids arrive with each morning’s scan.`),
+    wider.length ? h('div', { class: 'chip-row' }, wider.map((mi) => h('button', { class: 'chip', type: 'button', disabled: ui.busy, onclick: () => widen(mi) }, `Travel ${mi} mi`))) : null);
+  return h('div', { class: 'screen onboarding reach' },
+    h('header', { class: 'step-head' },
+      h('span', { class: 'icon-btn ghost', 'aria-hidden': 'true' }),
+      h('div', { class: 'progress', 'aria-hidden': 'true' }, steps().map(() => h('span', { class: 'on' }))),
+      h('span', { class: 'icon-btn ghost', 'aria-hidden': 'true' }),
+    ),
+    h('p', { class: 'step-count' }, widened ? `Saved: you travel ${answers.radiusMi} mi` : 'You’re set up'),
+    h('h1', { class: 'step-title' }, 'In your reach right now'),
+    h('p', { class: 'step-sub', 'aria-live': 'polite' }, total
+      ? [plural(c.fit, 'fit'), withSub ? `${c.sub} sub work` : null, plural(c.other, 'other open bid')].filter(Boolean).join(' · ')
+      : 'No open bids in your reach yet.'),
+    h('div', { class: `reach-tiles${withSub ? '' : ' two'}` },
+      tile(c.fit, c.fit === 1 ? 'Fit' : 'Fits', 'fit', 'Work in your own trade, scored 35 or more.'),
+      withSub ? tile(c.sub, 'Sub work', 'sub', 'A general contractor bids it; you’d quote the bidders.') : null,
+      tile(c.other, 'Other', 'other', 'Open in your reach, scored under 35: a related trade or a weaker match. In Browse.'),
+    ),
+    tip,
+    h('div', { class: 'step-foot' },
+      h('button', { class: 'cta', type: 'button', disabled: ui.busy, onclick: goToBids }, ui.busy ? 'One moment…' : 'See my bids')),
+  );
 }
 
 function next(button, form) {
@@ -198,6 +282,7 @@ function autoNext() {
 }
 
 function renderOnboarding() {
+  if (ui.result) return renderResult();
   ui.draft ??= emptyDraft();
   if (!trades) {
     loadTrades().then((t) => { trades = t; if (state.view === 'onboarding') render(); })

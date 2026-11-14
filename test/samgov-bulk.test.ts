@@ -105,10 +105,10 @@ describe('which rows become cards', () => {
   it('counts what it left out, and why', () => {
     expect(stats).toMatchObject({
       bytes: RAW.length, rows: 82, active: 82, kept: 74, keptByPsc: 0, cards: drafts.length, placedAtOffice: 2, malformed: 0,
-      dropped: { inactive: 0, type: 3, naics: 4, country: 1, noPlace: 0, pastDue: 10, noId: 0 },
+      dropped: { inactive: 0, type: 3, naics: 4, country: 2, noPlace: 0, pastDue: 9, noId: 0 },
     });
     // 34 before 2026-11-14; the 3 notices with no place of performance are now placed at their contracting office
-    // (2 cards; the third, N6600126Q6298, is past due on the capture day).
+    // (2 cards). The third, N6600126Q6298, says Camp Hansen, Okinawa in its text: abroad, never placed at its San Diego office.
     expect(drafts).toHaveLength(36);
   });
 
@@ -329,7 +329,7 @@ describe('samgov source: the bulk file by default, the API only with SAM_SOURCE=
     expect(drafts).toEqual(parseSamBulk(RAW, { now: CAPTURED }).drafts);
     expect(logs).toEqual([
       'samgov (bulk file): 36 cards from 74 notices (0 by service code alone), 2 placed at the contracting office (no work site ' +
-      'named) — 82 rows, 82 active; left out: 3 not open bids, 4 not construction/trades, 1 abroad, 0 no place given, 10 past due (0.2 MB)',
+      'named) — 82 rows, 82 active; left out: 3 not open bids, 4 not construction/trades, 2 abroad, 0 no place given, 9 past due (0.2 MB)',
     ]);
   });
 

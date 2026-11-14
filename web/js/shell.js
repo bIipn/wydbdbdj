@@ -9,7 +9,7 @@
 
 import { $, $$, h } from './dom.js';
 import { fmtDay, fmtTime, isOpen } from './format.js';
-import { DECK_MIN_SCORE, deck, intent, isLive, savedList, state } from './state.js';
+import { deck, intent, isLive, savedList, state } from './state.js';
 
 const views = new Map();
 const afterRender = [];
@@ -65,7 +65,8 @@ export function render() {
     // The two counts count different things, so each tab says what its number is: Swipe = bids left to swipe
     // (never over the spend limits), Browse = open bids that match the filters (over-limit ones included).
     const toSwipe = deck().length;
-    const browseN = state.browseIds ? state.browseIds.length : state.items.filter((i) => isOpen(i) && i.score >= DECK_MIN_SCORE).length;
+    // Before Browse has loaded, the same set its default list holds: every open bid (all tiers, every fit level).
+    const browseN = state.browseIds ? state.browseIds.length : state.items.filter(isOpen).length;
     $('#countSwipe').textContent = toSwipe || '';
     $('#countBrowse').textContent = browseN || '';
     const label = (sel, text) => { const t = $(sel); t.setAttribute('aria-label', text); t.title = text; };

@@ -9,15 +9,15 @@
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { PLAN_LABEL } from '../format.js';
-import { clearErrors, formError, showErrors } from '../form.js';
+import { clearErrors, formError, showErrors, toggle } from '../form.js';
 import {
   alertsSection, answersFrom, costsSection, draftFromSummary, INTENTS, jobsSection, loadSetAsides, loadTrades, nameSection,
   paperworkSection, setAsidesSection, tradesSection, whereSection,
 } from '../profile-form.js';
 import { promoRow } from '../promo.js';
 import { applyMe, homeView, loadFeed, onSignedOut, signOut } from '../session.js';
-import { registerView, render, setView } from '../shell.js';
-import { features, intent, state } from '../state.js';
+import { onAfterRender, registerView, render, setView } from '../shell.js';
+import { features, intent, PRIME_TRADE, state } from '../state.js';
 import { fieldsObject, workBodyFrom, workDraftFrom, workProfileSection } from '../work-profile.js';
 
 // work: the work-profile draft and the saved card (GET /api/work-profile), loaded when Settings opens.
@@ -83,6 +83,37 @@ export function openSettings() {
   if (state.mode !== 'live' || state.auth !== 'accounts' || !state.me?.profile) return;
   startEditing();
   setView('settings');
+}
+
+/** "Widen your reach" (the finished deck): Settings, scrolled to one field (e.g. 'radiusMi'). */
+let focusField = null;
+export function openSettingsAt(field) {
+  focusField = field;
+  openSettings();
+}
+onAfterRender((view) => {
+  if (view !== 'settings' || !focusField) return;
+  const el = document.querySelector(`.settings-form [data-field="${focusField}"]`);
+  if (!el) return; // still loading: the next render tries again
+  focusField = null;
+  // After setView's own scroll to the top, which runs once this render is done.
+  setTimeout(() => {
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('is-pointed');
+    setTimeout(() => el.classList.remove('is-pointed'), 1800);
+  }, 0);
+});
+
+/**
+ * "Show sub work": prime contracts a general contractor bids, where this trade is usually subcontracted. Off keeps
+ * them out of the deck (Browse still lists them). A company with the general-building trade is the prime: no switch.
+ */
+function subWorkSection(d) {
+  if (d.trades.includes(PRIME_TRADE)) return null;
+  return h('div', { class: 'field sub-switch', 'data-field': 'showSubWork' },
+    toggle({ checked: d.showSubWork !== false, label: 'Show sub work', onchange: (on) => { d.showSubWork = on; } }),
+    h('p', { class: 'field-help' }, 'Building and facility jobs a general contractor bids, where your trade is usually subcontracted: you’d quote the bidders. They sit in your deck below your own fits and never send alerts.'),
+    h('p', { class: 'field-error', role: 'alert' }));
 }
 
 function leave() {
@@ -209,7 +240,7 @@ function renderSettings() {
   const form = h('form', { class: 'settings-form', novalidate: true },
     section('What brings you here', intentSection(d)),
     section(hire ? 'Your name' : 'Business', nameSection(d, hire ? { label: 'Your name or business name', help: 'People who bid on your jobs see this name.' } : {})),
-    hire ? null : section('Trades', tradesSection(d, ui.trades)),
+    hire ? null : section('Trades', tradesSection(d, ui.trades), subWorkSection(d)),
     section('Location', whereSection(d, hire ? { radius: false } : {})),
     hire ? null : section('Job size and limits', jobsSection(d)),
     hire ? null : section('Cost settings', withCosts() ? costsSection(d) : costsLocked()),

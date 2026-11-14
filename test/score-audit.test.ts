@@ -9,6 +9,7 @@
  */
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
+import { buildProfile } from '../src/profile/build.js';
 import { loadProfile } from '../src/profiles.js';
 import { finalizeBid } from '../src/scan.js';
 import { decideMatch } from '../src/realtime/alerts.js';
@@ -202,7 +203,8 @@ describe('a place we cannot measure earns no distance points and never alerts', 
     const s = scoreBid(PARKING, pilot, SCAN);
     expect(s.reasons).toContainEqual({ kind: 'info', text: "Work location not listed — can't confirm it's within 90 mi" });
     const strong = scoreBid({ ...PARKING, title: 'Replace Electrical Switchgear', naics: '238210' }, pilot, SCAN); // variant
-    expect(strong.score).toBe(54);
+    // No point and no state: it could be anywhere, abroad included, so even a strong title is held under the deck line.
+    expect([strong.score, strong.tier, strong.capped]).toEqual([34, 'other', true]);
   });
 
   it('a home-state board listing with no site keeps its neutral points (real NevadaEPro "Water Well Repair")', () => {
@@ -341,5 +343,31 @@ describe('gates only ever lower a score', () => {
       const s = scoreBid({ ...b, location: loc }, pilot, now);
       return s.score <= home.score && s.score < pilot.notify.minScore;
     }), { numRuns: 400 });
+  });
+});
+
+describe('an equipment PSC alone is never a fit: radar and targeting-pod repair are not electrical work (real 2026-11-14 notices)', () => {
+  // The real rows (SAM.gov bulk file, 2026-11-14): title, NAICS, PSC and place as SAM wrote them. The electricians are
+  // TEST companies (simulated) based in the job's own city, the best case for distance.
+  const fedCard = (sol: string, title: string, naics: string, city: string, state: string, due: string): Bid => finalizeBid({
+    source: 'samgov', sourceId: sol, sourceName: 'SAM.gov (federal)', title, agency: null, description: `Solicitation · Sol. ${sol}`,
+    category: 'Solicitation', location: { city, state, zip: null, label: null }, postedAt: null, dueAt: due, estValue: null,
+    naics, psc: 'J059', setAside: null, url: 'https://sam.gov/opp/test/view', flags: [], solNumber: sol,
+  });
+  const electrician = (zip: string): Profile => buildProfile(`test-elec-${zip}`, {
+    businessName: 'TEST Electric (simulated)', trades: ['electrical'], zip, radiusMi: 90, valueRange: { min: 10_000, max: 50_000 },
+  });
+  const at = new Date('2026-11-14T08:00:00Z');
+
+  it('70Z08526RRJ001B00 "TRS-3D /AN/SPS-75 Radar repairs" (J059, 811210, Baltimore) stays under 35', () => {
+    const s = scoreBid(fedCard('70Z08526RRJ001B00', 'TRS-3D /AN/SPS-75 Radar repairs/ overhaul services', '811210', 'Baltimore', 'MD', '2026-12-01T17:00:00.000Z'), electrician('21201'), at);
+    expect(s.score).toBeLessThan(CAPPED_FLOOR);
+    expect(s.tier).toBe('other');
+  });
+
+  it('FA8540-26-R-0001 "Sniper … Targeting Pod" (J059, 334511, Orlando) stays under 35', () => {
+    const s = scoreBid(fedCard('FA8540-26-R-0001', 'Sniper Comprehensive Advanced Targeting Pod (CATP2) Support and Sustainment Option Years 6 & 7', '334511', 'Orlando', 'FL', '2026-11-20T21:00:00.000Z'), electrician('32801'), at);
+    expect(s.score).toBeLessThan(CAPPED_FLOOR);
+    expect(s.tier).toBe('other');
   });
 });

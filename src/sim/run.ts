@@ -30,14 +30,14 @@ import { getProfile } from '../db/repo.js';
 import { buildProfile, profileIdFor, type OnboardingAnswers } from '../profile/build.js';
 import { createBus, type Bus, type BusEvent } from '../realtime/bus.js';
 import { createRealtime } from '../realtime/index.js';
-import { finalizeBid, runScan, type ScanReport } from '../scan.js';
+import { finalizeBid, mayAnnounce, runScan, type ScanReport } from '../scan.js';
 import { isCandidate } from '../score/candidates.js';
 import { scoreBid } from '../score/score.js';
 import { buildApp } from '../server.js';
 import { mergeDrafts } from '../sources/dedupe.js';
 import { fixtureReaders, FIXTURES_CAPTURED_AT } from '../sources/fixtures.js';
 import { mergeTrades } from '../trades/catalog.js';
-import type { Alert, Bid, BidDraft, FeedItem, Profile, Source, SourceContext, SourceId } from '../types.js';
+import type { Alert, Bid, BidDraft, FeedItem, Profile, ScoreResult, Source, SourceContext, SourceId } from '../types.js';
 import { Rng } from '../cost/synthetic.js';
 import { checkCoverage, checkPersona, electricalOnly, isReserved, PERSONA_CHECKS, pipeOnly, type CheckId, type PersonaObs, type Violation } from './checks.js';
 import { clockMs, openStreams, SimClient, type StreamReaders } from './http.js';
@@ -46,7 +46,7 @@ import { simTakeoff, targetDollars } from './takeoff.js';
 
 export type MutationId =
   | 'radius' | 'spend-limit' | 'certification' | 'trade' | 'alert-reason' | 'alert-missing' | 'repeat-scan'
-  | 'free-no-premium' | 'estimate-not-silent' | 'stream-cut' | 'browse-missing' | 'nondeterministic';
+  | 'free-no-premium' | 'estimate-not-silent' | 'stream-cut' | 'browse-missing' | 'sub-alerts' | 'nondeterministic';
 
 /** Which check each mutation must trip. */
 /**
@@ -66,6 +66,7 @@ export const MUTATIONS: Readonly<Record<MutationId, { check: CheckId; how: strin
   'estimate-not-silent': { check: 'estimate-not-silent', how: 'the estimate answer is turned into a "complete" estimate with a total of 0' },
   'stream-cut': { check: 'stream-delivery', how: "the bus drops every 'alert' event, so stored alerts never reach an open stream" },
   'browse-missing': { check: 'browse-complete', how: 'the scan\'s candidate filter uses a quarter of each radius and no home states, so it drops bids worth a look' },
+  'sub-alerts': { check: 'sub-silent', how: "the scan's announce rule lets sub-work matches through, and they reach the alert rules as uncapped top fits (as if the scorer had lost sub work's cap and scale)" },
   nondeterministic: { check: 'determinism', how: 'the takeoff seed takes the clock as well as --seed' },
 };
 
@@ -225,10 +226,14 @@ function mutateProfile(p: Profile, mutation: MutationId | undefined): Profile {
 
 /** A bus the scan publishes on: forwards to the real one, changing 'match' events under a mutation. */
 function scanBus(real: Bus, mutation: MutationId | undefined, phase: () => string): Bus {
-  if (mutation !== 'alert-reason' && mutation !== 'repeat-scan' && mutation !== 'alert-missing') return real;
+  if (mutation !== 'alert-reason' && mutation !== 'repeat-scan' && mutation !== 'alert-missing' && mutation !== 'sub-alerts') return real;
   return {
     on: real.on, off: real.off,
     emit: (e: BusEvent) => {
+      if (e.type === 'match' && mutation === 'sub-alerts' && e.score.tier === 'sub') {
+        const { capped: _capped, ...uncapped } = e.score;
+        return real.emit({ ...e, score: { ...uncapped, tier: 'fit', score: 100, verdict: 'great' } });
+      }
       if (e.type === 'match' && mutation === 'alert-missing' && phase() !== 'first') return Promise.resolve();
       if (e.type === 'match' && mutation === 'alert-reason') return real.emit({ ...e, score: { ...e.score, reasons: [] } });
       if (e.type === 'match' && mutation === 'repeat-scan' && phase() === 'repeat') return real.emit({ ...e, bid: { ...e.bid, id: `${e.bid.id}#again` } });
@@ -285,7 +290,11 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
   const candidate = mutation === 'browse-missing'
     ? (p: Profile, b: Bid) => isCandidate({ ...p, maxDistanceMi: Math.round(p.maxDistanceMi / 4), states: [] }, b)
     : undefined;
-  const scan = (): Promise<ScanReport> => runScan({ db, sources, profiles: profilesForScan, ctx: sourceCtx, bus: busForScan, ...(candidate ? { candidate } : {}) });
+  // The 'sub-alerts' seam: the scan publishes sub-work matches too (scanBus above presents them as top fits).
+  const announce = mutation === 'sub-alerts' ? (s: ScoreResult, t: number) => s.tier === 'sub' || mayAnnounce(s, t) : undefined;
+  const scan = (): Promise<ScanReport> => runScan({
+    db, sources, profiles: profilesForScan, ctx: sourceCtx, bus: busForScan, ...(candidate ? { candidate } : {}), ...(announce ? { announce } : {}),
+  });
   const { app, ctx } = await buildApp({ db }, {
     config, bus, scan, now: () => CAPTURED,
     auth: createAuth(db, config, { now: () => CAPTURED, ...(opts.fastHash ? { cost: { ln: 10, r: 8, p: 1 } } : {}) }),

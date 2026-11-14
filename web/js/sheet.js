@@ -3,7 +3,7 @@
 import { setSwipe } from './actions.js';
 import { $, h } from './dom.js';
 import { VERDICT_LABEL } from './format.js';
-import { bidLink, facts, localPill, reasonsList, scoreRing } from './parts.js';
+import { bidLink, facts, localPill, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { costCheckButton, priceCheck } from './price.js';
 import { render, setView } from './shell.js';
 import { isLive } from './state.js';
@@ -21,11 +21,12 @@ export function openSheet(item) {
     h('div', { class: `card-head verdict-${item.verdict}` },
       h('div', { class: 'pills' },
         h('span', { class: 'pill verdict' }, VERDICT_LABEL[item.verdict] ?? item.verdict),
-        localPill(item) ?? h('span', { class: 'pill' }, item.sourceName),
+        subPill(item) ?? localPill(item) ?? h('span', { class: 'pill' }, item.sourceName), // the board is in "Type"
         item.overLimit ? h('span', { class: 'pill over' }, 'Over your limit') : null,
       ),
       scoreRing(item.score),
     ),
+    subNote(item),
     h('h2', { id: 'sheetTitle' }, item.title),
     h('p', { class: 'agency' }, item.agency ?? ''),
     facts(item),

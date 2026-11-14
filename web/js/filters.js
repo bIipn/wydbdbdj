@@ -1,7 +1,7 @@
 // Browse search and filters: one plain object, turned into GET /api/feed query parameters.
 // The demo (no server) applies the same filters here, in the browser (localFilter).
 
-import { dueInfo, money } from './format.js';
+import { dueInfo, money, tierOf } from './format.js';
 
 /** The boards a bid can come from (src/sources/index.ts ids). */
 export const SOURCES = [
@@ -12,14 +12,28 @@ export const SOURCES = [
   { id: 'samgov', label: 'SAM.gov' },
 ];
 
-/** Fit levels = the verdict bands of src/score/score.ts. "Not a fit" is left out unless asked for. */
+/**
+ * Fit levels = the verdict bands of src/score/score.ts. All four are on by default: Browse's three-way filter
+ * (TIERS below) is what narrows the list now, and "Everything" has to mean every open bid in reach.
+ */
 export const FITS = [
   { id: 'great', label: 'Great' },
   { id: 'good', label: 'Good' },
   { id: 'maybe', label: 'Maybe' },
   { id: 'skip', label: 'Not a fit' },
 ];
-const DEFAULT_FITS = ['great', 'good', 'maybe'];
+const DEFAULT_FITS = FITS.map((f) => f.id);
+
+/**
+ * Browse's three-way filter (GET /api/feed tier=…). 'fit' = the company's own trade work at the deck line or
+ * above; 'sub' = a prime contract where its trade is usually a subcontract (src/score/subwork.ts); 'all' = every
+ * open candidate, 'other' included. Kept in state.browse while the app is open.
+ */
+export const TIERS = [
+  { id: 'fit', label: 'Fits' },
+  { id: 'sub', label: 'Sub work' },
+  { id: 'all', label: 'Everything' },
+];
 
 export const SORTS = [
   { id: 'fit', label: 'Best fit' },
@@ -35,7 +49,7 @@ export const DUE_DAYS = [3, 7, 14, 30];
 export function defaultFilters() {
   return {
     q: '', minValue: null, maxValue: null, hasValue: false, maxDistance: null, dueWithinDays: null,
-    sources: [], fits: [...DEFAULT_FITS], sort: 'fit',
+    sources: [], fits: [...DEFAULT_FITS], sort: 'fit', tier: 'all',
   };
 }
 
@@ -53,6 +67,7 @@ export function toQuery(f) {
   if (f.sources.length) p.set('source', f.sources.join(','));
   if (f.fits.length && f.fits.length < FITS.length) p.set('verdict', f.fits.join(','));
   if (f.sort !== 'fit') p.set('sort', f.sort);
+  if (f.tier && f.tier !== 'all') p.set('tier', f.tier);
   return p.toString();
 }
 
@@ -83,7 +98,7 @@ export function activeChips(f) {
   return chips;
 }
 
-/** Anything narrowed down beyond the defaults (search words included)? */
+/** Anything narrowed down beyond the defaults (search words included)? The tier is not counted: it has its own control. */
 export const isFiltered = (f) => !!f.q.trim() || activeChips(f).length > 0;
 
 // ------------------------------------------------- demo (no server) ---
@@ -91,7 +106,7 @@ export const isFiltered = (f) => !!f.q.trim() || activeChips(f).length > 0;
 const VERDICT_OF = (score) => (score >= 75 ? 'great' : score >= 55 ? 'good' : score >= 35 ? 'maybe' : 'skip');
 
 /** The same filters on the bundled snapshot. Mirrors src/db/repo.ts getFeed closely enough for a demo. */
-export function localFilter(items, f) {
+export function localFilter(items, f, { ignoreTier = false } = {}) {
   const words = f.q.trim().toLowerCase().split(/\s+/).filter(Boolean);
   const now = Date.now();
   const list = items.filter((i) => {
@@ -108,6 +123,7 @@ export function localFilter(items, f) {
     if (f.dueWithinDays != null && (!i.dueAt || Date.parse(i.dueAt) > now + f.dueWithinDays * 864e5)) return false;
     if (f.sources.length && !f.sources.includes(i.source)) return false;
     if (f.fits.length && !f.fits.includes(i.verdict ?? VERDICT_OF(i.score))) return false;
+    if (!ignoreTier && f.tier && f.tier !== 'all' && tierOf(i) !== f.tier) return false;
     return true;
   });
   const val = (i) => i.estValue?.max ?? i.estValue?.min ?? -1;
@@ -119,4 +135,11 @@ export function localFilter(items, f) {
     value: (a, b) => val(b) - val(a) || b.score - a.score,
   };
   return list.sort(sorters[f.sort] ?? sorters.fit);
+}
+
+/** The demo's tier counts (the server sends `counts`): unswiped bids under the same filters, any tier. */
+export function localCounts(items, f) {
+  const out = { fit: 0, sub: 0, other: 0 };
+  for (const i of localFilter(items, f, { ignoreTier: true })) if (!i.swipe) out[tierOf(i)] += 1;
+  return out;
 }

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-11-14T02:15:09.391Z",
+  "generatedAt": "2026-11-14T07:02:22.718Z",
   "capturedAt": "2026-11-13",
   "note": "Real public bid listings captured from Douglas County NV, NGEM and NevadaEPro on 2026-11-13, and from NV State Public Works (QuestCDN) on 2026-11-11. A saved snapshot, not a live feed.",
   "profile": {
@@ -73,8 +73,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
     },
     {
       "source": "questcdn",
@@ -135,8 +136,71 @@
       ],
       "distanceMi": 32,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
+    },
+    {
+      "source": "ngem",
+      "sourceId": "bcn-purchasing:itb-9136",
+      "sourceName": "NGEM (local agencies)",
+      "title": "WNC - Dini Library South Restroom Improvements",
+      "agency": "BCN Purchasing",
+      "description": "BID · ITB 9136 Addendum 1",
+      "category": "BID",
+      "location": {
+        "city": "Carson City",
+        "county": "Carson City",
+        "state": "NV",
+        "zip": null,
+        "lat": 39.1638,
+        "lng": -119.7674,
+        "precision": "agency",
+        "label": "Carson City, NV"
+      },
+      "postedAt": "2026-10-08T15:00:00.000Z",
+      "dueAt": "2026-11-19T22:00:00.000Z",
+      "estValue": null,
+      "naics": null,
+      "setAside": null,
+      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
+      "flags": [
+        "Addendum 1 posted"
+      ],
+      "id": "ngem:bcn-purchasing:itb-9136",
+      "score": 47,
+      "verdict": "maybe",
+      "reasons": [
+        {
+          "kind": "info",
+          "text": "Sub work: a general contractor bids this building job (“restroom”); electrical is usually subcontracted"
+        },
+        {
+          "kind": "info",
+          "text": "Quote the bidders: ask the agency who took out plans"
+        },
+        {
+          "kind": "plus",
+          "text": "15 mi from Gardnerville, NV (approx.)"
+        },
+        {
+          "kind": "info",
+          "text": "Job size not stated"
+        },
+        {
+          "kind": "info",
+          "text": "5 days to bid"
+        },
+        {
+          "kind": "info",
+          "text": "Addendum 1 posted"
+        }
+      ],
+      "distanceMi": 15,
+      "swipe": null,
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "sub"
     },
     {
       "source": "nevadaepro",
@@ -192,69 +256,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
-    },
-    {
-      "source": "ngem",
-      "sourceId": "bcn-purchasing:itb-9136",
-      "sourceName": "NGEM (local agencies)",
-      "title": "WNC - Dini Library South Restroom Improvements",
-      "agency": "BCN Purchasing",
-      "description": "BID · ITB 9136 Addendum 1",
-      "category": "BID",
-      "location": {
-        "city": "Carson City",
-        "county": "Carson City",
-        "state": "NV",
-        "zip": null,
-        "lat": 39.1638,
-        "lng": -119.7674,
-        "precision": "agency",
-        "label": "Carson City, NV"
-      },
-      "postedAt": "2026-10-08T15:00:00.000Z",
-      "dueAt": "2026-11-19T22:00:00.000Z",
-      "estValue": null,
-      "naics": null,
-      "setAside": null,
-      "url": "https://nevada.ionwave.net/SourcingEvents.aspx?SourceType=1",
-      "flags": [
-        "Addendum 1 posted"
-      ],
-      "id": "ngem:bcn-purchasing:itb-9136",
-      "score": 44,
-      "verdict": "maybe",
-      "reasons": [
-        {
-          "kind": "plus",
-          "text": "15 mi from Gardnerville, NV (approx.)"
-        },
-        {
-          "kind": "info",
-          "text": "General construction — check the specs for electrical"
-        },
-        {
-          "kind": "info",
-          "text": "Building work (“restroom”) — often has a sub scope"
-        },
-        {
-          "kind": "info",
-          "text": "Job size not stated"
-        },
-        {
-          "kind": "info",
-          "text": "5 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "Addendum 1 posted"
-        }
-      ],
-      "distanceMi": 15,
-      "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
     },
     {
       "source": "nevadaepro",
@@ -310,8 +314,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
     },
     {
       "source": "nevadaepro",
@@ -367,8 +372,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
     },
     {
       "source": "questcdn",
@@ -429,8 +435,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "fit"
     },
     {
       "source": "questcdn",
@@ -491,8 +498,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -548,8 +556,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -605,8 +614,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -662,8 +672,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -728,8 +739,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -794,8 +806,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -860,8 +873,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -926,8 +940,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -992,8 +1007,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -1058,8 +1074,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -1124,8 +1141,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1171,8 +1189,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -1224,8 +1243,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -1277,8 +1297,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1324,8 +1345,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1381,8 +1403,9 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1438,8 +1461,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1491,8 +1515,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -1544,8 +1569,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1597,8 +1623,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1650,8 +1677,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1707,8 +1735,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1754,8 +1783,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1807,8 +1837,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -1860,8 +1891,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1907,8 +1939,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -1958,8 +1991,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2005,8 +2039,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2062,8 +2097,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2119,8 +2155,9 @@
       ],
       "distanceMi": 41,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2159,11 +2196,11 @@
         },
         {
           "kind": "info",
-          "text": "General construction — check the specs for electrical"
+          "text": "Sub work: a general contractor bids this building job (“remodel”); electrical is usually subcontracted"
         },
         {
           "kind": "info",
-          "text": "Building work (“remodel”) — often has a sub scope"
+          "text": "Quote the bidders: ask the agency who took out plans"
         },
         {
           "kind": "info",
@@ -2180,8 +2217,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "douglascounty",
@@ -2231,8 +2269,9 @@
       ],
       "distanceMi": 1,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2284,8 +2323,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2337,8 +2377,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2390,8 +2431,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2451,8 +2493,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2504,8 +2547,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2555,8 +2599,9 @@
       ],
       "distanceMi": 386,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2610,8 +2655,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2663,8 +2709,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2716,8 +2763,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2763,8 +2811,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2816,8 +2865,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2873,8 +2923,9 @@
       ],
       "distanceMi": 44,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -2926,8 +2977,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -2979,8 +3031,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3026,8 +3079,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3081,8 +3135,9 @@
       ],
       "distanceMi": 15,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3138,8 +3193,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3199,8 +3255,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3252,8 +3309,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3313,8 +3371,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3366,8 +3425,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3403,16 +3463,16 @@
           "text": "317 mi away — outside your 90 mi range"
         },
         {
+          "kind": "info",
+          "text": "Sub work: a general contractor bids this building job (“renovat”); electrical is usually subcontracted"
+        },
+        {
+          "kind": "info",
+          "text": "Quote the bidders: ask the agency who took out plans"
+        },
+        {
           "kind": "plus",
           "text": "24 days to bid"
-        },
-        {
-          "kind": "info",
-          "text": "General construction — check the specs for electrical"
-        },
-        {
-          "kind": "info",
-          "text": "Building work (“renovation”) — often has a sub scope"
         },
         {
           "kind": "info",
@@ -3421,8 +3481,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3474,8 +3535,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3527,8 +3589,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -3589,8 +3652,9 @@
       ],
       "distanceMi": 338,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3642,8 +3706,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3695,8 +3760,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3742,8 +3808,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "questcdn",
@@ -3808,8 +3875,9 @@
       ],
       "distanceMi": 253,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3865,8 +3933,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "nevadaepro",
@@ -3922,8 +3991,9 @@
       ],
       "distanceMi": null,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -3969,8 +4039,9 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4016,8 +4087,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4069,8 +4141,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4116,8 +4189,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4163,8 +4237,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4214,8 +4289,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4261,8 +4337,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4318,8 +4395,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4365,8 +4443,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4412,8 +4491,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4463,8 +4543,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4510,8 +4591,9 @@
       ],
       "distanceMi": 317,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     },
     {
       "source": "ngem",
@@ -4563,8 +4645,9 @@
       ],
       "distanceMi": 329,
       "swipe": null,
-      "firstSeenAt": "2026-11-14T02:15:09.391Z",
-      "overLimit": false
+      "firstSeenAt": "2026-11-14T07:02:22.718Z",
+      "overLimit": false,
+      "tier": "other"
     }
   ]
 }

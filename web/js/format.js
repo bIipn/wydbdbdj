@@ -56,7 +56,18 @@ export const PLAN_LABEL = { free: 'Free', pro: 'Pro', pilot: 'Pilot' };
 export const isOpen = (i) => !i.dueAt || Date.parse(i.dueAt) > Date.now();
 export const byFit = (a, b) => b.score - a.score || (Date.parse(a.dueAt ?? '9999-01-01') - Date.parse(b.dueAt ?? '9999-01-01'));
 
+/**
+ * The tier of a bid (GET /api/feed sends it). An older answer without one reads the way the server reads a row
+ * scored before tiers existed: 'fit' at the deck line (35) or above, else 'other'.
+ */
+export const tierOf = (i) => (i.tier === 'fit' || i.tier === 'sub' || i.tier === 'other' ? i.tier : i.score >= 35 ? 'fit' : 'other');
+
+/**
+ * Pluses first, then minuses, then notes. Sub work keeps the server's order: its first reasons say that it is
+ * sub work, why, and what to do (src/score/score.ts puts them first), and they are notes ('info').
+ */
 export function orderedReasons(item) {
+  if (tierOf(item) === 'sub') return [...item.reasons];
   const rank = { plus: 0, minus: 1, info: 2 };
   return [...item.reasons].sort((a, b) => rank[a.kind] - rank[b.kind]);
 }

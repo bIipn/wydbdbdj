@@ -6,6 +6,7 @@ import type { Bus } from './realtime/bus.js';
 import { isCandidate } from './score/candidates.js';
 import { scoreBid } from './score/score.js';
 import { inheritFromStored, mergeDrafts, placeIsBlank } from './sources/dedupe.js';
+import { FLAGS } from './sources/flags.js';
 import type { Bid, BidDraft, Profile, ScoreResult, Source, SourceContext, SourceId, Tier, Verdict } from './types.js';
 
 export interface SourceReport {
@@ -75,7 +76,7 @@ export function mayAnnounce(s: ScoreResult, threshold: number): boolean {
  */
 async function scoreBids(
   db: Db, profile: Profile, bids: Bid[], now: Date, fresh: ReadonlySet<string>, bus?: Bus, quiet: ReadonlySet<string> = new Set(),
-  candidate: CandidateTest = isCandidate,
+  candidate: CandidateTest = isCandidate, announce: AnnounceRule = mayAnnounce,
 ): Promise<ProfileReport> {
   const byVerdict = noVerdicts();
   const byTier = noTiers();
@@ -101,7 +102,7 @@ async function scoreBids(
 
   if (bus) {
     for (const { bid, score: s } of scored) {
-      if (quiet.has(bid.id) || !mayAnnounce(s, threshold)) continue;
+      if (quiet.has(bid.id) || !announce(s, threshold)) continue;
       await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: fresh.has(bid.id) });
       // Let the event loop run once: the alert's stream frame and push go out now, not when the whole
       // scan ends (the embedded database runs on this thread, so a long scan would otherwise hold them).
@@ -165,6 +166,9 @@ export async function scoreNewBid(
 /** Which bids a profile gets a stored score for. Always isCandidate, except in the simulation's mutation run. */
 export type CandidateTest = (profile: Profile, bid: Bid) => boolean;
 
+/** Which scored matches the scan publishes as 'match' events. Always mayAnnounce, except in the simulation's mutation run. */
+export type AnnounceRule = (score: ScoreResult, threshold: number) => boolean;
+
 export interface ScanDeps {
   db: Db;
   sources: Source[];
@@ -175,13 +179,15 @@ export interface ScanDeps {
   bus?: Bus;
   /** Default isCandidate (src/score/candidates.ts). A seam for `npm run simulate`'s "browse-missing" mutation only. */
   candidate?: CandidateTest;
+  /** Default mayAnnounce. A seam for `npm run simulate`'s "sub-alerts" mutation only. */
+  announce?: AnnounceRule;
 }
 
 /**
  * One scan: pull every source (a broken source never stops the others), merge duplicates, store (in
  * batches), then score every open bid that is a candidate for each profile (src/score/candidates.ts).
  */
-export async function runScan({ db, sources, profiles, ctx, bus, candidate = isCandidate }: ScanDeps): Promise<ScanReport> {
+export async function runScan({ db, sources, profiles, ctx, bus, candidate = isCandidate, announce = mayAnnounce }: ScanDeps): Promise<ScanReport> {
   const started = new Date();
   const report: ScanReport = {
     startedAt: started.toISOString(), finishedAt: '', sources: {}, totalBids: 0, newBids: 0, profiles: {},
@@ -215,9 +221,13 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
   const boardDrafts = drafts.filter((d) => d.source !== 'local');
   if (boardDrafts.length < drafts.length) ctx.log(`! ${drafts.length - boardDrafts.length} draft(s) claiming source 'local' ignored`);
   const merged = mergeDrafts(boardDrafts);
-  const stored = await getBids(db, merged.filter((d) => placeIsBlank(d.location) || !d.setAside).map((d) => `${d.source}:${d.sourceId}`));
+  // A draft may take from the stored card what today's notices left out: a place, a set-aside, or the real work
+  // site an earlier scan read for a card that is placed at its contracting office today (dedupe.ts).
+  const inherits = (d: BidDraft): boolean =>
+    placeIsBlank(d.location) || !d.setAside || (d.flags ?? []).includes(FLAGS.placeFromOffice);
+  const stored = await getBids(db, merged.filter(inherits).map((d) => `${d.source}:${d.sourceId}`));
   const bids: Bid[] = merged.map((d) =>
-    finalizeBid(placeIsBlank(d.location) || !d.setAside ? inheritFromStored(d, stored.get(`${d.source}:${d.sourceId}`) ?? null) : d));
+    finalizeBid(inherits(d) ? inheritFromStored(d, stored.get(`${d.source}:${d.sourceId}`) ?? null) : d));
   const fresh = await upsertBids(db, bids, ctx.now);
   report.totalBids = bids.length;
   report.newBids = fresh.size;
@@ -234,7 +244,7 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
     // One bad profile must not cost everyone else their matches.
     try {
       await upsertProfile(db, profile);
-      report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet, candidate);
+      report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet, candidate, announce);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       report.profiles[profile.id] = { scored: 0, byVerdict: noVerdicts(), byTier: noTiers(), newGood: 0, error: msg };

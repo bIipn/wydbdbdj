@@ -17,8 +17,9 @@
  *    always, every code, including the bare "Y" / "Z" some notices carry. That is construction by definition.
  *  - J (maintenance, repair, rebuild of equipment), N (installation of equipment), K (modification of equipment)
  *    and H1/H2/H3/H9 (quality control, testing, inspection, other QC: "Tri-Annual Electrical Inspection"): only the
- *    building-equipment groups a catalog trade works on: 041, 044, 045, 059, 061, 062, 063. Group 059 also holds
- *    electronic parts (avionics boards); the scorer's keywords sort those out, the row only has to get in.
+ *    building-equipment groups a catalog trade works on: 041, 044, 045, 059, 061, 062, 063. Group 059 (electrical
+ *    and electronic equipment components) is mostly avionics, radar and radio repair, so it never lets a notice in by
+ *    itself (pscLetsIn): only a trade NAICS does. The scorer reads every equipment code as a related signal only.
  *  - S2 housekeeping: S208 landscaping/groundskeeping, S214 carpet laying, S216 facilities operations support,
  *    S218 snow removal (a landscaping keyword in the catalog). Not custodial, food, guard, laundry or pest
  *    control: no catalog trade does them.
@@ -119,6 +120,36 @@ export function tradesForPsc(psc: string | null | undefined): readonly TradeId[]
   }
   if (/^[JNK]0\d{2}$|^H[1239]\d{2}$/.test(p)) return EQUIPMENT[p.slice(1).replace(/^[1239]/, '0')] ?? [];
   return (SERVICE[p] ?? []);
+}
+
+/** J / N / K / H codes: work on equipment, not on a building. A weaker trade signal than a Y / Z / S / F / P code. */
+export function isEquipmentPsc(psc: string | null | undefined): boolean {
+  return /^(?:[JNK]0\d{2}|H[1239]\d{2})$/.test(normalizePsc(psc) ?? '');
+}
+
+/**
+ * Words that name a trade's own work plainly enough to keep a service notice whose PSC is outside the table
+ * ("J065--HVAC upgrades", "J036 Preventative Maintenance Services for two Chiller Units"): real notices of
+ * 2026-11-14 that an agency filed under an unrelated equipment group.
+ */
+const TRADE_TITLE = /\b(?:hvac|chillers?|boilers?|cooling towers?|generators?|electrical|switchgear|transformers?|roof(?:s|ing)?|plumbing|fire alarms?|fire sprinklers?|sprinkler systems?)\b/i;
+
+/**
+ * The bulk filter's PSC half: may this notice in by its PSC (or its title, for a service notice) when its NAICS
+ * is not a trade NAICS? Never for a product NAICS (31–33 manufacturing, 811210 electronic equipment repair), a
+ * real-estate lease (53) or an A/E design contract (541310–541340: building inspection and testing stay); never by group 059 alone (avionics, radar, radios);
+ * never carpet CLEANING under S214 or janitorial work under S216. Each rule is a real 2026-11-14 notice.
+ */
+export function pscLetsIn(psc: string | null | undefined, naics: string | null | undefined, title = ''): boolean {
+  const p = normalizePsc(psc);
+  if (!p || /^\d/.test(p)) return false;
+  const n = (naics ?? '').trim();
+  if (/^3[1-3]/.test(n) || n === '811210' || /^53/.test(n) || /^5413[1-4]0$/.test(n)) return false;
+  if (!isTradePsc(p)) return /^[JNKHS]/.test(p) && TRADE_TITLE.test(title);
+  if (/^(?:[JNK]0|H[1239])59$/.test(p)) return false;
+  if (p === 'S214' && (n === '561740' || /\bclean/i.test(title))) return false;
+  if (p === 'S216' && (n === '561720' || /\bjanitor/i.test(title))) return false;
+  return true;
 }
 
 /** True when a PSC marks work a catalog trade does (the bulk filter's PSC half). Products never are. */

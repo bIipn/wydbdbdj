@@ -1,4 +1,5 @@
 import { FLAGS } from '../sources/flags.js';
+import { statesInText } from '../sources/samgov.js';
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
 import { lookupCity, lookupZip } from './zip.js';
@@ -79,8 +80,37 @@ function nationwide(city: string | null | undefined, state: string | null, zip: 
 export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'> & Pick<Partial<BidDraft>, 'flags'>): BidLocation {
   // A federal notice that named no work site carries its contracting office as its place (FLAGS.placeFromOffice):
   // it is placed from the office's own city / ZIP only, never guessed from the title, and its label says so.
-  if (draft.flags?.includes(FLAGS.placeFromOffice)) return officeLabel(locateGiven(draft, true));
+  if (draft.flags?.includes(FLAGS.placeFromOffice)) {
+    const office = officeLabel(locateGiven(draft, true));
+    // The title often names the job's state when the place fields do not ("CA-SAN LUIS NWR-FIRE SYSTEM REHAB" from
+    // a Virginia office, "Snow Removal Services Detroit Michigan" from Seattle): that state wins, with no point.
+    const site = stateInTitle(draft.title);
+    if (site && site !== office.state) {
+      const where = office.city && office.state ? `${office.city}, ${office.state}` : office.state;
+      return {
+        city: null, county: null, state: site, zip: null, lat: null, lng: null, precision: 'state',
+        label: `${site}: work site not named${where ? ` (contracting office: ${where})` : ''}`,
+      };
+    }
+    return office;
+  }
   return locateGiven(draft, false);
+}
+
+/** US state codes a "XX-" title prefix may carry (VA is left out: "VA-…" is usually Veterans Affairs). */
+const PREFIX_STATES = new Set(
+  'AL AK AZ AR CA CO CT DE DC FL GA HI ID IL IN IA KS KY LA ME MD MA MI MN MS MO MT NE NV NH NJ NM NY NC ND OH OK OR PA RI SC SD TN TX UT VT WA WV WI WY PR GU VI'.split(' '),
+);
+/** Place names that hold a state's name but are not in it ("Washington Navy Yard" is in DC). */
+const NOT_THE_STATE = /\bwashington(?:,? d\.?c\.?| navy yard| headquarters)\b|\bnew york ave(?:nue)?\b/gi;
+
+/** The one state a federal title names: a leading "CA-" code, else exactly one state named in it; else null. */
+export function stateInTitle(title: string | null | undefined): string | null {
+  const t = (title ?? '').trim();
+  const prefix = /^([A-Z]{2})-(?=[A-Z])/.exec(t);
+  if (prefix && PREFIX_STATES.has(prefix[1]!)) return prefix[1]!;
+  const named = statesInText(t.replace(NOT_THE_STATE, ' '));
+  return named.length === 1 ? named[0]! : null;
 }
 
 /**

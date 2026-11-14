@@ -14,7 +14,7 @@ import { scoreBid } from '../src/score/score.js';
 import { inheritFromStored, mergeDrafts, samKey } from '../src/sources/dedupe.js';
 import { FLAGS } from '../src/sources/flags.js';
 import {
-  isProgramContract, isPresolicitation, parseSamPlace, parseSamResponse, SAM_FLAGS, setAsideFromText,
+  isProgramContract, isPresolicitation, parseSamPlace, parseSamResponse, placeAtOffice, SAM_FLAGS, setAsideFromText,
   type SamOpportunity, type SamResponse,
 } from '../src/sources/samgov.js';
 import type { BidDraft, Profile, Source } from '../src/types.js';
@@ -289,6 +289,17 @@ describe('scans over several days (real notices, in-memory database)', () => {
     });
     expect(open[0]!.url).toContain(notice('ebf23d8b').noticeId);
     expect(open[0]!.flags).not.toContain('Presolicitation');
+  });
+
+  it('an office-placed notice WITH a set-aside still takes the real work site an earlier scan stored', async () => {
+    await scan('2026-10-08T14:15:00Z', [one('2c8dcb32')]); // the presolicitation: Reno VA, SDVOSB
+    // TEST variant of the real Nov 13 solicitation: carrying its set-aside and placed at a (TEST) office, as if the
+    // notice that named Reno had left SAM's window.
+    const today = placeAtOffice({ ...one('ebf23d8b'), setAside: 'SDVOSBC' }, { city: 'Sacramento', state: 'CA', zip: null });
+    await scan('2026-11-13T14:15:00Z', [today]);
+    const [b] = await getOpenBids(db, new Date('2026-11-13T14:15:00Z'));
+    expect(b).toMatchObject({ id: 'samgov:36C26126Q1297', location: { city: 'Reno', state: 'NV', precision: 'city' } });
+    expect(b!.flags).not.toContain(FLAGS.placeFromOffice);
   });
 
   it('the same solicitation from two queries in one scan is one card', async () => {

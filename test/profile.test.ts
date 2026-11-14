@@ -501,8 +501,9 @@ describe('profile routes', () => {
     };
     const body = res.json() as { profile: unknown; scored: number; counts: { fit: number; sub: number; other: number } };
     expect(body).toEqual({ profile: summary, scored: 13, counts: body.counts });
-    // The onboarding's last step: the rows just stored, by tier (nothing swiped or closed yet, so all 13).
-    expect(body.counts.fit + body.counts.sub + body.counts.other).toBe(13);
+    // The onboarding's last step: the rows just stored, by tier, without the hard no's (score 0: out of range, out
+    // of the states, not the trade). Nothing is swiped or closed yet: 13 scored, 2 of them hard no's.
+    expect(body.counts.fit + body.counts.sub + body.counts.other).toBe(11);
     expect(body.counts.fit).toBeGreaterThan(0);
 
     expect(await me()).toMatchObject({

@@ -16,10 +16,45 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Price + award watch (`MARKET_REFRESH_AT`) | ✅ tested on replays of the real BLS/USAspending captures with labelled synthetic "after" data; one live NV award pull (36 awards) by its builder. Not yet run on a schedule against the live APIs. Award matching works for SAM.gov bids only (solicitation numbers) |
 | Price check (awards, wages, indexes, NV prevailing wage) | ✅ tested; real USAspending pull (NV 266, CA 2078 awards) and real BLS responses (fixtures) seen in the browser. Prevailing-wage rates were typed from the state PDF, not double-checked |
 | Cost engine (`POST /api/estimate`) | ✅ built (src/cost, integer cents), proven by a second implementation (test/cost-oracle) and `npm run simulate:cost`; Pro only (402 otherwise). Screen in web/js/views/cost.js, checked at 390×844 |
-| Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the 111 real captured bids, all checks pass, same seed same hash, 10 of 10 mutations caught (+1 checker self-test) |
+| Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the real captured bids, all checks pass (incl. `sub-silent`), same seed same hash (051f7916d12e0c0e, 2026-11-14), 12 of 12 mutations caught (+1 checker self-test) |
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
+
+**More open bids in reach, 2026-11-14** (a real CA electrician at ZIP 95675 saw one job on the live site). What changed:
+- Federal net (`src/sources/psc.ts`, `samgov-bulk.ts`): a notice is kept when its NAICS OR its Product and Service
+  Code is trade work (Y/Z always; J/N/K/H on building-equipment groups; S208/S214/S216/S218, M1 power/heating
+  plants, P demolition, F grounds work), never for a product NAICS (31–33, 811210), a lease (53), A/E design
+  (541310–541340) or group 059 alone (radar, avionics, radios); a service notice with a plain trade title
+  ("…HVAC upgrades", "…Chiller Units") is kept whatever its PSC. Every card carries `psc`.
+- A notice with no place of performance is placed at its US contracting office (`FLAGS.placeFromOffice`, labelled,
+  capped, no miles shown); its title's state wins when it names another. Never for a job abroad (a foreign
+  PopCountry, an AA/AE/AP office or a foreign place in the text); a stateless card with words for a place abroad is
+  dropped. A bid with no point and no state is held at 34. `samKey` stops merging different jobs numbered
+  …0001/…0002 under a 0000 serial (69 families in the file).
+- Sub work tier (`src/score/subwork.ts`, contract in CLAUDE.md "Tiers"): building and facility primes for trades
+  usually subcontracted; 36–50, "maybe", capped, never alerted, spend limits not applied (they are the prime's).
+  An equipment PSC alone is a weak signal (8 + context × 0.45, under 35). Feed: `tier`, `counts`, `tier=`;
+  `PUT /api/profile` returns counts without the hard no's. Screens: SUB WORK pill and note, Browse three-way
+  filter with counts, a finished deck that offers the next step, a "Show sub work" switch, onboarding's last step.
+- Measured on the real SAM.gov file of 2026-11-14 05:27 UTC (222 MB) + the Nevada fixtures, scanned into a scratch
+  embedded database with `runScan`, clock 08:00 UTC; "TEST CA Electric (simulated)" = electrical, ZIP 95675,
+  states [CA], 90 mi, $10K–$50K:
+
+  | | at 697369e | now |
+  |---|---:|---:|
+  | federal cards | 508 | 668 |
+  | … in California | 36 | 51 |
+  | … placed at the contracting office | 0 | 130 (16 moved to the state their title names) |
+  | TEST CA Electric: candidates / fit / sub / other | 76 / 5 / 0 / 71 | 82 / 5 / 3 / 74 |
+  | L&M Electric (pilot): candidates / fit / sub / other | 143 / 8 / 0 / 135 | 150 / 7 / 2 / 141 |
+
+  Honest reading: this run widens the net (+160 federal cards nationwide, +15 in California) and labels sub work,
+  but it does **not** fix "one job" for a California electrician: his fits stay at 5. The pilot's 8th fit (Dini
+  Library restroom) is now sub work. Volume has to come from state and local boards (being researched separately).
+- Checks: typecheck, 1,702 tests, build; `simulate --seed 20261113` 051f7916d12e0c0e, 12 of 12 mutations;
+  `simulate:cost` sha256 70de5331…3830 unchanged; `simulate:jobs --seed 20261114` 21d5d5f488b230c2 unchanged,
+  15 checks, 10 of 10 mutations. Browser pass on the built server (accounts mode, fixtures + the real SAM cards).
 
 **Job marketplace, 2026-11-14** (commit "Job marketplace: post a job, sealed bids…"). What was built:
 - `src/jobs/` (rules, config, repo, service, view, stats), `src/db/schema-jobs.ts` (jobs, job_bids, job_messages,

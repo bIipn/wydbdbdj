@@ -21,10 +21,12 @@
  */
 import { TRADES } from '../trades/catalog.js';
 import type { BidDraft, FetchLike, SourceContext } from '../types.js';
-import { mergeDrafts } from './dedupe.js';
+import { mergeDrafts, samKey } from './dedupe.js';
 import { FLAGS } from './flags.js';
-import { isTradePsc } from './psc.js';
-import { namesNoPlace, parseSamPlace, placeAtOffice, samDraft, samOffice, type SamOffice, type SamOpportunity } from './samgov.js';
+import { pscLetsIn } from './psc.js';
+import {
+  MILITARY_POST, namesAbroad, namesNoPlace, parseSamPlace, placeAtOffice, samDraft, samOffice, type SamOffice, type SamOpportunity,
+} from './samgov.js';
 
 export const SAM_BULK_URL =
   'https://sam.gov/api/prod/fileextractservices/v1/api/download/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv?privacy=Public';
@@ -215,7 +217,8 @@ export const isTradeNaics = (code: string): boolean => code.startsWith('23') || 
  * 2026-11-14 about half the open federal repair and maintenance work was filed under a NAICS outside the trades
  * (561210 facilities support, 811310 equipment repair…) with a PSC that names it (Z2AA, J061, S208…).
  */
-export const isTradeNotice = (naics: string, psc: string): boolean => isTradeNaics(naics) || isTradePsc(psc);
+export const isTradeNotice = (naics: string, psc: string, title = ''): boolean =>
+  isTradeNaics(naics) || pscLetsIn(psc, naics, title);
 
 /**
  * Notice types that become cards: the same three the API source asks for (ptype o,k,p). Award notices,
@@ -303,6 +306,12 @@ export class SamBulkParser {
   private readonly kept: Array<{ posted: string; draft: BidDraft; zoneless?: string; office: SamOffice | null }> = [];
   /** "<Sol#>|<wall time>" → the offset another notice of the same solicitation wrote for that same time. */
   private readonly offsets = new Map<string, string>();
+  /**
+   * Solicitations (card ids) one of whose notices is abroad: a foreign PopCountry, an office at a military post
+   * office abroad (AA/AE/AP), or a foreign place in its title, description or address text. Such a card is never
+   * placed at its US contracting office, and one with no US state is left out.
+   */
+  private readonly abroad = new Set<string>();
   readonly stats: BulkStats = {
     bytes: 0, rows: 0, active: 0, kept: 0, keptByPsc: 0, cards: 0, placedAtOffice: 0, malformed: 0,
     dropped: { inactive: 0, type: 0, naics: 0, country: 0, noPlace: 0, pastDue: 0, stale: 0, noId: 0 },
@@ -357,10 +366,16 @@ export class SamBulkParser {
       let d = merged;
       // No notice of it names a work site: place it at the contracting office when that is in the US (the card
       // says so), else leave it out — we cannot say it is in the US at all.
+      const abroad = this.abroad.has(d.sourceId);
       if (namesNoPlace(d)) {
         const office = offices.get(d.sourceId);
+        if (abroad) { this.stats.dropped.country++; continue; }
         if (!office) { this.stats.dropped.noPlace++; continue; }
         d = placeAtOffice(d, office);
+      } else if (abroad && !d.location?.state) {
+        // Only words for a place ("USAG Humphreys", "USAG Ansbach, Germany", "Worldwide"), no US state: abroad.
+        this.stats.dropped.country++;
+        continue;
       }
       if (now !== undefined && d.dueAt && Date.parse(d.dueAt) <= now) { this.stats.dropped.pastDue++; continue; }
       if (now !== undefined && !d.dueAt && d.postedAt && now - Date.parse(d.postedAt) > STALE_AFTER_DAYS * 86_400_000) {
@@ -392,15 +407,19 @@ export class SamBulkParser {
     this.stats.active++;
     if (!OPEN_TYPES.has(get('Type').toLowerCase())) { this.stats.dropped.type++; return; }
     const naics = get('NaicsCode');
-    if (!isTradeNotice(naics, get('ClassificationCode'))) { this.stats.dropped.naics++; return; }
+    if (!isTradeNaics(naics) && !pscLetsIn(get('ClassificationCode'), naics, get('Title'))) { this.stats.dropped.naics++; return; }
     // Most rows leave PopCountry blank (50,384 of 72,318 on 2026-11-13). Only a named foreign country is
     // dropped here; a notice that names no place at all is judged after merging (an amendment may omit it).
     // A blank country with a foreign region code in PopState ("JP-14", "GT-GU") is abroad too.
     const country = get('PopCountry');
     const state = get('PopState');
     const foreignState = !!state && !NO_STATE.test(state) && parseSamPlace({ state: stateField(state) }).state === null;
-    if ((country && !US_COUNTRY.test(country) && !territoryOf(country)) || (!country && foreignState)) { this.stats.dropped.country++; return; }
     const noticeId = get('NoticeId');
+    if ((country && !US_COUNTRY.test(country) && !territoryOf(country)) || (!country && foreignState)) {
+      this.stats.dropped.country++;
+      if (noticeId) this.abroad.add(samKey(get('Sol#') || null, noticeId));
+      return;
+    }
     if (!noticeId) { this.stats.dropped.noId++; return; }
 
     const deadline = get('ResponseDeadLine');
@@ -410,6 +429,9 @@ export class SamBulkParser {
     if (!isTradeNaics(naics)) this.stats.keptByPsc++;
     const opp = rowToOpportunity(get);
     const draft = samDraft(opp);
+    if (MILITARY_POST.test(get('State')) || namesAbroad(`${opp.title ?? ''} ${opp.description ?? ''} ${get('PopStreetAddress')}`)) {
+      this.abroad.add(draft.sourceId);
+    }
     // Remember every offset a notice wrote, by solicitation and wall time, for its zoneless siblings (finish()).
     const zoned = ZONED.exec(deadline);
     if (zoned) this.offsets.set(`${draft.sourceId}|${withSeconds(zoned[1]!)}`, zoned[2]!);

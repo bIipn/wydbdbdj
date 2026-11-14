@@ -22,6 +22,7 @@ export function onEnteredApp(fn) { enterHooks.push(fn); }
 export async function loadFeed() {
   const feed = await api.feed();
   state.items = feed.items;
+  state.counts = feed.counts ?? null; // an older server sends none: the screens then count the list itself
   state.lastScan = feed.lastScan;
   state.browseIds = null; // Browse asks the API again with its filters
   for (const fn of feedHooks) fn();
@@ -68,6 +69,8 @@ export function signedOut() {
   state.me = null;
   state.profile = null;
   state.items = [];
+  state.counts = null;
+  state.browseCounts = null;
   state.lastScan = null;
   state.browse = defaultFilters();
   state.browseIds = null;

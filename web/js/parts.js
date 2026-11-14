@@ -1,8 +1,8 @@
 // Pieces of a bid shared by the swipe card, the list rows and the detail sheet.
 
 import { markOpened } from './actions.js';
-import { h, icon, ICONS, safeUrl } from './dom.js';
-import { dueInfo, estLabel, orderedReasons, shortSource } from './format.js';
+import { h, icon, ICONS, safeUrl, store } from './dom.js';
+import { dueInfo, estLabel, orderedReasons, shortSource, tierOf } from './format.js';
 import { jobIdOf, jobsOn, openJob } from './jobs-data.js';
 
 
@@ -22,7 +22,9 @@ export function scoreRing(score) {
 export function facts(item) {
   const due = dueInfo(item.dueAt);
   const where = item.location?.label ?? 'Location not listed';
-  const dist = item.distanceMi != null ? `${item.distanceMi} mi away` : 'Distance unknown';
+  // A federal notice that names no work site is shown at its contracting office: no miles (they would be to the office).
+  const noSite = /(?:job|work) site not named/i.test(where);
+  const dist = item.distanceMi != null ? `${item.distanceMi} mi away` : noSite ? 'Check the notice for the site' : 'Distance unknown';
   return h('div', { class: 'facts' },
     h('div', { class: 'fact' }, h('span', {}, 'Where'), h('strong', {}, where), h('small', {}, dist)),
     h('div', { class: `fact${due.urgent ? ' urgent' : ''}` }, h('span', {}, 'Bids due'), h('strong', {}, due.big), h('small', {}, due.small)),
@@ -47,8 +49,31 @@ export function localPill(item) {
   return jobIdOf(item) ? h('span', { class: 'pill local' }, 'Local job') : null;
 }
 
+/** The SUB WORK pill: a prime contract a general contractor bids, where this trade is usually a subcontract. */
+export function subPill(item) {
+  return tierOf(item) === 'sub' ? h('span', { class: 'pill sub' }, 'Sub work') : null;
+}
+
+const SUB_NOTE_KEY = 'bidswipe:sub-note-seen';
+
 /**
- * The main button. A public bid links out to the agency's site; a local job opens its page here ("See job and bid"),
+ * The one line under the first SUB WORK pill someone sees, until they close it (remembered on this device).
+ * Its reasons say the rest (why it is sub work, who to quote).
+ */
+export function subNote(item, onClose) {
+  if (tierOf(item) !== 'sub' || store.get(SUB_NOTE_KEY)) return null;
+  const note = h('p', { class: 'sub-note' },
+    h('span', {}, 'A general contractor bids this job. You’d quote the bidders.'),
+    h('button', {
+      class: 'sub-note-x', type: 'button', 'aria-label': 'Got it, hide this note',
+      onclick: (e) => { e.stopPropagation(); store.set(SUB_NOTE_KEY, '1'); note.remove(); onClose?.(); },
+    }, icon(ICONS.x)));
+  return note;
+}
+
+/**
+ * The main button. Sub work says "See it on …": the company quotes the bidders, it does not bid the prime.
+ * A public bid links out to the agency's site; a local job opens its page here ("See job and bid"),
  * where the sealed bid is placed. Opening a local job is not recorded as a swipe: nothing was bid yet.
  */
 export function bidLink(item, extraClass = '') {
@@ -66,5 +91,5 @@ export function bidLink(item, extraClass = '') {
     onclick: () => {
       if (!item.swipe) markOpened(item);
     },
-  }, `Bid on ${shortSource(item.sourceName)}`, icon(ICONS.open.replace('<svg ', '<svg width="16" height="16" stroke="currentColor" ')));
+  }, `${tierOf(item) === 'sub' ? 'See it on' : 'Bid on'} ${shortSource(item.sourceName)}`, icon(ICONS.open.replace('<svg ', '<svg width="16" height="16" stroke="currentColor" ')));
 }

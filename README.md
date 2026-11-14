@@ -53,6 +53,11 @@ in `src/sources/index.ts`, drop a saved page in `test/fixtures/` (the raw respon
 (1.0 electrical / 0.75 related / 0.45 general) stops "close by with lots of time" from making a paving
 job look good. Every score comes with plain-English reasons on the card.
 
+Tiers: **fit** (the company's own trade, 35+), **sub** (a building or facility prime where the trade is usually
+subcontracted: 36–50, always "maybe", never an alert; `src/score/subwork.ts`) and **other**. Federal notices also
+carry their Product and Service Code (`psc`, `src/sources/psc.ts`): a facility code counts like the trade's NAICS,
+an equipment code (J/N/K/H) only weakly. `PUT /api/profile` answers with the same `counts` for the onboarding.
+
 ## Working with Claude Code
 
 `CLAUDE.md` is the project memory Claude Code loads every session. `docs/PRODUCT.md` is the product
@@ -154,7 +159,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 
 | | |
 |---|---|
-| `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort |
+| `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort, `tier=fit\|sub\|other\|all`. Every item carries `tier`; the response carries `counts: {fit, sub, other}` (open, unswiped, same non-tier filters). The deck (no `all`) holds sub work below the fits unless the profile's `showSubWork` is false or `tier=fit` |
 | `GET /api/bids/:id`, `GET /api/next` | one bid · the "next up" pick with its reasons |
 | `POST /api/swipe {bidId, action}` | `save` · `pass` · `bid` |
 | `DELETE /api/swipe/:bidId` | undo |

@@ -211,6 +211,24 @@ export function placeAtOffice(d: BidDraft, office: SamOffice): BidDraft {
   };
 }
 
+/**
+ * Text that puts a job outside the US: a foreign country or base, OCONUS, "outside the (continental) United States",
+ * or worldwide. Only read for a notice that has no US state of its own (it decides whether the contracting office
+ * may stand in for the work site): "Apache Alert Mission Complex" names no place and has a Virginia office, but
+ * its text says Ali Al Salem Airbase, Kuwait (a real 2026-11-14 notice).
+ */
+const ABROAD = new RegExp(String.raw`\b(?:oconus|outside (?:of )?the (?:continental |contiguous )?(?:united states|u\.?s\.?a?\b)|world-?wide|kuwait|germany|japan|okinawa|korea|philippines|italy|spain|bahrain|qatar|saudi arabia|united arab emirates|iraq|afghanistan|djibouti|greece|belgium|netherlands|poland|romania|bulgaria|honduras|guatemala|colombia|kenya|australia|singapore|thailand|diego garcia|guantanamo|israel|egypt|oman|kosovo|norway|iceland|greenland|azores|portugal|united kingdom|t[uü]rkiye|incirlik|el salvador|ecuador|vietnam|indonesia|niger|somalia|ghana|ukraine|estonia|latvia|lithuania|hungary)\b`, 'i');
+export const namesAbroad = (text: string | null | undefined): boolean => !!text && ABROAD.test(text);
+
+/** Military post office "states" (Armed Forces Americas / Europe / Pacific): an office there is abroad. */
+export const MILITARY_POST = /^(?:AA|AE|AP)$/i;
+
+/** A place-of-performance country that is not the US or a US territory. */
+export function foreignCountry(code: string | null | undefined): boolean {
+  const c = clean(code).toUpperCase();
+  return !!c && !/^(?:USA|US|UNITED STATES)$/.test(c) && !OFFICE_TERRITORY[c];
+}
+
 /** No work site at all: no city, ZIP, address text and no state either (a state alone is kept as a state-wide card). */
 export const namesNoPlace = (d: BidDraft): boolean => placeIsBlank(d.location) && !d.location?.state;
 
@@ -257,16 +275,21 @@ const EMPTY_CODE = /^(?:|none|n\/a|null)$/i;
 export function parseSamResponse(json: SamResponse): BidDraft[] {
   const notices = (json.opportunitiesData ?? []).filter((o) => o.noticeId && o.active !== 'No');
   const drafts = notices.map(samDraft);
-  // A card that no notice gives a place for is placed at the office of the newest notice that names one.
+  // A card that no notice gives a place for is placed at the office of the newest notice that names one, unless a
+  // notice of it names a foreign country, a military post office abroad or a place abroad in its text.
   const offices = new Map<string, { office: SamOffice; posted: string }>();
+  const abroad = new Set<string>();
   notices.forEach((o, i) => {
     const office = samOffice(o.officeAddress);
     const key = drafts[i]!.sourceId;
     const posted = o.postedDate ?? '';
     if (office && posted >= (offices.get(key)?.posted ?? '')) offices.set(key, { office, posted });
+    const own = o.description && !/^https?:\/\//i.test(o.description.trim()) ? o.description : '';
+    if (foreignCountry(o.placeOfPerformance?.country?.code) || MILITARY_POST.test(clean(o.officeAddress?.state))
+      || namesAbroad(`${o.title ?? ''} ${own}`)) abroad.add(key);
   });
   return mergeDrafts(drafts).map((d) => {
-    const at = namesNoPlace(d) ? offices.get(d.sourceId) : undefined;
+    const at = namesNoPlace(d) && !abroad.has(d.sourceId) ? offices.get(d.sourceId) : undefined;
     return at ? placeAtOffice(d, at.office) : d;
   });
 }

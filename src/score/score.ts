@@ -1,4 +1,6 @@
 import { milesBetween } from '../geo/locate.js';
+import { areaCounties, nearestSeatMiles } from '../geo/california.js';
+import { statewideBoard, statewideElsewhereReason, statewideSiteReason } from '../sources/statewide.js';
 import { compileKeywords, type Matcher } from './keywords.js';
 import { isEquipmentPsc, tradesForPsc } from '../sources/psc.js';
 import { pscLabel, subWorkFor } from './subwork.js';
@@ -23,6 +25,10 @@ import { formatMoneyShort, formatRange } from '../util/money.js';
  *   - a program contract (IDIQ, JOC, MATOC, OTA …)                          → hard no ("not a single job")
  *   - a presolicitation or RFI                                              → never alerts, no days-to-bid credit
  *   - a work place we could not measure, outside the home-state boards      → no distance points, never alerts
+ *   - an AREA (several counties, a Caltrans district): a county seat within radius + 25 mi → capped, no miles;
+ *     else a hard no ("Every county named is outside …")
+ *   - a statewide board's card with no site (src/sources/statewide.ts)      → capped in its own state, held at 34
+ *     (Browse only) for a company based in another state
  *   - paperwork the company said it does not have (SPWD, SAM, bonds, PW)    → stays visible, never alerts
  * A gate only ever lowers a score; it never raises one.
  *
@@ -151,6 +157,13 @@ export const BELOW_ALERT_CAP = 54;
  * rules skip capped bids.
  */
 export const CAPPED_FLOOR = 35;
+
+/**
+ * An AREA (several counties, or a Caltrans district: src/geo/caleprocure-place.ts) has no point. It is in reach when
+ * the nearest seat of its counties is within the travel radius plus this many miles; then it is a capped "maybe".
+ * No distance is ever shown for it: the seat is not the job.
+ */
+export const AREA_REACH_EXTRA_MI = 25;
 
 /** The cap for this profile: BELOW_ALERT_CAP, and also under its own alert lines, never below CAPPED_FLOOR. */
 function capFor(p: Profile): number {
@@ -386,6 +399,9 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   let dist = 8;
   const loc = bid.location;
   const atOffice = bid.flags.includes(FLAGS.placeFromOffice);
+  const area = loc.lat == null ? areaCounties(loc) : null;
+  const board = loc.lat == null ? statewideBoard(bid.source) : null;
+  let elsewhere = false; // an unplaced statewide-board card for a company based in another state
   if (loc.lat != null && loc.lng != null && atOffice) {
     // The notice names no work site; the point is its contracting office. The miles are real miles to the office,
     // not to the job: no distance points, never an alert (the same cap as a site we cannot measure).
@@ -416,6 +432,15 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     // The title names the job's state, not the office's (src/geo/locate.ts stateInTitle): a state, no point.
     dist = 0; capped = true;
     minus.push({ kind: 'minus', text: `Work site not named — only the state is known (${loc.state ?? '?'}), check the distance` });
+  } else if (area) {
+    // Several counties or a Caltrans district: in reach when one county seat is within the radius + AREA_REACH_EXTRA_MI.
+    dist = 0;
+    if (nearestSeatMiles(profile.base, area) > profile.maxDistanceMi + AREA_REACH_EXTRA_MI) {
+      rejected ??= `Every county named is outside your ${profile.maxDistanceMi} mi range (${loc.label})`;
+    } else {
+      capped = true;
+      minus.push({ kind: 'minus', text: `Site not named — somewhere in ${loc.label}; open the listing to see where` });
+    }
   } else {
     // No point to measure. Only a home-state board listing (state known, no site given) keeps the neutral
     // points; anything else could be anywhere, so it gets none and cannot alert.
@@ -428,6 +453,14 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
         kind: 'minus',
         text: several ? 'Several work sites listed — check which are in reach' : `Location could not be placed (“${listed.slice(0, 60)}”) — check the distance`,
       });
+    } else if (board && loc.state === board.state && loc.precision !== 'region') {
+      // A state's (or a big city's) whole list with no site on it: could be anywhere in the state.
+      dist = 0; capped = true;
+      if (loc.state === homeState(profile)) minus.push({ kind: 'minus', text: statewideSiteReason(board.name) });
+      else {
+        elsewhere = true; // based in another state: held under the deck line, Browse only
+        info.push({ kind: 'info', text: statewideElsewhereReason(board.name) });
+      }
     } else if (loc.state && loc.state === homeState(profile)) {
       const region = loc.precision === 'region' && loc.label ? loc.label : null;
       const text = !region ? 'Work location not listed — check the bid' : /not listed/i.test(region) ? region : `${region} — exact site not listed, check the bid`;
@@ -545,7 +578,8 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   if (sub) {
     // Sub work's own short scale: SUB_MIN–SUB_MAX from reach, time left and size, always 'maybe', always capped (so
     // never an alert, never a digest), never above a real fit of 55+. Its first reasons say what it is and what to do.
-    const score = rejected ? 0 : SUB_MIN + Math.round(((SUB_MAX - SUB_MIN) * (dist + value + runway)) / CONTEXT_MAX);
+    const sub0 = rejected ? 0 : SUB_MIN + Math.round(((SUB_MAX - SUB_MIN) * (dist + value + runway)) / CONTEXT_MAX);
+    const score = elsewhere ? Math.min(sub0, CAPPED_FLOOR - 1) : sub0;
     const lead: Reason[] = [
       { kind: 'info', text: sub.why },
       ...(sub.filed ? [{ kind: 'info' as const, text: sub.filed }] : []),
@@ -555,7 +589,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     return {
       score, verdict: verdictFor(score), reasons, distanceMi: atOffice ? null : distanceMi, rejected, overLimit: false,
       ...(rejected ? {} : { capped: true }),
-      tier: rejected ? 'other' : 'sub',
+      tier: rejected || elsewhere ? 'other' : 'sub',
     };
   }
 
@@ -563,7 +597,8 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const fit = Math.max(0, Math.min(100, Math.round(raw)));
   // No point and no state: the job could be anywhere, abroad included ("USAG Humphreys"). It stays in Browse but is
   // held under the deck line, so it is never counted a fit (sub work has the same rule, src/score/subwork.ts).
-  const nowhere = loc.lat == null && !loc.state;
+  // An unplaced statewide-board card for a company based in another state is held there too (src/sources/statewide.ts).
+  const nowhere = (loc.lat == null && !loc.state) || elsewhere;
   const score = rejected ? 0 : nowhere ? Math.min(fit, CAPPED_FLOOR - 1) : capped ? Math.min(fit, capFor(profile)) : fit;
   const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...plus, ...minus, ...info] : [...plus, ...minus, ...info];
   // `capped` is only written when true, so results without a gate look exactly as they always did.

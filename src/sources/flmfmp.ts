@@ -110,7 +110,7 @@ export function parseFlmfmp(rows: readonly FlmfmpRow[]): ParsedFlmfmp {
     out.read++;
     const type = clean(r.type) || 'Unknown type';
     if (!isFlmfmpSolicitation(type)) { out.notSolicitation[type] = (out.notSolicitation[type] ?? 0) + 1; continue; }
-    if (!isTradeWork({ title, category: type }).keep) { out.notTrade++; continue; }
+    if (!isTradeWork({ title, category: type, board: 'flmfmp' }).keep) { out.notTrade++; continue; }
 
     const agency = cleanOrNull(r.agency) ?? cleanOrNull(r.organization?.name);
     const adNumber = cleanOrNull(r.agencyAdNumber);

@@ -200,7 +200,7 @@ export function parseUsac470(rows: readonly UsacRow[], now: Date): ParsedUsac {
     const scope = install ? `${what}, installed` : what;
     const entity = entityName(head.billed_entity_name) || `E-Rate applicant ${app}`;
     const extra = clean(head.category_two_description);
-    if (!building || !isTradeWork({ title: scope, description: extra, category: 'Internal Connections' }).keep) {
+    if (!building || !isTradeWork({ title: scope, description: extra, category: 'Internal Connections', board: 'usac470' }).keep) {
       out.notTrade++;
       continue;
     }

@@ -206,7 +206,7 @@ export function parseOpenGovProjects(json: OpenGovProjectsAnswer, gov: OpenGovGo
     const summary = htmlToText(r.summary);
     const department = cleanOrNull(r.department?.name);
     const template = cleanOrNull(r.template?.title);
-    const verdict = isTradeWork({ title, description: [department, summary].filter(Boolean).join('\n'), category: template });
+    const verdict = isTradeWork({ title, description: [department, summary].filter(Boolean).join('\n'), category: template, board: 'opengov' });
     if (!verdict.keep) { out.notTrade++; continue; }
 
     // The row carries the government's organisation too; the list entry is the fallback.

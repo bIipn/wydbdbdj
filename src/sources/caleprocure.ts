@@ -159,7 +159,7 @@ export const caleprocureSource: Source = {
     const html = await http.text(CALEPROCURE_GRID_URL, { headers: { Referer: CALEPROCURE_REFERER } });
     const page = parseCaleprocurePage(html);
     checkCaleprocurePage(page);
-    const { kept, left } = keepTradeWork(page.bids, (b) => ({ title: b.title, description: b.description, category: b.category }));
+    const { kept, left } = keepTradeWork(page.bids, (b) => ({ board: 'caleprocure', sourceId: b.sourceId, title: b.title, category: b.category }));
     ctx.log(
       `caleprocure: ${page.bids.length} events read${page.total != null ? ` (board lists ${page.total})` : ''}, ` +
         `${kept.length} kept, ${left} left out as not trade work`,

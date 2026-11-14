@@ -167,7 +167,7 @@ export const questcdnSource: Source = {
         // posting_type ("Construction Project") is the board's own category; the parser keeps it in description.
         const rows = json.data ?? [];
         const typeOf = new Map(rows.map((r) => [`${board.group}:${clean(r.project_id ?? r.render_project_id)}`, r.posting_type ?? null]));
-        const { kept, left: out1 } = keepTradeWork(all, (b) => ({ title: b.title, category: typeOf.get(b.sourceId) ?? b.category }));
+        const { kept, left: out1 } = keepTradeWork(all, (b) => ({ title: b.title, category: typeOf.get(b.sourceId) ?? b.category, board: 'questcdn' }));
         left += out1;
         ctx.log(`questcdn ${board.label}: ${kept.length}/${json.recordsTotal ?? '?'}${out1 ? `, ${out1} left out as not trade work` : ''}`);
         out.push(...kept);

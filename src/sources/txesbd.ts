@@ -141,7 +141,7 @@ export function parseTxesbd(json: TxesbdAnswer): ParsedTxesbd {
     if (!sol || !title) continue;
     out.read++;
     const nigp = splitNigp(l.nigpCodes);
-    if (!isTradeWork({ title, codes: { nigp } }).keep) { out.notTrade++; continue; }
+    if (!isTradeWork({ title, codes: { nigp }, board: 'txesbd' }).keep) { out.notTrade++; continue; }
 
     const agency = txAgencyName(l.agencyName);
     const due = clean(l.responseDue);

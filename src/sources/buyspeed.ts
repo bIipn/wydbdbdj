@@ -382,7 +382,7 @@ export function keepBuySpeedTradeWork(bids: readonly BidDraft[]): { kept: BidDra
   for (const b of bids) {
     if (buySpeedNotice(b.title)) notices++;
     // The list has no category or commodity codes: the title is all there is.
-    else if (!isTradeWork({ title: b.title }).keep) notTrade++;
+    else if (!isTradeWork({ title: b.title, board: b.source }).keep) notTrade++;
     else kept.push(b);
   }
   return { kept, notices, notTrade };

@@ -160,7 +160,7 @@ export function parseNycRecord(rows: readonly NycRow[], now: Date): ParsedNyc {
     const text = nycText(htmlToText(r.additional_description_1));
     // The title and the board's category decide; the notice text is boilerplate-heavy ("released through PASSPort…").
     if (/^human services/i.test(category ?? '') || (category === 'Goods' && !NAMES_WORK.test(title))
-      || !isTradeWork({ title, category }).keep) {
+      || !isTradeWork({ title, category, board: 'nycrecord' }).keep) {
       out.notTrade++;
       continue;
     }

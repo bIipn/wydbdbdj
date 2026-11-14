@@ -1,6 +1,8 @@
 import { FLAGS } from '../sources/flags.js';
 import { statesInText } from '../sources/samgov.js';
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
+import { placeCaleprocure } from './caleprocure-place.js';
+import { caCounty, seatOf } from './california.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
 import { lookupCity, lookupZip } from './zip.js';
 
@@ -77,7 +79,14 @@ function nationwide(city: string | null | undefined, state: string | null, zip: 
  * placed, we stop: no guess from the title, agency or region, coordinates stay null and the label repeats what
  * the listing said. A guess would put a Marine Corps base in Bridgeport because the title lists four bases.
  */
-export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'> & Pick<Partial<BidDraft>, 'flags'>): BidLocation {
+export function locate(
+  draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'> & Pick<Partial<BidDraft>, 'flags' | 'source' | 'sourceId'>,
+): BidLocation {
+  // The state's own list names no site: only its title, department and event id say where (./caleprocure-place.ts).
+  // Never the town-in-text guess below, which put "Butte Slough … Sacramento River" in the City of Sacramento.
+  if (draft.source === 'caleprocure' && draft.sourceId) {
+    return placeCaleprocure({ title: draft.title, agency: draft.agency, sourceId: draft.sourceId });
+  }
   // A federal notice that named no work site carries its contracting office as its place (FLAGS.placeFromOffice):
   // it is placed from the office's own city / ZIP only, never guessed from the title, and its label says so.
   if (draft.flags?.includes(FLAGS.placeFromOffice)) {
@@ -168,6 +177,14 @@ function locateGiven(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 
     const p = seat ? findPlace(seat) : null;
     if (p) {
       return { ...placeLoc(p, 'county', zip), city: null, county: p.county, label: `${p.county} County, ${p.state}` };
+    }
+    // Any other California county: its county seat (./california.ts), the same rule.
+    const ca = state === 'CA' ? caCounty(county) : null;
+    const caSeat = ca ? seatOf(ca.name) : null;
+    if (ca && caSeat) {
+      return {
+        city: null, county: ca.name, state, zip, lat: caSeat.lat, lng: caSeat.lng, precision: 'county', label: `${ca.name} County, CA`,
+      };
     }
   }
 

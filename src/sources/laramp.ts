@@ -126,7 +126,7 @@ export function parseLaRamp(rows: readonly LaRampRow[], now: Date): ParsedLaRamp
     const category = cleanOrNull(r.category) === 'None' ? null : cleanOrNull(r.category);
     const type = cleanOrNull(r.type) === 'None' ? null : cleanOrNull(r.type);
     const department = cleanOrNull(r.department);
-    if ((category === 'Commodity' && !NAMES_WORK.test(title)) || !isTradeWork({ title, category }).keep) { out.notTrade++; continue; }
+    if ((category === 'Commodity' && !NAMES_WORK.test(title)) || !isTradeWork({ title, category, board: 'laramp' }).keep) { out.notTrade++; continue; }
 
     const rfi = /\bRFI\b|request for information/i.test(`${type ?? ''} ${title}`);
     const link = clean(r.url?.url);

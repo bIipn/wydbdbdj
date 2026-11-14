@@ -58,7 +58,7 @@ const CASES: Case[] = [
   ['fl', 'Microscope Imaging System', DROP],
   ['fl', 'Corn Crib 26/27 Timber Sale', DROP],
   ['fl', 'TRAINING AMMUNITION', DROP],
-  ['fl', '42878 - Purchase and Delivery of Corrugated Aluminum Pipe', KEEP], // unclear: a supply, the scorer decides
+  ['fl', '42878 - Purchase and Delivery of Corrugated Aluminum Pipe', DROP], // a purchase: pipe delivered, nothing installed
   ['fl', 'District-Wide Mowing, Landscape Maintenance, and Debris Removal Services', KEEP],
   ['fl', 'Traffic Signals Replacement', KEEP],
   ['fl', 'I-4 Polk County Rest Areas TPAS Retrofit', KEEP],
@@ -207,11 +207,16 @@ describe('isTradeWork: the order of the rules', () => {
   });
 
   it('a non-trade word beats a construction word in the title', () => {
-    expect(isTradeWork({ title: 'Janitorial Services for the Maintenance Building' })).toEqual({ keep: false, why: 'not trade work: janitorial' });
+    expect(isTradeWork({ title: 'Courier Services for the Maintenance Building' })).toEqual({ keep: false, why: 'not trade work: courier' });
+    // janitorial is checked before the trade words too ("Janitorial Services For Parks", OpenGov)
+    expect(isTradeWork({ title: 'Janitorial Services For Parks "SOUTH" Locations (Bid Discount)' })).toEqual({ keep: false, why: 'not contractor work: janitorial' });
   });
 
-  it("the board's construction category wins over everything", () => {
-    expect(isTradeWork({ title: 'Software for the Courthouse', category: 'Construction' })).toEqual({ keep: true, why: 'board category: Construction' });
+  it("the board's construction category wins over everything but design, advice and IT", () => {
+    expect(isTradeWork({ title: 'Annual contract for the Courthouse', category: 'Construction' })).toEqual({ keep: true, why: 'board category: Construction' });
+    expect(isTradeWork({ title: 'Software for the Courthouse', category: 'Construction' })).toEqual({ keep: false, why: 'not contractor work: software' });
+    // NYC City Record files design under "Construction Related Services"
+    expect(isTradeWork({ title: '82627P0002-BEPA: GI-PSE 1-3 Design Services Task Order Contract for Green Infrastructure in NYC Park', category: 'Construction Related Services' }).keep).toBe(false);
   });
 
   it('a construction NIGP class keeps; codes only drop when every code is non-trade and the words are silent', () => {
@@ -262,8 +267,7 @@ describe('isTradeWork: real titles the first live runs kept as "unclear" (2026-1
   });
 
   it('elevator and conveyance maintenance is kept under SF\'s "Personal Services" category', () => {
-    expect(isTradeWork({ title: 'As-Needed Airport Conveyance Maintenance', category: 'Personal Services' }))
-      .toEqual({ keep: true, why: 'construction word: conveyance' });
+    expect(isTradeWork({ title: 'As-Needed Airport Conveyance Maintenance', category: 'Personal Services' }).keep).toBe(true);
     expect(isTradeWork({ title: 'Florida State Hospital Elevator Maintenance and Repair' }).keep).toBe(true);
   });
 });

@@ -108,7 +108,7 @@ export function parseSfBids(rows: readonly SfBidsRow[], now: Date): ParsedSfBids
     // Public Works files its construction under Commodity or Personal Services ("PW SAN BRUNO AVE PAVE RENOV",
     // "Ingleside Police Stn Repl Trade Package"): for its listings the category says nothing, the words decide.
     const boardCategory = /^public works$/i.test(department ?? '') ? null : category;
-    if (/\bnon-construction\b/i.test(title) || !isTradeWork({ title, category: boardCategory }).keep) { out.notTrade++; continue; }
+    if (/\bnon-construction\b/i.test(title) || !isTradeWork({ title, category: boardCategory, board: 'sfbids' }).keep) { out.notTrade++; continue; }
 
     const type = cleanOrNull(r.type);
     const link = clean(r.sfcitypartner_link?.url);

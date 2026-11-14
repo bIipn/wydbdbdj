@@ -21,8 +21,33 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
 
-**Bids placed honestly, a quiet first load, lists that page — 2026-11-14 (after the eleven new boards).** Not
-deployed. What changed:
+**LIVE since 2026-11-14 16:40 UTC: production (bidswipe-tau.vercel.app) runs commit 0ccddd1** (the wider federal
+net, the Sub work tier, the eleven new boards, places, trade-work rules, quiet first load, paging). The schema
+changes (bids.psc, matches.tier, matches.quiet) applied themselves on the first request. First load, run by hand,
+one scan group per call with `?quiet=1`, default last, 16:40–16:54 UTC:
+
+| Group | Wall (Vercel + Supabase) | Kept |
+|---|---|---|
+| south | 2 s | flmfmp 25 (txesbd off) |
+| west | 45 s | caleprocure 190 · laramp 40 · sfbids 14 · oregonbuys 54 · usac470 495 (caltrans off) |
+| east | 188 s | bidbuy 35 · njstart 1 · nycrecord 71 · commbuys 302 (179 s of it) |
+| opengov-1 … 5 | 115 · 118 · 114 · 125 · 75 s | 170 · 229 · 93 · 200 · 103 |
+| default | 14 s | samgov 668 · ngem 45 · nevadaepro 29 · questcdn 13 · **douglascounty FAILED: HTTP 403** |
+
+Every call answered HTTP 200 inside the host's 300 s; no new board refused Vercel's addresses; no alert was
+published (0 alerts for either real profile). Open bids in the live database: 593 → 2,802 (California 36 → 498;
+2,258 with a point). The two real accounts (both electrical, ZIP 95675): 100 mi [CA, NV] 142 candidates / 5 fits →
+612 / 40 fits (25 with a distance) + 3 sub; 50 mi [CA] 75 / 1 fit → 538 / 20 fits (8 with a distance). Of the 50 mi
+account's 20: 2 placed bid jobs, 6 E-Rate school cabling quote requests, 3 Caltrans area contracts, 8 statewide
+cards with no site, 1 federal notice that names only the state. Near River Pines the feed is still thin: the
+owners there post on PlanetBids, Public Purchase or their own websites (scratch research, 2026-11-14).
+
+Not yet seen: the eleven cron entries firing on their own (first time 2026-11-15 13:20–14:08 UTC; the deploy
+accepted them); east has only ~110 s of headroom (COMMBUYS). **Douglas County answers HTTP 403 to Vercel's
+addresses** (also on 2026-11-13 22:21 and 2026-11-14 13:20, before this build): the pilot's county board is not
+being read in production; no workaround, the owner decides (ask the county, or run that one board from another host).
+
+**Bids placed honestly, a quiet first load, lists that page — 2026-11-14 (after the eleven new boards).** What changed:
 - **Places** (`src/geo/caleprocure-place.ts`, `src/geo/california.ts`): a Cal eProcure card is placed by a
   corroborated town, one county, several counties, the Caltrans district in a 2660 event id, the department's own
   place (a CSU campus, a prison), else it stays unplaced. One county, several counties and a district are an AREA:

@@ -1,6 +1,7 @@
 import { lookupZip, statesWithin } from '../geo/zip.js';
 import { getTrade, mergeTrades } from '../trades/catalog.js';
 import type { AlertSettings, CostSettings, Profile, QualAnswer, Qualifications, SpendLimits } from '../types.js';
+import { isIntent, type Intent } from './work.js';
 
 /** What the sign-up / settings form sends (PUT /api/profile). */
 export interface OnboardingAnswers {
@@ -21,6 +22,12 @@ export interface OnboardingAnswers {
    * A key left out of the object counts as 'unsure' (the screen's "unanswered counts as Not sure").
    */
   qualifications?: Qualifications;
+  /**
+   * "What brings you here?" Absent or 'work' / 'both': everything above as it always was. 'hire' (here to
+   * post jobs, not to find work): trades, radius and job size may be left out; the profile gets no trades and
+   * is never alerted about work. Stored in the work profile (src/profile/work.ts), not in the scoring Profile.
+   */
+  intent?: Intent;
 }
 
 /** errors: field name → one plain-English sentence the form shows under that field. */
@@ -80,7 +87,14 @@ function withPairs(codes: readonly string[]): string[] {
 type Dict = Record<string, unknown>;
 type Fail = (field: string, message: string) => void;
 
-const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides', 'qualifications'];
+const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides', 'qualifications', 'intent'];
+
+/**
+ * A 'hire' account (here to post jobs) answers only where and a name. Its profile still needs a radius and a
+ * job size to be a valid Profile: these. 25 miles and up to the largest local job (JOB_MAX_CENTS' default,
+ * $250,000). They decide nothing while the profile has no trades, and Settings shows them if it later adds some.
+ */
+export const HIRE_DEFAULTS = { radiusMi: 25, valueRange: { min: 0, max: 250_000 } } as const;
 /** The four paperwork questions, in the order the screen asks them. */
 export const QUALIFICATION_KEYS = ['statePublicWorks', 'samRegistered', 'bonding', 'prevailingWage'] as const;
 const QUAL_ANSWERS: readonly QualAnswer[] = ['yes', 'no', 'unsure'];
@@ -94,6 +108,12 @@ const COST_LABELS: Record<keyof CostSettings, string> = {
   laborRate: 'Labor rate', burdenPct: 'Burden %', overheadPct: 'Overhead %', profitPct: 'Profit %',
 };
 const ALERT_KINDS = ['match', 'deadline', 'award', 'price'] as const;
+/**
+ * The local-job alert kinds (jobs contract §4). They can be switched off in Settings like the others; the
+ * marketplace's alert rules read them from profile.alerts.kinds.
+ */
+export const JOB_ALERT_KINDS = ['job_awarded', 'job_message', 'job_deadline', 'job_closed'] as const;
+const ALL_ALERT_KINDS = [...ALERT_KINDS, ...JOB_ALERT_KINDS] as const;
 const CLOCK = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const isDict = (v: unknown): v is Dict => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -220,15 +240,16 @@ function readAlerts(src: Dict | undefined, fail: Fail): AlertSettings | undefine
   if (typeof timeZone === 'string' && isTimeZone(timeZone)) out.timeZone = timeZone;
   else if (timeZone !== undefined) fail('alerts.timeZone', `Unknown time zone ${quote(timeZone)}.`);
 
-  const given = group(src.kinds, 'alerts.kinds', ALERT_KINDS, fail);
+  const given = group(src.kinds, 'alerts.kinds', ALL_ALERT_KINDS, fail);
   if (given) {
-    const kinds: NonNullable<AlertSettings['kinds']> = {};
-    for (const kind of ALERT_KINDS) {
+    // A plain record: the job kinds are not in AlertSettings' type until the marketplace adds them there.
+    const kinds: Record<string, boolean> = {};
+    for (const kind of ALL_ALERT_KINDS) {
       const on = given[kind];
       if (typeof on === 'boolean') kinds[kind] = on;
       else if (on !== undefined) fail(`alerts.kinds.${kind}`, `The ${quote(kind)} alert must be on (true) or off (false).`);
     }
-    out.kinds = kinds;
+    out.kinds = kinds as NonNullable<AlertSettings['kinds']>;
   }
   return out;
 }
@@ -276,12 +297,21 @@ export function validateAnswers(input: unknown): AnswersResult {
   };
   rejectUnknown(input, FIELDS, '', fail);
 
+  let intent: Intent | undefined;
+  if (input.intent !== undefined && input.intent !== null) {
+    if (isIntent(input.intent)) intent = input.intent;
+    else fail('intent', 'Pick find work, get work done, or both.');
+  }
+  // Here only to post jobs: no trades needed, and a radius or job size left out takes the defaults.
+  // Anything that IS sent is checked exactly as for everyone else.
+  const hire = intent === 'hire';
+  const absent = (v: unknown) => v === undefined || v === null;
   const value: OnboardingAnswers = {
     businessName: readName(input.businessName, fail),
-    trades: readTrades(input.trades, fail),
+    trades: hire && (absent(input.trades) || (Array.isArray(input.trades) && input.trades.length === 0)) ? [] : readTrades(input.trades, fail),
     zip: readZip(input.zip, fail),
-    radiusMi: readRadius(input.radiusMi, fail),
-    valueRange: readRange(input.valueRange, fail),
+    radiusMi: hire && absent(input.radiusMi) ? HIRE_DEFAULTS.radiusMi : readRadius(input.radiusMi, fail),
+    valueRange: hire && absent(input.valueRange) ? { ...HIRE_DEFAULTS.valueRange } : readRange(input.valueRange, fail),
   };
   const limits = amounts(group(input.limits, 'limits', Object.keys(LIMIT_LABELS), fail), 'limits', LIMIT_LABELS, fail);
   const costs = amounts(group(input.costs, 'costs', Object.keys(COST_LABELS), fail), 'costs', COST_LABELS, fail);
@@ -293,6 +323,7 @@ export function validateAnswers(input: unknown): AnswersResult {
   if (alerts) value.alerts = alerts;
   if (setAsides) value.setAsides = setAsides;
   if (qualifications) value.qualifications = qualifications;
+  if (intent) value.intent = intent;
 
   return errors.size ? { ok: false, errors: Object.fromEntries(errors) } : { ok: true, value };
 }
@@ -307,7 +338,14 @@ export function validateAnswers(input: unknown): AnswersResult {
 export function buildProfile(profileId: string, answers: OnboardingAnswers): Profile {
   const place = lookupZip(answers.zip);
   if (!place) throw new Error(`buildProfile: unknown ZIP "${answers.zip}"`);
-  const mix = mergeTrades(answers.trades);
+  // Here to post jobs, not to find work: no trades and no keyword lists at all (an empty trade mix still
+  // carries the general construction words), so no bid scores as a fit, and the 'match' alert is off
+  // whatever was sent. Trades a 'hire' form still sends are not kept: the intent decides.
+  const hireOnly = answers.intent === 'hire';
+  const mix = mergeTrades(hireOnly ? [] : answers.trades);
+  const keywords = hireOnly ? { strong: [], related: [], general: [], otherTrades: [], exclude: [] } : mix.keywords;
+  const alerts: AlertSettings = { minScore: GOOD_FIT, ...answers.alerts };
+  if (hireOnly) alerts.kinds = { ...alerts.kinds, match: false };
   return {
     id: profileId,
     name: answers.businessName,
@@ -317,7 +355,7 @@ export function buildProfile(profileId: string, answers: OnboardingAnswers): Pro
     maxDistanceMi: answers.radiusMi,
     valueRange: { min: answers.valueRange.min, max: answers.valueRange.max },
     minDaysToBid: MIN_DAYS_TO_BID,
-    keywords: mix.keywords,
+    keywords,
     naics: mix.naics,
     // Nothing ticked = no set-aside claimed: we do not assume a business is small.
     setAsidesEligible: withPairs(answers.setAsides ?? []),
@@ -326,7 +364,7 @@ export function buildProfile(profileId: string, answers: OnboardingAnswers): Pro
     zip: place.zip,
     limits: { ...answers.limits },
     costs: { ...answers.costs },
-    alerts: { minScore: GOOD_FIT, ...answers.alerts },
+    alerts,
     // Only when answered: a profile that was never asked keeps no key, so it scores exactly as before.
     ...(answers.qualifications ? { qualifications: { ...answers.qualifications } } : {}),
   };

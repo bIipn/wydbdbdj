@@ -1,5 +1,6 @@
 import type { Db } from '../db/db.js';
-import type { JobStats } from '../jobs/stats.js';
+import { cardFacts, getWorkProfile } from '../db/work.js';
+import { jobStats, type JobStats } from '../jobs/stats.js';
 
 /** One past job or employer on a work profile. */
 export interface Experience {
@@ -29,7 +30,42 @@ export interface PersonCard {
   stats: JobStats;
 }
 
-/** The card for an account, or null when there is no such account. (Seam: the work-profile work fills this in; the signature is fixed.) */
-export async function personCard(_db: Db, _accountId: string): Promise<PersonCard | null> {
-  return null;
+/** Who a card is for when nothing better is known. */
+export const ANONYMOUS_NAME = 'BidSwipe member';
+
+/**
+ * The name on a card: the business name from the profile, else the account's own name, else "BidSwipe member".
+ * A name that looks like an email address is skipped (a sign-in provider can fill the name with one), so
+ * a card never shows an email.
+ */
+export function cardName(businessName: string | null, accountName: string | null): string {
+  for (const n of [businessName, accountName]) {
+    const name = n?.replace(/\s+/g, ' ').trim();
+    if (name && !name.includes('@')) return name;
+  }
+  return ANONYMOUS_NAME;
+}
+
+/**
+ * The card for an account, or null when there is no such account. Built field by field from the work
+ * profile, so nothing else stored about the account (email, phone, the address on a job) can slip onto it.
+ */
+export async function personCard(db: Db, accountId: string): Promise<PersonCard | null> {
+  const facts = await cardFacts(db, accountId);
+  if (!facts) return null;
+  const [wp, stats] = await Promise.all([getWorkProfile(db, accountId), jobStats(db, accountId)]);
+  return {
+    id: accountId,
+    name: cardName(facts.businessName, facts.accountName),
+    headline: wp.headline,
+    about: wp.about,
+    yearsExperience: wp.yearsExperience,
+    skills: [...wp.skills],
+    license: wp.license ? { state: wp.license.state, number: wp.license.number } : null,
+    insured: wp.insured,
+    experience: wp.experience.map((e) => ({ title: e.title, company: e.company, from: e.from, to: e.to, summary: e.summary })),
+    resumeUrl: wp.resumeUrl,
+    memberSince: facts.createdAt,
+    stats,
+  };
 }

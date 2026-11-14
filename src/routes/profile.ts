@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
 import { lastScan, saveProfileForAccount } from '../db/repo.js';
+import { getWorkProfile, saveIntent } from '../db/work.js';
 import { nearestZip } from '../geo/nearest.js';
 import { lookupZip } from '../geo/zip.js';
 import { featuresFor, type Features } from '../plans.js';
@@ -42,9 +43,13 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (config.authMode === 'single') return legacyMe(id.profile!);
     if (!id.account) return reply.code(401).send({ error: 'sign_in_required' });
     const features = featuresFor(id.plan);
+    // No stored intent = 'work': every account from before the job marketplace keeps working as it did.
+    const { intent } = await getWorkProfile(db, id.account.id);
     return {
       account: publicAccount(id.account),
       profile: id.profile ? summaryFor(id.profile, features) : null,
+      // "What brings you here" (the work profile's): which screens the app leads with.
+      intent,
       needsOnboarding: !id.profile,
       features,
       ...(id.profile ? legacyMe(id.profile) : {}),
@@ -101,7 +106,13 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     }
     const id = await ctx.identify(req);
     if (!id.account) return reply.code(401).send({ error: 'sign_in_required' });
-    const answers = validateAnswers(req.body);
+    // A form that does not say why the person is here keeps the stored answer: a 'hire' account's later
+    // saves (an older client, a script) must not suddenly need trades. No stored answer = 'work', as before.
+    const storedIntent = (await getWorkProfile(db, id.account.id)).intent;
+    const body = req.body;
+    const withIntent = storedIntent !== 'work' && body && typeof body === 'object' && !Array.isArray(body) && (body as Record<string, unknown>).intent == null
+      ? { ...body, intent: storedIntent } : body;
+    const answers = validateAnswers(withIntent);
     if (!answers.ok) {
       return reply.code(400).send({ error: 'invalid_profile', message: 'Some answers need fixing.', fields: answers.errors });
     }
@@ -112,6 +123,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (!features.costSettings && !hasValues(profile.costs) && id.profile?.costs) profile.costs = id.profile.costs;
 
     const stored = await saveProfileForAccount(db, id.account.id, profile);
+    // The intent lives in the work profile (GET /api/me reports it). Answers without one leave it as it is.
+    if (answers.value.intent && answers.value.intent !== storedIntent) await saveIntent(db, id.account.id, answers.value.intent, ctx.now());
     const scored = await scoreProfile(db, stored, ctx.now(), ctx.bus);
     return { profile: summaryFor(stored, features), scored };
   });

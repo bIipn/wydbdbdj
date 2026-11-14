@@ -45,6 +45,12 @@ export function features() {
   return state.me?.features ?? (state.auth === 'single' ? ALL_ON : null);
 }
 
+/**
+ * "What brings you here": 'work' (bids and local jobs), 'hire' (post jobs) or 'both'. From GET /api/me; the pilot,
+ * the demo and any account that never answered are 'work', so everything that existed behaves as before.
+ */
+export const intent = () => state.me?.intent ?? 'work';
+
 /** Live features (Next up, alerts, market) need the API; the bundled demo has none. */
 export const isLive = () => state.mode === 'live' && !!state.me;
 

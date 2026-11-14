@@ -89,6 +89,11 @@ export const api = {
   // lat/lng already rounded to 2 decimals by the caller; the server answers the ZIP and never stores the point
   nearestZip: (lat, lng) => req(`api/geo/nearest-zip?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}`),
   saveProfile: (answers) => req('api/profile', { method: 'PUT', body: answers }),
+  // work profile: { workProfile, card }; PUT sends only the fields it changes. 400 { error: 'invalid_input', fields: [{ path, message }] }
+  workProfile: () => req('api/work-profile'),
+  saveWorkProfile: (body) => req('api/work-profile', { method: 'PUT', body }),
+  // someone you dealt with on a job: { card }; 404 for anyone else
+  person: (id) => req(`api/people/${encodeURIComponent(id)}`),
   // promo code → Pro (web and Microsoft Store builds; 403 not_available on iOS, 400 invalid_code, 429 too many tries)
   redeemPromo: (code) => req('api/promo/redeem', { method: 'POST', body: { code } }),
 

@@ -1,4 +1,5 @@
 import type { Db } from '../db/db.js';
+import { dealtWith, statsFor } from './repo.js';
 
 /** What someone's history on the job marketplace adds up to. Shown on their card to the people they deal with. */
 export interface JobStats {
@@ -20,16 +21,18 @@ export interface JobStats {
 
 export const NO_JOB_STATS: JobStats = { posted: 0, won: 0, agreed: 0, completed: 0, noShows: 0, backedOut: 0, posterNoShows: 0 };
 
-/** Counted from the jobs tables. (Seam: the marketplace work fills this in; the signature is fixed.) */
-export async function jobStats(_db: Db, _accountId: string): Promise<JobStats> {
-  return { ...NO_JOB_STATS };
+/** Counted from the jobs tables (removed jobs do not count, for or against anyone). */
+export async function jobStats(db: Db, accountId: string): Promise<JobStats> {
+  return { ...NO_JOB_STATS, ...(await statsFor(db, accountId)) };
 }
 
 /**
  * True when the two accounts have dealt with each other on a job: one posted it and the other bid on it
  * and the bids are no longer sealed, or one won the other's job. Only then may one see the other's card.
- * (Seam: the marketplace work fills this in; the signature is fixed.)
+ * Bids are "no longer sealed" once the job closed the normal way (not open, not cancelled while open).
+ * Nobody "shares a job" with themselves.
  */
-export async function sharesJob(_db: Db, _a: string, _b: string): Promise<boolean> {
-  return false;
+export async function sharesJob(db: Db, a: string, b: string): Promise<boolean> {
+  if (!a || !b || a === b) return false;
+  return dealtWith(db, a, b);
 }

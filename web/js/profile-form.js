@@ -25,7 +25,13 @@ export const ALERT_KINDS = [
   { id: 'deadline', label: 'Deadline reminders', help: 'Bids you saved, before they close.', feature: null },
   { id: 'award', label: 'Award and result notices', help: 'Who won bids you saved or bid on, after the opening.', feature: 'awardWatch' },
   { id: 'price', label: 'Price moves', help: 'Material price indexes and wages that moved.', feature: 'priceAlerts' },
+  // Local jobs people post on BidSwipe (the job marketplace). Each can be switched off like the others.
+  { id: 'job_awarded', label: 'Local jobs: lowest bid picked', help: 'You won a job, or a job you posted has its lowest bid.', feature: null },
+  { id: 'job_message', label: 'Local jobs: messages', help: 'The other side of a job wrote to you.', feature: null },
+  { id: 'job_deadline', label: 'Local jobs: contact reminder', help: 'Two days before your time to make contact runs out.', feature: null },
+  { id: 'job_closed', label: 'Local jobs: closed or done', help: 'A job you are in ended, was agreed or was finished.', feature: null },
 ];
+const ALL_KINDS_ON = Object.fromEntries(ALERT_KINDS.map((k) => [k.id, true]));
 
 export const TIME_ZONES = [
   { id: 'America/Los_Angeles', label: 'Pacific' },
@@ -44,18 +50,20 @@ export function emptyDraft() {
     minScore: 55, quietOn: false, quiet: { ...DEFAULT_QUIET },
     costs: { laborRate: '', burdenPct: '', overheadPct: '', profitPct: '' },
     setAsides: [],
-    kinds: { match: true, deadline: true, award: true, price: true },
+    kinds: { ...ALL_KINDS_ON },
     timeZone: '',
     keep: {}, // settings the form does not show, sent back unchanged (phone push on/off)
     // "Your paperwork": null = never asked (an older account), so nothing is sent and scoring stays as it was.
     quals: null,
     sizes: [], // onboarding's job-size chips (ids from JOB_SIZES); settings edits min/max directly
+    intent: 'work', // "what brings you here": 'work' | 'hire' | 'both' (stored in the work profile)
   };
 }
 
-/** A saved profile (ProfileSummary from /api/me) → a draft to edit. */
-export function draftFromSummary(p) {
+/** A saved profile (ProfileSummary from /api/me) and the account's intent → a draft to edit. */
+export function draftFromSummary(p, intent = 'work') {
   const d = emptyDraft();
+  d.intent = intent;
   d.businessName = p.businessName ?? '';
   d.trades = [...(p.trades ?? [])];
   d.zip = p.zip ?? '';
@@ -124,8 +132,25 @@ export function answersFrom(d, { withCosts = false } = {}) {
   if (withCosts) body.costs = Object.fromEntries(Object.entries(d.costs).map(([k, v]) => [k, decimal(v)]));
   body.setAsides = [...d.setAsides];
   if (d.quals) body.qualifications = { ...d.quals };
+  body.intent = d.intent;
   return body;
 }
+
+/**
+ * The body for someone here only to get work done: where, a name, and the alert settings. The server fills in
+ * a distance and a job size, and gives the profile no trades (so it never gets work alerts).
+ */
+export function hireAnswersFrom(d) {
+  const { alerts } = answersFrom(d);
+  return { intent: 'hire', businessName: d.businessName.trim(), zip: d.zip.trim(), trades: [], alerts };
+}
+
+/** The three answers to "What brings you here?", in the words both onboarding and Settings use. */
+export const INTENTS = [
+  { id: 'work', label: 'Find work', help: 'Bids and local jobs that fit my trade' },
+  { id: 'hire', label: 'Get work done', help: 'Post a job and let people bid' },
+  { id: 'both', label: 'Both', help: 'Find work and post jobs' },
+];
 
 // ------------------------------------------------------------- sections --
 
@@ -391,14 +416,16 @@ export const homeStateOf = (d) => /,\s*([A-Z]{2})\s*$/.exec(d.place?.label ?? ''
 /**
  * Where's the shop: "Use my location" (browser location → nearest ZIP), or a 5-digit ZIP; then how far, as chips.
  * `onDone` runs when both are known after a tap on a distance (onboarding moves on by itself).
+ * `radius: false` (someone here only to post jobs) leaves out the distance: `onDone` runs once the place is known.
  */
-export function homeSection(d, { onDone } = {}) {
+export function homeSection(d, { onDone, radius: withRadius = true, zipLabel = 'Shop ZIP code', ownPlace = 'your shop’s' } = {}) {
+  const ready = () => !withRadius || d.radiusPicked;
   const place = h('p', { class: 'place-line', 'aria-live': 'polite' });
   const showPlace = (state, text) => {
     place.className = `place-line ${state}`;
     place.replaceChildren(...(state === 'ok' ? [icon(ICONS.pin)] : []), h('span', {}, text));
   };
-  const zip = textInput({ value: d.zip, inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'postal-code', maxlength: 5, placeholder: 'ZIP', class: 'input zip', 'aria-label': 'Shop ZIP code' });
+  const zip = textInput({ value: d.zip, inputmode: 'numeric', pattern: '[0-9]*', autocomplete: 'postal-code', maxlength: 5, placeholder: 'ZIP', class: 'input zip', 'aria-label': zipLabel });
   let ticket = 0;
   const lookZip = async () => {
     zip.value = zip.value.replace(/\D/g, '').slice(0, 5);
@@ -412,7 +439,7 @@ export function homeSection(d, { onDone } = {}) {
       if (mine !== ticket) return;
       d.place = { zip: p.zip, label: `${p.city}, ${p.state}` };
       showPlace('ok', d.place.label);
-      if (d.radiusPicked && onDone) onDone();
+      if (ready() && onDone) onDone();
     } catch (err) {
       if (mine !== ticket) return;
       d.place = null;
@@ -423,7 +450,7 @@ export function homeSection(d, { onDone } = {}) {
 
   const locate = h('button', { type: 'button', class: 'cta ghost locate' }, icon(ICONS.pin), h('span', {}, 'Use my location'));
   locate.addEventListener('click', () => {
-    if (!navigator.geolocation) { showPlace('idle', 'Enter your shop’s ZIP instead.'); zip.focus(); return; }
+    if (!navigator.geolocation) { showPlace('idle', `Enter ${ownPlace} ZIP instead.`); zip.focus(); return; }
     locate.disabled = true;
     showPlace('busy', 'Finding you…');
     navigator.geolocation.getCurrentPosition(async (pos) => {
@@ -437,19 +464,25 @@ export function homeSection(d, { onDone } = {}) {
         zip.value = p.zip;
         d.place = { zip: p.zip, label: `${p.city}, ${p.state}` };
         showPlace('ok', d.place.label);
-        if (d.radiusMi && d.radiusPicked && onDone) onDone();
+        if (d.radiusMi && ready() && onDone) onDone();
       } catch {
-        showPlace('idle', 'No US ZIP near you. Enter your shop’s ZIP instead.');
+        showPlace('idle', `No US ZIP near you. Enter ${ownPlace} ZIP instead.`);
         zip.focus();
       } finally { locate.disabled = false; }
     }, () => {
       // Refused, or no location on this device: the ZIP box is right there. No error drama.
       locate.disabled = false;
-      showPlace('idle', 'Enter your shop’s ZIP instead.');
+      showPlace('idle', `Enter ${ownPlace} ZIP instead.`);
       zip.focus();
     }, { enableHighAccuracy: false, timeout: 10_000, maximumAge: 600_000 });
   });
   if (d.place) showPlace('ok', d.place.label);
+
+  const where = h('div', { class: 'field', 'data-field': 'zip' },
+    h('div', { class: 'locate-row' }, locate, h('span', { class: 'or-word' }, 'or'), zip),
+    place,
+    h('p', { class: 'field-error', role: 'alert' }));
+  if (!withRadius) return h('div', { class: 'stack' }, where);
 
   const radius = h('div', { class: 'trade-chips', role: 'group', 'aria-label': 'How far you travel' });
   const paint = () => radius.replaceChildren(...RADIUS_CHOICES.map((mi) => chip(`${mi} mi`, d.radiusPicked && d.radiusMi === mi, () => {
@@ -461,10 +494,7 @@ export function homeSection(d, { onDone } = {}) {
   paint();
 
   return h('div', { class: 'stack' },
-    h('div', { class: 'field', 'data-field': 'zip' },
-      h('div', { class: 'locate-row' }, locate, h('span', { class: 'or-word' }, 'or'), zip),
-      place,
-      h('p', { class: 'field-error', role: 'alert' })),
+    where,
     h('div', { class: 'field', 'data-field': 'radiusMi' },
       h('p', { class: 'field-label' }, 'How far you’ll travel'),
       radius,

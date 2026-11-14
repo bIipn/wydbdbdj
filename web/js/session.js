@@ -3,7 +3,7 @@
 import { api, demoSwipes } from './api.js';
 import { defaultFilters } from './filters.js';
 import { setView } from './shell.js';
-import { state } from './state.js';
+import { intent, state } from './state.js';
 
 /** Take GET /api/me. Single mode answers the v0 fields only; accounts mode adds { account, profile, features }. */
 export function applyMe(me) {
@@ -38,13 +38,20 @@ export async function loadAuthConfig() {
   return state.authConfig;
 }
 
+/**
+ * Where someone who is here only to get work done ('hire') lands: the Jobs screen once a module registers it
+ * (setHireLanding('jobs')), the deck until then. Everyone else lands on the deck as always.
+ */
+let hireLanding = 'swipe';
+export function setHireLanding(view) { hireLanding = view; }
+
 /** After boot, sign-in or onboarding: onboarding if there is no profile yet, else the feed. */
 export async function enterApp(me) {
   applyMe(me ?? (await api.me({ quiet: true })));
   if (state.auth === 'accounts') await loadAuthConfig();
   if (state.me.needsOnboarding) return setView('onboarding');
   await loadFeed();
-  setView('swipe');
+  setView(intent() === 'hire' ? hireLanding : 'swipe');
   for (const fn of enterHooks) fn();
 }
 

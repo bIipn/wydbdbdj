@@ -23,7 +23,7 @@ sources ──► normalize + locate ──► score per contractor ──► Po
 | Source | Group | What it covers | How |
 |---|---|---|---|
 | `douglascounty` | default | Douglas County NV (Minden/Gardnerville) bids | public HTML table |
-| `questcdn` | default | NV State Public Works, NV State Parks; Lake County, Campbell, Glendora CA | QuestCDN board JSON, one GET per board |
+| `questcdn` | default | NV State Public Works (four more boards are built but OFF: the host's robots.txt says `Disallow: /`) | QuestCDN board JSON, one GET per board |
 | `ngem` | default | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged by form postback |
 | `nevadaepro` | default | NV State Purchasing (goods + services) | BuySpeed open-bids table, paged by PrimeFaces partial POST |
 | `samgov` | default | Federal, the whole US (construction + trade NAICS) | SAM.gov's public daily bulk file (no key, ~222 MB, streamed); `SAM_SOURCE=api` uses the v2 API instead (key, 10 calls/day) |
@@ -58,7 +58,7 @@ failed.
 
 **Add a source:** copy `src/sources/douglascounty.ts`, change the URL + parser, add it to `ALL_SOURCES`
 in `src/sources/index.ts`, drop a saved page in `test/fixtures/` (the raw response, not a browser
-"Save as"), write a test. More QuestCDN boards are one line in `QUEST_BOARDS`.
+"Save as"), write a test. More QuestCDN boards are one line in `QUEST_BOARDS`, but the host's robots.txt says `Disallow: /`: none is added without the owner's say (`QUEST_BOARDS_OFF`).
 
 ## Scoring (the part to tune with L&M)
 

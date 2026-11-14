@@ -2,7 +2,7 @@
 
 `questcdn-spwd.json`: NV State Public Works Division (group 1903611), captured 2026-11-11 (see test/helpers.ts).
 
-Added 2026-11-14, one live request each at 07:01 UTC, raw and untrimmed (each board had one open project):
+Captured 2026-11-14, one live request each at 07:01 UTC, raw and untrimmed (each board had one open project):
 
     curl -A "BidSwipe/0.1 (daily public-bid check)" -H "X-Requested-With: XMLHttpRequest" \
       -H "Referer: https://qcpi.questcdn.com/cdn/posting/?group=<g>&provider=<g>" \
@@ -18,5 +18,11 @@ Added 2026-11-14, one live request each at 07:01 UTC, raw and untrimmed (each bo
 The ids come from the boards' public posting pages (qcpi.questcdn.com/cdn/posting/?group=…&provider=…) found by
 web search. Checked the same way the same morning and answered `recordsTotal: 0` (not added): Roseville CA 7637,
 Dixon CA 7259977, City of Orange CA 5653602, San Gabriel CA 6229169, Denver 842700, Boulder County 814582.
-No session tokens in these answers. qcpi.questcdn.com/robots.txt answers 302 to https://www.questcdn.com/robots.txt/,
-which the outbound proxy here refused to open (2026-11-14): not read.
+No session tokens in these answers.
+
+**robots.txt (read 2026-11-14, after these captures, with the scanner's User-Agent).** qcpi.questcdn.com/robots.txt
+answers 302 to https://www.questcdn.com/robots.txt/, which says for every client `User-agent: *` / `Disallow: /quest/`
+/ `Disallow: /questcdn/` / `Disallow: /` (then Allow only /about, /solicitors, /bidders, /online-bidding, /news).
+The four boards above are therefore OFF (`QUEST_BOARDS_OFF` in src/sources/questcdn.ts): the fixtures stay as parser
+tests, the scan never asks for those boards, and no further request was made to them. The pilot's NV Public Works
+board (1903611) is on the same host and still runs until the owner decides.

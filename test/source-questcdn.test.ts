@@ -1,16 +1,20 @@
 /**
- * The QuestCDN boards added on 2026-11-14 (src/sources/questcdn.ts QUEST_BOARDS). Each fixture is ONE raw
- * browse_posting answer (curl -A "BidSwipe/0.1 (daily public-bid check)", X-Requested-With + Referer as the
- * scanner sends them), 2026-11-14 07:01 UTC, untrimmed: each board had one open project. See questcdn.md.
+ * The QuestCDN boards: the one the scan reads (QUEST_BOARDS, the pilot's NV Public Works board) and the four the
+ * parser reads but the scan never asks for (QUEST_BOARDS_OFF: www.questcdn.com/robots.txt says Disallow: /).
+ * Each fixture is ONE raw browse_posting answer (curl -A "BidSwipe/0.1 (daily public-bid check)",
+ * X-Requested-With + Referer as the scanner sends them), 2026-11-14 07:01 UTC, untrimmed: each of the four had
+ * one open project. See questcdn.md.
  */
 import { describe, expect, it } from 'vitest';
 import {
-  QUEST_BOARDS, checkQuestJson, parseQuestJson, questApiUrl, questZone, questcdnSource, type QuestBoard,
+  QUEST_BOARDS, QUEST_BOARDS_OFF, QUEST_OFF_REASON, checkQuestJson, fetchQuestBoards, parseQuestJson, questApiUrl,
+  questZone, questcdnSource, type QuestBoard,
 } from '../src/sources/questcdn.js';
 import type { SourceContext } from '../src/types.js';
 import { fx } from './helpers.js';
 
-const board = (group: string): QuestBoard => QUEST_BOARDS.find((b) => b.group === group)!;
+const EVERY_BOARD = [...QUEST_BOARDS, ...QUEST_BOARDS_OFF];
+const board = (group: string): QuestBoard => EVERY_BOARD.find((b) => b.group === group)!;
 const FIXTURE: Record<string, string> = {
   '1903611': 'questcdn-spwd.json',
   '8011805': 'questcdn-nvparks.json',
@@ -24,11 +28,15 @@ describe('QuestCDN board list', () => {
   it('keeps the NV Public Works board first (fixture mode and older tests read QUEST_BOARDS[0])', () => {
     expect(QUEST_BOARDS[0]).toMatchObject({ group: '1903611', label: 'NV Public Works (QuestCDN)' });
   });
-  it('has the four new boards, each with a saved answer, and lists their states', () => {
-    expect(QUEST_BOARDS.map((b) => b.group)).toEqual(['1903611', '8011805', '7484192', '5618062', '5645931']);
-    for (const b of QUEST_BOARDS) expect(FIXTURE[b.group], b.label).toBeDefined();
-    expect(new Set(QUEST_BOARDS.map((b) => b.group)).size).toBe(QUEST_BOARDS.length);
-    expect(questcdnSource.states).toEqual(['NV', 'CA']);
+  it('the scan reads ONLY the pilot board: the four others are off (robots.txt) and say why', () => {
+    expect(QUEST_BOARDS.map((b) => b.group)).toEqual(['1903611']);
+    expect(QUEST_BOARDS_OFF.map((b) => b.group)).toEqual(['8011805', '7484192', '5618062', '5645931']);
+    expect(QUEST_OFF_REASON).toMatch(/robots\.txt says Disallow: \//);
+    expect(questcdnSource.states).toEqual(['NV']);
+    for (const b of EVERY_BOARD) expect(FIXTURE[b.group], b.label).toBeDefined();
+    expect(new Set(EVERY_BOARD.map((b) => b.group)).size).toBe(EVERY_BOARD.length);
+  });
+  it('the parser still reads the saved answers of the boards that are off (CA and NV rows)', () => {
     const states = new Set(Object.keys(FIXTURE).flatMap((g) => parse(g).map((b) => b.location?.state)));
     expect([...states].sort()).toEqual(['CA', 'NV']);
   });
@@ -130,24 +138,34 @@ describe('questcdnSource.fetch', () => {
   }
   const real = (g: string) => JSON.parse(fx(FIXTURE[g]!));
 
-  it('reads every board once, in order, and keeps all its construction projects', async () => {
+  it("the scan asks ONE board: the pilot's, never a board that is off", async () => {
     const t = ctx(real);
     const bids = await questcdnSource.fetch(t.c);
-    expect(t.urls).toEqual(QUEST_BOARDS.map((b) => questApiUrl(b)));
+    expect(t.urls).toEqual([questApiUrl(QUEST_BOARDS[0]!)]);
+    expect(t.urls.join(' ')).not.toMatch(/8011805|7484192|5618062|5645931/);
+    expect(bids).toHaveLength(13);
+    expect(t.partial).toEqual([]);
+  });
+
+  it('the pilot board failing is a FAILED source, never a quiet 0', async () => {
+    const t = ctx(() => '<!DOCTYPE html><html>challenge</html>');
+    await expect(questcdnSource.fetch(t.c)).rejects.toThrow(/every QuestCDN board failed/);
+  });
+
+  // The many-board paths, on the saved answers only (no board that is off is ever requested by the scan).
+  it('several boards: each read once, in order, all construction projects kept', async () => {
+    const t = ctx(real);
+    const bids = await fetchQuestBoards(t.c, EVERY_BOARD);
+    expect(t.urls).toEqual(EVERY_BOARD.map((b) => questApiUrl(b)));
     expect(bids).toHaveLength(13 + 4);
     expect(t.partial).toEqual([]);
     expect(t.logs).toContain('questcdn Lake County, CA (QuestCDN): 1/1');
   });
 
-  it('one failed board is reported and the others are kept', async () => {
+  it('several boards: one failed board is reported and the others are kept', async () => {
     const t = ctx((g) => (g === '7484192' ? new Error('HTTP 503') : real(g)));
-    const bids = await questcdnSource.fetch(t.c);
+    const bids = await fetchQuestBoards(t.c, EVERY_BOARD);
     expect(bids).toHaveLength(16);
     expect(t.partial).toEqual(['questcdn: 1 of 5 boards failed: Lake County, CA (QuestCDN) (group 7484192): HTTP 503']);
-  });
-
-  it('every board failing is a FAILED source, never a quiet 0', async () => {
-    const t = ctx(() => '<!DOCTYPE html><html>challenge</html>');
-    await expect(questcdnSource.fetch(t.c)).rejects.toThrow(/every QuestCDN board failed/);
   });
 });

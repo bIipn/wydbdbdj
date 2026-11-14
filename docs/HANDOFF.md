@@ -407,8 +407,14 @@ is the owner's call. Also not built: Virginia eVA (AWS WAF challenge), PlanetBid
 
 Known gaps: E-Rate forms whose text names no quote deadline are stored with no due date and stay "open" in the
 database after the board stops listing them (no cleanup of rows a source no longer returns); Texas El Paso's
-Mountain time is not handled; the questcdn label line in web/js/source-labels.js still says NV (it now covers CA
-boards too; the table allows one state).
+Mountain time is not handled.
+
+**QuestCDN and robots.txt (2026-11-14, later the same day).** Once the host was reachable from here,
+www.questcdn.com/robots.txt (where qcpi.questcdn.com redirects its own) turned out to say `Disallow: /` for every
+client. The four boards added in this wave (NV State Parks, Lake County, Campbell, Glendora) are switched OFF
+(`QUEST_BOARDS_OFF`): the default group reads 13 QuestCDN rows from one board again, not 17 from five. The pilot's
+NV Public Works board is on the same host and still runs: **the owner must decide** whether it stays (it is the
+pilot's SPWD feed) or goes. The BuySpeed vendor's file disallows only `/craft` (fine), and OpenGov has no robots file.
 
 ### Looked at, not built yet (next sources, in order of value for L&M)
 1. **Douglas County School District** — posts bid docs on its website + legal ads in The Record-Courier

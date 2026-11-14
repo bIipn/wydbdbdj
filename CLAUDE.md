@@ -242,7 +242,9 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   its own text names, in the applicant's state zone (STATE_ZONE); the allowable contract date is NOT a deadline.
 - Requests are paced 1,000 ms per host, start to start (util/http.ts): the Socrata hosts ask for Crawl-delay: 1.
 - robots.txt `Disallow: /` on www.txsmartbuy.gov (txesbd) and ppmoe.dot.ca.gov (caltrans): both sources are OFF
-  (`disabledReason`); turning one on is the owner's call, never a workaround.
+  (`disabledReason`); turning one on is the owner's call, never a workaround. www.questcdn.com says the same (the
+  boards' host redirects its robots.txt there): four added boards are OFF (`QUEST_BOARDS_OFF`), and the pilot's NV
+  Public Works board, which ran before the file was read, stays on until the owner decides. Never add a QuestCDN board.
 - NGEM pages by ASP.NET postback, not links: page 1 is a GET, pages 2+ are a POST of that page's hidden
   fields through `ctx.http.session()` (cookie jar). Never send a postback without the `ASP.NET_SessionId`
   + `__AntiXsrfToken` cookies of the first GET: the board answers with an "An error has occurred" page

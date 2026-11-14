@@ -1,5 +1,5 @@
 import * as cheerio from 'cheerio';
-import type { BidDraft, Source } from '../types.js';
+import type { BidDraft, Source, SourceContext } from '../types.js';
 import { REQUIREMENT_FLAGS } from './flags.js';
 import { keepTradeWork } from './relevance.js';
 import { clean, cleanOrNull, untruncate } from '../util/text.js';
@@ -28,10 +28,30 @@ export const QUEST_BOARDS: QuestBoard[] = [
     // publicworks.nv.gov: bidders must be SPWD-qualified and NV-licensed before bid opening.
     flags: [REQUIREMENT_FLAGS.spwd, REQUIREMENT_FLAGS.prevailingLikely],
   },
-  // Boards below were found by web search (their qcpi.questcdn.com/cdn/posting/?group=…&provider=… pages) and each
-  // answered ONE live browse_posting request with open projects for that owner on 2026-11-14 07:01 UTC
-  // (raw answers: test/fixtures/questcdn-*.json, notes in questcdn.md). Keep the NV Public Works board FIRST:
-  // fixture mode and the tests read QUEST_BOARDS[0].
+];
+
+/**
+ * Why the boards below are not read. qcpi.questcdn.com/robots.txt answers 302 to www.questcdn.com/robots.txt/,
+ * and that file (read 2026-11-14 with the scanner's own User-Agent) says, for every client:
+ *
+ *     User-agent: *
+ *     Disallow: /quest/
+ *     Disallow: /questcdn/
+ *     Disallow: /
+ *
+ * (then Allow lines for /about, /solicitors, /bidders, /online-bidding and /news only). The host asks automated
+ * clients to stay out, so no board is ADDED on it. The NV Public Works board above was already running for the
+ * pilot before the file was read; whether it stays on is the owner's decision (docs/DATA-SOURCES.md §7).
+ */
+export const QUEST_OFF_REASON =
+  "www.questcdn.com/robots.txt says Disallow: / for every client (read 2026-11-14): not read until the owner decides";
+
+/**
+ * Boards the parser reads (tests: test/fixtures/questcdn-*.json, one raw answer each from 2026-11-14 07:01 UTC,
+ * before the robots file could be opened) but the scan never asks for. Moving one into QUEST_BOARDS turns it on:
+ * the owner's call, never a workaround.
+ */
+export const QUEST_BOARDS_OFF: QuestBoard[] = [
   {
     group: '8011805',
     provider: '8011805',
@@ -41,9 +61,8 @@ export const QUEST_BOARDS: QuestBoard[] = [
   { group: '7484192', provider: '7484192', label: 'Lake County, CA (QuestCDN)', owner: 'Lake County, CA' },
   { group: '5618062', provider: '5618062', label: 'City of Campbell, CA (QuestCDN)', owner: 'City of Campbell' },
   { group: '5645931', provider: '5645931', label: 'City of Glendora, CA (QuestCDN)', owner: 'Glendora CA, City of' },
-  // Checked 2026-11-14 and NOT added (0 open projects that day): Roseville CA 7637, Dixon CA 7259977,
-  // City of Orange CA 5653602, San Gabriel CA 6229169, Denver 842700, Boulder County 814582. El Dorado County
-  // (Transportation) posts on QuestCDN too, but its group id was not found: its own site refuses this host.
+  // Checked 2026-11-14 and never listed (0 open projects that day): Roseville CA 7637, Dixon CA 7259977,
+  // City of Orange CA 5653602, San Gabriel CA 6229169, Denver 842700, Boulder County 814582.
 ];
 
 /**
@@ -143,45 +162,49 @@ export function parseQuestJson(json: QuestResponse, board: QuestBoard): BidDraft
   return out;
 }
 
+/**
+ * One request per board. A board that fails is logged and reported (ctx.partial) while the others are kept;
+ * only when EVERY board fails does it throw (so the report says FAILED, never a quiet 0).
+ */
+export async function fetchQuestBoards(ctx: SourceContext, boards: QuestBoard[]): Promise<BidDraft[]> {
+  const out: BidDraft[] = [];
+  const failed: string[] = [];
+  let left = 0;
+  for (const board of boards) {
+    try {
+      const json = await ctx.http.json<QuestResponse>(questApiUrl(board), {
+        headers: { 'X-Requested-With': 'XMLHttpRequest', Referer: questBoardUrl(board) },
+      });
+      checkQuestJson(json, board);
+      const all = parseQuestJson(json, board);
+      // posting_type ("Construction Project") is the board's own category; the parser keeps it in description.
+      const rows = json.data ?? [];
+      const typeOf = new Map(rows.map((r) => [`${board.group}:${clean(r.project_id ?? r.render_project_id)}`, r.posting_type ?? null]));
+      const { kept, left: out1 } = keepTradeWork(all, (b) => ({ title: b.title, category: typeOf.get(b.sourceId) ?? b.category, board: 'questcdn' }));
+      left += out1;
+      ctx.log(`questcdn ${board.label}: ${kept.length}/${json.recordsTotal ?? '?'}${out1 ? `, ${out1} left out as not trade work` : ''}`);
+      out.push(...kept);
+    } catch (err) {
+      const msg = `${board.label} (group ${board.group}): ${(err as Error).message}`;
+      ctx.log(`questcdn ${msg}`);
+      failed.push(msg);
+    }
+  }
+  if (failed.length === boards.length) throw new Error(`every QuestCDN board failed: ${failed.join('; ')}`);
+  if (failed.length) ctx.partial?.(`questcdn: ${failed.length} of ${boards.length} boards failed: ${failed.join('; ')}`);
+  if (left) ctx.log(`questcdn: ${left} left out as not trade work`);
+  return out;
+}
+
 export const questcdnSource: Source = {
   id: 'questcdn',
   name: 'QuestCDN boards',
   homepage: questBoardUrl(QUEST_BOARDS[0]!),
   // The states of the boards in QUEST_BOARDS (add a state here with a board there). Times: Pacific unless a
   // bid time names another zone (questZone).
-  states: ['NV', 'CA'],
+  states: ['NV'],
   timeZone: 'America/Los_Angeles',
-  async fetch(ctx) {
-    // One request per board. A board that fails is logged and reported (ctx.partial) while the others are kept;
-    // only when EVERY board fails does the source throw (so the report says FAILED, never a quiet 0).
-    const out: BidDraft[] = [];
-    const failed: string[] = [];
-    let left = 0;
-    for (const board of QUEST_BOARDS) {
-      try {
-        const json = await ctx.http.json<QuestResponse>(questApiUrl(board), {
-          headers: { 'X-Requested-With': 'XMLHttpRequest', Referer: questBoardUrl(board) },
-        });
-        checkQuestJson(json, board);
-        const all = parseQuestJson(json, board);
-        // posting_type ("Construction Project") is the board's own category; the parser keeps it in description.
-        const rows = json.data ?? [];
-        const typeOf = new Map(rows.map((r) => [`${board.group}:${clean(r.project_id ?? r.render_project_id)}`, r.posting_type ?? null]));
-        const { kept, left: out1 } = keepTradeWork(all, (b) => ({ title: b.title, category: typeOf.get(b.sourceId) ?? b.category, board: 'questcdn' }));
-        left += out1;
-        ctx.log(`questcdn ${board.label}: ${kept.length}/${json.recordsTotal ?? '?'}${out1 ? `, ${out1} left out as not trade work` : ''}`);
-        out.push(...kept);
-      } catch (err) {
-        const msg = `${board.label} (group ${board.group}): ${(err as Error).message}`;
-        ctx.log(`questcdn ${msg}`);
-        failed.push(msg);
-      }
-    }
-    if (failed.length === QUEST_BOARDS.length) throw new Error(`every QuestCDN board failed: ${failed.join('; ')}`);
-    if (failed.length) ctx.partial?.(`questcdn: ${failed.length} of ${QUEST_BOARDS.length} boards failed: ${failed.join('; ')}`);
-    if (left) ctx.log(`questcdn: ${left} left out as not trade work`);
-    return out;
-  },
+  fetch: (ctx) => fetchQuestBoards(ctx, QUEST_BOARDS),
 };
 
 /** The answer must be QuestCDN's browse_posting JSON: result "ok" and a data array (an HTML page is not). */

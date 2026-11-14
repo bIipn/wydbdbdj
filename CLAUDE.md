@@ -27,13 +27,15 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,630 tests in 68 files as of 2026-11-14, ~85s; simulate.test.ts ~25s,
+npm test                   # vitest (~1,980 tests in 81 files as of 2026-11-14, ~90s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
-npm run scan -- --source=ngem        # one source
+npm run scan -- --source=ngem        # one source, whole (no slice, no time budget)
+npm run scan -- --group=west --no-notify   # one scan group, as its cron call runs it (200 s fetch budget);
+                           # groups: default (last) west east south opengov-1…5; --group=opengov-1 --source=opengov
 npm run dev                # http://localhost:8787 (tsx watch)
 npm run market:refresh -- --states=NV,CA   # USAspending awards + BLS wages/indexes (network; --skip-bls etc.)
 npm run demo:snapshot      # rebuild web/demo-data.json + out/bidswipe-demo.html
@@ -62,6 +64,17 @@ src/sources/*.ts   one file per bid board: pure parse…() + small fetch() — s
 src/sources/flags.ts  the flag strings, program-contract terms and SAM set-aside codes parsers write and
                    score.ts reads — ONE copy (test/federal-chain.test.ts guards it)
 src/sources/dedupe.ts SAM: one card per solicitation (samgov:<sol number>), newest notice wins
+src/sources/scan-groups.ts + groups.ts  the scan groups (one cron call each, default LAST), FETCH_BUDGET_MS,
+                   sourcesForGroup / scanSources / slices (OpenGov is read by state slice, opengov-1…5)
+src/sources/budget.ts  outOfTime / stopAtBudget: a source stops between requests at its share of the group's budget
+                   and says so (report.sources[id].stopped, via ctx.partial)
+src/sources/relevance.ts isTradeWork(): keeps work a contractor could do (board category, NIGP/UNSPSC codes, words);
+                   anything unclear is KEPT; every board source logs how many it left out
+src/sources/socrata.ts readSocrata(): paged open-data reads (laramp, sfbids, nycrecord, usac470)
+src/sources/buyspeed.ts the Periscope BuySpeed boards (nevadaepro, oregonbuys, commbuys, bidbuy, njstart): one parser,
+                   PrimeFaces partial-POST paging through one session, never retried
+src/sources/caleprocure.ts opengov.ts txesbd.ts flmfmp.ts laramp.ts sfbids.ts nycrecord.ts usac470.ts caltrans.ts
+                   one per board (docs/DATA-SOURCES.md §7); txesbd and caltrans are OFF (robots.txt Disallow: /)
 src/sources/samgov-bulk.ts SAM.gov's public daily CSV (~222 MB): streaming RFC 4180 parser, per-field UTF-8 /
                    Windows-1252 decode, same samDraft() as the API path; drops stale no-deadline notices,
                    fills a zoneless deadline from a sibling notice (else flags it); <20,000 rows = cut off
@@ -176,9 +189,25 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   when there is a body (was a real Undo bug).
 - TypeScript 7 is the native compiler; keep tsconfig on `module/moduleResolution: NodeNext`.
 - QuestCDN and NGEM detail pages open via JavaScript → those cards link to the board + show the number.
-- NevadaEPro's first page = 25 newest open bids; daily scans catch new ones. The log says how many the
-  board announces ("nevadaepro: 25 of 29 listed (first page only)"). Raw cells have no labels: columns
-  are named from `<thead>`.
+- BuySpeed boards (NevadaEPro, OregonBuys, COMMBUYS, BidBuy, NJSTART) page by a PrimeFaces partial POST (XML)
+  through ONE `ctx.http.session()` opened before the first GET (JSESSIONID + javax.faces.ViewState, each page's new
+  ViewState for the next); a POST is never retried; any doubt keeps the pages read and logs "— stopped: <reason>".
+  Log: "nevadaepro: 29 of 29 listed (pages 2/2)". Raw cells have no labels: columns are named from `<thead>`.
+  NevadaEPro keeps every row (`tradeOnly: false`, the pilot's feed); the others filter with isTradeWork.
+- Scan groups: the host runs one cron call per group (vercel.json, 13:20–14:08 UTC, six minutes apart, the default
+  group LAST at 14:08 so the pilot's digest and the day's re-score of every open bid see the other groups' finds).
+  Each group has FETCH_BUDGET_MS = 200 s for fetching (the host allows 300 s); each source gets a fair share of the
+  time left and stops between requests when out (stopAtBudget). Only an ungrouped scan or the default group
+  re-scores the stored open bids; the other groups score what they fetched. COMMBUYS runs last in east (≈150 s).
+- Board clocks (util/time.ts with the board's IANA zone; a bare date = 23:59 that day unless the board says otherwise):
+  caleprocure: the zone it writes (PST/PDT), else Pacific · questcdn: the zone in the bid time, else the board's,
+  else Pacific · oregonbuys Pacific, commbuys + njstart Eastern, bidbuy Central, nevadaepro Pacific · txesbd Central
+  (El Paso's Mountain time not handled) · flmfmp and opengov: ISO instants with a zone, stored as given · laramp:
+  closedate is a floating timestamp that holds UTC · sfbids Pacific · nycrecord New York · usac470: only a due date
+  its own text names, in the applicant's state zone (STATE_ZONE); the allowable contract date is NOT a deadline.
+- Requests are paced 1,000 ms per host, start to start (util/http.ts): the Socrata hosts ask for Crawl-delay: 1.
+- robots.txt `Disallow: /` on www.txsmartbuy.gov (txesbd) and ppmoe.dot.ca.gov (caltrans): both sources are OFF
+  (`disabledReason`); turning one on is the owner's call, never a workaround.
 - NGEM pages by ASP.NET postback, not links: page 1 is a GET, pages 2+ are a POST of that page's hidden
   fields through `ctx.http.session()` (cookie jar). Never send a postback without the `ASP.NET_SessionId`
   + `__AntiXsrfToken` cookies of the first GET: the board answers with an "An error has occurred" page

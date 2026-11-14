@@ -2,15 +2,10 @@
 // The demo (no server) applies the same filters here, in the browser (localFilter).
 
 import { dueInfo, money } from './format.js';
+import { SOURCE_LABELS } from './source-labels.js';
 
-/** The boards a bid can come from (src/sources/index.ts ids). */
-export const SOURCES = [
-  { id: 'nevadaepro', label: 'NevadaEPro' },
-  { id: 'ngem', label: 'NGEM' },
-  { id: 'questcdn', label: 'QuestCDN' },
-  { id: 'douglascounty', label: 'Douglas County' },
-  { id: 'samgov', label: 'SAM.gov' },
-];
+/** The boards a bid can come from (src/sources/index.ts ids): the one table in source-labels.js. */
+export const SOURCES = SOURCE_LABELS.map((s) => ({ id: s.id, label: s.label }));
 
 /** Fit levels = the verdict bands of src/score/score.ts. "Not a fit" is left out unless asked for. */
 export const FITS = [

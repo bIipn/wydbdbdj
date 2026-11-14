@@ -7,7 +7,7 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 
 | Area | Status |
 |---|---|
-| 5 source connectors | ✅ parsers tested on raw responses · ✅ live scan 2026-11-13 read every board (107 open bids) · ⚠️ the three source fixes made after it (Douglas, NevadaEPro, NGEM paging) are tested on that day's pages, not yet re-run live |
+| Source connectors | ✅ 5 Nevada/federal boards (live 2026-11-13) · ✅ wave 2, 2026-11-14: 11 more state/city/OpenGov/E-Rate boards read live in scan groups, 3,715 open bids stored; txesbd + caltrans off by robots.txt (§2 "wave 2") |
 | Location + distance | ✅ gazetteer + nationwide ZIP table; SAM places parsed from every shape in the real responses; a listed address we can't place stays unplaced (no guess) |
 | Fit scoring + reasons | ✅ audited on the 107 live bids (see §4); certification set-asides and program contracts are hard no's, presolicitations/RFIs never alert |
 | Accounts, onboarding, settings | ✅ tested + checked in a phone-size browser (`AUTH_MODE=accounts`); OAuth (Supabase) written, never run |
@@ -142,7 +142,8 @@ federal bids from the free bulk file, store-ready PWA"):**
     `CRON_SECRET`, `SAM_API_KEY`, `PROMO_CODES` (all marked sensitive), `AUTH_MODE=accounts`, `APP_URL`,
     `REALTIME_MODE=poll`, `MARKET_REFRESH_AT`, `PG_SSL_NO_VERIFY=1`, `TRUST_PROXY`. Preview builds also
     get `SOURCES=samgov`, so testing a preview never re-reads the Nevada boards.
-  - Daily jobs (vercel.json, UTC): market 11:40, scan 13:20, tick 14:50.
+  - Daily jobs (vercel.json, UTC): market 11:40; scan groups west 13:20, east 13:26, south 13:32, opengov-1…5
+    13:38–14:02, the default group (SAM.gov + Nevada) LAST at 14:08 (was 13:20 alone until 2026-11-14); tick 14:50.
   - First live scan: QuestCDN 13, NGEM 44, NevadaEPro 25, SAM.gov bulk 495 (8.2 s for the 222 MB file).
     **Douglas County answers HTTP 403 to the host's address** (it works from other networks), so that
     source is FAILED on Vercel until it runs from somewhere else or the county allows it.
@@ -267,6 +268,58 @@ fixes; answer the §5 questions; deploy.
 - Flags `Presolicitation` and `Program contract` (IDIQ/JOC/MATOC/MACC/BPA/OTA) and the set-aside codes are
   shared with the scorer in `src/sources/flags.ts`. Certification set-asides (8(a), HUBZone, SDVOSB,
   WOSB…) are a hard no unless listed in `setAsidesEligible` (L&M: SBA, SBP — an assumption, see §5).
+
+### State and local boards, wave 2 (2026-11-14)
+Why: an electrician near ZIP 95675 (Amador County, CA) signed up on the live site and saw ONE job; the app held 575
+open bids, 33 in California, all federal. This wave adds 13 board sources (11 reading, 2 off). Every one has a real
+captured fixture, a pure parser, its own clock, a loud failure and the shared trade-work filter
+(`src/sources/relevance.ts`). Hosts, robots.txt, counts and what is not confirmed: `docs/DATA-SOURCES.md` §7.
+
+The scan now runs in **groups** (one cron call each, 200 s fetch budget): default (last), west, east, south,
+opengov-1…5. ONE live scan of every group, 2026-11-14 07:45–08:05 UTC, as the cron calls run them (wall clock of
+the whole `npm run scan -- --group=…` call, budget 240 s for the check, 200 s for fetching):
+
+| Group | Wall | Source: listed → kept |
+|---|---|---|
+| default | 22 s | douglascounty 1 open of 90 · questcdn 17 (5 boards) · ngem 44 · nevadaepro 29 (2 pages) · samgov 508 cards |
+| west | 33 s | caleprocure 376 → 314 · laramp 207 → 47 · sfbids 64 → 16 · oregonbuys 174 → 118 (7 pages) · usac470 713 forms → 465 · caltrans OFF |
+| east | 167 s | bidbuy 149 → 98 · njstart 19 → 4 · nycrecord 202 → 84 · commbuys 890 → 727 (36 pages, 156 s: the slow one) |
+| south | 4 s | flmfmp 120 → 63 · txesbd OFF |
+| opengov-1 (CA) | 117 s | 115 governments, 359 open → 285 |
+| opengov-2 (FL, NJ) | 119 s | 117 governments, 413 → 332 |
+| opengov-3 (AZ, TX…) | 114 s | 112 governments, 167 → 131 |
+| opengov-4 (East) | 126 s | 124 governments, 348 → 284 |
+| opengov-5 (rest) | 87 s | 74 governments, 210 → 154 |
+
+No source FAILED, none stopped at its budget, no OpenGov government failed. Stored open bids: 599 → 3,715.
+
+**What the Amador electrician gets** (a SIMULATED profile "TEST CA Electric (simulated)": electrical, ZIP 95675,
+states [CA], radius 60 mi (the form default), job size 0–$1M; scored with the scan's own `isCandidate` + `scoreBid`):
+today's sources alone: 80 candidates, **1** scoring 35 or more; with the new boards: 772 candidates, **47** at 35+.
+Honestly, that is better but NOT yet "a lot of options": only **12** of the 47 have a distance, all 29–58 mi away
+(OpenGov Sacramento / West Sacramento projects, seven E-Rate school cabling/Wi-Fi forms in Roseville, Loomis,
+North Highlands, Woodland, Twain Harte, Dixon). The other 35 are statewide Cal eProcure cards with no place (Caltrans
+signal/lighting contracts, prison fire alarms, DSH Atascadero electrical upgrades) that may be 300 mi away; the list
+page names no site and the detail pages need a PeopleSoft postback per event. Two of the twelve are weak (an A&E
+design contract — now dropped by relevance.ts — and "Traffic Signal Parts", goods). Next levers, in order:
+place Cal eProcure events (their counties are often in the title; the event page has them), more local boards near
+Sacramento/Amador (PlanetBids agencies, county sites), and a deck rule for distance-less cards (below).
+
+**Pilot feed change (owner decision, not done):** L&M's profile has states [NV, CA], so statewide Cal eProcure
+cards with no point enter its deck as capped "maybe" cards with "? mi" (the default-group run shows 7 maybes; the
+review measured 7 → 10 on the fixtures and about 30 on the first live run). That is the existing capped-bid rule
+working as written; the smallest change would be to keep a pointless card whose state is not the profile's home
+state out of the deck (Browse still shows it).
+
+Off, and why: **txesbd** (www.txsmartbuy.gov/robots.txt `User-agent: *` / `Disallow: /`; parser built and tested) and
+**caltrans** (ppmoe.dot.ca.gov/robots.txt `Disallow: /`, and the list is a ServiceNow script shell). Turning either on
+is the owner's call. Also not built: Virginia eVA (AWS WAF challenge), PlanetBids (needs a browser), Public Purchase
+(terms), El Dorado County's site (refuses the host).
+
+Known gaps: E-Rate forms whose text names no quote deadline are stored with no due date and stay "open" in the
+database after the board stops listing them (no cleanup of rows a source no longer returns); Texas El Paso's
+Mountain time is not handled; the questcdn label line in web/js/source-labels.js still says NV (it now covers CA
+boards too; the table allows one state).
 
 ### Looked at, not built yet (next sources, in order of value for L&M)
 1. **Douglas County School District** — posts bid docs on its website + legal ads in The Record-Courier

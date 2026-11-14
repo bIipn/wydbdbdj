@@ -5,7 +5,15 @@
   "regions": ["sfo1"],
   "crons": [
     { "path": "/api/cron/market", "schedule": "40 11 * * *" },
-    { "path": "/api/cron/scan", "schedule": "20 13 * * *" },
+    { "path": "/api/cron/scan?group=west", "schedule": "20 13 * * *" },
+    { "path": "/api/cron/scan?group=east", "schedule": "26 13 * * *" },
+    { "path": "/api/cron/scan?group=south", "schedule": "32 13 * * *" },
+    { "path": "/api/cron/scan?group=opengov-1", "schedule": "38 13 * * *" },
+    { "path": "/api/cron/scan?group=opengov-2", "schedule": "44 13 * * *" },
+    { "path": "/api/cron/scan?group=opengov-3", "schedule": "50 13 * * *" },
+    { "path": "/api/cron/scan?group=opengov-4", "schedule": "56 13 * * *" },
+    { "path": "/api/cron/scan?group=opengov-5", "schedule": "2 14 * * *" },
+    { "path": "/api/cron/scan", "schedule": "8 14 * * *" },
     { "path": "/api/cron/tick", "schedule": "50 14 * * *" }
   ]
 }

@@ -1,6 +1,14 @@
 /** Every place we pull bids from. */
-/** 'local' = a job someone posted on BidSwipe itself (src/jobs); every other id is a public bid board. */
-export type SourceId = 'samgov' | 'nevadaepro' | 'ngem' | 'questcdn' | 'douglascounty' | 'local';
+/**
+ * 'local' = a job someone posted on BidSwipe itself (src/jobs); every other id is a public bid board.
+ * A new board: add its id here, a file in src/sources/, an entry in ALL_SOURCES (src/sources/index.ts) and a
+ * line in web/js/source-labels.js. Nothing else switches on these ids (test/source-seams.test.ts checks).
+ */
+export type SourceId =
+  | 'samgov' | 'nevadaepro' | 'ngem' | 'questcdn' | 'douglascounty' | 'local'
+  // Wave 2 (2026-11-14): state and local boards beyond Nevada.
+  | 'caleprocure' | 'opengov' | 'caltrans' | 'oregonbuys' | 'commbuys' | 'bidbuy' | 'njstart' | 'txesbd'
+  | 'flmfmp' | 'laramp' | 'sfbids' | 'nycrecord' | 'usac470';
 
 export type LocationPrecision = 'exact' | 'city' | 'county' | 'region' | 'agency' | 'state' | 'unknown';
 
@@ -65,12 +73,54 @@ export interface SourceContext {
   now: Date;
   env: (name: string) => string | undefined;
   log: (msg: string) => void;
+  /**
+   * This source's time budget (set by runScan when the run has one: a scan group on the serverless host).
+   * A source that reads page after page checks it between requests (src/sources/budget.ts outOfTime) and,
+   * once past it, stops, keeps what it read and says so with stopAtBudget(): never a silent stop.
+   * Absent = no budget (a local full scan): read everything.
+   */
+  deadline?: Date;
+  /**
+   * The part of a sliced source this run covers (Source.slices, e.g. OpenGov's California governments).
+   * Absent = the whole source. See src/sources/groups.ts.
+   */
+  slice?: SourceSlice;
+  /** Set by runScan: a source that stopped early reports why here (budget.ts stopAtBudget does it). */
+  partial?: (why: string) => void;
+}
+
+/** One slice of a sliced source, as the source sees it at run time. */
+export interface SourceSlice {
+  /** e.g. 'opengov-1'; also the scan group it runs in. */
+  name: string;
+  /** The states listed for this slice; null = "every state no other slice lists" (and no state at all). */
+  states: readonly string[] | null;
+  /** Does a record in this state (2-letter, any case; null = the board gave none) belong to this slice? */
+  has(state: string | null | undefined): boolean;
+}
+
+/** A slice as declared on the Source: its scan group, and its states or 'rest'. */
+export interface SliceSpec {
+  group: string;
+  states: readonly string[] | 'rest';
 }
 
 export interface Source {
   id: SourceId;
   name: string;
   homepage: string;
+  /** The states the board covers (2-letter), or 'US' for a nationwide one. Absent on the older Nevada sources. */
+  states?: readonly string[] | 'US';
+  /** The IANA zone its wall-clock times are in (util/time.ts helpers take it). Absent = Pacific. */
+  timeZone?: string;
+  /** The scan group it runs in (src/sources/groups.ts SCAN_GROUPS). Absent = 'default', today's daily scan. */
+  group?: string;
+  /**
+   * A source too big for one group (OpenGov: 562 governments, one request each) runs in slices instead,
+   * one per group. With slices, `group` is ignored. A run without a group (local `npm run scan`) gets no
+   * slice and reads everything.
+   */
+  slices?: readonly SliceSpec[];
   /** Return a reason string if the source can't run (e.g. missing API key). */
   disabledReason?(ctx: SourceContext): string | null;
   fetch(ctx: SourceContext): Promise<BidDraft[]>;

@@ -40,7 +40,8 @@ describe('serverless entry (server.js)', () => {
     const routes = readFileSync(`${root}src/routes/cron.ts`, 'utf8');
     expect(config.crons.length).toBeGreaterThan(0);
     for (const c of config.crons) {
-      expect(routes).toContain(`'${c.path}'`);
+      // A scan group is a query on the one scan route (/api/cron/scan?group=west): the route is the path before '?'.
+      expect(routes).toContain(`'${c.path.split('?')[0]}'`);
       expect(c.schedule.split(' ')).toHaveLength(5);
     }
   });

@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RouteContext } from '../context.js';
+import { getGroup, SCAN_GROUPS } from '../sources/groups.js';
 import { safeEqual } from './shared.js';
 
 /**
@@ -26,13 +27,18 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     return false;
   };
 
-  // One scan of every source, then scoring. The answer is the scan report (per source: OK or FAILED).
+  // One scan group's sources, then scoring (src/sources/groups.ts: one cron entry per group in vercel.json, so
+  // each call fits the host's 300 s). No ?group= = the default group, the original daily scan. The answer is
+  // the scan report (per source: OK, FAILED, or stopped at the time budget).
   // flush(): the scan's alerts queue their pushes on a short timer; send them before answering, because the
   // host freezes the function as soon as the reply is out and that timer would never fire.
-  app.get('/api/cron/scan', async (req, reply) => {
+  app.get<{ Querystring: { group?: string } }>('/api/cron/scan', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     if (!ctx.scan) return reply.code(501).send({ error: 'scan not configured' });
-    const report = await ctx.scan();
+    const asked = typeof req.query.group === 'string' && req.query.group !== '' ? req.query.group : undefined;
+    const group = asked === undefined ? undefined : getGroup(asked);
+    if (group === null) return reply.code(400).send({ error: 'unknown_group', groups: SCAN_GROUPS.map((g) => g.name) });
+    const report = await ctx.scan(group ? { group: group.name } : {});
     await ctx.realtime?.flush();
     return report;
   });

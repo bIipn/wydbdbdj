@@ -20,16 +20,35 @@ sources ──► normalize + locate ──► score per contractor ──► Po
 
 ## Sources
 
-| Source | What it covers | How |
-|---|---|---|
-| `douglascounty` | Douglas County NV (Minden/Gardnerville) bids | public HTML table |
-| `questcdn` | NV State Public Works construction (Carson City, Reno, Yerington…) | QuestCDN board JSON |
-| `ngem` | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged by form postback |
-| `nevadaepro` | NV State Purchasing (goods + services) | public BSO open-bids table |
-| `samgov` | Federal, the whole US (construction + trade NAICS) | SAM.gov's public daily bulk file (no key, ~222 MB, streamed); `SAM_SOURCE=api` uses the v2 API instead (key, 10 calls/day) |
+| Source | Group | What it covers | How |
+|---|---|---|---|
+| `douglascounty` | default | Douglas County NV (Minden/Gardnerville) bids | public HTML table |
+| `questcdn` | default | NV State Public Works, NV State Parks; Lake County, Campbell, Glendora CA | QuestCDN board JSON, one GET per board |
+| `ngem` | default | NGEM: Carson City, Reno-Tahoe Airport, UNR/TMCC, Clark County… | public IonWave list, paged by form postback |
+| `nevadaepro` | default | NV State Purchasing (goods + services) | BuySpeed open-bids table, paged by PrimeFaces partial POST |
+| `samgov` | default | Federal, the whole US (construction + trade NAICS) | SAM.gov's public daily bulk file (no key, ~222 MB, streamed); `SAM_SOURCE=api` uses the v2 API instead (key, 10 calls/day) |
+| `caleprocure` | west | California State Contracts Register: every state department | PeopleSoft HTML grid (suppliers.fiscal.ca.gov), all events on one page |
+| `laramp` | west | Los Angeles RAMP: City departments, LAUSD, LA County, Port of Long Beach | Socrata open data (data.lacity.org) |
+| `sfbids` | west | San Francisco: every City department | Socrata open data (data.sf.gov) |
+| `oregonbuys` | west | Oregon state agencies, counties, cities | BuySpeed, paged |
+| `usac470` | west | E-Rate FCC Form 470: schools and libraries taking quotes for cabling / installed Wi-Fi (NOT a sealed bid: own flag) | Socrata open data (opendata.usac.org), nationwide |
+| `caltrans` | west | Caltrans advertised projects | **off**: robots.txt `Disallow: /`, and the page is a script shell |
+| `commbuys` | east | Massachusetts state agencies, towns, housing authorities | BuySpeed, paged (≈36 pages, slow board) |
+| `bidbuy` | east | Illinois state agencies (Tollway, DNR, CMS…) | BuySpeed, paged |
+| `njstart` | east | New Jersey state contracts | BuySpeed |
+| `nycrecord` | east | NYC City Record: procurement solicitations | Socrata open data (data.cityofnewyork.us) |
+| `flmfmp` | south | MyFloridaMarketPlace: Florida agencies, universities, districts | JSON POST, 100 a page |
+| `txesbd` | south | Texas ESBD | **off**: robots.txt `Disallow: /` (parser built and tested) |
+| `opengov` | opengov-1…5 | OpenGov Procurement portals: ~540 governments (128 in California: Sacramento County, Rancho Cordova, West Sacramento…) | JSON: the government list, then one POST per government, sliced by state |
+
+The scan runs in **groups**, one cron call each (`vercel.json`; `npm run scan -- --group=west`), each with a 200 s
+fetch budget inside the host's 300 s; the default group runs last. Every board is filtered to work a contractor could
+do (`src/sources/relevance.ts`), reads times on its own clock, and fails loudly when a page is not what it expects.
+Board by board (hosts, robots.txt, counts, fixtures): `docs/DATA-SOURCES.md` §7.
 
 Each source is one file in `src/sources/` with a pure `parse…()` function (unit-tested against real
-responses in `test/fixtures/` — the raw server HTML/JSON, captured Nov 13 2026; QuestCDN Nov 11) plus a
+responses in `test/fixtures/` — the raw server HTML/JSON, captured Nov 13 2026; QuestCDN Nov 11;
+the wave-2 boards Nov 14) plus a
 small `fetch()` wrapper. The SAM.gov bulk file (`src/sources/samgov-bulk.ts`) is parsed as it downloads
 (RFC 4180, each field decoded as UTF-8 or Windows-1252 on its own); `test/fixtures/samgov-bulk-sample.csv`
 holds 82 raw rows of the 2026-11-13 file. A download with under 20,000 rows (`SAM_BULK_MIN_ROWS`) is

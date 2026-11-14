@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
+import { getGroup, SCAN_GROUPS } from '../sources/groups.js';
 import { requireAdmin } from './shared.js';
 
 /**
@@ -8,10 +9,14 @@ import { requireAdmin } from './shared.js';
  * GET /api/admin/market/watch here: the market watcher's status, errors included.
  */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
-  app.post('/api/admin/scan', async (req, reply) => {
+  // ?group=<name> scans one scan group (src/sources/groups.ts); none = the default group.
+  app.post<{ Querystring: { group?: string } }>('/api/admin/scan', async (req, reply) => {
     if (!requireAdmin(ctx, req, reply)) return reply;
     if (!ctx.scan) return reply.code(501).send({ error: 'scan not configured' });
-    return ctx.scan();
+    const asked = typeof req.query.group === 'string' && req.query.group !== '' ? req.query.group : undefined;
+    const group = asked === undefined ? undefined : getGroup(asked);
+    if (group === null) return reply.code(400).send({ error: 'unknown_group', groups: SCAN_GROUPS.map((g) => g.name) });
+    return ctx.scan(group ? { group: group.name } : {});
   });
 
   // The price and award watcher: schedule, last run with its errors, next run. Operators only.

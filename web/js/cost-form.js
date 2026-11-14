@@ -12,6 +12,7 @@
 import { h, icon, ICONS } from './dom.js';
 import { dollarsText } from './format.js';
 import { field, moneyInput, nextId, textInput } from './form.js';
+import { OWNER_FROM_SOURCE } from './source-labels.js';
 
 // ------------------------------------------------------------- vocab --
 
@@ -42,8 +43,8 @@ const GL_BASIS = [
   { id: 'payroll', label: 'On payroll (% of wages)' },
 ];
 
-/** The bid's board says who the owner is, for two boards only; shown as "from the bid", always changeable. */
-const OWNER_FROM_SOURCE = { douglascounty: 'nv_local', samgov: 'federal' };
+// The bid's board says who the owner is, for some boards only (source-labels.js `owner`); shown as "from the
+// bid", always changeable.
 
 export const SECTIONS = [
   { id: 'labor', title: 'Labor and payroll', blurb: 'Workers’ comp, payroll taxes, more crews' },

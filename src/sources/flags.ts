@@ -27,6 +27,14 @@ export const FLAGS = {
 export const LOCAL_JOB_FLAG = 'Local job';
 
 /**
+ * The flag on a USAC E-Rate FCC Form 470 card (src/sources/usac470.ts): a school or library posting that it is taking
+ * quotes for E-Rate Category 2 work (cabling, wireless access points, installation). Not a sealed public-works bid:
+ * no public opening, the applicant picks the most cost-effective quote after a 28-day wait. Shown as an info line;
+ * it changes no score.
+ */
+export const ERATE_470_FLAG = 'E-Rate Form 470: quotes, not a sealed bid';
+
+/**
  * Requirement flags: what the notice (or the whole board) asks of a bidder. Written by src/util/flags.ts
  * (detectFlags, from notice text) and src/sources/questcdn.ts (the SPWD board); read by score.ts (the
  * paperwork answers) and src/market/prevailing.ts. One copy, so a reader never matches by a loose pattern.

@@ -15,7 +15,8 @@
  *   default   today's sources: SAM.gov bulk file (one ~222 MB download, 8.2 s live), NevadaEPro 1 page,
  *             NGEM ~3, QuestCDN 1 per board, Douglas County 1
  *   west      caleprocure 1 GET (1.18 MB) · caltrans 1–2 · laramp, sfbids a page or two (Socrata) ·
- *             oregonbuys 7 pages (174 bids / 25) · usac470 a few 1,000-row pages          ≈ 15–25 requests
+ *             oregonbuys 7 pages (174 bids / 25) · usac470 a few 1,000-row pages ·
+ *             civicplus 1 GET per site (2 hosts) · bidsandtenders 1 GET + 1 POST           ≈ 20–30 requests
  *   east      commbuys 36 pages (890 / 25) · bidbuy 6 (149) · njstart 1 (19) · nycrecord a page or two
  *                                                                                           ≈ 45 requests
  *   south     txesbd 21 POSTs (501 / 24) · flmfmp a few 100-row pages                       ≈ 25 requests

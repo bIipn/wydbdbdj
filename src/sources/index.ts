@@ -12,6 +12,8 @@ import { flmfmpSource } from './flmfmp.js';
 import { laRampSource } from './laramp.js';
 import { nycRecordSource } from './nycrecord.js';
 import { openGovSource } from './opengov.js';
+import { civicPlusSource } from './civicplus.js';
+import { bidsAndTendersSource } from './bidsandtenders.js';
 import { sfBidsSource } from './sfbids.js';
 import { txesbdSource } from './txesbd.js';
 import { usac470Source } from './usac470.js';
@@ -26,6 +28,8 @@ export const ALL_SOURCES: Source[] = [
   douglasCountySource, questcdnSource, ngemSource, nevadaEproSource, samgovSource,
   // Wave 2 (2026-11-14): state and city boards, in their own groups.
   caleprocureSource, caltransSource, laRampSource, sfBidsSource, oregonBuysSource, usac470Source,
+  civicPlusSource, // west: one GET per CivicPlus city site
+  bidsAndTendersSource, // west: one GET + one POST per bids&tenders agency (Placer County)
   // COMMBUYS last in its group: a group's sources run in this order and each gets a fair share of the time left
   // (runScan), so the last one inherits what the quick ones leave. Live 2026-11-14 it took 152.6 s for 36 pages.
   bidBuySource, njstartSource, nycRecordSource, commbuysSource,

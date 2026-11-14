@@ -168,3 +168,56 @@ describe('createHttp().session(): cookie jar', () => {
     expect(posts).toEqual([`application/x-www-form-urlencoded | ${ngemTarget(2)}`, `application/x-www-form-urlencoded | ${ngemTarget(3)}`]);
   });
 });
+
+describe('createHttp(): a request with crawlDelayMs (robots.txt Crawl-delay, the CivicPlus sites)', () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** Global fetch stubbed (no network): every request recorded with its time. */
+  function stub(reply: (n: number) => Response): { url: string; at: number; redirect: string | undefined }[] {
+    const out: { url: string; at: number; redirect: string | undefined }[] = [];
+    vi.stubGlobal('fetch', async (url: string, init: RequestInit = {}) => {
+      out.push({ url, at: Date.now(), redirect: init.redirect });
+      return reply(out.length);
+    });
+    return out;
+  }
+  const URL_A = 'https://www.example-city.test/Bids.aspx';
+
+  it('a 503 is not retried: ONE request, then the error', async () => {
+    const sent = stub(() => new Response('busy', { status: 503 }));
+    const http = createHttp({ userAgent: 'BidSwipe-test', perHostDelayMs: 0 }); // default retries: 2
+    await expect(http.text(URL_A, { crawlDelayMs: 10_000 })).rejects.toThrow('HTTP 503');
+    expect(sent).toHaveLength(1);
+    // the same answer without the option is retried twice (the default for every other host)
+    sent.length = 0;
+    const other = createHttp({ userAgent: 'BidSwipe-test', perHostDelayMs: 0, retries: 1 });
+    await expect(other.text('https://other.example/list')).rejects.toThrow('HTTP 503');
+    expect(sent).toHaveLength(2);
+  });
+
+  it('a network error is not retried either', async () => {
+    let n = 0;
+    vi.stubGlobal('fetch', async () => { n++; throw new TypeError('fetch failed'); });
+    await expect(createHttp({ userAgent: 'BidSwipe-test', perHostDelayMs: 0 }).text(URL_A, { crawlDelayMs: 10_000 })).rejects.toThrow();
+    expect(n).toBe(1);
+  });
+
+  it('a redirect is not followed: it fails, naming the status (Woodland\'s 301 was a move to another page)', async () => {
+    const sent = stub(() => new Response('', { status: 301, headers: { Location: '/1710/Bid-Opportunities' } }));
+    await expect(createHttp({ userAgent: 'BidSwipe-test', perHostDelayMs: 0 }).text(URL_A, { crawlDelayMs: 10_000 }))
+      .rejects.toThrow(/HTTP 301 .*a redirect, not followed/);
+    expect(sent).toHaveLength(1);
+    expect(sent[0]!.redirect).toBe('manual');
+  });
+
+  it('the next request to that host waits the whole delay, start to start; other hosts keep the 1 s pace', async () => {
+    const sent = stub(() => new Response('ok'));
+    const http = createHttp({ userAgent: 'BidSwipe-test', perHostDelayMs: 0 });
+    await http.text(URL_A, { crawlDelayMs: 400 });
+    await http.text('https://b.example/x');
+    await http.text(URL_A); // without the option: the host's delay still holds
+    expect(sent.map((s) => s.url)).toEqual([URL_A, 'https://b.example/x', URL_A]);
+    expect(sent[2]!.at - sent[0]!.at).toBeGreaterThanOrEqual(395);
+    expect(sent[1]!.at - sent[0]!.at).toBeLessThan(200);
+  });
+});

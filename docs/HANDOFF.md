@@ -441,6 +441,29 @@ client. The four boards added in this wave (NV State Parks, Lake County, Campbel
 NV Public Works board is on the same host and still runs: **the owner must decide** whether it stays (it is the
 pilot's SPWD feed) or goes. The BuySpeed vendor's file disallows only `/craft` (fine), and OpenGov has no robots file.
 
+**Local boards near Sacramento (2026-11-14, 18:05–18:25 UTC): `civicplus` and `bidsandtenders`, both in west.**
+- `civicplus` reads the CivicPlus "Bid Postings" module (`/Bids.aspx`) of Citrus Heights and Auburn (one line per site
+  in `CIVICPLUS_SITES`). Their robots.txt disallows /RSS.aspx, search and admin paths, not /Bids.aspx, and asks for
+  `Crawl-delay: 10`: one GET per site per scan, sent with `crawlDelayMs` (util/http.ts: one attempt, no retry, no
+  redirect followed, 10 s before the next request to that host). A group called just "Professional Services" is left
+  out whatever its words (all 47 real Citrus Heights rows in it are consultants, programs or vendors).
+- `bidsandtenders` reads Placer County's bids&tenders site the way its own page does: GET the list page (NodeId and
+  anti-forgery token), then POST its Tender/Search JSON call through the same cookie session, never retried. robots.txt
+  disallows the API, login, vendor and document paths, not the list, Tender/Search or Tender/Detail. `/Date(ms)/` is
+  the Pacific wall clock written on the server's Eastern clock, so the shown time is read. A card is placed at the one
+  Placer town its text names (the ZIP table's point), else it is the area "Placer County, CA (site not named)".
+- Live, once each: "civicplus Citrus Heights: 2 listed, 0 kept, 2 left out as not trade work" (two consulting RFPs),
+  "civicplus Auburn: 0 listed (no open bid postings)", "bidsandtenders Placer County: 0 of 0 listed" (473 postings in
+  all, the latest closed 2026-11-03). **No open trade bid on either board today.**
+- Checked and out: Folsom, Tracy, Davis and Amador County (403 from Akamai on robots.txt itself), Tuolumne County
+  (Cloudflare challenge), Woodland (its list is a Public Purchase iframe), PlanetBids (AWS WAF challenge; the old
+  pbsystem host is retired).
+- **Owner's call (first load):** a source's first load is "no stored bid of that source and state". Both stored 0
+  today, so the scan that finds the FIRST real Citrus Heights, Auburn or Placer bid stores it quietly (no alert, no
+  digest) even when it is a great fit; only later bids alert. Either accept that, or count a source as known once it
+  has run cleanly. Adding a site or agency in a state that already has a stored bid of that source is NOT a first load:
+  run that first scan with `--quiet` (the comments beside both lists say so).
+
 ### Looked at, not built yet (next sources, in order of value for L&M)
 1. **Douglas County School District** — posts bid docs on its website + legal ads in The Record-Courier
    (recordcourier.com "Douglas County legal"). Recent: "LED Conversion Project", "Generator

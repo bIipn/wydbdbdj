@@ -423,3 +423,36 @@ describe('isTradeWork: on-call services, IT upkeep, audits, goods and sales that
     expect(isTradeWork({ title, board: 'questcdn' }).keep).toBe(true);
   });
 });
+
+describe('isTradeWork: Citrus Heights (CivicPlus) and Placer County (bids&tenders) rows (review, 2026-11-14)', () => {
+  it('a Pavement Management SYSTEM is the consultant\'s product; a pavement management PROGRAM of paving is kept', () => {
+    // real, Citrus Heights bidID 234 (Open on 2026-11-14)
+    expect(isTradeWork({ board: 'civicplus', title: '2026/2027 Pavement Management System RFP' }))
+      .toEqual({ keep: false, why: 'not contractor work: pavement management system' });
+    // TEST titles in the shape cities give their paving contracts: the shared rule must not drop them on any board
+    for (const title of ['Pavement Management Program 2026 Slurry Seal Project (TEST)', 'FY26 Pavement Management Program - Asphalt Overlay Construction (TEST)']) {
+      expect(isTradeWork({ board: 'opengov', title }).keep).toBe(true);
+    }
+  });
+
+  it('an assessment DISTRICT pays for the work; it is not a study (real Placer row 20692)', () => {
+    expect(isTradeWork({ board: 'bidsandtenders', title: 'Snow Removal Services for Kings Beach Benefit Assessment District' }).keep).toBe(true);
+    // the word alone still means a study
+    expect(isTradeWork({ board: 'bidsandtenders', title: 'Facility Condition Assessment' }).keep).toBe(false);
+  });
+
+  it.each([
+    'Preparation of Environmental Impact Reports (EIR)', // 20684: an SOQ from consultants
+    'Foresthill Divide Community Protection Project Environmental Compliance Project', // 20676: planning and compliance services
+    'Managed Security Operations Center', // 20673: cyber SOC services for the IT department
+  ])('drops the real Placer row "%s"', (title) => {
+    expect(isTradeWork({ board: 'bidsandtenders', title }).keep).toBe(false);
+  });
+
+  it('the real Placer construction rows stay', () => {
+    for (const title of ['Olympic Valley Road Snow Removal', 'Stratford Downs Wall Repair', 'Annual Asbestos and Lead Paint Abatement',
+      'Installation of Asphalt Roadways on behalf of Roseville Public Cemetery District']) {
+      expect(isTradeWork({ board: 'bidsandtenders', title }).keep).toBe(true);
+    }
+  });
+});

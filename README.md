@@ -32,6 +32,8 @@ sources ──► normalize + locate ──► score per contractor ──► Po
 | `sfbids` | west | San Francisco: every City department | Socrata open data (data.sf.gov) |
 | `oregonbuys` | west | Oregon state agencies, counties, cities | BuySpeed, paged |
 | `usac470` | west | E-Rate FCC Form 470: schools and libraries taking quotes for cabling / installed Wi-Fi (NOT a sealed bid: own flag) | Socrata open data (opendata.usac.org), nationwide |
+| `civicplus` | west | City sites on the CivicPlus "Bid Postings" module: Citrus Heights and Auburn, CA (one line per site in `CIVICPLUS_SITES`) | public HTML list (/Bids.aspx), one GET per site |
+| `bidsandtenders` | west | Agencies on the bids&tenders platform: Placer County, CA (one line per agency in `BIDSANDTENDERS_AGENCIES`) | the list page's own JSON call: one GET of the list page (token + NodeId), then a POST per 100 open rows, one cookie session |
 | `caltrans` | west | Caltrans advertised projects | **off**: robots.txt `Disallow: /`, and the page is a script shell |
 | `commbuys` | east | Massachusetts state agencies, towns, housing authorities | BuySpeed, paged (≈36 pages, slow board) |
 | `bidbuy` | east | Illinois state agencies (Tollway, DNR, CMS…) | BuySpeed, paged |

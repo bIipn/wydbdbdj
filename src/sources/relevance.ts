@@ -162,6 +162,12 @@ const DESIGN_IT = compileKeywords([
   'plan review', 'plan check', 'special inspection*', 'materials testing', 'consulting', 'consultant*', 'advisory',
   'feasibility', 'study', 'studies', 'assessment', 'assmt', 'appraisal', 'master plan', 'master planning',
   'technical assistance', 'on-call professional', 'on call engineering', 'on-call engineering', 'designer*',
+  // Citrus Heights (CivicPlus, 2026-11-14): "… Phase 1B - RFP for CM Services", "2026/2027 Pavement Management System RFP"
+  // (the SYSTEM is the consultant's product; a "Pavement Management Program … Slurry Seal" is paving and stays)
+  'cm services', 'pavement management system*',
+  // Placer County (bids&tenders, 2026-11-14): "Preparation of Environmental Impact Reports (EIR)", "Foresthill Divide
+  // Community Protection Project Environmental Compliance Project" (planning and compliance services)
+  'environmental impact report*', 'environmental compliance',
   // audits are advice, whatever they audit ("MMIS Controls Audit", Cal eProcure 2026-11-14: "controls" is a trade word)
   'audit', 'audits', 'auditing',
 ]);
@@ -177,6 +183,8 @@ const IT = compileKeywords([
   'web based', 'website', 'online', 'erp', 'database*', 'point of sale', 'digital certificate', 'registration system',
   // "Palo Alto Firewall & Panorama Maintenance Renewal", "Cloud-Hosted Phone System (UCaaS)" (2026-11-14)
   'firewall*', 'ucaas', 'cloud-hosted', 'cloud hosted', 'iru', 'dark fiber',
+  // Placer County (bids&tenders, 2026-11-14): "Managed Security Operations Center" (cyber SOC services)
+  'security operations center*', 'security operations centre*',
 ]);
 
 /** Building work strong enough to beat a NEVER_CONTRACTOR phrase that names the place, not the job. */
@@ -334,8 +342,10 @@ export function isTradeWork(input: TradeWorkInput): TradeWorkAnswer {
   const caltrans = board === 'caleprocure' ? CALTRANS_CONTRACT.exec(input.sourceId ?? '') : null;
   if (caltrans) return { keep: true, why: `Caltrans construction contract (district ${Number(caltrans[1])})` };
 
-  // 1. Design, advice, IT.
-  const design = DESIGN_IT.test(title);
+  // 1. Design, advice, IT. An assessment DISTRICT is how the work is paid for, not a study ("Snow Removal Services for
+  // Kings Beach Benefit Assessment District", Placer County 2026-11-14; California's "Landscaping and Lighting
+  // Assessment District" maintenance contracts).
+  const design = DESIGN_IT.test(title.replace(/\bassessment\s+district(s?)\b/gi, 'district$1'));
   // An audit that comes with the work it finds stays ("Energy Audit and Lighting Retrofit Installation").
   const auditWithWork = /^audit/.test(design ?? '') && STRONG_WORK.test(title);
   if (design && !auditWithWork && !(design === 'construction management' && CM_AT_RISK.test(title))) {

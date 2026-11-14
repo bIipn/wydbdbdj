@@ -1,4 +1,4 @@
-import type { FetchLike } from '../types.js';
+import type { FetchLike, RequestOptions } from '../types.js';
 
 export class HttpError extends Error {
   constructor(
@@ -102,21 +102,30 @@ export function createHttp(opts: HttpOptions): Http {
   // opendata.usac.org) ask for "Crawl-delay: 1" in robots.txt, so every host gets at least that.
   const gap = opts.perHostDelayMs ?? 1000;
   const lastHit = new Map<string, number>();
+  // Hosts whose robots.txt asks for more (a request's crawlDelayMs): kept for the life of the client.
+  const hostGap = new Map<string, number>();
 
   async function pace(url: string) {
     const host = new URL(url).host;
-    const wait = (lastHit.get(host) ?? 0) + gap - Date.now();
+    const wait = (lastHit.get(host) ?? 0) + Math.max(gap, hostGap.get(host) ?? 0) - Date.now();
     if (wait > 0) await sleep(wait);
     lastHit.set(host, Date.now());
   }
 
   /** jar = null for the plain helper, a session's jar otherwise. */
-  async function text(jar: CookieJar | null, url: string, init: RequestInit = {}): Promise<string> {
+  async function text(jar: CookieJar | null, url: string, options: RequestOptions = {}): Promise<string> {
+    const { crawlDelayMs, ...init } = options;
+    // A Crawl-delay host: one attempt, no redirect followed, and the host's gap from now on (RequestOptions).
+    const polite = crawlDelayMs != null && crawlDelayMs > 0;
+    if (polite) {
+      const host = new URL(url).host;
+      hostGap.set(host, Math.max(hostGap.get(host) ?? 0, crawlDelayMs));
+    }
     // Only GET and HEAD are safe to repeat. Anything else (a form postback) gets ONE attempt: after a
     // timeout or a 5xx we cannot know whether the server acted on it, and a replayed form with stale
     // state is one more error on their side.
     const method = (init.method ?? 'GET').toUpperCase();
-    const attempts = method === 'GET' || method === 'HEAD' ? retries + 1 : 1;
+    const attempts = !polite && (method === 'GET' || method === 'HEAD') ? retries + 1 : 1;
     let lastErr: unknown;
     for (let attempt = 0; attempt < attempts; attempt++) {
       if (attempt > 0) await sleep(1000 * 3 ** (attempt - 1)); // 1s, 3s
@@ -140,8 +149,12 @@ export function createHttp(opts: HttpOptions): Http {
               ...(hopInit.headers ?? {}),
             },
             signal,
-            redirect: jar ? 'manual' : 'follow',
+            redirect: jar || polite ? 'manual' : 'follow',
           });
+          if (polite && REDIRECTS.has(res.status)) {
+            await res.body?.cancel();
+            throw new HttpError(res.status, url, `HTTP ${res.status} for ${redactUrl(url)}: a redirect, not followed (the host asks for ${crawlDelayMs / 1000} s between requests)`);
+          }
           // The plain helper only sees the last answer; a session sees every hop. Cookies go to the host that set them.
           if (jar) storeCookies(jar, originOf(res.url || at), res.headers.getSetCookie());
           const location = jar && REDIRECTS.has(res.status) ? res.headers.get('location') : null;
@@ -171,7 +184,7 @@ export function createHttp(opts: HttpOptions): Http {
     throw scrub(lastErr, url);
   }
 
-  async function json<T>(jar: CookieJar | null, url: string, init: RequestInit = {}): Promise<T> {
+  async function json<T>(jar: CookieJar | null, url: string, init: RequestOptions = {}): Promise<T> {
     const body = await text(jar, url, { ...init, headers: { Accept: 'application/json', ...(init.headers ?? {}) } });
     try {
       return JSON.parse(body) as T;
@@ -226,7 +239,7 @@ export function createHttp(opts: HttpOptions): Http {
 
   const client = (jar: CookieJar | null): Http => ({
     text: (url, init) => text(jar, url, init),
-    json: <T>(url: string, init?: RequestInit) => json<T>(jar, url, init),
+    json: <T>(url: string, init?: RequestOptions) => json<T>(jar, url, init),
     stream,
     session: () => client(new Map()),
     ...(jar ? { cookieNames: (url: string) => [...(jar.get(originOf(url))?.keys() ?? [])] } : {}),

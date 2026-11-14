@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,290 tests in 90 files as of 2026-11-14, ~110s; simulate.test.ts ~25s,
+npm test                   # vitest (~2,340 tests in 92 files as of 2026-11-14, ~85s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -77,6 +77,13 @@ src/sources/buyspeed.ts the Periscope BuySpeed boards (nevadaepro, oregonbuys, c
                    PrimeFaces partial-POST paging through one session, never retried
 src/sources/caleprocure.ts opengov.ts txesbd.ts flmfmp.ts laramp.ts sfbids.ts nycrecord.ts usac470.ts caltrans.ts
                    one per board (docs/DATA-SOURCES.md §7); txesbd and caltrans are OFF (robots.txt Disallow: /)
+src/sources/civicplus.ts  the CivicPlus "Bid Postings" module (/Bids.aspx): ONE reader, a site list (CIVICPLUS_SITES:
+                   Citrus Heights, Auburn); one GET per site with crawlDelayMs (robots.txt Crawl-delay: 10: no retry, no
+                   redirect, 10 s per host; never /RSS.aspx); the empty sentence is a real 0; a "Professional Services" group is out
+src/sources/bidsandtenders.ts  the bids&tenders platform (BIDSANDTENDERS_AGENCIES: Placer County): GET the list page
+                   (NodeId + token), POST its Tender/Search JSON call through the same session, never retried; /Date(ms)/
+                   is Pacific wall clock on an Eastern server clock, so the shown time is read; a county card → the one
+                   town of the agency's `towns` its text names (ZIP-table point) or the county AREA
 src/sources/samgov-bulk.ts SAM.gov's public daily CSV (~222 MB): streaming RFC 4180 parser, per-field UTF-8 /
                    Windows-1252 decode, same samDraft() as the API path; drops stale no-deadline notices,
                    fills a zoneless deadline from a sibling notice (else flags it); <20,000 rows = cut off
@@ -241,6 +248,8 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   closedate is a floating timestamp that holds UTC · sfbids Pacific · nycrecord New York · usac470: only a due date
   its own text names, in the applicant's state zone (STATE_ZONE); the allowable contract date is NOT a deadline.
 - Requests are paced 1,000 ms per host, start to start (util/http.ts): the Socrata hosts ask for Crawl-delay: 1.
+  A host that asks for more (CivicPlus: Crawl-delay: 10) gets its request with `crawlDelayMs`: ONE attempt, no retry,
+  no redirect followed, and that gap before its next request.
 - robots.txt `Disallow: /` on www.txsmartbuy.gov (txesbd) and ppmoe.dot.ca.gov (caltrans): both sources are OFF
   (`disabledReason`); turning one on is the owner's call, never a workaround. www.questcdn.com says the same (the
   boards' host redirects its robots.txt there): four added boards are OFF (`QUEST_BOARDS_OFF`), and the pilot's NV

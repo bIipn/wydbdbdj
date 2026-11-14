@@ -8,7 +8,11 @@ export type SourceId =
   | 'samgov' | 'nevadaepro' | 'ngem' | 'questcdn' | 'douglascounty' | 'local'
   // Wave 2 (2026-11-14): state and local boards beyond Nevada.
   | 'caleprocure' | 'opengov' | 'caltrans' | 'oregonbuys' | 'commbuys' | 'bidbuy' | 'njstart' | 'txesbd'
-  | 'flmfmp' | 'laramp' | 'sfbids' | 'nycrecord' | 'usac470';
+  | 'flmfmp' | 'laramp' | 'sfbids' | 'nycrecord' | 'usac470'
+  // City sites on the CivicPlus "Bid Postings" module (src/sources/civicplus.ts).
+  | 'civicplus'
+  // Agencies on the bids&tenders platform (src/sources/bidsandtenders.ts).
+  | 'bidsandtenders';
 
 export type LocationPrecision = 'exact' | 'city' | 'county' | 'region' | 'agency' | 'state' | 'unknown';
 
@@ -52,9 +56,19 @@ export type BidDraft = Omit<Bid, 'id' | 'location' | 'flags'> & {
   flags?: string[];
 };
 
+/** fetch()'s options, plus what the scanner's own client (util/http.ts) understands. */
+export interface RequestOptions extends RequestInit {
+  /**
+   * The host's robots.txt Crawl-delay, in ms (CivicPlus sites ask for 10 s). The request then gets ONE attempt (no
+   * retry after a 429, a 5xx or a network error), a redirect is not followed (it fails, naming the status), and no
+   * later request to that host starts sooner than this after the last one.
+   */
+  crawlDelayMs?: number;
+}
+
 export interface FetchLike {
-  text(url: string, init?: RequestInit): Promise<string>;
-  json<T = unknown>(url: string, init?: RequestInit): Promise<T>;
+  text(url: string, init?: RequestOptions): Promise<string>;
+  json<T = unknown>(url: string, init?: RequestOptions): Promise<T>;
   /**
    * Opt-in: a new cookie session for boards that page by form postback. Same pacing, timeout and
    * User-Agent; cookies from Set-Cookie are kept in memory and sent back only to the host that set

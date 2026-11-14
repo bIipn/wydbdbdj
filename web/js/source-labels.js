@@ -25,6 +25,8 @@ export const SOURCE_LABELS = [
   { id: 'txesbd', label: 'Texas ESBD', state: 'TX' },
   { id: 'flmfmp', label: 'MyFloridaMarketPlace', state: 'FL' },
   { id: 'usac470', label: 'E-Rate Form 470', state: 'US' },
+  { id: 'civicplus', label: 'CivicPlus cities', state: 'CA', owner: 'ca_local' },
+  { id: 'bidsandtenders', label: 'Placer County', state: 'CA', owner: 'ca_local' },
 ];
 
 /** The cost check's "owner from the bid" prefill, by board (only boards whose owner is always the same kind). */

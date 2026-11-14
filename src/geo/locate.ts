@@ -1,7 +1,7 @@
 import { FLAGS } from '../sources/flags.js';
 import { statesInText } from '../sources/samgov.js';
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
-import { placeCaleprocure } from './caleprocure-place.js';
+import { countyLoc, placeCaleprocure } from './caleprocure-place.js';
 import { caCounty } from './california.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
 import { lookupCity, lookupZip } from './zip.js';
@@ -102,6 +102,12 @@ export function locate(
       };
     }
     return office;
+  }
+  // A county's own board (bids&tenders, src/sources/bidsandtenders.ts): a town of that county named in the text, else
+  // the one-county AREA with no point, never the seat's point ("Places and areas" in CLAUDE.md).
+  if (draft.source === 'bidsandtenders') {
+    const loc = locateGiven(draft, false);
+    return loc.precision === 'county' && !loc.city && loc.state === 'CA' && loc.county ? countyLoc(loc.county) : loc;
   }
   return locateGiven(draft, false);
 }

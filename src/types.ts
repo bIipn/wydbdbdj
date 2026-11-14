@@ -1,5 +1,6 @@
 /** Every place we pull bids from. */
-export type SourceId = 'samgov' | 'nevadaepro' | 'ngem' | 'questcdn' | 'douglascounty';
+/** 'local' = a job someone posted on BidSwipe itself (src/jobs); every other id is a public bid board. */
+export type SourceId = 'samgov' | 'nevadaepro' | 'ngem' | 'questcdn' | 'douglascounty' | 'local';
 
 export type LocationPrecision = 'exact' | 'city' | 'county' | 'region' | 'agency' | 'state' | 'unknown';
 

@@ -20,9 +20,11 @@ import { register as authRoutes } from './routes/auth.js';
 import { register as cronRoutes } from './routes/cron.js';
 import { register as estimateRoutes } from './routes/estimate.js';
 import { register as feedRoutes } from './routes/feed.js';
+import { register as jobsRoutes } from './routes/jobs.js';
 import { register as marketRoutes } from './routes/market.js';
 import { register as profileRoutes } from './routes/profile.js';
 import { register as realtimeRoutes } from './routes/realtime.js';
+import { register as workRoutes } from './routes/work.js';
 import { safeEqual } from './routes/shared.js';
 import { runScan, type ScanReport } from './scan.js';
 import { scheduleDaily } from './scheduler.js';
@@ -110,7 +112,7 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
   });
 
   // One plugin per area; each file has exactly one owner.
-  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes, cronRoutes]) {
+  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes, cronRoutes, workRoutes, jobsRoutes]) {
     await routes(app, ctx);
   }
 

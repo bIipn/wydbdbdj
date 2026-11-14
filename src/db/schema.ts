@@ -1,4 +1,6 @@
+import { JOBS_SCHEMA_SQL } from './schema-jobs.js';
 import { PROMO_SCHEMA_SQL } from './schema-promo.js';
+import { WORK_SCHEMA_SQL } from './schema-work.js';
 
 /**
  * Plain Postgres. Runs as-is on embedded PGlite (local/dev/tests) and on Supabase.
@@ -218,4 +220,6 @@ alter table market_series add column if not exists preliminary boolean not null 
 alter table market_series_meta add column if not exists status text not null default 'ok';
 alter table market_series_meta add column if not exists note text;
 ${PROMO_SCHEMA_SQL}
+${WORK_SCHEMA_SQL}
+${JOBS_SCHEMA_SQL}
 `;

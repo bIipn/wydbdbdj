@@ -219,13 +219,6 @@ export function corroboratedTown(input: CaleprocureInput, named: CountiesNamed, 
     if (town) return cityLoc(town, null, `${town.city} DMV`);
   }
 
-  // A state facility whose town is certain.
-  for (const f of CA_FACILITIES) {
-    if (!f.town || !f.re.test(title) || (f.agency && !f.agency.test(agency ?? ''))) continue;
-    const town = lookupCity(f.town, 'CA');
-    if (town) return cityLoc(town, null, f.note, 'agency');
-  }
-
   // A department's office in a town: "CHP Madera …", "CHP Santa Cruz Area Office", "… Rail Authority Bakersfield Office".
   if (/highway patrol/i.test(agency ?? '')) {
     for (const m of title.matchAll(/\bCHP\s+/g)) {
@@ -266,6 +259,13 @@ export function corroboratedTown(input: CaleprocureInput, named: CountiesNamed, 
       const county = district.counties.find((c) => townInCounty(town, c));
       if (county) return cityLoc(town, county);
     }
+  }
+
+  // A state facility whose town is certain ("Fire Alarm Replacement at the California State Prison, Solano").
+  for (const f of CA_FACILITIES) {
+    if (!f.town || !f.re.test(title) || (f.agency && !f.agency.test(agency ?? ''))) continue;
+    const town = lookupCity(f.town, 'CA');
+    if (town) return cityLoc(town, null, f.note, 'agency');
   }
   return null;
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isTradeWork, keepTradeWork, type TradeWorkInput } from '../src/sources/relevance.js';
+import { isTradeWork, keepTradeWork, matchText, type TradeWorkInput } from '../src/sources/relevance.js';
 
 /**
  * isTradeWork on REAL listings: every title below is copied verbatim from the first responses of the new boards
@@ -269,5 +269,138 @@ describe('isTradeWork: real titles the first live runs kept as "unclear" (2026-1
   it('elevator and conveyance maintenance is kept under SF\'s "Personal Services" category', () => {
     expect(isTradeWork({ title: 'As-Needed Airport Conveyance Maintenance', category: 'Personal Services' }).keep).toBe(true);
     expect(isTradeWork({ title: 'Florida State Hospital Elevator Maintenance and Repair' }).keep).toBe(true);
+  });
+});
+
+/**
+ * The trade-work round (2026-11-14): purchases, design, IT and each board's policy for unclear rows, on REAL rows of
+ * the live test scan of that day (every title verbatim, with the board it came from and the fields its source passes).
+ */
+describe('isTradeWork: purchases, design and IT are not trade work (live scan rows, 2026-11-14)', () => {
+  const ca = (title: string, sourceId = '0000-X'): TradeWorkInput => ({ board: 'caleprocure', sourceId, title, category: 'State solicitation' });
+  const og = (title: string): TradeWorkInput => ({ board: 'opengov', title });
+  const ma = (title: string): TradeWorkInput => ({ board: 'commbuys', title });
+
+  it.each<[string, TradeWorkInput]>([
+    // goods named, no work on them
+    ['opengov', og('Traffic Signal Parts')],
+    ['opengov', og('HVAC and Refrigeration Parts')],
+    ['opengov', og('DISTRIBUTION TRANSFORMERS')],
+    ['opengov', og('Conventional Pole Mount Transformers')],
+    ['opengov', og('HVAC Filters')],
+    ['opengov', og('Electrical Supplies')],
+    ['opengov', og('Automotive Replacement Parts, One Hour Delivery')],
+    ['opengov', og('REBID Purchase and Delivery of Ready-Mix Concrete & CLSM - HWY')],
+    ['caleprocure', ca('1PA5A008833.02 HUU Diesel Generator Set')],
+    ['caleprocure', ca('HSR26-28 Invitation for Bids for Copper Conductors')],
+    ['caleprocure', ca('Asphalt Concrete Plant Mix, Delivered')],
+    ['caleprocure', ca('Thermoplastic Traffic Striping Material and Paint, Waterborne Traffic Line')],
+    ['caleprocure', ca('IFB #R006316 Narrow-Aisle Reach Truck, Sit-Down Rider Truck, and Rider Pallet Truck Forklifts with Lithium-Ion Battery Chargers')],
+    ['caleprocure', ca('Plastic Trash Bags')],
+    ['caleprocure', ca('Tuna, Canned & Pouched')],
+    ['flmfmp', { board: 'flmfmp', title: 'FDOT Purchase of New Skid-Mounted Sewer Jetter', category: 'Invitation to Bid' }],
+    ['sfbids', { board: 'sfbids', title: 'Trailer-Mounted Sewer Jetter', category: 'Personal Services' }],
+    ['commbuys', ma('DCR 903 Roadway Patch Materials')],
+    // rentals
+    ['caleprocure', ca('IFB 7CA08060 - Portable Restroom and Handwash Station Rental Services')],
+    ['caleprocure', ca('IFB 10222899 - Crane Rental with Operator Services')],
+    ['caleprocure', ca('Light and Medium Equipment Rental Services')],
+    // design, management, estimates, studies
+    ['caleprocure', ca('CR25-302073.FMD.A&E Electrical Retainer')],
+    ['caleprocure', ca('CR25-302477.FMD.A&ERetainer')],
+    ['caleprocure', ca('RESD-PMDB 2026-13 CONSTRUCTION MANAGEMENT SERVICES-POTRERO FIRE STATION ¿ FACILITY REPLACEMENT')],
+    ['caleprocure', ca('Progressive Design-Build Independent Cost Estimator Services for the Kane Spring Project')],
+    ['caleprocure', ca('RFQ for Design Professional Services - Capital Infrastructure Projects')],
+    ['caleprocure', ca('RFQ 26-27018 Fire & Life Safety Plan Review Services')],
+    ['opengov', og('Architectural and Engineering (A&E) Services for a Recreation Center Lighting Upgrade')],
+    ['opengov', og('RFQ# RS-27-05 Construction Engineering and Inspection Services for Orange Drive (SW 92 Avenue to SW 94 Avenue)')],
+    ['sfbids', { board: 'sfbids', title: 'TM3 – NextGen Power & Fiber Backbone Assmt', category: 'Personal Services' }],
+    // IT and cyber
+    ['laramp', { board: 'laramp', title: 'RFQ - Procurement of Cyber Assets/Services Supporting the Bulk Electric System', category: 'Personal Services' }],
+    ['caleprocure', ca('Homeless Data Integration System - Maintenance and Operations (HDIS - M&O)')],
+    ['laramp', { board: 'laramp', title: 'Department of Recreation and Parks Online Activities Registration System', category: 'Personal Services' }],
+    // services whose titles carry trade words
+    ['caleprocure', ca('IFB C26554005 - Street Sweeping Services (Oceano Dunes District)')],
+    ['caleprocure', ca('C26635009 - Rodent Pest Control Services for Grizzly Creek Redwoods State Park')],
+    ['caleprocure', ca('C26635024 - Helicopter transport services for Panther Gap in Humboldt Redwoods State Park')],
+    ['caleprocure', ca('IFB Hazardous Waste Disposal Services in Monterey, San Benito, San Luis Obispo, Santa Barbara, and Santa Cruz Counties', '2660-05A3054')],
+    ['caleprocure', ca('IFB Small Engine Repair Services, Orange County', '2660-12A2409')],
+    ['nycrecord', { board: 'nycrecord', title: 'Queensboro Bridge Ramps Transfer of Development Rights', category: 'Goods and Services' }],
+  ])('%s drops %s', (_board, input) => {
+    const answer = isTradeWork(input);
+    expect(answer.keep, answer.why).toBe(false);
+  });
+
+  it.each<[string, TradeWorkInput]>([
+    // work on goods stays
+    ['caleprocure', ca('C5613752-D - Steam Boiler System Installation and Rental Services')],
+    ['caleprocure', ca('SP06062606 Refrigeration Equipment M&R')],
+    ['commbuys', ma('Installation and Services of 2 Uninterrupted Power Supply Units, RFP 130-26')],
+    ['bidbuy', { board: 'bidbuy', title: 'DMH Small Purchase CMHC Thermal Insulation REBID' }],
+    ['opengov', og('FURNISHING, DELIVERY, PLANTING, AND CARING OF TREES AT SPRING LAKE PARK')],
+    ['opengov', og('Generator Services')],
+    // building or repairing at a place named for a service
+    ['opengov', og('Escambia County Waste Services Transfer Station Floor Rehabilitation')],
+    ['opengov', og('Design and Construction of Power Distribution Center at the County Solid Waste Disposal Complex - Design-Build')],
+    ['opengov', og('FIRE STATION 13 TRAINING TOWER REPAIR (CIP2303)')],
+    ['oregonbuys', { board: 'oregonbuys', title: '27-2005 Design/Build Temporary Cyber Site' }],
+    // contractors, not advisers
+    ['nycrecord', { board: 'nycrecord', title: '85027I0001-PV291-QM2, Construction Management - Build Services for Queens Museum Renovation', category: 'Construction Related Services' }],
+    ['oregonbuys', { board: 'oregonbuys', title: 'ODVA Roseburg Veterans Home CM/GC' }],
+    ['opengov', og('Professional Construction Management/General Contracting Services for the Volusia County Branch Jail')],
+    // run-together words split (Cal eProcure, Department of General Services)
+    ['caleprocure', ca('25-316173.FMD.BASMaintenance')],
+    ['caleprocure', ca('Project11679.FleetOPSReroof.Contract25-338697')],
+    ['caleprocure', ca('Project2765.OxnardFieldOfficeRenovation.CR26-342343')],
+    ['caleprocure', ca('CR25-319742.FMD.DataCenterEmergencyGenerator')],
+    // terse real jobs the unclear rule would otherwise lose
+    ['caleprocure', ca('SB Minor B - 11A4467 - Imperial County', '2660-11A4467')],
+    ['caleprocure', ca('SB Minor B 10A2976 - Replace Roadway Weather Information Systems (RWIS) System - San Joaquin County', '2660-10A2976')],
+    ['caleprocure', ca('PW2602 University Library (UL) Egress Stair')],
+    ['caleprocure', ca('Project 13751. FTB EVSE. Contract 26-340236')],
+    ['commbuys', ma('2027 Tree Work: Line Clearing and Tree Removals')],
+    ['commbuys', ma('Route 3A Force Main Extension Project')],
+    ['commbuys', ma('IIFB 2026-27 UNITS MODERNIZATION EOHLC #160124')],
+    ['commbuys', ma('Mold Remediation at the Town Hall')],
+    ['commbuys', ma('612089 DUDLEY SOUTHBRIDGE FAP No. NHP(NHS)-004S(028)X Resurfacing and Related Work on Route 131')],
+    ['bidbuy', { board: 'bidbuy', title: 'Emergency Notice-UPS Elect Rep G1306 DuQuoin' }],
+    ['bidbuy', { board: 'bidbuy', title: 'FY27 DMH IFB CRMHC Campus Roadwork' }],
+    ['bidbuy', { board: 'bidbuy', title: 'DMH IFB CMHC Closet Doors' }],
+    ['oregonbuys', { board: 'oregonbuys', title: 'NW 26th & 101 RRFB' }],
+    ['oregonbuys', { board: 'oregonbuys', title: 'CCCF Fire Panel Upgrade' }],
+    ['opengov', og('2657ITB - LPGA Boulevard & Jimmy Ann Drive Intersection')],
+    ['opengov', og('Informal Bid CUPCCAA 2027-07 San Bernardino High School Baseball and Softball Bleachers')],
+  ])('%s keeps %s', (_board, input) => {
+    const answer = isTradeWork(input);
+    expect(answer.keep, answer.why).toBe(true);
+  });
+
+  it('every Caltrans construction contract is kept by its event id, however terse its name', () => {
+    expect(isTradeWork(ca('Structural Conc, bar Reinf steel, Str Exc, and partially grouted RSP.', '2660-08-1L8004')))
+      .toEqual({ keep: true, why: 'Caltrans construction contract (district 8)' });
+    expect(isTradeWork(ca('Cold plane AC Pvmt, RHMA-G, replace AC Surf, and minor Conc.', '2660-08-1L0904')).keep).toBe(true);
+    // a district SERVICE contract ("05A3057") goes through the words
+    expect(isTradeWork(ca('Scrap Metal Recycling Services in Monterey, Santa Cruz, and San Benito Counties', '2660-05A3057')).keep).toBe(false);
+    // the id rule is Cal eProcure's only
+    expect(isTradeWork({ title: 'Structural Conc, bar Reinf steel, Str Exc, and partially grouted RSP.', sourceId: '2660-08-1L8004' }).keep).toBe(true); // unclear: kept
+    expect(isTradeWork({ board: 'commbuys', title: 'Structural Conc, bar Reinf steel, Str Exc, and partially grouted RSP.', sourceId: '2660-08-1L8004' }).keep).toBe(false);
+  });
+
+  it('a statewide purchasing list drops what stays unclear; boards without the policy keep it', () => {
+    expect(isTradeWork(ca('27-30502-000'))).toEqual({ keep: false, why: 'unclear: dropped (caleprocure lists everything it buys)' });
+    expect(isTradeWork(ma('RFR 257030 Certified Oncology Data Specialist')).keep).toBe(false);
+    expect(isTradeWork({ board: 'oregonbuys', title: 'Rice White Parboiled' }).keep).toBe(false);
+    expect(isTradeWork(og('Bank Depository Services')).keep).toBe(false);
+    // kept where the board's own gate or codes decide (Texas ESBD, QuestCDN, E-Rate) and with no board at all
+    expect(isTradeWork({ board: 'txesbd', title: 'Cathodic Inspection Services' })).toEqual({ keep: true, why: 'unclear: kept' });
+    expect(isTradeWork({ board: 'questcdn', title: 'RFQ 26-0041' }).keep).toBe(true);
+    expect(isTradeWork({ title: 'RFQ 26-0041' }).keep).toBe(true);
+  });
+
+  it('matchText splits run-together words for matching only', () => {
+    expect(matchText('25-287580.FMD.RollUpDoorMaintenance')).toBe('25-287580.FMD Roll Up Door Maintenance');
+    expect(matchText('CR25-302477.FMD.A&ERetainer')).toBe('CR25-302477.FMD A&E Retainer');
+    expect(matchText('DISTRIBUTION TRANSFORMERS')).toBe('DISTRIBUTION TRANSFORMERS');
+    expect(matchText('Traffic Signal Parts')).toBe('Traffic Signal Parts');
   });
 });

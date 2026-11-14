@@ -188,7 +188,14 @@ describe('a place we cannot measure earns no distance points and never alerts', 
     const s = scoreBid(MOFFETT, pilot, SCAN);
     expect(s.reasons).toContainEqual({ kind: 'minus', text: 'Location could not be placed (“Moffett ANGB, Santa Clara County, California”) — check the distance' });
     const home = scoreBid({ ...MOFFETT, location: { ...MOFFETT.location, label: null, state: 'NV' } }, pilot, SCAN); // variant: a NV board listing
-    expect(s.score).toBe(home.score - Math.round(8 * 0.75)); // related-NAICS factor 0.75 × the 8 neutral points
+    // A new building filed under 236220 is sub work for an electrician; on its own 36–50 scale the 8 neutral
+    // distance points are worth round(14 × 8 / 55) = 2.
+    expect(s.tier).toBe('sub');
+    expect(home.tier).toBe('sub');
+    expect(s.score).toBeLessThan(home.score);
+    const asFit = { ...MOFFETT, naics: '238990' }; // variant: a related code, so it is scored as a fit (the old rule)
+    const fitHome = scoreBid({ ...asFit, location: { ...MOFFETT.location, label: null, state: 'NV' } }, pilot, SCAN);
+    expect(scoreBid(asFit, pilot, SCAN).score).toBe(fitHome.score - Math.round(8 * 0.75)); // related-NAICS factor 0.75 × 8
   });
 
   it('a blank federal place: "Remediate Old Parking Garage" says the location is not listed and cannot alert', () => {
@@ -259,19 +266,25 @@ describe('trade: what the title says the job is', () => {
     expect(texts(board(/^Fire Sprinkler System Installation and Fire Alarm/))[0]).toBe('Electrical scope: “fire alarm”');
   });
 
-  it('building work in range can reach "maybe": the Dini Library restroom (25 skip before)', () => {
+  it('building work is sub work: the Dini Library restroom (25 skip, then 44 "maybe" fit) says so first', () => {
     const dini = board(/^WNC - Dini Library South Restroom Improvements$/);
     const s = scoreBid(dini, pilot, CAPTURED);
     expect(s.verdict).toBe('maybe');
-    expect(s.reasons).toContainEqual({ kind: 'info', text: 'Building work (“restroom”) — often has a sub scope' });
-    expect(scoreBid(board(/^Marsh Avenue Main Replacement$/), pilot, CAPTURED).verdict).toBe('skip'); // a water main is not building work
+    expect(s.tier).toBe('sub');
+    expect(s.capped).toBe(true);
+    expect(s.reasons[0]).toEqual({ kind: 'info', text: 'Sub work: a general contractor bids this building job (“restroom”); electrical is usually subcontracted' });
+    expect(s.reasons[1]).toEqual({ kind: 'info', text: 'Quote the bidders: ask the agency who took out plans' }); // NGEM: no plan holders list we know of
+    const marsh = scoreBid(board(/^Marsh Avenue Main Replacement$/), pilot, CAPTURED);
+    expect(marsh.verdict).toBe('skip'); // a water main is not building work
+    expect(marsh.tier).toBe('other');
   });
 
-  it('building work can never alert: at most 53, whatever the distance, size and time', () => {
+  it('building work can never alert: at most 50, whatever the distance, size and time', () => {
     const dini = board(/^WNC - Dini Library South Restroom Improvements$/);
     fc.assert(fc.property(fc.integer({ min: 1, max: 60 }), fc.option(fc.integer({ min: 1_000, max: 2_000_000 })), (days, est) => {
       const b = { ...dini, location: board(/^Replace Cell Doors/).location, dueAt: new Date(CAPTURED.getTime() + days * 86_400_000).toISOString(), estValue: est === null ? null : { min: est, max: est } };
-      return scoreBid(b, pilot, CAPTURED).score <= 53;
+      const s = scoreBid(b, pilot, CAPTURED);
+      return s.score <= 50 && s.tier === 'sub' && s.capped === true;
     }));
   });
 

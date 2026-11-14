@@ -21,9 +21,10 @@
  */
 import { TRADES } from '../trades/catalog.js';
 import type { BidDraft, FetchLike, SourceContext } from '../types.js';
-import { mergeDrafts, placeIsBlank } from './dedupe.js';
+import { mergeDrafts } from './dedupe.js';
 import { FLAGS } from './flags.js';
-import { parseSamPlace, samDraft, type SamOpportunity } from './samgov.js';
+import { isTradePsc } from './psc.js';
+import { namesNoPlace, parseSamPlace, placeAtOffice, samDraft, samOffice, type SamOffice, type SamOpportunity } from './samgov.js';
 
 export const SAM_BULK_URL =
   'https://sam.gov/api/prod/fileextractservices/v1/api/download/Contract%20Opportunities/datagov/ContractOpportunitiesFullCSV.csv?privacy=Public';
@@ -31,8 +32,10 @@ export const SAM_BULK_URL =
 /** The columns we read. A missing or renamed one means SAM changed the file: we stop instead of guessing. */
 export const BULK_COLUMNS = [
   'NoticeId', 'Title', 'Sol#', 'Department/Ind.Agency', 'Sub-Tier', 'Office', 'PostedDate', 'Type',
-  'SetASideCode', 'SetASide', 'ResponseDeadLine', 'NaicsCode', 'PopStreetAddress', 'PopCity', 'PopState', 'PopZip',
-  'PopCountry', 'Active', 'Link', 'Description',
+  'SetASideCode', 'SetASide', 'ResponseDeadLine', 'NaicsCode', 'ClassificationCode', 'PopStreetAddress', 'PopCity',
+  'PopState', 'PopZip', 'PopCountry', 'Active', 'Link', 'Description',
+  // The contracting office's address (not the work site): the fallback place for a notice that names none.
+  'State', 'City', 'ZipCode', 'CountryCode',
 ] as const;
 type Column = (typeof BULK_COLUMNS)[number];
 
@@ -208,6 +211,13 @@ export const KEEP_NAICS: ReadonlySet<string> = new Set(TRADES.flatMap((t) => [..
 export const isTradeNaics = (code: string): boolean => code.startsWith('23') || KEEP_NAICS.has(code);
 
 /**
+ * A notice is trade work when its NAICS says so OR its Product and Service Code does (src/sources/psc.ts): on
+ * 2026-11-14 about half the open federal repair and maintenance work was filed under a NAICS outside the trades
+ * (561210 facilities support, 811310 equipment repair…) with a PSC that names it (Z2AA, J061, S208…).
+ */
+export const isTradeNotice = (naics: string, psc: string): boolean => isTradeNaics(naics) || isTradePsc(psc);
+
+/**
  * Notice types that become cards: the same three the API source asks for (ptype o,k,p). Award notices,
  * justifications, sources sought, special notices and sales are results or questions, not open bids.
  */
@@ -244,16 +254,21 @@ export const STALE_AFTER_DAYS = 365;
  */
 export const LIVE_MIN_ROWS = 20_000;
 
+/** Why a row or card was left out. 'naics': neither its NAICS nor its PSC is trade work (the name is historical). */
 export type DropReason = 'inactive' | 'type' | 'naics' | 'country' | 'noPlace' | 'pastDue' | 'stale' | 'noId';
 
 export interface BulkStats {
   bytes: number;
   rows: number;
   active: number;
-  /** Notices that passed the row filters (active, open type, trade NAICS, not abroad). */
+  /** Notices that passed the row filters (active, open type, trade NAICS or PSC, not abroad). */
   kept: number;
+  /** Of `kept`, the notices let in by their PSC alone (their NAICS is not a trade NAICS). */
+  keptByPsc: number;
   /** Cards after notices of the same solicitation were merged and the card filters ran (no place, past due). */
   cards: number;
+  /** Of `cards`, the ones no notice gave a work site for, placed at the contracting office (FLAGS.placeFromOffice). */
+  placedAtOffice: number;
   /** Rows that had the wrong number of fields (skipped). */
   malformed: number;
   dropped: Record<DropReason, number>;
@@ -285,11 +300,11 @@ export class SamBulkParser {
   private readonly csv = new CsvSplitter();
   private col: Record<Column, number> | null = null;
   private width = 0;
-  private readonly kept: Array<{ posted: string; draft: BidDraft; zoneless?: string }> = [];
+  private readonly kept: Array<{ posted: string; draft: BidDraft; zoneless?: string; office: SamOffice | null }> = [];
   /** "<Sol#>|<wall time>" → the offset another notice of the same solicitation wrote for that same time. */
   private readonly offsets = new Map<string, string>();
   readonly stats: BulkStats = {
-    bytes: 0, rows: 0, active: 0, kept: 0, cards: 0, malformed: 0,
+    bytes: 0, rows: 0, active: 0, kept: 0, keptByPsc: 0, cards: 0, placedAtOffice: 0, malformed: 0,
     dropped: { inactive: 0, type: 0, naics: 0, country: 0, noPlace: 0, pastDue: 0, stale: 0, noId: 0 },
     deadlineShapes: {},
   };
@@ -329,18 +344,30 @@ export class SamBulkParser {
       else k.draft.flags = [...(k.draft.flags ?? []), FLAGS.deadlineZoneUnstated];
     }
     // Older notices first, so mergeDrafts' "a full tie keeps the later draft" also means "the newer one" within a day.
-    const ordered = this.kept.sort((a, b) => (a.posted < b.posted ? -1 : a.posted > b.posted ? 1 : 0)).map((k) => k.draft);
+    const sorted = this.kept.sort((a, b) => (a.posted < b.posted ? -1 : a.posted > b.posted ? 1 : 0));
+    const ordered = sorted.map((k) => k.draft);
+    // The office of the newest notice of each solicitation that names a US one (later in `sorted` = newer).
+    const offices = new Map<string, SamOffice>();
+    for (const k of sorted) if (k.office) offices.set(k.draft.sourceId, k.office);
     // Merge first, filter after: the newest amendment decides the deadline, and a place only an older
     // notice gave is carried over (mergeDrafts), so a card is judged on what it will actually show.
     const cards: BidDraft[] = [];
     const now = this.opts.now?.getTime();
-    for (const d of mergeDrafts(ordered)) {
-      if (placeIsBlank(d.location) && !d.location?.state) { this.stats.dropped.noPlace++; continue; }
+    for (const merged of mergeDrafts(ordered)) {
+      let d = merged;
+      // No notice of it names a work site: place it at the contracting office when that is in the US (the card
+      // says so), else leave it out — we cannot say it is in the US at all.
+      if (namesNoPlace(d)) {
+        const office = offices.get(d.sourceId);
+        if (!office) { this.stats.dropped.noPlace++; continue; }
+        d = placeAtOffice(d, office);
+      }
       if (now !== undefined && d.dueAt && Date.parse(d.dueAt) <= now) { this.stats.dropped.pastDue++; continue; }
       if (now !== undefined && !d.dueAt && d.postedAt && now - Date.parse(d.postedAt) > STALE_AFTER_DAYS * 86_400_000) {
         this.stats.dropped.stale++;
         continue;
       }
+      if (d.flags?.includes(FLAGS.placeFromOffice)) this.stats.placedAtOffice++;
       cards.push(d);
     }
     this.stats.cards = cards.length;
@@ -364,7 +391,8 @@ export class SamBulkParser {
     if (get('Active').toLowerCase() !== 'yes') { this.stats.dropped.inactive++; return; }
     this.stats.active++;
     if (!OPEN_TYPES.has(get('Type').toLowerCase())) { this.stats.dropped.type++; return; }
-    if (!isTradeNaics(get('NaicsCode'))) { this.stats.dropped.naics++; return; }
+    const naics = get('NaicsCode');
+    if (!isTradeNotice(naics, get('ClassificationCode'))) { this.stats.dropped.naics++; return; }
     // Most rows leave PopCountry blank (50,384 of 72,318 on 2026-11-13). Only a named foreign country is
     // dropped here; a notice that names no place at all is judged after merging (an amendment may omit it).
     // A blank country with a foreign region code in PopState ("JP-14", "GT-GU") is abroad too.
@@ -379,12 +407,14 @@ export class SamBulkParser {
     const shape = deadlineShape(deadline);
     this.stats.deadlineShapes[shape] = (this.stats.deadlineShapes[shape] ?? 0) + 1;
     this.stats.kept++;
-    const draft = samDraft(rowToOpportunity(get));
+    if (!isTradeNaics(naics)) this.stats.keptByPsc++;
+    const opp = rowToOpportunity(get);
+    const draft = samDraft(opp);
     // Remember every offset a notice wrote, by solicitation and wall time, for its zoneless siblings (finish()).
     const zoned = ZONED.exec(deadline);
     if (zoned) this.offsets.set(`${draft.sourceId}|${withSeconds(zoned[1]!)}`, zoned[2]!);
     const zoneless = ZONELESS.test(deadline) ? withSeconds(deadline) : undefined;
-    this.kept.push({ posted: get('PostedDate'), draft, ...(zoneless ? { zoneless } : {}) });
+    this.kept.push({ posted: get('PostedDate'), draft, office: samOffice(opp.officeAddress), ...(zoneless ? { zoneless } : {}) });
   }
 
   private header(names: string[]): void {
@@ -436,6 +466,7 @@ function rowToOpportunity(get: (name: Column) => string): SamOpportunity {
     typeOfSetAsideDescription: get('SetASide') || null,
     responseDeadLine: deadlineForTime(get('ResponseDeadLine')),
     naicsCode: get('NaicsCode') || null,
+    classificationCode: get('ClassificationCode') || null,
     active: 'Yes',
     description: get('Description') || null,
     placeOfPerformance: {
@@ -445,6 +476,7 @@ function rowToOpportunity(get: (name: Column) => string): SamOpportunity {
       zip: get('PopZip'),
       country: { code: territory ? 'USA' : get('PopCountry') },
     },
+    officeAddress: { city: get('City'), state: get('State'), zipcode: get('ZipCode'), countryCode: get('CountryCode') },
     uiLink: get('Link'),
   };
 }
@@ -452,7 +484,9 @@ function rowToOpportunity(get: (name: Column) => string): SamOpportunity {
 /** One log line: what the file held and why rows were left out. */
 export function bulkSummary(s: BulkStats): string {
   const d = s.dropped;
-  return `samgov (bulk file): ${s.cards} cards from ${s.kept} notices — ${s.rows} rows, ${s.active} active; left out: ` +
+  return `samgov (bulk file): ${s.cards} cards from ${s.kept} notices (${s.keptByPsc} by service code alone)` +
+    `${s.placedAtOffice ? `, ${s.placedAtOffice} placed at the contracting office (no work site named)` : ''}` +
+    ` — ${s.rows} rows, ${s.active} active; left out: ` +
     `${d.type} not open bids, ${d.naics} not construction/trades, ${d.country} abroad, ${d.noPlace} no place given, ` +
     `${d.pastDue} past due${d.stale ? `, ${d.stale} stale (no deadline, posted over a year ago)` : ''}` +
     `${s.malformed ? `, ${s.malformed} malformed rows` : ''} (${(s.bytes / 1e6).toFixed(1)} MB)`;

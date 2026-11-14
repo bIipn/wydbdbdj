@@ -60,7 +60,7 @@ describe('profile ids and summaries', () => {
   it('summarize gives the settings form its answers back, without the keyword lists', () => {
     expect(summarize(loadProfile('lm-electric'))).toEqual({
       id: 'lm-electric', businessName: 'L&M Electric', trades: [], zip: '89410', base: 'Gardnerville, NV', radiusMi: 90,
-      valueRange: { min: 10000, max: 50000 }, limits: {}, costs: {}, alerts: { minScore: 55 }, setAsides: ['SBA', 'SBP'],
+      valueRange: { min: 10000, max: 50000 }, limits: {}, costs: {}, alerts: { minScore: 55 }, setAsides: ['SBA', 'SBP'], showSubWork: true,
     });
     const full = testProfile('test-summary', {
       trades: ['electrical'], zip: '89410', limits: { maxJobSize: 75_000, bondingCapacity: null }, costs: { burdenPct: 30 },
@@ -76,7 +76,7 @@ describe('profile ids and summaries', () => {
 
 describe('next bid', () => {
   const item = (over: Partial<FeedItem>): FeedItem => ({
-    ...testBid(), score: 90, verdict: 'great', reasons: [], distanceMi: 20, swipe: null, firstSeenAt: NOW.toISOString(), overLimit: false, ...over,
+    ...testBid(), score: 90, verdict: 'great', reasons: [], distanceMi: 20, swipe: null, firstSeenAt: NOW.toISOString(), overLimit: false, tier: 'fit', ...over,
   });
 
   it('answers { item: null, why } when there is nothing to pick from', () => {

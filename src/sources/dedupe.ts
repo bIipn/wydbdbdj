@@ -4,18 +4,23 @@
  * the same id are merged here, before storage. Pure: drafts in, drafts out.
  */
 import type { Bid, BidDraft, BidLocation, LocationPrecision } from '../types.js';
+import { FLAGS } from './flags.js';
 
 /**
  * The stable part of a SAM.gov solicitation number, used as the card id. Amendments re-post the same
  * number with a "_1" tail ("36C26127Q0072_1") or four more digits ("36C26127Q00260001" for 36C26127Q0026,
- * the standard 13-character federal number: 6-character office code, 2-digit year, a letter, 4 characters).
+ * the standard 13-character federal number: 6-character office code, 2-digit year, a letter, a 4-digit serial).
  * No number → the notice id, which is all we have.
  */
 export function samKey(solNumber: string | null | undefined, noticeId: string): string {
   const n = (solNumber ?? '').trim().toUpperCase().replace(/\s+/g, '').replace(/_\d{1,3}$/, '');
   if (!n) return noticeId;
-  const std = /^([A-Z0-9]{6}\d{2}[A-Z][A-Z0-9]{4})\d{4}$/.exec(n);
-  return std ? std[1]! : n;
+  // Only a numeric serial other than 0000 takes a 4-digit amendment tail. Other offices number distinct jobs that
+  // way: the Bureau of Prisons' 15B41827Q00000001 (a roof) and 15B41827Q00000002 (condensation pumps), WAPA's
+  // 89503326RWA000049, the Coast Guard's 70ZU0227QIBCT0001 — 69 such families in the 2026-11-14 file, against 7
+  // real "0001" amendments, all with a numeric serial (36C26127Q0026 → 36C26127Q00260001).
+  const std = /^([A-Z0-9]{6}\d{2}[A-Z](\d{4}))\d{4}$/.exec(n);
+  return std && std[2] !== '0000' ? std[1]! : n;
 }
 
 /** Newer notice first; at the same time the bid package beats the advance notice. */
@@ -84,6 +89,14 @@ const FIRM: ReadonlySet<LocationPrecision> = new Set(['exact', 'city', 'county']
 export function inheritFromStored(draft: BidDraft, stored: Bid | null): BidDraft {
   if (!stored || stored.source !== draft.source || stored.sourceId !== draft.sourceId) return draft;
   const loc = stored.location;
-  const place = FIRM.has(loc.precision) ? { city: loc.city, county: loc.county, state: loc.state, zip: loc.zip } : undefined;
+  const storedAtOffice = (stored.flags ?? []).includes(FLAGS.placeFromOffice);
+  const place = FIRM.has(loc.precision) && !storedAtOffice ? { city: loc.city, county: loc.county, state: loc.state, zip: loc.zip } : undefined;
+  // Today's notices name no work site and were placed at the contracting office, but an earlier scan read a real
+  // one (from a notice that has since left the file): the real work site wins and the office flag goes.
+  // (src/scan.ts calls this only for a draft with a blank place or no set-aside; see the federal report.)
+  if (place && (draft.flags ?? []).includes(FLAGS.placeFromOffice)) {
+    const flags = (draft.flags ?? []).filter((f) => f !== FLAGS.placeFromOffice);
+    return fillFrom({ ...draft, location: { ...place }, flags }, { setAside: stored.setAside });
+  }
   return fillFrom(draft, { location: place, setAside: stored.setAside });
 }

@@ -1,8 +1,9 @@
 import type { BidDraft, Source, SourceContext } from '../types.js';
 import { parseUsDateTime, samDate } from '../util/time.js';
 import { clean, cleanOrNull, titleCaseIfShouting } from '../util/text.js';
-import { mergeDrafts, samKey } from './dedupe.js';
+import { mergeDrafts, placeIsBlank, samKey } from './dedupe.js';
 import { FLAGS, PROGRAM_CONTRACT_TERMS } from './flags.js';
+import { normalizePsc } from './psc.js';
 import { fetchSamBulk } from './samgov-bulk.js';
 
 /** Official SAM.gov Get Opportunities API v2 — https://open.gsa.gov/api/get-opportunities-public-api/ */
@@ -33,7 +34,19 @@ export interface SamOpportunity {
   active?: string;
   description?: string | null;
   placeOfPerformance?: SamPlace;
+  /** The Product and Service Code ("Z2AA", "J061"; src/sources/psc.ts). The bulk file's ClassificationCode. */
+  classificationCode?: string | null;
+  /** The contracting office's address (the bulk file's State / City / ZipCode / CountryCode columns). */
+  officeAddress?: SamOfficeAddress;
   uiLink?: string;
+}
+
+/** The API's officeAddress object; the bulk file is mapped to the same shape. */
+export interface SamOfficeAddress {
+  city?: string;
+  state?: string;
+  zipcode?: string;
+  countryCode?: string;
 }
 
 export interface SamResponse {
@@ -161,6 +174,46 @@ function placeLabel(p: SamPlaceParsed): string | null {
   return p.text.length > 80 ? `${p.text.slice(0, 79).trimEnd()}…` : p.text;
 }
 
+/** Where the contracting office is, when it is in the US: the fallback place for a notice that names no work site. */
+export interface SamOffice {
+  city: string | null;
+  state: string;
+  zip: string | null;
+}
+
+/**
+ * The contracting office's place, or null when it is abroad or has no US state. The country must be the US
+ * ("USA", or blank with a US state code); a territory code ("PRI", "GUM") counts as its state.
+ */
+export function samOffice(a: SamOfficeAddress | undefined): SamOffice | null {
+  if (!a) return null;
+  const country = clean(a.countryCode).toUpperCase();
+  const territory = OFFICE_TERRITORY[country];
+  if (country && !territory && !/^(?:USA|US|UNITED STATES)$/.test(country)) return null;
+  const p = parseSamPlace({ city: { name: a.city }, state: { code: clean(a.state) || territory }, zip: clean(a.zipcode) });
+  if (!p.state) return null;
+  const zip = p.zip && /^\d{9}$/.test(p.zip) ? `${p.zip.slice(0, 5)}-${p.zip.slice(5)}` : p.zip;
+  return { city: p.city ? titleCaseIfShouting(p.city) : null, state: p.state, zip };
+}
+const OFFICE_TERRITORY: Readonly<Record<string, string>> = { PRI: 'PR', GUM: 'GU', VIR: 'VI', ASM: 'AS', MNP: 'MP' };
+
+/**
+ * A notice that names no place of performance, placed at its contracting office instead: the office's city,
+ * state and ZIP go in as the listing's place (locate() puts them on the map like any other), and the card
+ * carries FLAGS.placeFromOffice so the label and the reasons say it is the office, not the job site.
+ */
+export function placeAtOffice(d: BidDraft, office: SamOffice): BidDraft {
+  const flags = d.flags ?? [];
+  return {
+    ...d,
+    location: { city: office.city, state: office.state, zip: office.zip, label: null },
+    flags: flags.includes(FLAGS.placeFromOffice) ? [...flags] : [...flags, FLAGS.placeFromOffice],
+  };
+}
+
+/** No work site at all: no city, ZIP, address text and no state either (a state alone is kept as a state-wide card). */
+export const namesNoPlace = (d: BidDraft): boolean => placeIsBlank(d.location) && !d.location?.state;
+
 // ----------------------------------------------------------- signals --
 
 /**
@@ -202,8 +255,20 @@ const EMPTY_CODE = /^(?:|none|n\/a|null)$/i;
  * (samKey), so it stays the same when SAM posts the next amendment.
  */
 export function parseSamResponse(json: SamResponse): BidDraft[] {
-  const drafts = (json.opportunitiesData ?? []).filter((o) => o.noticeId && o.active !== 'No').map(samDraft);
-  return mergeDrafts(drafts);
+  const notices = (json.opportunitiesData ?? []).filter((o) => o.noticeId && o.active !== 'No');
+  const drafts = notices.map(samDraft);
+  // A card that no notice gives a place for is placed at the office of the newest notice that names one.
+  const offices = new Map<string, { office: SamOffice; posted: string }>();
+  notices.forEach((o, i) => {
+    const office = samOffice(o.officeAddress);
+    const key = drafts[i]!.sourceId;
+    const posted = o.postedDate ?? '';
+    if (office && posted >= (offices.get(key)?.posted ?? '')) offices.set(key, { office, posted });
+  });
+  return mergeDrafts(drafts).map((d) => {
+    const at = namesNoPlace(d) ? offices.get(d.sourceId) : undefined;
+    return at ? placeAtOffice(d, at.office) : d;
+  });
 }
 
 /**
@@ -235,6 +300,7 @@ export function samDraft(o: SamOpportunity): BidDraft {
     dueAt: parseUsDateTime(o.responseDeadLine ?? null),
     estValue: null,
     naics: cleanOrNull(o.naicsCode),
+    psc: normalizePsc(o.classificationCode),
     setAside: setAside || null,
     url: o.uiLink && o.uiLink.startsWith('http') ? o.uiLink : `https://sam.gov/opp/${o.noticeId}/view`,
     flags,

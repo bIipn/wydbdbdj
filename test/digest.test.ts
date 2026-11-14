@@ -17,7 +17,7 @@ const board = (title: RegExp): Bid => real.find((b) => title.test(b.title))!;
 
 function item(b: Bid, now = CAPTURED): FeedItem {
   const s = scoreBid(b, pilot, now);
-  return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, overLimit: s.overLimit, swipe: null, firstSeenAt: now.toISOString() };
+  return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, overLimit: s.overLimit, tier: s.tier, swipe: null, firstSeenAt: now.toISOString() };
 }
 
 const CELL_DOORS = item(board(/^Replace Cell Doors, Locks, Intercoms/));

@@ -159,7 +159,7 @@ describe('the checks can fail: mutated observations', () => {
     location: { city: null, county: null, state: 'NV', zip: null, lat: null, lng: null, precision: 'city', label: 'TEST, NV' },
     postedAt: null, dueAt: '2026-12-01T22:00:00.000Z', estValue: null, naics: null, setAside: null, url: 'https://example.com/t', flags: [],
     score: 80, verdict: 'great', reasons: [{ kind: 'plus', text: 'Electrical scope: “lighting”' }], distanceMi: 20, swipe: null,
-    firstSeenAt: '2026-11-13T20:00:00.000Z', overLimit: false, ...over,
+    firstSeenAt: '2026-11-13T20:00:00.000Z', overLimit: false, tier: 'fit', ...over,
   });
   const obs = (over: Partial<PersonaObs>, persona: Persona = twin): PersonaObs => ({
     key: persona.key, plan: persona.plan, features: { estimator: persona.plan === 'pro' }, decks: [[]], browse: [], filters: null, next: null, alerts: [],

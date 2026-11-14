@@ -289,6 +289,78 @@ const SPECS: TradeSpec[] = [
   },
 ];
 
+// ------------------------------------------------------------- sub work --
+//
+// "Sub work" (src/score/subwork.ts): a PRIME contract that a general contractor bids, where a trade is
+// ordinarily a subcontract. The trade's company does not bid the agency; it quotes the bidders. Evidence the
+// lists below were drawn from: the real captured bids (test/fixtures) and the live SAM.gov file of 2026-11-14
+// (open notices, NAICS 236220/236210 with PSC Y1/Z1/Z2 building classes: "Construct Combat Rescue Helicopter
+// Flight Simulator Facility", "Z2DA--… Imaging Center Expansion", "Y1DA--… Upgrade Electrical and Plumbing in
+// Building 18B"). When in doubt a notice is NOT sub work: a wrong SUB WORK label is worse than a missing one.
+
+/**
+ * NAICS codes of prime BUILDING work (2022 NAICS): 236220 Commercial and Institutional Building Construction,
+ * 236210 Industrial Building Construction. Residential remodelers (236118) are left out: on public boards they
+ * are mostly single-home repairs, not a GC job with trade subs.
+ */
+export const BUILDING_PRIME_NAICS: readonly string[] = ['236220', '236210'];
+
+/**
+ * Federal PSC building classes. A real-property PSC is Y1 (construction), Z1 (maintenance) or Z2 (repair or
+ * alteration) + a facility letter + a type letter (PSC Manual, acquisition.gov). The letters here are the
+ * BUILDING facilities: A office, C educational, D hospital, E industrial, F family housing, H research and
+ * development, J miscellaneous buildings. Left out because they mix buildings with civil work: B airfield /
+ * communication / missile (towers and taxiways), G warehouse and storage (igloos and fuel systems), K
+ * conservation and development (dams, canals, dredging), L roads and bridges, M power generation, N utilities,
+ * P other non-building, Q restoration.
+ */
+export const BUILDING_PSC = /^(?:Y1|Z1|Z2)[ACDEFHJ]/;
+
+/** The civil prime kinds a trade can sit in. */
+export type CivilKind = 'road' | 'utility';
+
+/** NAICS codes and PSC classes of each civil prime kind (2022 NAICS; PSC Manual). */
+export const CIVIL_PRIME: Readonly<Record<CivilKind, { naics: readonly string[]; psc: RegExp; label: string }>> = {
+  road: { naics: ['237310'], psc: /^(?:Y1|Z1|Z2)L/, label: 'road' }, // Highway, Street, and Bridge Construction; PSC L
+  utility: { naics: ['237110'], psc: /^(?:Y1|Z1|Z2)N/, label: 'utility' }, // Water and Sewer Line…; PSC N utilities
+};
+
+/**
+ * How a trade sits inside prime work.
+ *   building  'all' = new buildings and renovations / remodels / additions; 'new' = new buildings only (a
+ *             renovation seldom carries a roof, site work or planting); null = not a building sub.
+ *   civil     civil prime kinds it ordinarily sits in, and ONLY when the notice's own text names its scope
+ *             (an electrician in a road job: the signals; a landscaper: the planting).
+ */
+export interface SubWorkSpec {
+  building: 'all' | 'new' | null;
+  civil: readonly CivilKind[];
+}
+
+/**
+ * Per trade. General building has none: it IS the prime. Fencing has no building sub (a fence is site work
+ * sold on its own). Flooring, painting and the systems trades are inside nearly every renovation; roofing, site
+ * work, concrete and landscaping are in a new building but seldom in a remodel.
+ */
+export const SUB_WORK: Readonly<Record<string, SubWorkSpec>> = {
+  electrical: { building: 'all', civil: ['road', 'utility'] },
+  plumbing: { building: 'all', civil: [] },
+  hvac: { building: 'all', civil: [] },
+  'fire-protection': { building: 'all', civil: [] },
+  'low-voltage': { building: 'all', civil: [] },
+  'general-building': { building: null, civil: [] },
+  roofing: { building: 'new', civil: [] },
+  painting: { building: 'all', civil: ['road'] },
+  'concrete-paving': { building: 'new', civil: [] },
+  landscaping: { building: 'new', civil: ['road'] },
+  flooring: { building: 'all', civil: [] },
+  sitework: { building: 'new', civil: [] },
+  fencing: { building: null, civil: ['road'] },
+};
+
+/** The trade that makes a profile the prime on building work: it gets no sub tier at all. */
+export const PRIME_TRADE = 'general-building';
+
 /** Generic construction words: a weak signal for any trade ("check the specs"). */
 const GENERAL = [
   'upgrade*', 'renovation*', 'remodel*', 'improvement*', 'replacement', 'repair*', 'installation', 'modernization',

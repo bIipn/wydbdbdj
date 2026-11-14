@@ -120,6 +120,53 @@ gathering, web scraping tools are prohibited" for the website, and names the API
   A deadline without a time zone (714 rows) takes the offset a sibling notice of the same solicitation
   gives for that time; otherwise it is read as Pacific and the card says "Deadline time zone not stated".
 
+- **Widened (2026-11-14): service codes, the contracting office, distinct solicitation numbers.** A real CA
+  electrician saw one job. Three changes, all in `src/sources/` and `src/geo/`, no new host:
+  1. **PSC as well as NAICS.** A notice is kept when its NAICS is a trade NAICS (as before) *or* its Product and
+     Service Code is trade work (`src/sources/psc.ts`): every Y (construction) and Z (maintenance, repair,
+     alteration of real property) code; J/N/K/H1–H9 only for building equipment (FSC groups 041, 044, 045, 059,
+     061–063); S208, S214, S216, S218; M1M* and M1NB; P4/P400, P5/P500; F005, F006, F008, F014, F021. Titles are the
+     GSA PSC Manual's, verbatim, from USAspending's PSC tree (`api.usaspending.gov/api/v2/references/filter_tree/psc/`,
+     fetched 2026-11-14; acquisition.gov itself was not reachable from here). Left out on purpose, with the evidence
+     of the open notices that day: custodial, food, guards, pest control (no catalog trade), M1 building groups (fuel
+     depots, air traffic control, food service, concessions, a museum), salvage, fire-suppression crews, numeric
+     codes (products: 5,746 of the 7,751 open US solicitations).
+  2. **No place of performance → the contracting office**, when the office is in the US (`State`/`City`/`ZipCode`/
+     `CountryCode` columns; the API's `officeAddress`). The card carries the flag *"Work site not named — placed at
+     the contracting office"* and locate() labels it *"Contracting office: Folsom, CA (job site not named)"*; it
+     is placed from the office's own city/ZIP only, never guessed from the title. A place any notice of the same
+     solicitation gives still wins. No place and no US office → left out, as before (98 cards, mostly 2015–2019).
+  3. **`samKey` no longer merges distinct jobs.** A 4-digit tail is an amendment only after a numeric serial other
+     than 0000 (36C26127Q0026 → 36C26127Q00260001). The Bureau of Prisons (15B41827Q00000001 roof vs …0002 pumps),
+     WAPA (89503326RWA000049) and the Coast Guard (70ZL1927QELIZ0001 vs …0002) number different jobs that way:
+     69 families in the file were being merged into one card each, against 7 real amendments.
+  Also fixed: a place with a city and a ZIP but no state is no longer put at a gazetteer town of the same name in
+  another state ("Jackson" + 39216 was Jackson, CA; it is Jackson, MS).
+
+  Measured with the real parser (`SamBulkParser`, `now` = 2026-11-14 05:27 UTC, the download time) on that day's
+  full file (222,454,232 bytes, 72,204 rows, all active); states after locate():
+
+  | | before (HEAD 697369e) | after |
+  |---|---:|---:|
+  | notices kept by the row filters | 8,816 | 9,787 (971 by PSC alone) |
+  | **cards** | **508** | **706** |
+  | of them placed at the contracting office | — | 136 (9 in CA) |
+  | of them in by PSC alone (NAICS not a trade code) | — | 80 (8 in CA) |
+  | left out: not an open-bid type | 23,386 | 23,386 |
+  | left out: not construction/trades (NAICS and PSC) | 39,826 | 38,813 |
+  | left out: abroad | 176 | 218 |
+  | left out: no place given (and no US office) | 522 | 98 |
+  | left out: past due | 1,244 | 1,760 |
+  | left out: stale (no deadline, posted over a year ago) | 29 | 67 |
+  | **California** | **36** | **52** |
+  | LA / VA / WA / CO / TX | 73 / 16 / 23 / 14 / 23 | 77 / 57 / 34 / 30 / 29 |
+  | NY / IL / OK / OR / NM / DC | 25 / 22 / — / 12 / — / 10 | 28 / 27 / 17 / 17 / 16 / 15 |
+  | no state at all | 18 | 24 |
+
+  Most PSC-kept notices were amendments of a few solicitations already past due (971 notices → 80 cards), so the
+  gain is +198 cards, not the ~600 a count of every J/S/H/C notice suggested. The rest of the volume has to come
+  from state and local boards. Fixture: `test/fixtures/samgov-bulk-2026-11-14.csv` (44 whole rows, byte for byte).
+
 ## 3. Awards and prices paid
 
 - **USAspending API** — [api.usaspending.gov](https://api.usaspending.gov/) [read]: "allows the public to

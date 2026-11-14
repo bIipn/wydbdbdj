@@ -85,7 +85,7 @@ describe('the seeded feed', () => {
   it('with no parameters it is still the swipe deck: unswiped, score ≥ 35, under the limits, best fit first', async () => {
     const res = await app.inject('/api/feed');
     expect(res.statusCode).toBe(200);
-    expect(Object.keys(res.json()).sort()).toEqual(['items', 'lastScan']);
+    expect(Object.keys(res.json()).sort()).toEqual(['counts', 'items', 'lastScan']);
     const deck = res.json().items as FeedItem[];
     expect(sorted(ids(deck))).toEqual(sorted(ids(all.filter((b) => b.score >= 35 && !b.overLimit))));
     expect(deck.length).toBeGreaterThanOrEqual(5);

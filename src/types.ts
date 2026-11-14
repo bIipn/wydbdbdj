@@ -34,6 +34,8 @@ export interface Bid {
   url: string; // where the contractor goes to bid (the source platform)
   flags: string[]; // e.g. "Bid bond", "Prevailing wage", "Mandatory pre-bid"
   solNumber?: string | null; // solicitation / bid number when the source has one
+  /** Federal product-service code as SAM.gov writes it, upper case ("Z2AA", "J061"); null/absent elsewhere. */
+  psc?: string | null;
 }
 
 /** What a source hands back before location resolution fills in lat/lng. */
@@ -113,6 +115,11 @@ export interface Profile {
    * profiles like the pilot, older accounts, the simulation): scoring then works exactly as before.
    */
   qualifications?: Qualifications;
+  /**
+   * Show sub work (a prime contract where this company's trade is ordinarily a subcontract) in the deck and
+   * Browse. Missing = true. A general-building profile gets no sub tier whatever this says.
+   */
+  showSubWork?: boolean;
 }
 
 /** One paperwork answer. 'unsure' is also what an unanswered question counts as. */
@@ -168,6 +175,15 @@ export interface Reason {
 
 export type Verdict = 'great' | 'good' | 'maybe' | 'skip';
 
+/**
+ * Which list a candidate belongs in for this company.
+ *   fit    its own trade's work (today's scoring, at the deck line 35 or above)
+ *   sub    a prime contract where its trade is ordinarily a subcontract: quote the bidders (capped, never alerts)
+ *   other  every other candidate
+ */
+export type Tier = 'fit' | 'sub' | 'other';
+export const TIERS: readonly Tier[] = ['fit', 'sub', 'other'];
+
 export interface ScoreResult {
   score: number; // 0–100
   verdict: Verdict;
@@ -182,6 +198,8 @@ export interface ScoreResult {
    * alert line is as low as the cap's floor (src/score/score.ts CAPPED_FLOOR).
    */
   capped?: boolean;
+  /** Which list the bid belongs in for this company (see Tier). */
+  tier: Tier;
 }
 
 export type SwipeAction = 'save' | 'pass' | 'bid';
@@ -196,6 +214,8 @@ export interface FeedItem extends Bid {
   firstSeenAt: string;
   /** Never alerted, never in the deck or "next bid"; Browse shows it with an "Over your limit" tag. */
   overLimit: boolean;
+  /** Stored matches.tier; a row scored before tiers existed reads as 'fit' at score >= 35, else 'other'. */
+  tier: Tier;
 }
 
 // --------------------------------------------------------------- accounts --

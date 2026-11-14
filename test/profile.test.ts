@@ -497,9 +497,13 @@ describe('profile routes', () => {
     const summary = {
       id: profileIdFor(who.id), businessName: 'TEST Pilot Twin Electric (simulated)', trades: ['electrical'], zip: '89410',
       base: 'Gardnerville, NV', radiusMi: 90, valueRange: { min: 10_000, max: 50_000 }, limits: {}, costs: {},
-      alerts: { minScore: 55 }, setAsides: ['SBA', 'SBP'],
+      alerts: { minScore: 55 }, setAsides: ['SBA', 'SBP'], showSubWork: true,
     };
-    expect(res.json()).toEqual({ profile: summary, scored: 13 });
+    const body = res.json() as { profile: unknown; scored: number; counts: { fit: number; sub: number; other: number } };
+    expect(body).toEqual({ profile: summary, scored: 13, counts: body.counts });
+    // The onboarding's last step: the rows just stored, by tier (nothing swiped or closed yet, so all 13).
+    expect(body.counts.fit + body.counts.sub + body.counts.other).toBe(13);
+    expect(body.counts.fit).toBeGreaterThan(0);
 
     expect(await me()).toMatchObject({
       account: { id: who.id, plan: 'free' }, needsOnboarding: false, profile: summary,

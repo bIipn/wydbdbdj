@@ -141,7 +141,8 @@ const usd = (amount: number): string =>
  */
 export function decideMatch(event: BusEventOf<'match'>, profile: Profile, plan: Plan, now: Date): AlertDecision | null {
   const { bid, score } = event;
-  if (!kindOn(profile, 'match') || score.rejected || score.overLimit || score.capped || score.score < alertThreshold(profile)) return null;
+  // Sub work is always capped too; the tier check says it again so no change to `capped` can make it alert.
+  if (!kindOn(profile, 'match') || score.rejected || score.overLimit || score.capped || score.tier === 'sub' || score.score < alertThreshold(profile)) return null;
 
   const place = bid.location.label ?? bid.agency;
   // Lead with a reason to bid; fall back to a neutral note, never to a minus.

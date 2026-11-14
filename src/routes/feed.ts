@@ -1,9 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
-import { getFeed, getItem, getSaved, lastScan, recordSwipe, undoSwipe, type FeedQuery, type FeedSort } from '../db/repo.js';
+import { getFeed, getFeedCounts, getItem, getSaved, lastScan, recordSwipe, undoSwipe, type FeedQuery, type FeedSort } from '../db/repo.js';
 import { pickNext } from '../feed/next.js';
 import { ALL_SOURCES } from '../sources/index.js';
-import type { SourceId, SwipeAction, Verdict } from '../types.js';
+import { TIERS, type Profile, type SourceId, type SwipeAction, type Tier, type Verdict } from '../types.js';
 
 const ACTIONS: SwipeAction[] = ['save', 'pass', 'bid'];
 
@@ -11,6 +11,7 @@ const ACTIONS: SwipeAction[] = ['save', 'pass', 'bid'];
 
 const SORTS: readonly FeedSort[] = ['fit', 'due', 'near', 'new', 'value'];
 const VERDICTS: readonly Verdict[] = ['great', 'good', 'maybe', 'skip'];
+const TIER_CHOICES: readonly (Tier | 'all')[] = [...TIERS, 'all'];
 /** The boards, plus 'local': jobs posted on BidSwipe itself, mirrored into the feed (src/jobs/service.ts). */
 const SOURCE_IDS: readonly SourceId[] = [...ALL_SOURCES.map((s) => s.id), 'local'];
 const MAX_SEARCH_CHARS = 200;
@@ -66,14 +67,30 @@ function listOf<T extends string>(raw: RawQuery, name: string, allowed: readonly
   return given.length ? ([...new Set(given)] as T[]) : undefined;
 }
 
+/** tier=all → every tier, explicitly; one tier → just it; absent → undefined (the route decides). */
+function tiersFor(choice: Tier | 'all' | undefined): Tier[] | undefined {
+  if (choice === undefined) return undefined;
+  return choice === 'all' ? [...TIERS] : [choice];
+}
+
+/**
+ * The tiers the swipe deck shows when the request names none: every tier (so its own score line, 35 unless
+ * minScore says otherwise, decides as before), minus sub work when the company turned "Show sub work" off
+ * (missing = on). undefined = no tier filter. Browse (all=1) never calls this: it shows every tier.
+ */
+export function deckTiers(profile: Profile): Tier[] | undefined {
+  return profile.showSubWork === false ? TIERS.filter((t) => t !== 'sub') : undefined;
+}
+
 export type FeedQueryResult = { ok: true; query: FeedQuery } | { ok: false; message: string };
 
 /**
  * GET /api/feed's query string → a FeedQuery, every parameter checked.
  *   minScore 0–100 (35) · limit 1–300 (100) · all=1 Browse: swiped bids too, over-limit ones kept and tagged
  *   q · minValue / maxValue · hasValue=1 · maxDistance (mi) · dueWithinDays · source · verdict
- *   sort fit | due | near | new | value · overLimit exclude | only
- * Without all=1 this is the swipe deck, which never holds an over-limit bid.
+ *   sort fit | due | near | new | value · overLimit exclude | only · tier fit | sub | other | all
+ * Without all=1 this is the swipe deck, which never holds an over-limit bid. An absent tier is left
+ * undefined here; the route fills it in (deckTiers: the deck's fit + sub, Browse every tier).
  * Both read the company's stored scores, and the scan stores scores only for its candidates
  * (src/score/candidates.ts): a bid certainly out of reach is in neither, by design.
  */
@@ -98,6 +115,7 @@ export function parseFeedQuery(raw: RawQuery): FeedQueryResult {
       sources: listOf(raw, 'source', SOURCE_IDS),
       verdicts: listOf(raw, 'verdict', VERDICTS),
       sort: oneOf(raw, 'sort', SORTS),
+      tiers: tiersFor(oneOf(raw, 'tier', TIER_CHOICES)),
     };
     return { ok: true, query };
   } catch (err) {
@@ -117,8 +135,11 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (!id) return reply;
     const parsed = parseFeedQuery(req.query);
     if (!parsed.ok) return reply.code(400).send({ error: 'invalid_query', message: parsed.message });
-    const items = await getFeed(db, id.profile.id, { ...parsed.query, now: now() });
-    return { items, lastScan: (await lastScan(db))?.finishedAt ?? null };
+    const deck = !parsed.query.includeSwiped; // all=1 is Browse
+    const query: FeedQuery = { ...parsed.query, tiers: parsed.query.tiers ?? (deck ? deckTiers(id.profile) : undefined), now: now() };
+    const items = await getFeed(db, id.profile.id, query);
+    const counts = await getFeedCounts(db, id.profile.id, query);
+    return { items, counts, lastScan: (await lastScan(db))?.finishedAt ?? null };
   });
 
   app.get('/api/saved', async (req, reply) => {

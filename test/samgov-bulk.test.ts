@@ -104,10 +104,12 @@ describe('which rows become cards', () => {
 
   it('counts what it left out, and why', () => {
     expect(stats).toMatchObject({
-      bytes: RAW.length, rows: 82, active: 82, kept: 74, cards: drafts.length, malformed: 0,
-      dropped: { inactive: 0, type: 3, naics: 4, country: 1, noPlace: 3, pastDue: 9, noId: 0 },
+      bytes: RAW.length, rows: 82, active: 82, kept: 74, keptByPsc: 0, cards: drafts.length, placedAtOffice: 2, malformed: 0,
+      dropped: { inactive: 0, type: 3, naics: 4, country: 1, noPlace: 0, pastDue: 10, noId: 0 },
     });
-    expect(drafts).toHaveLength(34);
+    // 34 before 2026-11-14; the 3 notices with no place of performance are now placed at their contracting office
+    // (2 cards; the third, N6600126Q6298, is past due on the capture day).
+    expect(drafts).toHaveLength(36);
   });
 
   it('award notices, justifications and sources-sought notices do not become cards', () => {
@@ -135,8 +137,18 @@ describe('which rows become cards', () => {
     expect(finalizeBid(wy).location).toMatchObject({ state: 'WY', precision: 'city' });
   });
 
-  it('a notice that names no place at all is left out (we cannot say it is in the US)', () => {
-    expect(ids.has('samgov:140A0827Q0010')).toBe(false); // Noxious weed treatment, every Pop field blank
+  it('a notice that names no place of performance is placed at its US contracting office, and says so', () => {
+    // Noxious weed treatment, every Pop field blank; office: BIA Eastern Oklahoma Region, Muskogee OK 74402.
+    const weed = drafts.find((d) => d.sourceId === '140A0827Q0010')!;
+    expect(weed.location).toMatchObject({ city: 'Muskogee', state: 'OK', zip: '74402' });
+    expect(weed.flags).toContain(FLAGS.placeFromOffice);
+    expect(finalizeBid(weed).location).toMatchObject({
+      state: 'OK', precision: 'city', label: 'Contracting office: Muskogee, OK (job site not named)',
+    });
+    // A card with a work site never carries the flag.
+    for (const d of drafts) if (d.location?.label || (d.location?.city && !d.flags?.includes(FLAGS.placeFromOffice))) {
+      expect(d.flags ?? []).not.toContain(FLAGS.placeFromOffice);
+    }
   });
 
   it('notices already past due at `now` are left out; without `now` they are kept', () => {
@@ -161,7 +173,7 @@ describe('which rows become cards', () => {
     const all = parseSamBulk(RAW).drafts;
     const due = (sol: string) => all.find((d) => d.sourceId === sol)?.dueAt;
     expect(due('36C26127Q0067')).toBe('2026-11-20T20:00:00.000Z'); // "2026-11-20T12:00:00-08:00"
-    expect(due('70ZL1927QELIZ')).toBe('2026-12-02T01:00:00.000Z'); // 70ZL1927QELIZ0001, "2026-12-01": date only → 5 PM Pacific
+    expect(due('70ZL1927QELIZ0001')).toBe('2026-12-02T01:00:00.000Z'); // "2026-12-01": date only → 5 PM Pacific
     expect(due('N00167-27-SIMACQ-CD-89-0002')).toBe('2026-10-26T17:00:00.000Z'); // "2026-10-26T10:00:00": no offset → Pacific
     expect(due('36C77627R0003')).toBeNull(); // blank
     expect(stats.deadlineShapes).toEqual({
@@ -316,8 +328,8 @@ describe('samgov source: the bulk file by default, the API only with SAM_SOURCE=
     expect(asked).toEqual([SAM_BULK_URL]);
     expect(drafts).toEqual(parseSamBulk(RAW, { now: CAPTURED }).drafts);
     expect(logs).toEqual([
-      'samgov (bulk file): 34 cards from 74 notices — 82 rows, 82 active; left out: 3 not open bids, 4 not construction/trades, ' +
-      '1 abroad, 3 no place given, 9 past due (0.2 MB)',
+      'samgov (bulk file): 36 cards from 74 notices (0 by service code alone), 2 placed at the contracting office (no work site ' +
+      'named) — 82 rows, 82 active; left out: 3 not open bids, 4 not construction/trades, 1 abroad, 0 no place given, 10 past due (0.2 MB)',
     ]);
   });
 

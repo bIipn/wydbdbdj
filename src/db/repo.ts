@@ -1,4 +1,4 @@
-import type { Bid, FeedItem, Profile, Reason, ScoreResult, SourceId, SwipeAction, Verdict } from '../types.js';
+import type { Bid, FeedItem, Profile, Reason, ScoreResult, SourceId, SwipeAction, Tier, Verdict } from '../types.js';
 import type { Db } from './db.js';
 
 // --------------------------------------------------------------- bids --
@@ -6,7 +6,7 @@ import type { Db } from './db.js';
 const BID_COLS = [
   'id', 'source', 'source_id', 'source_name', 'title', 'agency', 'description', 'category', 'city', 'county', 'state',
   'zip', 'lat', 'lng', 'loc_precision', 'loc_label', 'posted_at', 'due_at', 'est_min', 'est_max', 'naics', 'set_aside',
-  'url', 'flags', 'sol_number', 'last_seen_at',
+  'url', 'flags', 'sol_number', 'psc', 'last_seen_at',
 ] as const;
 
 function bidParams(b: Bid, seenAt: Date): unknown[] {
@@ -14,13 +14,13 @@ function bidParams(b: Bid, seenAt: Date): unknown[] {
     b.id, b.source, b.sourceId, b.sourceName, b.title, b.agency, b.description, b.category,
     b.location.city, b.location.county, b.location.state, b.location.zip, b.location.lat, b.location.lng,
     b.location.precision, b.location.label, b.postedAt, b.dueAt, b.estValue?.min ?? null, b.estValue?.max ?? null,
-    b.naics, b.setAside, b.url, JSON.stringify(b.flags), b.solNumber ?? null, seenAt.toISOString(),
+    b.naics, b.setAside, b.url, JSON.stringify(b.flags), b.solNumber ?? null, b.psc ?? null, seenAt.toISOString(),
   ];
 }
 
 /**
  * Rows per statement for the multi-row writes below. A few hundred keeps each statement well under
- * Postgres' 65,535-parameter limit (bids: 26 columns x 250 = 6,500) while turning thousands of round
+ * Postgres' 65,535-parameter limit (bids: 27 columns x 250 = 6,750) while turning thousands of round
  * trips into a handful. The same SQL runs on PGlite and on node-postgres.
  */
 export const BID_BATCH = 250;
@@ -76,7 +76,7 @@ export async function upsertProfile(db: Db, p: Profile): Promise<void> {
   );
 }
 
-const MATCH_COLS = ['profile_id', 'bid_id', 'score', 'verdict', 'reasons', 'distance_mi', 'over_limit'] as const;
+const MATCH_COLS = ['profile_id', 'bid_id', 'score', 'verdict', 'reasons', 'distance_mi', 'over_limit', 'tier'] as const;
 /** Casts on the first VALUES row's types: a VALUES list is typed before the insert sees it. */
 const MATCH_CASTS: Record<number, string> = { 2: '::integer', 4: '::jsonb', 5: '::double precision', 6: '::boolean' };
 
@@ -93,8 +93,8 @@ export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyA
        select v.*, now() from (values ${valuesList(batch.length, MATCH_COLS.length, (c) => MATCH_CASTS[c] ?? '')}) as v (${MATCH_COLS.join(', ')})
        on conflict (profile_id, bid_id) do update set
          score = excluded.score, verdict = excluded.verdict, reasons = excluded.reasons,
-         distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, scored_at = excluded.scored_at`,
-      batch.flatMap(({ bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit]),
+         distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, tier = excluded.tier, scored_at = excluded.scored_at`,
+      batch.flatMap(({ bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit, s.tier]),
     );
   }
 }
@@ -130,11 +130,12 @@ interface BidRow {
   zip: string | null; lat: number | null; lng: number | null; loc_precision: Bid['location']['precision'];
   loc_label: string | null; posted_at: Date | string | null; due_at: Date | string | null; est_min: string | number | null;
   est_max: string | number | null; naics: string | null; set_aside: string | null; url: string; flags: string[] | string;
-  sol_number: string | null; first_seen_at: Date | string;
+  sol_number: string | null; psc?: string | null; first_seen_at: Date | string;
 }
 
 interface FeedRow extends BidRow {
   score: number; verdict: Verdict; reasons: Reason[] | string; distance_mi: number | null; over_limit: boolean;
+  tier: Tier;
   action: SwipeAction | null;
 }
 
@@ -154,7 +155,7 @@ function toBid(r: BidRow): Bid {
     },
     postedAt: iso(r.posted_at), dueAt: iso(r.due_at),
     estValue: estMin == null && estMax == null ? null : { min: estMin, max: estMax },
-    naics: r.naics, setAside: r.set_aside, url: r.url, flags: json(r.flags), solNumber: r.sol_number,
+    naics: r.naics, setAside: r.set_aside, url: r.url, flags: json(r.flags), solNumber: r.sol_number, psc: r.psc ?? null,
   };
 }
 
@@ -162,7 +163,7 @@ function toFeedItem(r: FeedRow): FeedItem {
   return {
     ...toBid(r),
     score: r.score, verdict: r.verdict, reasons: json(r.reasons), distanceMi: r.distance_mi == null ? null : Number(r.distance_mi),
-    swipe: r.action, firstSeenAt: iso(r.first_seen_at)!, overLimit: r.over_limit,
+    swipe: r.action, firstSeenAt: iso(r.first_seen_at)!, overLimit: r.over_limit, tier: r.tier,
   };
 }
 
@@ -187,8 +188,14 @@ export async function getBid(db: Db, bidId: string): Promise<Bid | null> {
   return rows[0] ? toBid(rows[0]) : null;
 }
 
+/**
+ * matches.tier as stored, or for a row scored before tiers existed (null): 'fit' at score >= 35, else 'other'
+ * (the same rule as src/score/score.ts tierFor).
+ */
+export const TIER_SQL = `coalesce(m.tier, case when m.score >= 35 then 'fit' else 'other' end)`;
+
 const FEED_SELECT = `
-  select b.*, m.score, m.verdict, m.reasons, m.distance_mi, m.over_limit, s.action
+  select b.*, m.score, m.verdict, m.reasons, m.distance_mi, m.over_limit, ${TIER_SQL} as tier, s.action
   from matches m
   join bids b on b.id = m.bid_id
   left join swipes s on s.profile_id = m.profile_id and s.bid_id = m.bid_id`;
@@ -217,6 +224,8 @@ export interface FeedQuery {
   dueWithinDays?: number;
   sources?: SourceId[];
   verdicts?: Verdict[];
+  /** Only these tiers (stored matches.tier, see TIER_SQL). Absent or empty = every tier. */
+  tiers?: Tier[];
   /** Default 'fit'. */
   sort?: FeedSort;
   now?: Date;
@@ -224,7 +233,9 @@ export interface FeedQuery {
 
 /** Fixed ORDER BY clauses: nothing from a request is ever put into the SQL text. */
 const FEED_ORDER: Record<FeedSort, string> = {
-  fit: 'm.score desc, b.due_at asc nulls last, b.first_seen_at desc', // best fit, then soonest deadline
+  // Fits first, then sub work, then the rest (a sub card never sits above a fit, whatever its score); best score,
+  // then soonest deadline, within each.
+  fit: `case ${TIER_SQL} when 'fit' then 0 when 'sub' then 1 else 2 end, m.score desc, b.due_at asc nulls last, b.first_seen_at desc`,
   due: 'b.due_at asc nulls last, m.score desc', // soonest deadline; "no deadline" last
   near: 'm.distance_mi asc nulls last, m.score desc', // closest; unknown distance last
   new: 'coalesce(b.posted_at, b.first_seen_at) desc, m.score desc', // newest posting (or first sighting when the board gives no date)
@@ -244,15 +255,13 @@ function searchPatterns(q: string | undefined): string[] {
 }
 
 /**
- * Open bids for one profile, filtered and sorted in SQL. The defaults are the swipe deck's:
- * score ≥ 35, not yet swiped, best fit first, 100 at most.
+ * The WHERE clause every feed read shares, and its parameters ($1..$13). Tiers are left to the caller, so the
+ * tier counts (getFeedCounts) see exactly the same rows as the list minus that one filter.
  */
-export async function getFeed(db: Db, profileId: string, q: FeedQuery = {}): Promise<FeedItem[]> {
-  const now = q.now ?? new Date();
+function feedWhere(profileId: string, q: FeedQuery, now: Date): { sql: string; params: unknown[] } {
   const dueBy = q.dueWithinDays == null ? null : new Date(now.getTime() + q.dueWithinDays * 86_400_000).toISOString();
-  const rows = await db.query<FeedRow>(
-    `${FEED_SELECT}
-     where m.profile_id = $1
+  return {
+    sql: `m.profile_id = $1
        and m.score >= $2
        and (b.due_at is null or b.due_at > $3)
        and ($4::boolean or s.action is null)
@@ -264,17 +273,53 @@ export async function getFeed(db: Db, profileId: string, q: FeedQuery = {}): Pro
        and ($10::double precision is null or m.distance_mi <= $10::double precision)
        and ($11::timestamptz is null or b.due_at <= $11::timestamptz)
        and ($12::text[] is null or b.source = any ($12::text[]))
-       and ($13::text[] is null or m.verdict = any ($13::text[]))
-     order by ${FEED_ORDER[q.sort ?? 'fit']}, b.id
-     limit $14`,
-    [
+       and ($13::text[] is null or m.verdict = any ($13::text[]))`,
+    params: [
       profileId, q.minScore ?? 35, now.toISOString(), q.includeSwiped ?? false,
       q.overLimit ?? (q.hideOverLimit ? 'exclude' : 'include'), searchPatterns(q.q),
       q.hasValue ?? false, q.minValue ?? null, q.maxValue ?? null, q.maxDistance ?? null, dueBy,
-      q.sources?.length ? q.sources : null, q.verdicts?.length ? q.verdicts : null, q.limit ?? 100,
+      q.sources?.length ? q.sources : null, q.verdicts?.length ? q.verdicts : null,
     ],
+  };
+}
+
+/**
+ * Open bids for one profile, filtered and sorted in SQL. The defaults are the swipe deck's:
+ * score ≥ 35, not yet swiped, best fit first, 100 at most. `tiers` absent = every tier.
+ */
+export async function getFeed(db: Db, profileId: string, q: FeedQuery = {}): Promise<FeedItem[]> {
+  const where = feedWhere(profileId, q, q.now ?? new Date());
+  const rows = await db.query<FeedRow>(
+    `${FEED_SELECT}
+     where ${where.sql}
+       and ($14::text[] is null or ${TIER_SQL} = any ($14::text[]))
+     order by ${FEED_ORDER[q.sort ?? 'fit']}, b.id
+     limit $15`,
+    [...where.params, q.tiers?.length ? q.tiers : null, q.limit ?? 100],
   );
   return rows.map(toFeedItem);
+}
+
+export type TierCounts = Record<Tier, number>;
+
+/**
+ * How many open, UNSWIPED candidates each tier holds under the same filters as getFeed (minus tiers, limit and
+ * sort; includeSwiped is ignored: a swiped bid is never counted). What Browse's three-way filter shows.
+ */
+export async function getFeedCounts(db: Db, profileId: string, q: FeedQuery = {}): Promise<TierCounts> {
+  const where = feedWhere(profileId, { ...q, includeSwiped: false }, q.now ?? new Date());
+  const rows = await db.query<{ tier: Tier; n: string | number }>(
+    `select ${TIER_SQL} as tier, count(*) as n
+     from matches m
+     join bids b on b.id = m.bid_id
+     left join swipes s on s.profile_id = m.profile_id and s.bid_id = m.bid_id
+     where ${where.sql}
+     group by 1`,
+    where.params,
+  );
+  const out: TierCounts = { fit: 0, sub: 0, other: 0 };
+  for (const r of rows) if (r.tier in out) out[r.tier] = Number(r.n);
+  return out;
 }
 
 export async function getSaved(db: Db, profileId: string): Promise<FeedItem[]> {
@@ -314,6 +359,7 @@ export async function getUnnotified(db: Db, profileId: string, minScore: number,
     `${FEED_SELECT}
      where m.profile_id = $1 and m.score >= $2 and m.notified_at is null and not m.over_limit
        and (b.due_at is null or b.due_at > $3) and s.action is null
+       and ${TIER_SQL} <> 'sub'
      order by m.score desc, b.due_at asc nulls last`,
     [profileId, minScore, now.toISOString()],
   );

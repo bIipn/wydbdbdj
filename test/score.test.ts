@@ -215,6 +215,15 @@ describe('paperwork answers adapt the score, and never hide a bid', () => {
     const SCAN = new Date('2026-11-13T04:02:14Z'); // the live scan's clock, minutes after the SAM capture
     for (const b of federal) {
       const today = scoreBid(b, profile, SCAN);
+      if (today.reasons.some((r) => r.text.startsWith('Sub work:'))) { // sub work, open (tier 'sub') or a hard no
+        // Sub work is quoted to the bidders: FAR 52.204-7 binds the offeror, so the question is not asked.
+        for (const q of ['yes', 'no', 'unsure'] as const) {
+          const s = scoreBid(b, withQ({ samRegistered: q }), SCAN);
+          expect(s.score, b.title).toBe(today.score);
+          expect(texts(s).some((t) => /SAM\.gov registration/.test(t)), b.title).toBe(false);
+        }
+        continue;
+      }
       const yes = scoreBid(b, withQ({ samRegistered: 'yes' }), SCAN);
       const unsure = scoreBid(b, withQ({}), SCAN);
       const no = scoreBid(b, withQ({ samRegistered: 'no' }), SCAN);

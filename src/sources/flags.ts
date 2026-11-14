@@ -18,6 +18,11 @@ export const FLAGS = {
    * earlier), so the card says to check. Shown as a plain info line; no points change.
    */
   deadlineZoneUnstated: 'Deadline time zone not stated — check the notice',
+  /**
+   * SAM.gov: the notice names no place of performance, so it is placed at its contracting office instead.
+   * The work may be somewhere else; the card says so.
+   */
+  placeFromOffice: 'Work site not named — placed at the contracting office',
 } as const;
 
 /**

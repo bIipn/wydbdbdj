@@ -23,6 +23,11 @@ export interface OnboardingAnswers {
    */
   qualifications?: Qualifications;
   /**
+   * Settings' "Show sub work" switch (Profile.showSubWork): false keeps sub work out of the swipe deck. Absent =
+   * leave it as it is (PUT /api/profile keeps the stored choice; a new profile starts with it on).
+   */
+  showSubWork?: boolean;
+  /**
    * "What brings you here?" Absent or 'work' / 'both': everything above as it always was. 'hire' (here to
    * post jobs, not to find work): trades, radius and job size may be left out; the profile gets no trades and
    * is never alerted about work. Stored in the work profile (src/profile/work.ts), not in the scoring Profile.
@@ -87,7 +92,7 @@ function withPairs(codes: readonly string[]): string[] {
 type Dict = Record<string, unknown>;
 type Fail = (field: string, message: string) => void;
 
-const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides', 'qualifications', 'intent'];
+const FIELDS = ['businessName', 'trades', 'zip', 'radiusMi', 'valueRange', 'limits', 'costs', 'alerts', 'setAsides', 'qualifications', 'intent', 'showSubWork'];
 
 /**
  * A 'hire' account (here to post jobs) answers only where and a name. Its profile still needs a radius and a
@@ -324,6 +329,8 @@ export function validateAnswers(input: unknown): AnswersResult {
   if (setAsides) value.setAsides = setAsides;
   if (qualifications) value.qualifications = qualifications;
   if (intent) value.intent = intent;
+  if (input.showSubWork === true || input.showSubWork === false) value.showSubWork = input.showSubWork;
+  else if (input.showSubWork !== undefined && input.showSubWork !== null) fail('showSubWork', 'Show sub work must be on (true) or off (false).');
 
   return errors.size ? { ok: false, errors: Object.fromEntries(errors) } : { ok: true, value };
 }
@@ -367,6 +374,8 @@ export function buildProfile(profileId: string, answers: OnboardingAnswers): Pro
     alerts,
     // Only when answered: a profile that was never asked keeps no key, so it scores exactly as before.
     ...(answers.qualifications ? { qualifications: { ...answers.qualifications } } : {}),
+    // Only when switched off: missing means on, so every profile saved before the switch existed shows sub work.
+    ...(answers.showSubWork === false ? { showSubWork: false } : {}),
   };
 }
 
@@ -395,6 +404,8 @@ export interface ProfileSummary {
   setAsides: string[];
   /** Only present when the company answered "Your paperwork". */
   qualifications?: Qualifications;
+  /** Settings' "Show sub work" switch; true unless the company turned it off. */
+  showSubWork: boolean;
 }
 
 export function summarize(profile: Profile): ProfileSummary {
@@ -411,5 +422,6 @@ export function summarize(profile: Profile): ProfileSummary {
     alerts: { ...profile.alerts, minScore: profile.alerts?.minScore ?? profile.notify.minScore },
     setAsides: profile.setAsidesEligible,
     ...(profile.qualifications ? { qualifications: { ...profile.qualifications } } : {}),
+    showSubWork: profile.showSubWork !== false,
   };
 }

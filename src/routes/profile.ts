@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
-import { lastScan, saveProfileForAccount } from '../db/repo.js';
+import { getFeedCounts, lastScan, saveProfileForAccount } from '../db/repo.js';
 import { getWorkProfile, saveIntent } from '../db/work.js';
 import { nearestZip } from '../geo/nearest.js';
 import { lookupZip } from '../geo/zip.js';
@@ -119,7 +119,10 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     }
 
     const features = featuresFor(id.plan);
-    const profile = buildProfile(profileIdFor(id.account.id), answers.value);
+    // A form that does not send the "Show sub work" switch (an older client) keeps the stored choice.
+    const profile = buildProfile(profileIdFor(id.account.id), {
+      ...answers.value, showSubWork: answers.value.showSubWork ?? id.profile?.showSubWork,
+    });
     // A plan without cost settings is never shown them, so its form sends none: keep what is stored.
     if (!features.costSettings && !hasValues(profile.costs) && id.profile?.costs) profile.costs = id.profile.costs;
 
@@ -127,6 +130,9 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     // The intent lives in the work profile (GET /api/me reports it). Answers without one leave it as it is.
     if (answers.value.intent && answers.value.intent !== storedIntent) await saveIntent(db, id.account.id, answers.value.intent, ctx.now());
     const scored = await scoreProfile(db, stored, ctx.now(), ctx.bus);
-    return { profile: summaryFor(stored, features), scored };
+    // What the onboarding's last step says: the open bids now scored for this company, by tier (Browse's
+    // "Everything" filters: every score, unswiped, not past due). Real counts from the rows just stored.
+    const counts = await getFeedCounts(db, stored.id, { minScore: 0, now: ctx.now() });
+    return { profile: summaryFor(stored, features), scored, counts };
   });
 }

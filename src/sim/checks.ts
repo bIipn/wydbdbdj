@@ -10,12 +10,13 @@ import { ELECTRICAL_SIDE, PIPE_SIDE, type Persona } from './personas.js';
 export type CheckId =
   | 'radius' | 'spend-limit' | 'certification' | 'trade' | 'alert-reason' | 'alert-missing' | 'repeat-scan'
   | 'free-no-premium' | 'estimate-not-silent' | 'stream-delivery' | 'filters' | 'next-in-deck' | 'next-rank' | 'browse-complete'
-  | 'determinism';
+  | 'sub-silent' | 'determinism';
 
 /** Every per-company check, in report order. */
 export const PERSONA_CHECKS: readonly CheckId[] = [
   'radius', 'spend-limit', 'certification', 'trade', 'alert-reason', 'alert-missing', 'repeat-scan',
   'free-no-premium', 'estimate-not-silent', 'stream-delivery', 'filters', 'next-in-deck', 'next-rank', 'browse-complete',
+  'sub-silent',
 ];
 
 export interface Violation {
@@ -113,6 +114,10 @@ function premiumNumbers(value: unknown, path = ''): string[] {
 
 const short = (b: { id: string; title: string }) => `${b.id} “${b.title.slice(0, 60)}”`;
 
+/** Sub work's score scale, the check's own copy of the contract (src/score/score.ts SUB_MIN / SUB_MAX). */
+const SUB_MIN = 36;
+const SUB_MAX = 50;
+
 /**
  * The "next bid" ranking, recomputed with the check's own copy of the rule (src/feed/next.ts): candidates
  * are deck bids not swiped, not over the limit, scoring 35+, not past due; rank = score + up to 10 points
@@ -122,7 +127,8 @@ const NEXT_FLOOR = 35;
 function nextRank(b: FeedItem, nowMs: number): number | null {
   const due = b.dueAt ? Date.parse(b.dueAt) : NaN;
   const days = Number.isFinite(due) ? (due - nowMs) / 86_400_000 : null;
-  if (b.swipe || b.overLimit || b.score < NEXT_FLOOR || (days !== null && days <= 0)) return null;
+  // Sub work is quoted to a GC, never "the next bid" to place.
+  if (b.swipe || b.overLimit || b.tier === 'sub' || b.score < NEXT_FLOOR || (days !== null && days <= 0)) return null;
   const boost = days === null || days < 2 || days >= 14 ? 0 : (10 * (14 - days)) / 12;
   return b.score + boost;
 }
@@ -154,6 +160,7 @@ export function checkCoverage(p: Persona, o: PersonaObs, byId: ReadonlyMap<strin
     'next-in-deck': o.next?.item ? 1 : 0,
     'next-rank': o.next?.item && o.asOf ? 1 : 0,
     'browse-complete': o.expectedInBrowse?.length ?? 0,
+    'sub-silent': o.browse.length + shown.length,
     determinism: 0,
   };
 }
@@ -218,7 +225,8 @@ export function checkPersona(p: Persona, o: PersonaObs, byId: ReadonlyMap<string
   const threshold = p.answers.alerts?.minScore ?? 55;
   const alerted = new Set(o.alerts.map((a) => a.bidId));
   for (const b of o.browse) {
-    if (b.score >= threshold && !b.overLimit && !alerted.has(b.id)) v('alert-missing', `${short(b)} scores ${b.score} (alert score ${threshold}) but is not in the inbox`);
+    // Sub work never alerts (the 'sub-silent' check below holds it to that).
+    if (b.score >= threshold && !b.overLimit && b.tier !== 'sub' && !alerted.has(b.id)) v('alert-missing', `${short(b)} scores ${b.score} (alert score ${threshold}) but is not in the inbox`);
   }
 
   // a repeat of the same scan creates nothing.
@@ -266,6 +274,26 @@ export function checkPersona(p: Persona, o: PersonaObs, byId: ReadonlyMap<string
     for (const e of o.expectedInBrowse) {
       if (!inBrowse.has(e.id)) v('browse-complete', `${short(e)} scores ${e.score} for this company but is not in Browse`);
     }
+  }
+
+  // sub work is silent and on its own short scale: never an alert or the next pick, never above SUB_MAX, always
+  // "maybe"; a general-building company (the prime) has none; a job of the company's own trade is never sub work;
+  // and every other tier says what its score says (fit at the deck line or above, other below it).
+  for (const { a, item } of alertItems) {
+    if (item?.tier === 'sub') v('sub-silent', `alert ${a.id} names sub work ${short(item)} (${item.score})`);
+  }
+  if (o.next?.item?.tier === 'sub') v('sub-silent', `the next pick ${short(o.next.item)} is sub work`);
+  const generalBuilder = trades.has('general-building');
+  const seen = new Map<string, FeedItem>();
+  for (const item of [...o.browse, ...o.decks.flat()]) seen.set(item.id, item);
+  for (const item of seen.values()) {
+    if (item.tier === 'sub') {
+      if (item.score < SUB_MIN || item.score > SUB_MAX || item.verdict !== 'maybe') v('sub-silent', `sub work ${short(item)} scores ${item.score} (${item.verdict}); it must stay ${SUB_MIN}–${SUB_MAX}, "maybe"`);
+      if (generalBuilder) v('sub-silent', `${short(item)} is sub work for a general-building company, which is the prime`);
+      if ((elecCo && electricalOnly(item)) || (pipeCo && pipeOnly(item))) v('sub-silent', `${short(item)} is the company's own trade's job but is labelled sub work`);
+      if (!/^Sub work: /.test(item.reasons[0]?.text ?? '')) v('sub-silent', `sub work ${short(item)} does not say so first: “${item.reasons[0]?.text ?? ''}”`);
+    } else if (item.tier === 'fit' && item.score < 35) v('sub-silent', `${short(item)} is a "fit" at ${item.score}, under the deck line`);
+    else if (item.tier === 'other' && item.score >= 35) v('sub-silent', `${short(item)} is "other" at ${item.score}, at or over the deck line`);
   }
 
   // free plan: no premium numbers anywhere.

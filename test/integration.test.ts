@@ -120,7 +120,9 @@ describe('reasons name the company\'s own trade', () => {
   it('an acronym keeps its capitals', () => {
     const hvac = company(['hvac']);
     expect(reasonTexts(job({ title: 'TEST boiler replacement (synthetic)' }), hvac)[0]).toBe('HVAC scope: “boiler”');
-    expect(reasonTexts(job({ title: 'TEST tenant improvement (synthetic)' }), hvac)).toContain('General construction — check the specs for HVAC');
+    expect(reasonTexts(job({ title: 'TEST facility upgrade (synthetic)' }), hvac)).toContain('General construction — check the specs for HVAC');
+    expect(reasonTexts(job({ title: 'TEST tenant improvement (synthetic)' }), hvac)[0])
+      .toBe('Sub work: a general contractor bids this building job (“tenant improvement”); HVAC is usually subcontracted');
     expect(scoreBid(job({ title: 'TEST piano tuning (synthetic)' }), hvac, NOW).rejected).toBe('No HVAC or construction scope found');
   });
 
@@ -130,7 +132,9 @@ describe('reasons name the company\'s own trade', () => {
     expect(reasonTexts(job({ title: 'TEST building work (synthetic)', naics: '238220' }), both)[0]).toBe('NAICS 238220 — one of your trades');
     expect(reasonTexts(job({ title: 'TEST building work (synthetic)', description: 'New lighting throughout.' }), both)[0])
       .toBe('Your trades mentioned: “lighting”');
-    expect(reasonTexts(job({ title: 'TEST tenant improvement (synthetic)' }), both)).toContain('General construction — check the specs for your trades');
+    expect(reasonTexts(job({ title: 'TEST facility upgrade (synthetic)' }), both)).toContain('General construction — check the specs for your trades');
+    expect(reasonTexts(job({ title: 'TEST tenant improvement (synthetic)' }), both)[0])
+      .toBe('Sub work: a general contractor bids this building job (“tenant improvement”); electrical and plumbing are usually subcontracted');
     expect(scoreBid(job({ title: 'TEST piano tuning (synthetic)' }), both, NOW).rejected).toBe('No work in your trades or construction scope found');
   });
 
@@ -373,7 +377,10 @@ describe('accounts mode, end to end', () => {
     const deck = await items();
     expect(deck.length).toBeGreaterThanOrEqual(3);
     expect(deck.map((b) => b.id).sort()).toEqual(all.filter((b) => b.score >= 35).map((b) => b.id).sort());
-    expect(deck.map((b) => b.score)).toEqual([...deck.map((b) => b.score)].sort((a, b) => b - a));
+    // Fits first, best score first; then the sub work (the deck's default holds both), best first.
+    const rank = { fit: 0, sub: 1, other: 2 } as const;
+    expect(deck.map((b) => [rank[b.tier], -b.score])).toEqual([...deck.map((b) => [rank[b.tier], -b.score] as const)].sort((a, b) => a[0] - b[0] || a[1] - b[1]));
+    expect(deck.some((b) => b.tier === 'sub')).toBe(true);
     expect(deck[0]!.reasons[0]!.text).toMatch(/^Electrical scope: “/);
 
     // The 2026-11-13 capture has one fire alarm job (State Public Works' sprinkler + fire alarm install).
@@ -552,7 +559,7 @@ describe('single mode is still the pilot', () => {
       id: 'lm-electric', name: 'L&M Electric', base: 'Gardnerville, NV', maxDistanceMi: 90, valueRange: { min: 10_000, max: 50_000 }, notifyMinScore: 55,
     });
     const feed = (await app.inject('/api/feed?all=1&minScore=0&limit=300')).json();
-    expect(Object.keys(feed).sort()).toEqual(['items', 'lastScan']);
+    expect(Object.keys(feed).sort()).toEqual(['counts', 'items', 'lastScan']);
     expect(feed.items).toHaveLength(REAL);
     expect((feed.items as FeedItem[]).every((b) => b.overLimit === false)).toBe(true); // the pilot has set no limits
     const best = (feed.items as FeedItem[])[0]!;

@@ -4,7 +4,8 @@ import type { FeedItem, Verdict } from '../types.js';
  * "What should I look at next?" — one bid, chosen on fit and urgency, with the reasons in plain
  * English. Pure: it only uses what is on the items, so it is the same pick for the same feed.
  *
- * Candidates: not swiped, still open, not over the spend limit, score ≥ 35 (the swipe deck's floor).
+ * Candidates: not swiped, still open, not over the spend limit, score ≥ 35 (the swipe deck's floor), and not
+ * sub work (tier 'sub': a GC's job to quote, not a bid to place; the deck shows it, the pick does not).
  *
  *   rank  = score + boost
  *   boost = 10 × (14 − d) / 12   when the deadline is d days away and 2 ≤ d < 14
@@ -51,7 +52,7 @@ const asc = (a: number | null, b: number | null): number => (a === b ? 0 : a ===
 export function pickNext(items: FeedItem[], now: Date): { item: FeedItem | null; why: string[] } {
   const ranked = items
     .map((item) => ({ item, days: daysLeft(item, now) }))
-    .filter(({ item, days }) => !item.swipe && !item.overLimit && item.score >= NEXT_MIN_SCORE && (days === null || days > 0))
+    .filter(({ item, days }) => !item.swipe && !item.overLimit && item.tier !== 'sub' && item.score >= NEXT_MIN_SCORE && (days === null || days > 0))
     .map((c) => ({ ...c, rank: c.item.score + urgencyBoost(c.days) }))
     .sort(
       (a, b) =>

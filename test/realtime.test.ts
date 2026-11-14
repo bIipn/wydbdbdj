@@ -46,7 +46,7 @@ const HOUR = 3_600_000;
 
 /** A score as the scan would hand it over (synthetic numbers, the real reason wording). */
 const fit = (over: Partial<ScoreResult> = {}): ScoreResult => ({
-  score: 82, verdict: 'great', distanceMi: 14, rejected: null, overLimit: false,
+  score: 82, verdict: 'great', distanceMi: 14, rejected: null, overLimit: false, tier: 'fit',
   reasons: [
     { kind: 'plus', text: 'Electrical scope: “panel”' },
     { kind: 'plus', text: '14 mi from Gardnerville' },

@@ -12,6 +12,7 @@ import { createBus, type BusEventOf } from '../src/realtime/bus.js';
 import { finalizeBid, runScan } from '../src/scan.js';
 import { scoreBid } from '../src/score/score.js';
 import { inheritFromStored, mergeDrafts, samKey } from '../src/sources/dedupe.js';
+import { FLAGS } from '../src/sources/flags.js';
 import {
   isProgramContract, isPresolicitation, parseSamPlace, parseSamResponse, SAM_FLAGS, setAsideFromText,
   type SamOpportunity, type SamResponse,
@@ -64,9 +65,14 @@ describe('SAM.gov place of performance — every shape in the real responses', (
   it('blank: empty objects, or empty strings', () => {
     const empty = { city: null, state: null, zip: null, label: null };
     expect(notice('06025073').placeOfPerformance).toEqual({ city: {}, state: {}, country: {} });
-    expect(one('06025073').location).toEqual(empty);
+    expect(parseSamPlace(notice('06025073').placeOfPerformance)).toMatchObject({ city: null, state: null, zip: null, text: null });
     expect(notice('1ed4c9c9').placeOfPerformance).toEqual({ streetAddress: '', zip: '' });
-    expect(one('1ed4c9c9').location).toEqual(empty);
+    expect(parseSamPlace(notice('1ed4c9c9').placeOfPerformance)).toMatchObject({ city: null, state: null, zip: null, text: null });
+    // Since 2026-11-14 such a card is placed at its contracting office, and says so (test/samgov-wide.test.ts).
+    for (const id of ['06025073', '1ed4c9c9']) {
+      expect(one(id).location).not.toEqual(empty);
+      expect(one(id).flags).toContain(FLAGS.placeFromOffice);
+    }
   });
 
   it('several sites: says so instead of picking one, and keeps the state only when there is one', () => {
@@ -85,9 +91,14 @@ describe('SAM.gov place of performance — every shape in the real responses', (
     expect(synthetic).toMatchObject({ state: null, multiSite: false });
   });
 
-  it('does not fall back to the contracting office: the VA office in Mather buys for Reno and Honolulu', () => {
+  it('falls back to the contracting office only with the flag: the VA office in Mather buys for Reno and Honolulu', () => {
+    // The office is not the job site, so the card must say so: FLAGS.placeFromOffice, and locate() labels it
+    // "Contracting office: …" (until 2026-11-14 such notices were left unplaced, and the bulk file dropped them).
     expect(notice('ebf23d8b')).toHaveProperty('officeAddress');
-    expect(one('ebf23d8b').location).toEqual({ city: null, state: null, zip: null, label: null });
+    const d = one('ebf23d8b');
+    expect(d.location).toMatchObject({ city: 'Mather', state: 'CA' });
+    expect(d.flags).toContain(FLAGS.placeFromOffice);
+    expect(finalizeBid(d).location.label).toBe('Contracting office: Mather, CA (job site not named)');
   });
 });
 
@@ -159,6 +170,13 @@ describe('one card per solicitation', () => {
     expect(samKey('36C26127Q0026', 'x')).toBe('36C26127Q0026');
     expect(samKey('N6247324R2610', 'x')).toBe('N6247324R2610');
     expect(samKey('PANNGB27P0000042127', 'x')).toBe('PANNGB27P0000042127'); // not the 13-character form: left alone
+    // Real numbers from the 2026-11-14 bulk file: offices that number DISTINCT jobs with a 4-digit tail keep them apart.
+    expect(samKey('15B41827Q00000001', 'x')).toBe('15B41827Q00000001'); // FCC Terre Haute bus center roof and paint
+    expect(samKey('15B41827Q00000002', 'x')).toBe('15B41827Q00000002'); // FCC Terre Haute condensation pumps
+    expect(samKey('70ZL1927QELIZ0001', 'x')).toBe('70ZL1927QELIZ0001'); // USCG Station Milford Haven water treatment
+    expect(samKey('70ZL1927QELIZ0002', 'x')).toBe('70ZL1927QELIZ0002'); // USCG Station Cape Charles lift station
+    expect(samKey('89503326RWA000049', 'x')).toBe('89503326RWA000049'); // WAPA series capacitor design-build
+    expect(samKey('36C24727Q00380001', 'x')).toBe('36C24727Q0038'); // a real amendment: numeric serial 0038
     expect(samKey(null, '06025073949')).toBe('06025073949');
     expect(samKey('  ', 'abc')).toBe('abc');
   });

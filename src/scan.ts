@@ -6,7 +6,7 @@ import type { Bus } from './realtime/bus.js';
 import { isCandidate } from './score/candidates.js';
 import { scoreBid } from './score/score.js';
 import { inheritFromStored, mergeDrafts, placeIsBlank } from './sources/dedupe.js';
-import type { Bid, BidDraft, Profile, ScoreResult, Source, SourceContext, SourceId, Verdict } from './types.js';
+import type { Bid, BidDraft, Profile, ScoreResult, Source, SourceContext, SourceId, Tier, Verdict } from './types.js';
 
 export interface SourceReport {
   ok: boolean;
@@ -22,6 +22,9 @@ export interface ProfileReport {
   /** Open bids left out as certainly out of reach for this profile: never scored, never stored. */
   outOfReach?: number;
   byVerdict: Record<Verdict, number>;
+  /** The same candidates by tier (src/types.ts Tier). Absent in reports stored before tiers existed. */
+  byTier?: Record<Tier, number>;
+  /** New bids at or above the digest line that may alert: never sub work, capped or over-limit bids. */
   newGood: number;
   /** Set when scoring this profile failed; the other profiles were still scored. */
   error?: string;
@@ -52,6 +55,12 @@ export function alertThreshold(profile: Profile): number {
 }
 
 const noVerdicts = (): Record<Verdict, number> => ({ great: 0, good: 0, maybe: 0, skip: 0 });
+const noTiers = (): Record<Tier, number> => ({ fit: 0, sub: 0, other: 0 });
+
+/** May this match be announced (a 'match' alert, a "new good" count)? Never sub work, a capped, rejected or over-limit bid. */
+export function mayAnnounce(s: ScoreResult, threshold: number): boolean {
+  return s.score >= threshold && !s.rejected && !s.overLimit && !s.capped && s.tier !== 'sub';
+}
 
 /**
  * Score one profile's candidates and store them. Only `isCandidate` bids are scored at all: a bid certainly
@@ -69,6 +78,7 @@ async function scoreBids(
   candidate: CandidateTest = isCandidate,
 ): Promise<ProfileReport> {
   const byVerdict = noVerdicts();
+  const byTier = noTiers();
   const threshold = alertThreshold(profile);
   let newGood = 0;
   const scored: Array<{ bid: Bid; bidId: string; score: ScoreResult }> = [];
@@ -83,21 +93,22 @@ async function scoreBids(
     const s = scoreBid(bid, profile, now);
     scored.push({ bid, bidId: bid.id, score: s });
     byVerdict[s.verdict]++;
-    if (fresh.has(bid.id) && s.score >= profile.notify.minScore && !s.overLimit && !s.capped) newGood++;
+    byTier[s.tier]++;
+    if (fresh.has(bid.id) && mayAnnounce(s, profile.notify.minScore)) newGood++;
   }
   await upsertMatches(db, profile.id, scored);
   await pruneMatches(db, profile.id, scored.map((x) => x.bidId), now);
 
   if (bus) {
     for (const { bid, score: s } of scored) {
-      if (quiet.has(bid.id) || s.score < threshold || s.rejected || s.overLimit || s.capped) continue;
+      if (quiet.has(bid.id) || !mayAnnounce(s, threshold)) continue;
       await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: fresh.has(bid.id) });
       // Let the event loop run once: the alert's stream frame and push go out now, not when the whole
       // scan ends (the embedded database runs on this thread, so a long scan would otherwise hold them).
       await new Promise<void>((r) => setImmediate(r));
     }
   }
-  return { scored: scored.length, outOfReach: bids.length - scored.length, byVerdict, newGood };
+  return { scored: scored.length, outOfReach: bids.length - scored.length, byVerdict, byTier, newGood };
 }
 
 /**
@@ -140,7 +151,7 @@ export async function scoreNewBid(
       const s = scoreBid(bid, profile, now);
       await upsertMatches(db, profile.id, [{ bidId: bid.id, score: s }]);
       n++;
-      if (bus && s.score >= alertThreshold(profile) && !s.rejected && !s.overLimit && !s.capped) {
+      if (bus && mayAnnounce(s, alertThreshold(profile))) {
         await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: true });
       }
     } catch (err) {
@@ -226,7 +237,7 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
       report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet, candidate);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      report.profiles[profile.id] = { scored: 0, byVerdict: noVerdicts(), newGood: 0, error: msg };
+      report.profiles[profile.id] = { scored: 0, byVerdict: noVerdicts(), byTier: noTiers(), newGood: 0, error: msg };
       ctx.log(`! profile ${profile.id} failed: ${msg}`);
     }
   }

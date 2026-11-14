@@ -28,7 +28,7 @@ const items: FeedItem[] = drafts
   .filter((b) => !b.dueAt || Date.parse(b.dueAt) > now.getTime())
   .map((b) => {
     const s = scoreBid(b, profile, now);
-    return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, swipe: null, firstSeenAt: now.toISOString(), overLimit: s.overLimit };
+    return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, swipe: null, firstSeenAt: now.toISOString(), overLimit: s.overLimit, tier: s.tier };
   })
   .sort((a, b) => b.score - a.score || (Date.parse(a.dueAt ?? '9999') - Date.parse(b.dueAt ?? '9999')));
 

@@ -473,6 +473,7 @@ describe('SAM.gov', () => {
       dueAt: '2026-11-20T20:00:00.000Z',
       estValue: null,
       naics: '238210',
+      psc: 'J061', // the notice's classificationCode (src/sources/psc.ts)
       setAside: 'SDVOSBC',
       url: 'https://sam.gov/workspace/contract/opp/0219242e57b54ac1bf223aaa8c9edc6c/view', // SAM's own uiLink
       flags: [],

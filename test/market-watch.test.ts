@@ -176,7 +176,7 @@ let clock = NOW;
 const apps: FastifyInstance[] = [];
 const engines: Realtime[] = [];
 
-const fit = (): ScoreResult => ({ score: 80, verdict: 'great', distanceMi: 14, rejected: null, overLimit: false, reasons: [] });
+const fit = (): ScoreResult => ({ score: 80, verdict: 'great', distanceMi: 14, rejected: null, overLimit: false, tier: 'fit', reasons: [] });
 
 interface Setup {
   pro: Account; proProfile: Profile;

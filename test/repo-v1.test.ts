@@ -23,7 +23,7 @@ describe('bids (v1 columns)', () => {
     const bids = await getOpenBids(db, NOW);
     expect(bids.map((b) => b.id).sort()).toEqual([noDeadline.id, open.id].sort());
     const stored = bids.find((b) => b.id === open.id)!;
-    expect(stored).toEqual({ ...open, solNumber: 'TEST-SOL-42' }); // a plain Bid, round-tripped
+    expect(stored).toEqual({ ...open, solNumber: 'TEST-SOL-42', psc: null }); // a plain Bid, round-tripped
     expect(bids.find((b) => b.id === noDeadline.id)!.solNumber).toBeNull();
     // Everything has closed a year later, except the bid with no deadline.
     expect((await getOpenBids(db, new Date('2027-11-11T00:00:00Z'))).map((b) => b.id)).toEqual([noDeadline.id]);

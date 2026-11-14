@@ -1,7 +1,10 @@
 import { milesBetween } from '../geo/locate.js';
+import { compileKeywords, type Matcher } from './keywords.js';
+import { tradesForPsc } from '../sources/psc.js';
+import { pscLabel, subWorkFor } from './subwork.js';
 import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, REQUIREMENT_FLAGS, SET_ASIDES } from '../sources/flags.js';
 import { getTrade, tradeNoun } from '../trades/catalog.js';
-import type { Bid, Profile, Qualifications, Reason, ScoreResult, SpendLimits, Verdict } from '../types.js';
+import type { Bid, Profile, Qualifications, Reason, ScoreResult, SpendLimits, Tier, Verdict } from '../types.js';
 import { formatMoneyShort, formatRange } from '../util/money.js';
 
 /**
@@ -29,25 +32,7 @@ import { formatMoneyShort, formatRange } from '../util/money.js';
 
 // ------------------------------------------------------------ keywords --
 
-export interface Matcher {
-  test(text: string | null | undefined): string | null; // returns the keyword that hit
-}
-
-/** "electric*" → prefix match; anything else → whole word/phrase. Case-insensitive. */
-export function compileKeywords(list: string[]): Matcher {
-  const regs = list.map((kw) => {
-    const prefix = kw.endsWith('*');
-    const body = (prefix ? kw.slice(0, -1) : kw).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+');
-    return { kw: prefix ? kw.slice(0, -1) : kw, re: new RegExp(`(?<![a-z0-9])${body}${prefix ? '' : '(?![a-z0-9])'}`, 'i') };
-  });
-  return {
-    test(text) {
-      if (!text) return null;
-      for (const { kw, re } of regs) if (re.test(text)) return kw;
-      return null;
-    },
-  };
-}
+export { compileKeywords, type Matcher } from './keywords.js';
 
 /** How the reasons name the contractor's own trade. */
 interface TradeWords {
@@ -89,11 +74,9 @@ interface Compiled {
   otherTrades: Matcher;
   exclude: Matcher;
   words: TradeWords;
-  /** Works inside buildings (the pilot is electrical), so a renovation is likely to carry some of its scope. */
-  insideTrades: boolean;
+  /** The catalog trades the profile is scored as: its own, or ['electrical'] for a config profile (the pilot). */
+  tradeIds: string[];
 }
-/** Catalog trades whose work is outside the building: a remodel is not their scope. */
-const OUTSIDE_TRADES: ReadonlySet<string> = new Set(['roofing', 'concrete-paving', 'landscaping', 'sitework', 'fencing']);
 
 const cache = new WeakMap<Profile, Compiled>();
 function matchers(p: Profile): Compiled {
@@ -106,7 +89,8 @@ function matchers(p: Profile): Compiled {
       otherTrades: compileKeywords(p.keywords.otherTrades),
       exclude: compileKeywords(p.keywords.exclude),
       words: tradeWords(p),
-      insideTrades: (p.trades ?? []).length === 0 || (p.trades ?? []).some((t) => !OUTSIDE_TRADES.has(t)),
+      // No `trades` key at all = a config profile, the pilot's: electrical. An empty list ('hire') = no trade.
+      tradeIds: p.trades === undefined ? ['electrical'] : [...p.trades],
     };
     cache.set(p, c);
   }
@@ -126,9 +110,6 @@ const WORK_WORDS = compileKeywords([
   'install*', 'replac*', 'repair*', 'upgrad*', 'retrofit*', 'renovat*', 'remodel*', 'rewir*', 'wiring', 'connect*',
   'construct*', 'moderniz*', 'rehabilitat*', 'improvement*', 'conversion', 'maintenance', 'service*',
 ]);
-
-/** General-construction words that mean building work, which usually carries a sub scope for each trade. */
-const BUILDING_WORDS = compileKeywords(['renovation*', 'remodel*', 'tenant improvement*', 'restroom*']);
 
 /** "$465M", "$1.2 million", "$250,000" — the first dollar figure in a title, in dollars. */
 const TITLE_AMOUNT = /\$\s?(\d{1,3}(?:,\d{3})+|\d+(?:\.\d+)?)\s*(k|mm|m|b|million|billion|thousand)?(?![a-z0-9])/i;
@@ -286,6 +267,17 @@ export function verdictFor(score: number): Verdict {
   return 'skip';
 }
 
+/** Sub work's score scale (src/score/subwork.ts): 36 at the least, 50 at the most, from reach + size + time left. */
+export const SUB_MIN = 36;
+export const SUB_MAX = 50;
+/** The most the context can add: distance 25 + job size 15 + days to bid 15. */
+const CONTEXT_MAX = 55;
+
+/** The tier a scored bid that is not sub work gets: 'fit' at the deck line (CAPPED_FLOOR) or above, else 'other'. */
+export function tierFor(score: number): Tier {
+  return score >= CAPPED_FLOOR ? 'fit' : 'other';
+}
+
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
 /** The fit alone, before spend limits. This is what scoreBid returns for a profile that has set none. */
@@ -312,23 +304,38 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const relatedTitle = m.related.test(title);
   const relatedBody = relatedTitle ? null : m.related.test(body);
   const general = m.general.test(title) ?? m.general.test(body);
-  const posted = strongTitle || naicsStrong ? null : postedTrade(bid, profile);
+  // A federal product-service code of one of the company's trades counts like its own NAICS code.
+  const pscTrade = !naicsStrong && !!bid.psc && tradesForPsc(bid.psc).some((t) => m.tradeIds.includes(t));
+  const posted = strongTitle || naicsStrong || pscTrade ? null : postedTrade(bid, profile);
+  const supplyOnly = bid.flags.includes('May be supply-only') && !WORK_WORDS.test(title);
+  const otherInTitle = !strongTitle ? m.otherTrades.test(title) : null;
+  // Sub work (src/score/subwork.ts) is decided before the weaker trade signals: a building or road prime whose
+  // only tie to the trade is its text, a broad NAICS code or a generic word is a GC's job, not a fit.
+  const sub = subWorkFor(bid, m.tradeIds, {
+    fitInTitle: !!(strongTitle || naicsStrong || pscTrade || posted || relatedTitle), otherInTitle, supplyOnly,
+    program: programTerm(bid) !== null,
+  });
 
   let trade = 0;
   let factor = 0;
-  if (strongTitle && naicsStrong) {
+  if (strongTitle && (naicsStrong || pscTrade)) {
     trade = 45; factor = 1;
-    plus.push({ kind: 'plus', text: `${m.words.scope}: “${strongTitle}” + NAICS ${bid.naics}` });
+    plus.push({ kind: 'plus', text: `${m.words.scope}: “${strongTitle}” + ${naicsStrong ? `NAICS ${bid.naics}` : `PSC ${bid.psc}`}` });
   } else if (strongTitle) {
     trade = 40; factor = 1;
     plus.push({ kind: 'plus', text: `${m.words.scope}: “${strongTitle}”` });
   } else if (naicsStrong) {
     trade = 36; factor = 1;
     plus.push({ kind: 'plus', text: `NAICS ${bid.naics} — ${m.words.naics}` });
+  } else if (pscTrade) {
+    trade = 36; factor = 1;
+    plus.push({ kind: 'plus', text: `Filed as ${pscLabel(bid.psc!)}` });
   } else if (posted) {
     // Worth the same as the trade named in a notice's text (strongBody below).
     trade = 30; factor = 1;
     plus.push({ kind: 'plus', text: `Posted as ${posted} work` });
+  } else if (sub) {
+    trade = 1; factor = 1; // never used for the score (subScore below); non-zero so it is not "no scope found"
   } else if (strongBody) {
     trade = 30; factor = 1;
     plus.push({ kind: 'plus', text: `${m.words.mentioned}: “${strongBody}”` });
@@ -343,15 +350,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     plus.push({ kind: 'plus', text: `Related trade mentioned: “${relatedBody}”` });
   } else if (general) {
     info.push({ kind: 'info', text: `General construction — check the specs for ${m.words.specs}` });
-    // Building work (a renovation, a restroom remodel) usually carries a sub scope for the building trades,
-    // so it can reach "maybe" (max 12 + 55 × 0.75 = 53, never an alert). Other general work stays below it.
-    const building = m.insideTrades ? BUILDING_WORDS.test(title) ?? BUILDING_WORDS.test(bid.category) : null;
-    if (building) {
-      trade = 12; factor = 0.75;
-      info.push({ kind: 'info', text: `Building work (“${building}”) — often has a sub scope` });
-    } else {
-      trade = 8; factor = 0.45;
-    }
+    trade = 8; factor = 0.45;
   }
 
   // A program contract is a seat on a multi-site contract, not one job: no trade word or NAICS code lets it through.
@@ -363,10 +362,10 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   }
 
   const excluded = m.exclude.test(title) ?? m.exclude.test(bid.category);
-  if (excluded && !strongTitle && !naicsStrong) reject(`Not your trade (“${excluded}”)`);
+  if (excluded && !strongTitle && !naicsStrong && !pscTrade) reject(`Not your trade (“${excluded}”)`);
   else if (trade === 0) reject(m.words.none);
 
-  const other = !strongTitle ? m.otherTrades.test(title) : null;
+  const other = otherInTitle;
   let penalty = 0;
   if (other) {
     penalty += 20;
@@ -377,7 +376,18 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   let distanceMi: number | null = null;
   let dist = 8;
   const loc = bid.location;
-  if (loc.lat != null && loc.lng != null) {
+  const atOffice = bid.flags.includes(FLAGS.placeFromOffice);
+  if (loc.lat != null && loc.lng != null && atOffice) {
+    // The notice names no work site; the point is its contracting office. The miles are real miles to the office,
+    // not to the job: no distance points, never an alert (the same cap as a site we cannot measure).
+    distanceMi = Math.round(milesBetween(profile.base, { lat: loc.lat, lng: loc.lng }));
+    dist = 0; capped = true;
+    if (distanceMi > profile.maxDistanceMi) {
+      rejected ??= `${distanceMi} mi to the contracting office — outside your ${profile.maxDistanceMi} mi range (work site not named)`;
+    } else {
+      minus.push({ kind: 'minus', text: `Work site not named — ${distanceMi} mi is to the contracting office, check the notice` });
+    }
+  } else if (loc.lat != null && loc.lng != null) {
     distanceMi = Math.round(milesBetween(profile.base, { lat: loc.lat, lng: loc.lng }));
     const approx = loc.precision === 'exact' || loc.precision === 'city' ? '' : ' (approx.)';
     if (distanceMi > profile.maxDistanceMi) {
@@ -421,7 +431,15 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const est = bid.estValue && (bid.estValue.min != null || bid.estValue.max != null) ? bid.estValue
     : amount !== null && !program ? { min: null, max: amount } : null;
   const v = est ? est.max ?? est.min : null;
-  if (est && v != null) {
+  if (est && v != null && sub) {
+    // The figure is the WHOLE prime contract; the company's part is a share of it, how big we cannot say. Only
+    // what is certain counts: a whole job under the company's smallest job leaves its part smaller still.
+    const label = bid.estValue ? `est. ${formatRange(est)}` : `named in the notice: ${formatMoneyShort(v)}`;
+    if (v < profile.valueRange.min) {
+      value = 0;
+      minus.push({ kind: 'minus', text: `Whole job ${label} — your part would be under your usual jobs` });
+    } else info.push({ kind: 'info', text: `Whole job ${label} — your part is a share of it` });
+  } else if (est && v != null) {
     const label = bid.estValue ? `Est. ${formatRange(est)}` : `Notice names ${formatMoneyShort(v)}`;
     const { min, max } = profile.valueRange;
     if (v >= min && v <= max) {
@@ -478,25 +496,28 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   // ---- set-asides & requirements -----------------------------------------
   if (bid.setAside && !profile.setAsidesEligible.includes(bid.setAside)) {
     const known = SET_ASIDES[bid.setAside];
-    if (known?.reserved) reject(known.reserved);
+    // A set-aside says who may bid the prime contract. Sub work is quoted to the bidders, so it is said, not held against it.
+    if (sub) info.push({ kind: 'info', text: `${known?.label ?? bid.setAside} set-aside — it applies to the prime bidder` });
+    else if (known?.reserved) reject(known.reserved);
     else {
       penalty += 15;
       minus.push({ kind: 'minus', text: `${known?.label ?? bid.setAside} set-aside — check you qualify` });
     }
   }
   // A supply board lists purchases and installs alike. A title that names no work is most likely a purchase.
-  const supplyOnly = bid.flags.includes('May be supply-only') && !WORK_WORDS.test(title);
   if (supplyOnly) {
     penalty += 25;
     if (!rejected) minus.push({ kind: 'minus', text: 'No work named in the title — may be a purchase, not a job' });
   } else if (bid.flags.includes('May be supply-only')) penalty += 5;
   const quals = profile.qualifications;
-  const needs = quals ? paperworkNeeds(bid, profile) : [];
+  // FAR 52.204-7 asks the OFFEROR to be registered in SAM; a sub quoting the bidders is not the offeror.
+  const needs = quals ? paperworkNeeds(bid, profile).filter((n) => !(sub && n.key === 'samRegistered')) : [];
   const covered = new Set(needs.flatMap((n) => n.flags));
   for (const f of bid.flags) {
     if (supplyOnly && f === 'May be supply-only') continue; // said by the minus above
     if (f === FLAGS.programContract || NOT_OPEN_FLAGS.some(({ flag }) => flag === f)) continue; // said above
     if (covered.has(f)) continue; // said by its paperwork line below
+    if (f === FLAGS.placeFromOffice && atOffice && distanceMi !== null) continue; // said by the distance line
     info.push({ kind: 'info', text: f });
   }
   for (const need of needs) {
@@ -508,12 +529,33 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     } else info.push({ kind: 'info', text: need.check });
   }
 
+  if (sub) {
+    // Sub work's own short scale: SUB_MIN–SUB_MAX from reach, time left and size, always 'maybe', always capped (so
+    // never an alert, never a digest), never above a real fit of 55+. Its first reasons say what it is and what to do.
+    const score = rejected ? 0 : SUB_MIN + Math.round(((SUB_MAX - SUB_MIN) * (dist + value + runway)) / CONTEXT_MAX);
+    const lead: Reason[] = [
+      { kind: 'info', text: sub.why },
+      ...(sub.filed ? [{ kind: 'info' as const, text: sub.filed }] : []),
+      { kind: 'info', text: sub.action },
+    ];
+    const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...lead, ...plus, ...minus, ...info] : [...lead, ...plus, ...minus, ...info];
+    return {
+      score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false,
+      ...(rejected ? {} : { capped: true }),
+      tier: rejected ? 'other' : 'sub',
+    };
+  }
+
   const raw = trade + (dist + value + runway) * factor - penalty;
   const fit = Math.max(0, Math.min(100, Math.round(raw)));
   const score = rejected ? 0 : capped ? Math.min(fit, capFor(profile)) : fit;
   const reasons: Reason[] = rejected ? [{ kind: 'minus', text: rejected }, ...plus, ...minus, ...info] : [...plus, ...minus, ...info];
   // `capped` is only written when true, so results without a gate look exactly as they always did.
-  return { score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false, ...(capped && !rejected ? { capped: true } : {}) };
+  return {
+    score, verdict: verdictFor(score), reasons, distanceMi, rejected, overLimit: false,
+    ...(capped && !rejected ? { capped: true } : {}),
+    tier: tierFor(score),
+  };
 }
 
 // -------------------------------------------------------- spend limits --

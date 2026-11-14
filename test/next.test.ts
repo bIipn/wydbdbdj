@@ -24,7 +24,7 @@ function item(over: Partial<FeedItem> = {}): FeedItem {
   const score = over.score ?? 90;
   return {
     ...testBid({ sourceId: `TEST-next-${++seq}` }), score, verdict: verdictFor(score), reasons: [], distanceMi: 20, swipe: null,
-    firstSeenAt: NOW.toISOString(), overLimit: false, dueAt: inDays(30), ...over,
+    firstSeenAt: NOW.toISOString(), overLimit: false, tier: 'fit', dueAt: inDays(30), ...over,
   };
 }
 const pick = (items: FeedItem[]) => pickNext(items, NOW).item;

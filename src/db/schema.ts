@@ -107,6 +107,10 @@ alter table profiles add column if not exists account_id text references account
 create unique index if not exists profiles_account_idx on profiles (account_id) where account_id is not null;
 alter table bids add column if not exists sol_number text;
 alter table matches add column if not exists over_limit boolean not null default false;
+-- Federal product-service code (SAM.gov ClassificationCode, upper case), null for every other board.
+alter table bids add column if not exists psc text;
+-- 'fit' | 'sub' | 'other' (src/types.ts Tier). Null = scored before tiers: read as 'fit' at score >= 35, else 'other'.
+alter table matches add column if not exists tier text;
 
 create table if not exists push_subscriptions (
   endpoint     text primary key,

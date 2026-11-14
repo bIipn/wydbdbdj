@@ -1,3 +1,4 @@
+import { FLAGS } from '../sources/flags.js';
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
 import { lookupCity, lookupZip } from './zip.js';
@@ -75,7 +76,23 @@ function nationwide(city: string | null | undefined, state: string | null, zip: 
  * placed, we stop: no guess from the title, agency or region, coordinates stay null and the label repeats what
  * the listing said. A guess would put a Marine Corps base in Bridgeport because the title lists four bases.
  */
-export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'>): BidLocation {
+export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'> & Pick<Partial<BidDraft>, 'flags'>): BidLocation {
+  // A federal notice that named no work site carries its contracting office as its place (FLAGS.placeFromOffice):
+  // it is placed from the office's own city / ZIP only, never guessed from the title, and its label says so.
+  if (draft.flags?.includes(FLAGS.placeFromOffice)) return officeLabel(locateGiven(draft, true));
+  return locateGiven(draft, false);
+}
+
+/**
+ * What the card says for a notice placed at its contracting office: where the office is, and that the job site
+ * was not named. "Contracting office: Sacramento, CA (job site not named)".
+ */
+function officeLabel(loc: BidLocation): BidLocation {
+  const where = loc.city && loc.state ? `${loc.city}, ${loc.state}` : loc.state;
+  return { ...loc, label: where ? `Contracting office: ${where} (job site not named)` : 'Contracting office (job site not named)' };
+}
+
+function locateGiven(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 'location'>, officeOnly: boolean): BidLocation {
   const given = draft.location ?? {};
   const state = given.state?.toUpperCase() ?? null;
   const zip = given.zip?.trim() || null;
@@ -90,8 +107,11 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   }
 
   // A gazetteer town named with its state keeps its hand-checked centre, whatever ZIP comes with it.
+  // With no state, a ZIP in another state decides: "Jackson" + 39216 (and no state) is Jackson, MS, not the
+  // gazetteer's Jackson, CA (a real SAM.gov notice of 2026-11-02, VA medical center, Mississippi).
   const city = findPlace(given.city);
-  if (city && (!state || city.state === state)) return placeLoc(city, 'city', zip);
+  const zipState = !state && zip ? lookupZip(zip)?.state ?? null : null;
+  if (city && (state ? city.state === state : !zipState || zipState === city.state)) return placeLoc(city, 'city', zip);
 
   const nearHome = zip ? findPlace(ZIP_PLACES[zip.slice(0, 5)]) : null;
   if (nearHome) return placeLoc(nearHome, 'city', zip);
@@ -104,7 +124,7 @@ export function locate(draft: Pick<BidDraft, 'title' | 'description' | 'agency' 
   const metro = zip ? findPlace(ZIP_PLACES[zip.slice(0, 3)]) : null;
   if (metro) return placeLoc(metro, 'city', zip);
 
-  if (zip || label) return unplaced(given, state, zip, label);
+  if (zip || label || officeOnly) return unplaced(given, state, zip, label);
 
   const home = !state || HOME_STATES.has(state);
   const text = [draft.title, draft.description].filter(Boolean).join(' \n ');

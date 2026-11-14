@@ -29,7 +29,13 @@ describe('one vocabulary: what the federal parser writes is what the scorer read
   it('SAM flags are the shared strings, and every flag on a real notice is one of them', () => {
     expect(SAM_FLAGS).toEqual({ presolicitation: FLAGS.presolicitation, programContract: FLAGS.programContract });
     const seen = new Set(bids.flatMap((b) => b.flags));
-    expect([...seen].sort()).toEqual([FLAGS.presolicitation, FLAGS.programContract].sort());
+    expect([...seen].sort()).toEqual([FLAGS.presolicitation, FLAGS.programContract, FLAGS.placeFromOffice].sort());
+    // The three captured notices that name no place of performance are placed at their contracting office.
+    expect(bids.filter((b) => b.flags.includes(FLAGS.placeFromOffice)).map((b) => [b.sourceId, b.location.label]).sort()).toEqual([
+      ['140L3926Q0031', 'Contracting office: Ely, NV (job site not named)'],
+      ['140LL027Q0005', 'Contracting office: Reno, NV (job site not named)'],
+      ['N6600126Q6298', 'Contracting office: San Diego, CA (job site not named)'],
+    ]);
     expect(NOT_OPEN_FLAGS.map((f) => f.flag)).toContain(SAM_FLAGS.presolicitation);
   });
 
@@ -57,9 +63,13 @@ describe('real notices, parser → locate → scoreBid', () => {
         expect(texts, b.title).toContain('Presolicitation — not open for bids yet');
       }
       const reserved = b.setAside ? SET_ASIDES[b.setAside]?.reserved : null;
-      if (reserved && !pilot.setAsidesEligible.includes(b.setAside!)) {
+      const sub = texts.some((t) => t.startsWith('Sub work:'));
+      if (reserved && !pilot.setAsidesEligible.includes(b.setAside!) && !sub) {
         expect(s.score, b.title).toBe(0);
         expect(texts, b.title).toContain(reserved);
+      } else if (reserved && sub) {
+        // Sub work is quoted to the bidders: the set-aside says who may bid the prime, so it is said, not held against it.
+        expect(texts, b.title).toContain(`${SET_ASIDES[b.setAside!]!.label} set-aside — it applies to the prime bidder`);
       }
     }
   });

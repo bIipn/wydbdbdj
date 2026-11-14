@@ -21,9 +21,10 @@ The research notes say how each fact was checked:
 | Sealed bids | While a job is open, only the bidder sees their own amount. The poster sees only how many bids there are. A bidder may change or withdraw a bid free until closing |
 | Who wins | At closing the **lowest bid wins**, automatically. A tie goes to the bid placed first. No bids: the job ends "unfilled" |
 | Bid tab | After closing, the amounts are shown ranked to the poster and to everyone who bid. Bidder names are shown only to the poster |
-| Contact window | The winner has **7 days** (`JOB_CONTACT_DAYS`) to make contact. A message in the job's thread counts, and so does the poster tapping "They contacted me". Both tap "We've agreed" → agreed. Poster taps "Job done" → completed |
-| No-show | Winner never made contact, or gave the job back → job unfilled, **no-show fee** recorded |
-| No fee | Poster never answered, no agreement reached, or the poster cancelled after the award → unfilled, no fee. Cancelling while the job is open is free |
+| Contact window | The winner has **7 days** (`JOB_CONTACT_DAYS`) to make contact. Any one of these counts: the winner's first message in the job's thread, the winner tapping "We've agreed", the poster tapping "They contacted me", the poster tapping "We've agreed". A phone call alone does not count, but either side can record it with one tap. Both tap "We've agreed" → agreed. Poster taps "Job done" → completed. A one-sided "We've agreed" tells the other side once (an alert, and a push where push is on) to tap it too |
+| No-show | Winner never made contact (none of the four), or gave the job back → job unfilled, **no-show fee** recorded |
+| Poster no-show | Only when the winner sent a **message** with at least the answer window left (min(48 hours, half the contact window): 48 h at 7 days, 12 h at 1 day) and the poster never answered (no message, no "They contacted me", no "We've agreed") → unfilled `poster_no_show`, no fee, counted on the poster's record as unanswered |
+| No fee | A poster no-show, every other case where contact was made but the two did not both agree (a last-minute first message, contact by a tap only) → `no_agreement`, nothing on anybody's record; or the poster cancelled after the award → unfilled, no fee. Cancelling while the job is open is free |
 | Repost | An unfilled or cancelled job can be posted again with one tap |
 | **No-show fee** | **5%** of the winning bid (`JOB_NO_SHOW_FEE_PCT`, 0–10). **2% of the bid** of it is the poster's share (`JOB_POSTER_SHARE_PCT`). BidSwipe keeps the other 3% |
 | **Service fee** | **1%** of the winning bid (`JOB_SERVICE_FEE_PCT`, 0–3), owed by the winner when both sides confirm the agreement |

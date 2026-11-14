@@ -3,12 +3,13 @@
 //   registerView('saved', { chrome: 'tabs', render: () => h('div', …) });
 //   setView('saved');
 //
-// chrome 'tabs'   = top bar + Swipe/Browse/Saved tabs + footnote around the view (the feed screens).
+// chrome 'tabs'   = top bar + Swipe/Browse/Saved/Market/Jobs tabs + footnote around the view (the feed screens).
+//                  An account here only to get work done sees the Jobs tab alone (hireOnly() below).
 // chrome 'screen' = the view owns the whole page (sign-in, onboarding, settings, access gate).
 
 import { $, $$, h } from './dom.js';
 import { fmtDay, fmtTime, isOpen } from './format.js';
-import { DECK_MIN_SCORE, deck, isLive, savedList, state } from './state.js';
+import { DECK_MIN_SCORE, deck, intent, isLive, savedList, state } from './state.js';
 
 const views = new Map();
 const afterRender = [];
@@ -17,6 +18,15 @@ const tabCounts = new Map();
 
 /** A tab whose button and count belong to another module (index.html has the button, hidden by default). */
 export function registerTabCount(view, fn) { tabCounts.set(view, fn); }
+
+/**
+ * The bid tabs. An account that picked "Get work done" (intent 'hire', accounts mode) has no trades, so these
+ * stay empty for it forever: the shell hides them, and a link, a shortcut or a Back button that names one
+ * lands on Jobs instead. 'work', 'both', the pilot (single mode) and the demo keep every tab.
+ */
+const BID_TABS = new Set(['swipe', 'browse', 'saved', 'market']);
+export const hireOnly = () => isLive() && state.auth === 'accounts' && intent() === 'hire';
+const hiddenFor = (name) => BID_TABS.has(name) && hireOnly() && views.has('jobs');
 
 export function registerView(name, view) {
   if (views.has(name)) throw new Error(`view "${name}" registered twice`);
@@ -33,7 +43,8 @@ export function render() {
     deferred ??= setTimeout(() => { deferred = null; render(); }, 250);
     return;
   }
-  const view = views.get(state.view) ?? views.get('swipe');
+  if (hiddenFor(state.view)) state.view = 'jobs';
+  const view = views.get(state.view) ?? views.get(hireOnly() ? 'jobs' : 'swipe');
   const app = $('#app');
   app.dataset.chrome = view.chrome;
   app.dataset.view = state.view;
@@ -60,9 +71,9 @@ export function render() {
     const label = (sel, text) => { const t = $(sel); t.setAttribute('aria-label', text); t.title = text; };
     label('.tab[data-view="swipe"]', `Swipe: ${toSwipe} bid${toSwipe === 1 ? '' : 's'} left to swipe`);
     label('.tab[data-view="browse"]', `Browse: ${browseN} open bid${browseN === 1 ? '' : 's'} match your filters, over-limit ones included`);
-    // Market needs the API: the bundled demo has no market data.
+    // Market needs the API: the bundled demo has no market data. The bid tabs are hidden for 'hire' (BID_TABS).
     const live = isLive();
-    $('#marketTab').hidden = !live;
+    for (const name of BID_TABS) $(`.tab[data-view="${name}"]`).hidden = hiddenFor(name) || (name === 'market' && !live);
     for (const [name, fn] of tabCounts) {
       const t = $(`.tab[data-view="${name}"]`);
       const c = fn();
@@ -70,7 +81,8 @@ export function render() {
       $('.count', t).textContent = c.count || '';
       label(`.tab[data-view="${name}"]`, c.label);
     }
-    // How many tabs show: five on a 360 px phone need tighter tabs (styles.css .tabs[data-tabs='5']).
+    // How many tabs show: five on a 360 px phone need tighter tabs (styles.css .tabs[data-tabs='5']); one (Jobs,
+    // for 'hire') is drawn as the screen's title bar (.tabs[data-tabs='1']).
     $('.tabs').dataset.tabs = String($$('.tab').filter((t) => !t.hidden).length);
     $('#countSaved').textContent = savedList().length || '';
     const scan = state.lastScan ? `Last scan ${fmtDay.format(new Date(state.lastScan))} · ${fmtTime.format(new Date(state.lastScan))}. ` : '';

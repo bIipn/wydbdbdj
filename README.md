@@ -8,7 +8,8 @@ serves a phone-friendly swipe app. Bidding on a public bid happens on the agency
 links straight there; BidSwipe never takes those bids.
 
 **Local jobs** (accounts mode): anyone signed in can post a job; others place a **sealed** bid in the app; at
-closing the lowest bid wins; the winner has 7 days to make contact. A winner who never makes contact or backs
+closing the lowest bid wins; the winner has 7 days to make contact (a message, or either side's "We've agreed",
+or the poster's "They contacted me"). A winner who never makes contact or backs
 out owes a 5% no-show fee (2% of the bid to the poster); an agreed job carries a 1% service fee. **Payments
 are off: fees are recorded, never collected.** Rules and research: `docs/MARKETPLACE.md`.
 
@@ -92,7 +93,7 @@ and `out/bidswipe-demo.html` (a single-file, no-server demo of the app; premium 
 a same-seed hash and mutation runs that prove the checks can fail. `npm run simulate:cost -- --companies
 2000 --seed 4242` stress-runs the cost engine on seeded simulated companies. `npm run simulate:jobs -- --seed
 20261114 --out out/sim-jobs` runs 38 simulated people through the real marketplace (post, sealed bids, award,
-contact window, fees): 15 checks, a same-seed hash and 9 mutations at real seams; about 8 minutes.
+contact window, fees): 15 checks, a same-seed hash and 10 mutations at real seams; about 8 minutes.
 
 Environment (all in `.env`, see `.env.example`): `PORT`, `HOST`, `DATA_DIR` (embedded DB folder),
 `DATABASE_URL`, `AUTH_MODE`, `DEMO_MODE`, `SOURCES`, `ACCESS_CODE`, `ADMIN_TOKEN`, `SCAN_DAILY_AT` and

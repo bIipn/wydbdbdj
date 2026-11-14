@@ -16,7 +16,7 @@ import { getTrade } from '../trades/catalog.js';
 import type { JobStats } from './stats.js';
 import type { PublicRules } from './config.js';
 import type { BidRecord, FeeRecord, JobRecord, MessageRecord } from './repo.js';
-import { bidsOpened, compareBids, type BidStatus, type FeeKind, type JobOutcome, type JobStatus } from './rules.js';
+import { bidsOpened, compareBids, contactMadeAt, posterAnsweredAt, type BidStatus, type FeeKind, type JobOutcome, type JobStatus } from './rules.js';
 
 /** What everyone may know about a person on a job: a name, when they joined, their record here. */
 export interface PersonLite {
@@ -86,10 +86,6 @@ export interface JobBundle {
 }
 
 const iso = (t: number | null): string | null => (t == null ? null : new Date(t).toISOString());
-const first = (...ts: Array<number | null>): number | null => {
-  const set = ts.filter((t): t is number => t !== null);
-  return set.length ? Math.min(...set) : null;
-};
 
 /** Bids that were in when the job closed: what the tab shows and what the count counts after closing. */
 const IN_AT_CLOSING: ReadonlySet<BidStatus> = new Set(['won', 'lost', 'defaulted']);
@@ -144,10 +140,11 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
         contactDeadline: iso(job.contactDeadline)!,
         isMe: isWinner,
         winner: card(job.winnerId),
-        // The winner "made contact": their first message, or the poster's "They contacted me".
-        bidderContactedAt: iso(first(job.bidderMessagedAt, job.posterTappedAt)),
-        // The poster answered: their first message or that tap.
-        posterContactedAt: iso(first(job.posterMessagedAt, job.posterTappedAt)),
+        // The winner "made contact" (rules.madeContact): the earliest of their first message, their "We've agreed",
+        // the poster's "They contacted me" and the poster's "We've agreed".
+        bidderContactedAt: iso(contactMadeAt(job)),
+        // The poster answered: the earliest of their first message, "They contacted me" and "We've agreed".
+        posterContactedAt: iso(posterAnsweredAt(job)),
         bidderConfirmedAt: iso(job.bidderConfirmedAt),
         posterConfirmedAt: iso(job.posterConfirmedAt),
       }

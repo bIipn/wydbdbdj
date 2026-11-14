@@ -6,10 +6,10 @@ import { h, icon, ICONS, showToast } from '../dom.js';
 import { fmtDay, clock } from '../format.js';
 import { jobsOn, openJob } from '../jobs-data.js';
 import { currentSubscription, pushKey, pushSupport, turnOffPush, turnOnPush } from '../push.js';
-import { onSignedOut } from '../session.js';
+import { homeView, onSignedOut } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { registerView, render, setView } from '../shell.js';
-import { features, mergeItems, state } from '../state.js';
+import { features, intent, mergeItems, state } from '../state.js';
 
 const ui = { back: 'swipe', loading: false, error: null, push: 'checking', pushNote: '' };
 onSignedOut(() => { ui.push = 'checking'; });
@@ -103,15 +103,46 @@ async function tapTurnOff() {
   render();
 }
 
+/**
+ * Whose inbox this is, for the copy: 'bids' = the pilot (single mode), bids only, as it always read; 'jobs' = an
+ * account here only to get work done ('hire': no trades, so only alerts about the jobs it posts); 'both' = any
+ * other account (it gets bid matches, and any account may post a job or bid on one).
+ */
+const audience = () => (state.auth !== 'accounts' ? 'bids' : intent() === 'hire' ? 'jobs' : 'both');
+
+/** The lines that change with the audience. Jobs settle when a request finds them due, so no "the moment" there. */
+const COPY = {
+  bids: {
+    empty: 'When a scan finds a bid that fits you, it shows up here. Saved bids get deadline reminders too.',
+    live: 'Live — new matches appear here the moment a scan finds them.',
+    off: 'Get a notification the moment a bid that fits you is posted. Your phone asks for permission first.',
+    on: 'This device gets a notification the moment a new bid fits you. Quiet hours in Settings hold them until morning.',
+    locked: 'Instant phone alerts are a Pro feature. On Free you get this inbox and the daily email.',
+    not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. New matches still show here and pop up while the app is open.',
+  },
+  jobs: {
+    empty: 'When bidding closes on a job you posted, the lowest bid and the contact deadline show up here. So do messages from the winner and how the job ended.',
+    live: 'Live — news on your jobs appears here as soon as BidSwipe records it.',
+    off: 'Get a notification when bidding closes on your job or the winner sends a message. Your phone asks for permission first.',
+    on: 'This device gets a notification when bidding closes on your job or a message comes in. Quiet hours in Settings hold them until morning.',
+    locked: 'Instant phone alerts are a Pro feature. On Free, news on your jobs shows up in this inbox.',
+    not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. News on your jobs still shows here and pops up while the app is open.',
+  },
+  both: {
+    empty: 'When a scan finds a bid that fits you, it shows up here, and saved bids get deadline reminders. Jobs you post or bid on show up too: the result when bidding closes, the contact deadline and messages.',
+    live: 'Live — new matches appear the moment a scan finds them, news on your jobs as soon as BidSwipe records it.',
+    off: 'Get a notification when a scan finds a bid that fits you, or when there’s news on a job you posted or bid on. Your phone asks for permission first.',
+    on: 'This device gets a notification for new bids that fit you and for news on your jobs. Quiet hours in Settings hold them until morning.',
+    locked: 'Instant phone alerts are a Pro feature. On Free you get this inbox and the daily email.',
+    not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. New matches and news on your jobs still show here and pop up while the app is open.',
+  },
+};
+
 const PUSH_TEXT = {
   checking: 'Checking this device…',
   busy: 'One moment…',
   unsupported: 'This browser can’t show phone alerts. On an iPhone, add BidSwipe to your Home Screen first (Share → Add to Home Screen), then turn them on there.',
   insecure: 'Phone alerts need a secure (https) address.',
-  not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. New matches still show here and pop up while the app is open.',
-  locked: 'Instant phone alerts are a Pro feature. On Free you get this inbox and the daily email.',
-  off: 'Get a notification the moment a bid that fits you is posted. Your phone asks for permission first.',
-  on: 'This device gets a notification the moment a new bid fits you. Quiet hours in Settings hold them until morning.',
   denied: 'Notifications are blocked for this site. Allow them in your browser’s site settings, then come back.',
   error: 'That didn’t work. Try again in a minute.',
 };
@@ -128,7 +159,7 @@ function pushPanel() {
       h('h2', { class: 'panel-title' }, 'Phone alerts'),
       status ? h('span', { class: `push-status ${s}` }, s === 'locked' ? icon(ICONS.lock) : null, status) : null,
     ),
-    h('p', { class: 'plan-text' }, PUSH_TEXT[s] ?? ''),
+    h('p', { class: 'plan-text' }, COPY[audience()][s] ?? PUSH_TEXT[s] ?? ''),
     s === 'error' && ui.pushNote ? h('p', { class: 'pc-fine' }, ui.pushNote) : null,
     button,
   );
@@ -158,7 +189,6 @@ function alertRow(a) {
 }
 
 const LIVE_TEXT = {
-  live: 'Live — new matches appear here the moment a scan finds them.',
   // Poll mode (serverless hosts): not "live"; the app asks the inbox on a timer while it is on screen.
   polling: 'On — checks for new alerts about once a minute while BidSwipe is open.',
   connecting: 'Connecting…',
@@ -174,7 +204,7 @@ function renderAlerts() {
   else if (!state.alerts) list = h('p', { class: 'pc-loading' }, 'Loading…');
   else if (!items.length) {
     list = h('div', { class: 'empty compact' }, h('div', { class: 'big' }, '🔔'), h('h3', {}, 'No alerts yet'),
-      h('p', {}, 'When a scan finds a bid that fits you, it shows up here. Saved bids get deadline reminders too.'));
+      h('p', {}, COPY[audience()].empty));
   } else list = h('ul', { class: 'alert-list' }, items.map(alertRow));
 
   return h('div', { class: 'screen alerts' },
@@ -183,7 +213,8 @@ function renderAlerts() {
       h('h1', {}, 'Alerts'),
       state.unread ? h('button', { type: 'button', class: 'text-btn', onclick: () => markRead('all') }, 'Read all') : h('span', { class: 'icon-btn ghost', 'aria-hidden': 'true' }),
     ),
-    h('p', { class: `live-line ${state.live}` }, h('span', { class: 'live-dot', 'aria-hidden': 'true' }), LIVE_TEXT[state.live] ?? ''),
+    h('p', { class: `live-line ${state.live}` }, h('span', { class: 'live-dot', 'aria-hidden': 'true' }),
+      (state.live === 'live' ? COPY[audience()].live : LIVE_TEXT[state.live]) ?? ''),
     pushPanel(),
     h('h2', { class: 'section-title' }, state.unread ? `${state.unread} unread` : 'Recent'),
     list,
@@ -192,7 +223,7 @@ function renderAlerts() {
 
 /** The bell. */
 export function openAlerts() {
-  if (state.view !== 'alerts') ui.back = state.view === 'settings' ? 'swipe' : state.view;
+  if (state.view !== 'alerts') ui.back = state.view === 'settings' ? homeView() : state.view;
   state.alerts = null;
   ui.push = 'checking';
   setView('alerts');

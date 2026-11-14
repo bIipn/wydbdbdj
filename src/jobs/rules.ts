@@ -33,6 +33,7 @@ export interface JobRules {
 }
 
 export const DAY_MS = 86_400_000;
+export const HOUR_MS = 3_600_000;
 
 // ---------------------------------------------------------------- money --
 
@@ -129,23 +130,64 @@ export interface JobState {
   endedAt: number | null;
 }
 
-/** "Made contact" = the winner sent a message, or the poster said they were contacted. */
-export const madeContact = (j: Pick<JobState, 'bidderMessagedAt' | 'posterTappedAt'>): boolean =>
-  j.bidderMessagedAt !== null || j.posterTappedAt !== null;
+/** The contact facts the rules read (each the first time it happened, ms since epoch, or null). */
+export type ContactFacts = Pick<JobState, 'bidderMessagedAt' | 'bidderConfirmedAt' | 'posterMessagedAt' | 'posterTappedAt' | 'posterConfirmedAt'>;
 
-/** The poster answered: they sent a message, tapped "They contacted me", or confirmed. */
-const posterAnswered = (j: Pick<JobState, 'posterMessagedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): boolean =>
+/**
+ * "The winner made contact" = ANY of: the winner's first message in the job's thread, the winner's "We've agreed",
+ * the poster's "They contacted me", the poster's "We've agreed". A phone call alone does not count, but either
+ * side can record it with one tap.
+ */
+export const madeContact = (j: Pick<JobState, 'bidderMessagedAt' | 'bidderConfirmedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): boolean =>
+  j.bidderMessagedAt !== null || j.bidderConfirmedAt !== null || j.posterTappedAt !== null || j.posterConfirmedAt !== null;
+
+/** When the winner made contact under madeContact(): the earliest of the four facts, null when none. */
+export const contactMadeAt = (j: Pick<JobState, 'bidderMessagedAt' | 'bidderConfirmedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): number | null =>
+  earliest(j.bidderMessagedAt, j.bidderConfirmedAt, j.posterTappedAt, j.posterConfirmedAt);
+
+/** The poster answered: they sent a message, tapped "They contacted me", or tapped "We've agreed". */
+export const posterAnswered = (j: Pick<JobState, 'posterMessagedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): boolean =>
   j.posterMessagedAt !== null || j.posterTappedAt !== null || j.posterConfirmedAt !== null;
+
+/** When the poster first answered, null when they never did. */
+export const posterAnsweredAt = (j: Pick<JobState, 'posterMessagedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): number | null =>
+  earliest(j.posterMessagedAt, j.posterTappedAt, j.posterConfirmedAt);
+
+function earliest(...times: Array<number | null>): number | null {
+  let best: number | null = null;
+  for (const t of times) if (t !== null && (best === null || t < best)) best = t;
+  return best;
+}
+
+/**
+ * The time a poster is given to answer the winner's first message before a silence can count against them:
+ * min(48 hours, half of the contact window), the window being contactDeadline − awardedAt.
+ * JOB_CONTACT_DAYS=1 → 12 hours; the default 7 days → 48 hours.
+ */
+export function answerWindowMs(awardedAt: number, contactDeadline: number): number {
+  return Math.min(48 * HOUR_MS, Math.floor(Math.max(0, contactDeadline - awardedAt) / 2));
+}
+
+/**
+ * The latest moment the winner's first message can be sent and still put the poster's silence on the poster's
+ * record (contactDeadline − answerWindow). null when the job has no award times.
+ */
+export function lastFairMessageAt(j: Pick<JobState, 'awardedAt' | 'contactDeadline'>): number | null {
+  if (j.awardedAt === null || j.contactDeadline === null) return null;
+  return j.contactDeadline - answerWindowMs(j.awardedAt, j.contactDeadline);
+}
 
 /**
  * What an awarded job becomes when its contact deadline passes without "We've agreed" from both:
- *   the winner never made contact             → bidder_no_show (the no-show fee)
- *   they did, and the poster never answered   → poster_no_show (no fee)
- *   both talked but did not agree             → no_agreement   (no fee)
+ *   the winner never made contact (none of the four facts)                → bidder_no_show (the no-show fee)
+ *   the winner MESSAGED at or before deadline − answer window, and the
+ *   poster never answered (no message, no "They contacted me", no tap)   → poster_no_show (no fee; on the poster's record)
+ *   any other contact without both agreeing                               → no_agreement   (no fee, nothing on anybody's record)
  */
-export function endOfContact(j: Pick<JobState, 'bidderMessagedAt' | 'posterMessagedAt' | 'posterTappedAt' | 'posterConfirmedAt'>): JobOutcome {
+export function endOfContact(j: ContactFacts & Pick<JobState, 'awardedAt' | 'contactDeadline'>): JobOutcome {
   if (!madeContact(j)) return 'bidder_no_show';
-  if (!posterAnswered(j)) return 'poster_no_show';
+  const lastFair = lastFairMessageAt(j);
+  if (j.bidderMessagedAt !== null && lastFair !== null && j.bidderMessagedAt <= lastFair && !posterAnswered(j)) return 'poster_no_show';
   return 'no_agreement';
 }
 

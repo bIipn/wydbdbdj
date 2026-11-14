@@ -148,7 +148,9 @@ function expectJob(job: PlannedJob, steps: Plan['steps'], plan: Plan, rates: Rat
 
   let status = 'awarded' as JobExpect['status']; // (a cast: the closures below change it)
   let outcome: string | null = null;
-  let winnerWrote = false;
+  // When the winner first wrote (null = never): the poster's silence counts against them only when that first
+  // message left them a fair time to answer (below).
+  let winnerFirstAt: number | null = null;
   let posterWrote = false;
   let tapped = false;
   let winnerConfirmed = false;
@@ -160,11 +162,18 @@ function expectJob(job: PlannedJob, steps: Plan['steps'], plan: Plan, rates: Rat
     say(job.poster, 'job_closed', 'poster', st, oc);
     say(winner.who, 'job_closed', 'winner', st, oc);
   };
+  // Rule 6 as changed (2026-11-14), worked out here from its text:
+  //   contact = the winner wrote, or tapped "We've agreed", or the poster tapped "They contacted me" or "We've agreed".
+  //   answered = the poster wrote, or tapped "They contacted me", or tapped "We've agreed".
+  //   The poster's answer time = min(48 h, half the contact window); the winner's first message must come no
+  //   later than the deadline minus that time for a silence to be the poster's no-show.
+  const contactMs = plan.contactDays * DAY;
+  const answerTime = Math.min(48 * HOUR, contactMs / 2);
+  const contactMade = () => winnerFirstAt !== null || winnerConfirmed || tapped || posterConfirmed;
   const atDeadline = () => {
-    // Rule 6: no contact → bidder_no_show (fee); contact but the poster never answered → poster_no_show; else no_agreement.
-    const contact = winnerWrote || tapped;
     const answered = posterWrote || tapped || posterConfirmed;
-    const oc = !contact ? 'bidder_no_show' : !answered ? 'poster_no_show' : 'no_agreement';
+    const fairChance = winnerFirstAt !== null && winnerFirstAt <= D - answerTime;
+    const oc = !contactMade() ? 'bidder_no_show' : fairChance && !answered ? 'poster_no_show' : 'no_agreement';
     if (oc === 'bidder_no_show') fees.push(expectedFee('no_show', winner.amountCents, winner.who, rates));
     ended('unfilled', oc);
   };
@@ -173,7 +182,7 @@ function expectJob(job: PlannedJob, steps: Plan['steps'], plan: Plan, rates: Rat
     if (status === 'awarded' && e.t >= D) atDeadline();
     if (e.tick) {
       // The 2-days-left reminder: awarded, no contact yet, deadline within 48 hours.
-      if (status === 'awarded' && !winnerWrote && !tapped && !reminded && D > e.t && D <= e.t + 48 * HOUR) {
+      if (status === 'awarded' && !contactMade() && !reminded && D > e.t && D <= e.t + 48 * HOUR) {
         reminded = true;
         say(winner.who, 'job_deadline', 'winner', 'awarded', null);
       }
@@ -185,7 +194,7 @@ function expectJob(job: PlannedJob, steps: Plan['steps'], plan: Plan, rates: Rat
       case 'message': {
         if (!live) break;
         const side: Side = a.side;
-        if (side === 'winner') winnerWrote = true;
+        if (side === 'winner') winnerFirstAt ??= e.t;
         else posterWrote = true;
         say(side === 'winner' ? job.poster : winner.who, 'job_message', side === 'winner' ? 'poster' : 'winner', status, null);
         break;
@@ -195,11 +204,18 @@ function expectJob(job: PlannedJob, steps: Plan['steps'], plan: Plan, rates: Rat
         break;
       case 'confirm':
         if (status !== 'awarded') break;
-        if (a.side === 'winner') winnerConfirmed = true;
-        else posterConfirmed = true;
-        if (winnerConfirmed && posterConfirmed) {
-          fees.push(expectedFee('service', winner.amountCents, winner.who, rates));
-          ended('agreed', null);
+        {
+          const first = a.side === 'winner' ? !winnerConfirmed : !posterConfirmed;
+          if (a.side === 'winner') winnerConfirmed = true;
+          else posterConfirmed = true;
+          if (winnerConfirmed && posterConfirmed) {
+            fees.push(expectedFee('service', winner.amountCents, winner.who, rates));
+            ended('agreed', null);
+          } else if (first) {
+            // A one-sided "We've agreed": the other side is told once (an in-app alert of the message kind).
+            if (a.side === 'winner') say(job.poster, 'job_message', 'poster', 'awarded', null);
+            else say(winner.who, 'job_message', 'winner', 'awarded', null);
+          }
         }
         break;
       case 'back-out':

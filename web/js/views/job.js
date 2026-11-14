@@ -16,7 +16,7 @@ import { PT } from '../format.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { clearErrors, formError, moneyInput, showErrors } from '../form.js';
 import {
-  dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, iWon, licenceLine, parseCents, ppmOf, stage, statsWords, timeLeft, whenLong,
+  answerWindowText, dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, iWon, licenceLine, parseCents, ppmOf, stage, statsWords, timeLeft, whenLong,
 } from '../job-words.js';
 import { jobs, loadMine, openJob } from '../jobs-data.js';
 import { chip } from '../profile-form.js';
@@ -323,9 +323,11 @@ function awardBox(job) {
       h('div', { class: `fact${running && left && Date.parse(a.contactDeadline) - Date.now() < 2 * 864e5 ? ' urgent' : ''}` },
         h('span', {}, 'Contact by'), h('strong', {}, running ? (left ? `${left} left` : 'now') : dayOnly(a.contactDeadline)), h('small', {}, whenLong(a.contactDeadline)))),
     job.status === 'awarded' || job.status === 'agreed' || job.status === 'completed' ? h('ol', { class: 'job-steps' },
-      step(!!a.bidderContactedAt, 'The winner made contact'),
-      // Tapping "We've agreed" is an answer too (src/jobs/rules.ts posterAnswered).
-      step(!!a.posterContactedAt || !!a.posterConfirmedAt, 'The poster answered'),
+      // Contact (src/jobs/rules.ts madeContact): the winner's message or "We've agreed", the poster's "They
+      // contacted me" or "We've agreed". The API's bidderContactedAt is the earliest of the four.
+      step(!!a.bidderContactedAt, 'The winner made contact (a message or a tap)'),
+      // posterContactedAt: the poster's message, "They contacted me" or "We've agreed" (rules.ts posterAnswered).
+      step(!!a.posterContactedAt, 'The poster answered'),
       step(!!a.posterConfirmedAt && !!a.bidderConfirmedAt, `Both tapped “We’ve agreed”${a.posterConfirmedAt && !a.bidderConfirmedAt ? ' (poster has)' : !a.posterConfirmedAt && a.bidderConfirmedAt ? ' (winner has)' : ''}`),
       step(job.status === 'completed', 'The poster marked it done')) : null,
   );
@@ -371,7 +373,7 @@ function thread(job) {
   const list = ui.messages.length
     ? h('ul', { class: 'msgs' }, ui.messages.map((m) => h('li', { class: `msg ${m.mine ? 'mine' : 'theirs'}` },
       h('p', {}, m.body), h('small', {}, `${m.mine ? 'You' : m.from === 'poster' ? 'Poster' : 'Winner'} · ${fmtMsgTime.format(new Date(m.at))}`))))
-    : h('p', { class: 'job-note faint' }, job.my.role === 'poster' ? 'No messages yet. The winner writes first, or you can.' : 'No messages yet. Say hello and when you could come look: that counts as making contact.');
+    : h('p', { class: 'job-note faint' }, job.my.role === 'poster' ? 'No messages yet. The winner writes first, or you can.' : 'No messages yet. Say hello and when you could come look: your first message counts as making contact.');
   let box = null;
   if (canSend) {
     const input = h('textarea', { class: 'input textarea short', rows: 2, maxlength: 1000, placeholder: 'Write a message…', 'aria-label': 'Message', id: 'jobMsg' }, ui.msg);
@@ -401,7 +403,9 @@ function thread(job) {
     });
   }
   return section('Messages', list, box,
-    canSend ? h('p', { class: 'job-note faint' }, 'Only you two see these. Agree the price, the scope and a day, then both tap “We’ve agreed”.') : null);
+    canSend ? h('p', { class: 'job-note faint' }, job.my.role === 'poster'
+      ? `Only you two see these. A reply, “They contacted me” or “We’ve agreed” is your answer. If the winner writes with at least ${answerWindowText(job.rules)} left and you never answer, it is recorded on your profile as unanswered.`
+      : 'Only you two see these. Your first message counts as making contact. Agree the price, the scope and a day, then both tap “We’ve agreed”.') : null);
 }
 
 /** The buttons the API allows for this person and this state. */
@@ -419,7 +423,7 @@ function actions(job) {
     if ((poster || winner) && !confirmedByMe) {
       const service = feeCents(a.amountCents, ppmOf(rules.serviceFeePct));
       out.push(h('button', { class: 'cta', type: 'button', onclick: () => act(() => api.jobAction(job.id, 'confirm'), 'Thanks. When you both tap it, the job is agreed.') }, 'We’ve agreed'),
-        h('p', { class: 'job-note faint' }, `Tap once you’ve settled price, scope and a day. When you both have, a ${rules.serviceFeePct}% service fee (${dollars(service)}) is recorded for the winner. ${FEES_OFF.split('. ')[0]}.`));
+        h('p', { class: 'job-note faint' }, `Tap once you’ve settled price, scope and a day, here or by phone. Your tap counts as contact, and the ${poster ? 'winner' : 'poster'} is told to tap it too. When you both have, a ${rules.serviceFeePct}% service fee (${dollars(service)}) is recorded for the winner. ${FEES_OFF.split('. ')[0]}.`));
     } else if (confirmedByMe) {
       out.push(h('p', { class: 'job-note' }, poster ? 'You tapped “We’ve agreed”. Waiting for the winner.' : 'You tapped “We’ve agreed”. Waiting for the poster.'));
     }

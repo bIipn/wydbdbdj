@@ -21,7 +21,7 @@ export type CheckId =
 
 export type JobsMutationId =
   | 'award-second-lowest' | 'tie-wrong-way' | 'leak-amount' | 'address-to-loser' | 'fee-on-poster-no-show'
-  | 'fee-rounded-down' | 'settle-twice-two-rows' | 'alert-wrong-account' | 'closed-in-feed';
+  | 'fee-rounded-down' | 'settle-twice-two-rows' | 'alert-wrong-account' | 'closed-in-feed' | 'late-message-marks-poster';
 
 export const JOBS_MUTATIONS: Readonly<Record<JobsMutationId, { check: CheckId; how: string }>> = {
   'award-second-lowest': { check: 'lowest-wins', how: 'the award the server stores is rewritten to the second-lowest amount (database wrapper, at the closing write)' },
@@ -33,6 +33,7 @@ export const JOBS_MUTATIONS: Readonly<Record<JobsMutationId, { check: CheckId; h
   'settle-twice-two-rows': { check: 'settle-twice', how: "the next settlement pass re-reads the jobs the last one ended as they were before (a stale read, as in a race), and the contact-deadline write's status guard and the ledger's one-row-per-job rule are dropped, so the product settles them again (database wrapper)" },
   'alert-wrong-account': { check: 'alerts', how: "the winner's \"You won\" alert is addressed to the job's poster instead (bus wrapper)" },
   'closed-in-feed': { check: 'feed', how: "the statement that takes a closed job's card out of the feed is skipped (database wrapper)" },
+  'late-message-marks-poster': { check: 'endings', how: "the old rule put back: a contact-deadline write of 'no_agreement' where the winner wrote and the poster never answered is rewritten to 'poster_no_show', however late the winner's message came (database wrapper, at the contact-deadline write)" },
 };
 
 /** Everything a mutation needs to undo when its run ends. */
@@ -64,7 +65,7 @@ export async function mutateDb(inner: Db, mutation: JobsMutationId | undefined):
     );
     for (const r of rows) await inner.exec(`alter table job_fees drop constraint "${r.conname.replace(/"/g, '')}"`);
   }
-  if (!mutation || !['award-second-lowest', 'tie-wrong-way', 'fee-rounded-down', 'settle-twice-two-rows', 'closed-in-feed'].includes(mutation)) {
+  if (!mutation || !['award-second-lowest', 'tie-wrong-way', 'fee-rounded-down', 'settle-twice-two-rows', 'closed-in-feed', 'late-message-marks-poster'].includes(mutation)) {
     return { db: inner, restore };
   }
 
@@ -75,6 +76,17 @@ export async function mutateDb(inner: Db, mutation: JobsMutationId | undefined):
   const query = async <T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> => {
     // closed-in-feed: the mirror's "closes now" never runs, so the card stays in every feed.
     if (mutation === 'closed-in-feed' && has(sql, 'update bids set due_at = least(')) return [];
+
+    // late-message-marks-poster: the rule as it was before 2026-11-14. The contact-deadline write carries the
+    // facts it decided on ($3 the winner's first message, $4 the poster's, $5 "They contacted me", $7 the
+    // poster's "We've agreed"): a winner's message with no poster answer becomes the poster's no-show again,
+    // even when the message came minutes before the deadline.
+    if (mutation === 'late-message-marks-poster' && has(sql, "update jobs set status = 'unfilled', outcome = $2, ended_at = contact_deadline")
+      && params[1] === 'no_agreement' && params[2] != null && params[3] == null && params[4] == null && params[6] == null) {
+      const p = [...params];
+      p[1] = 'poster_no_show';
+      return inner.query<T>(sql, p);
+    }
 
     // fee-rounded-down: rewrite the fee figures in the ledger insert (kind, basis, rate, amount, share ppm, share, platform).
     if (mutation === 'fee-rounded-down' && has(sql, 'insert into job_fees')) {

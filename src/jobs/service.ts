@@ -470,7 +470,17 @@ export async function confirmAgreement(deps: JobsDeps, accountId: string, jobId:
   if (job.status !== 'awarded' || job.awardCents === null) return closed('This job is not waiting for an agreement.');
   const done = await repo.confirm(deps.db, jobId, side, accountId, (basis) => feeLine('service', basis, deps.rules), job.awardCents, now);
   if (!done) return closed('The contact window for this job has closed.');
-  if (done.status === 'agreed') await tell(deps, endedEvents(done));
+  if (done.status === 'agreed') {
+    await tell(deps, endedEvents(done));
+  } else {
+    // A one-sided "We've agreed": tell the other side once, so they know to tap it too (the dedupe key
+    // <jobId>:agreed:<role> keeps a second tap, or two at once, from telling them again).
+    const tapped = side === 'poster' ? job.posterConfirmedAt : job.bidderConfirmedAt;
+    const other = side === 'poster' ? done.winnerId : done.posterId;
+    if (tapped === null && other) {
+      await tell(deps, [{ type: 'job', kind: 'job_message', accountId: other, role: side === 'poster' ? 'winner' : 'poster', ...facts(done), tap: 'agreed' }]);
+    }
+  }
   return ok(await loadView(deps, done, accountId, now));
 }
 

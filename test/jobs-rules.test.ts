@@ -2,7 +2,7 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_JOB_RULES, JobConfigError, loadJobRules, pctToPpm, publicRules } from '../src/jobs/config.js';
 import {
-  applyRate, compareBids, contactDeadlineFor, DAY_MS, endOfContact, FEE_OUTCOMES, feeLine, formatUsd, pickWinner, settle,
+  answerWindowMs, applyRate, compareBids, contactDeadlineFor, DAY_MS, endOfContact, HOUR_MS, lastFairMessageAt, madeContact, FEE_OUTCOMES, feeLine, formatUsd, pickWinner, settle,
   type BidState, type JobRules, type JobState,
 } from '../src/jobs/rules.js';
 
@@ -108,16 +108,75 @@ describe('fees', () => {
 });
 
 describe('the contact window', () => {
-  const t = (n: number | null) => n;
-  it('no contact = bidder no-show (fee); contact but no answer = poster no-show; both talked = no agreement', () => {
-    const none = { bidderMessagedAt: null, posterMessagedAt: null, posterTappedAt: null, posterConfirmedAt: null };
-    expect(endOfContact(none)).toBe('bidder_no_show');
-    expect(endOfContact({ ...none, posterMessagedAt: t(T0) })).toBe('bidder_no_show'); // the poster wrote; the winner never did
-    expect(endOfContact({ ...none, bidderMessagedAt: t(T0) })).toBe('poster_no_show');
-    expect(endOfContact({ ...none, posterTappedAt: t(T0) })).toBe('no_agreement'); // "They contacted me" is both: contact and an answer
-    expect(endOfContact({ ...none, bidderMessagedAt: t(T0), posterMessagedAt: t(T0) })).toBe('no_agreement');
+  // An award at T0 with the default 7-day window: the poster gets 48 hours to answer the winner's first message.
+  const AW = T0;
+  const DL = T0 + 7 * DAY_MS;
+  const none = {
+    awardedAt: AW, contactDeadline: DL,
+    bidderMessagedAt: null, bidderConfirmedAt: null, posterMessagedAt: null, posterTappedAt: null, posterConfirmedAt: null,
+  } as const;
+  const early = AW + DAY_MS; // well before deadline − 48 h
+  const late = DL - 60_000; // one minute before the deadline
+
+  it('the answer window is min(48 hours, half the contact window)', () => {
+    expect(answerWindowMs(AW, AW + 7 * DAY_MS)).toBe(48 * HOUR_MS);
+    expect(answerWindowMs(AW, AW + DAY_MS)).toBe(12 * HOUR_MS);
+    expect(answerWindowMs(AW, AW + 3 * DAY_MS)).toBe(36 * HOUR_MS);
+    expect(answerWindowMs(AW, AW + 4 * DAY_MS)).toBe(48 * HOUR_MS);
+    expect(answerWindowMs(AW, AW + 30 * DAY_MS)).toBe(48 * HOUR_MS);
+    expect(lastFairMessageAt(none)).toBe(DL - 48 * HOUR_MS);
+    expect(lastFairMessageAt({ awardedAt: null, contactDeadline: DL })).toBeNull();
+  });
+
+  it('decision table: who made contact, who answered, and when', () => {
+    const table: Array<[string, Partial<Record<keyof typeof none, number | null>>, string]> = [
+      ['nobody did anything', {}, 'bidder_no_show'],
+      ['only the poster wrote', { posterMessagedAt: early }, 'bidder_no_show'],
+      ['early message, no answer', { bidderMessagedAt: early }, 'poster_no_show'],
+      ['message exactly at deadline − 48 h, no answer', { bidderMessagedAt: DL - 48 * HOUR_MS }, 'poster_no_show'],
+      ['message one ms after deadline − 48 h, no answer', { bidderMessagedAt: DL - 48 * HOUR_MS + 1 }, 'no_agreement'],
+      ['unfair case 1: "hi" one minute before the deadline, no answer', { bidderMessagedAt: late }, 'no_agreement'],
+      ['early message, the poster wrote back', { bidderMessagedAt: early, posterMessagedAt: early + 1 }, 'no_agreement'],
+      ['early message, the poster tapped "They contacted me"', { bidderMessagedAt: early, posterTappedAt: early + 1 }, 'no_agreement'],
+      ['early message, the poster tapped "We\'ve agreed"', { bidderMessagedAt: early, posterConfirmedAt: early + 1 }, 'no_agreement'],
+      ['only "They contacted me"', { posterTappedAt: early }, 'no_agreement'],
+      ['unfair case 2: only the poster\'s "We\'ve agreed"', { posterConfirmedAt: early }, 'no_agreement'],
+      ['only the winner\'s "We\'ve agreed" (early)', { bidderConfirmedAt: early }, 'no_agreement'],
+      ['the winner\'s "We\'ve agreed" and a late message', { bidderConfirmedAt: early, bidderMessagedAt: late }, 'no_agreement'],
+      ['both talked', { bidderMessagedAt: early, posterMessagedAt: early }, 'no_agreement'],
+    ];
+    for (const [name, facts, outcome] of table) expect(endOfContact({ ...none, ...facts }), name).toBe(outcome);
+  });
+
+  it('the answer window follows JOB_CONTACT_DAYS: with 1 day the poster has 12 hours', () => {
+    const one = { ...none, contactDeadline: AW + DAY_MS };
+    expect(endOfContact({ ...one, bidderMessagedAt: AW + 12 * HOUR_MS })).toBe('poster_no_show');
+    expect(endOfContact({ ...one, bidderMessagedAt: AW + 12 * HOUR_MS + 1 })).toBe('no_agreement');
+  });
+
+  it('only a no-contact ending or a back-out costs a fee', () => {
     expect(FEE_OUTCOMES.has('bidder_no_show') && FEE_OUTCOMES.has('bidder_backed_out')).toBe(true);
     for (const o of ['poster_no_show', 'no_agreement', 'poster_cancelled', 'no_bids'] as const) expect(FEE_OUTCOMES.has(o)).toBe(false);
+  });
+
+  it('property: poster_no_show ⇒ an early winner MESSAGE and no poster answer; bidder_no_show ⇒ none of the four contact facts', () => {
+    const at = fc.option(fc.integer({ min: AW, max: DL }), { nil: null });
+    const days = fc.integer({ min: 1, max: 30 });
+    fc.assert(fc.property(days, at, at, at, at, at, (d, bm, bc, pm, pt, pc) => {
+      const dl = AW + d * DAY_MS;
+      const clamp = (x: number | null) => (x === null ? null : Math.min(x, dl));
+      const j = { awardedAt: AW, contactDeadline: dl, bidderMessagedAt: clamp(bm), bidderConfirmedAt: clamp(bc), posterMessagedAt: clamp(pm), posterTappedAt: clamp(pt), posterConfirmedAt: clamp(pc) };
+      const o = endOfContact(j);
+      const window = Math.min(48 * HOUR_MS, (d * DAY_MS) / 2);
+      if (o === 'poster_no_show') {
+        expect(j.bidderMessagedAt).not.toBeNull();
+        expect(j.bidderMessagedAt!).toBeLessThanOrEqual(dl - window);
+        expect(j.posterMessagedAt ?? j.posterTappedAt ?? j.posterConfirmedAt).toBeNull();
+      }
+      if (FEE_OUTCOMES.has(o)) expect(j.bidderMessagedAt ?? j.bidderConfirmedAt ?? j.posterTappedAt ?? j.posterConfirmedAt).toBeNull();
+      if (o === 'bidder_no_show') expect(madeContact(j)).toBe(false);
+      else expect(madeContact(j)).toBe(true);
+    }), { numRuns: 2_000 });
   });
 
   it('the deadline is counted from the closing time, not from when the settlement happened to run', () => {
@@ -131,10 +190,14 @@ describe('the contact window', () => {
 
 describe('settle', () => {
   const contactArb = fc.record({
-    bidderMessagedAt: fc.option(fc.constant(T0 + DAY_MS), { nil: null }),
     posterMessagedAt: fc.option(fc.constant(T0 + DAY_MS), { nil: null }),
     posterTappedAt: fc.option(fc.constant(T0 + DAY_MS), { nil: null }),
-  });
+    bidderConfirmedAt: fc.option(fc.constantFrom(T0 + DAY_MS, T0 + 7 * DAY_MS - 60_000), { nil: null }),
+    posterConfirmedAt: fc.option(fc.constant(T0 + 2 * DAY_MS), { nil: null }),
+  }).chain((c) => fc.record({
+    // the winner's first message: early, or one minute before the deadline (the unfair case the rule closes)
+    bidderMessagedAt: fc.option(fc.constantFrom(T0 + DAY_MS, T0 + 7 * DAY_MS - 60_000), { nil: null }),
+  }).map((m) => ({ ...c, ...m })));
 
   it('settling twice is the same as settling once (at any time, with any bids and contact)', () => {
     fc.assert(fc.property(bidsArb, contactArb, fc.integer({ min: -2 * DAY_MS, max: 20 * DAY_MS }), (bids, contact, offset) => {
@@ -165,6 +228,14 @@ describe('settle', () => {
       }
       const end = settle({ ...awarded.job, ...contact }, awarded.bids, T0 + 8 * DAY_MS, RULES);
       expect(end.job.status).toBe('unfilled');
+      if (end.fees.length > 0) {
+        // a fee ⇒ none of the four contact facts (a back-out is not a deadline ending)
+        expect(contact.bidderMessagedAt ?? contact.bidderConfirmedAt ?? contact.posterTappedAt ?? contact.posterConfirmedAt).toBeNull();
+      }
+      if (end.job.outcome === 'poster_no_show') {
+        expect(contact.bidderMessagedAt).toBe(T0 + DAY_MS);
+        expect(contact.posterMessagedAt ?? contact.posterTappedAt ?? contact.posterConfirmedAt).toBeNull();
+      }
       if (end.job.outcome === 'bidder_no_show') {
         expect(end.fees).toHaveLength(1);
         expect(end.fees[0]!.basisCents).toBe(awarded.job.awardCents);

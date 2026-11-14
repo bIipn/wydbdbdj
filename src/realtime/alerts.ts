@@ -353,6 +353,7 @@ function closedCopy(e: BusEventOf<'job'>): { title: string; body: string } {
  * nobody twice:
  *   job_awarded   <jobId>:<role>                      one per side
  *   job_message   <jobId>:<messageId>                 one per message
+ *                 <jobId>:agreed:<role>               the other side's one-sided "We've agreed": once per side
  *   job_deadline  <jobId>:<contact deadline>          one per award
  *   job_closed    <jobId>:<role>:<status>:<outcome>   one per way the job ended
  */
@@ -375,6 +376,14 @@ export function decideJob(e: BusEventOf<'job'>, profile: Profile, plan: Plan, no
       }
       break;
     case 'job_message':
+      if (e.tap === 'agreed') {
+        // Not a message: the other side's one-sided "We've agreed" (src/jobs/service.ts confirmAgreement).
+        const other = e.role === 'poster' ? 'The winner' : 'The poster';
+        dedupeKey = `${e.jobId}:agreed:${e.role}`;
+        title = `${other} tapped “We’ve agreed” · ${t}`;
+        body = `${other} tapped “We’ve agreed” on ${t}. If that’s right, open the job and tap it too.`;
+        break;
+      }
       dedupeKey = `${e.jobId}:${e.messageId ?? 0}`;
       title = `New message · ${t}`;
       body = e.preview ?? '';
@@ -382,7 +391,7 @@ export function decideJob(e: BusEventOf<'job'>, profile: Profile, plan: Plan, no
     case 'job_deadline':
       dedupeKey = `${e.jobId}:${e.contactDeadline ?? ''}`;
       title = '2 days left to make contact';
-      body = `${t}: message the poster by ${whenLabel(e.contactDeadline, zone)}. If you don't, a no-show is recorded on your profile.`;
+      body = `${t}: message the poster, or tap “We’ve agreed”, by ${whenLabel(e.contactDeadline, zone)}. If not, a no-show is recorded on your profile.`;
       break;
     case 'job_closed':
       dedupeKey = `${e.jobId}:${e.role}:${e.status}:${e.outcome ?? ''}`;

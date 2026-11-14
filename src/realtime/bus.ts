@@ -24,6 +24,11 @@ export interface JobEvent {
   /** job_message only: the message id (the dedupe key) and its first words. */
   messageId?: number;
   preview?: string;
+  /**
+   * job_message only, instead of a message: the other side tapped "We've agreed" and this person has not yet
+   * (one alert per job per side; never sent when the tap completed the agreement).
+   */
+  tap?: 'agreed';
 }
 
 /**

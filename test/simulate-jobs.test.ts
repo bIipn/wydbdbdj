@@ -15,8 +15,8 @@ import { makePlan, type PlanSize } from '../src/sim/jobs/plan.js';
 import { numbersIn, privateIn, runJobsSimulation, type JobsSimResult } from '../src/sim/jobs/run.js';
 
 const SEED = 7;
-/** Small enough for the normal suite: 4 posting people, 8 working people, 10 jobs plus reposts. */
-const TINY: PlanSize = { jobs: 10, postingDays: 1 };
+/** Small enough for the normal suite: 4 posting people, 8 working people, 12 jobs plus reposts (every forced ending). */
+const TINY: PlanSize = { jobs: 12, postingDays: 1 };
 const OPTS = { seed: SEED, cast: SMALL_CAST, size: TINY, fastHash: true, port: 0 } as const;
 
 let first: JobsSimResult;
@@ -24,13 +24,15 @@ let second: JobsSimResult;
 let leak: JobsSimResult;
 let rounding: JobsSimResult;
 let settleAgain: JobsSimResult;
+let oldRule: JobsSimResult;
 beforeAll(async () => {
   first = await runJobsSimulation(OPTS);
   second = await runJobsSimulation(OPTS);
   leak = await runJobsSimulation({ ...OPTS, mutation: 'leak-amount' });
   rounding = await runJobsSimulation({ ...OPTS, mutation: 'fee-rounded-down' });
   settleAgain = await runJobsSimulation({ ...OPTS, mutation: 'settle-twice-two-rows' });
-}, 150_000);
+  oldRule = await runJobsSimulation({ ...OPTS, mutation: 'late-message-marks-poster' });
+}, 180_000);
 
 /** A deep copy of a run's observations to break one thing in. */
 const copy = (o: Observations): Observations => structuredClone(o);
@@ -100,6 +102,21 @@ describe('the run on a small seed', () => {
     expect(first.report.fees.totalCents).toBe(first.observations.ledger.reduce((s, r) => s + r.amountCents, 0));
   });
 
+  it('the fair-contact scenarios ran and ended as the changed rule says', () => {
+    const endingOf = (ending: string) => first.observations.plan.jobs.filter((j) => j.ending === ending && first.observations.expect.get(j.key)?.winner);
+    for (const ending of ['late_hello', 'poster_tap', 'winner_tap']) {
+      const jobs = endingOf(ending);
+      expect(jobs.length, ending).toBeGreaterThan(0);
+      for (const j of jobs) {
+        expect(first.observations.expect.get(j.key)!.outcome, `${ending} ${j.key}`).toBe('no_agreement');
+        expect(first.observations.expect.get(j.key)!.fees, `${ending} ${j.key}`).toEqual([]);
+      }
+    }
+    const silent = endingOf('poster_silent');
+    expect(silent.length).toBeGreaterThan(0);
+    for (const j of silent) expect(first.observations.expect.get(j.key)!.outcome).toBe('poster_no_show');
+  });
+
   it('the same seed gives the same report hash', () => {
     expect(second.hash).toBe(first.hash);
   });
@@ -118,6 +135,10 @@ describe('the checks can fail', () => {
 
   it('a real seam: fees rounded down in the ledger are caught by fee-amount', () => {
     expect(rounding.report.checks.violations.filter((v) => v.check === 'fee-amount').length).toBeGreaterThan(0);
+  });
+
+  it('a real seam: the old contact rule put back (a last-minute "hi" marks the poster) is caught by endings', () => {
+    expect(oldRule.report.checks.violations.filter((v) => v.check === 'endings').length).toBeGreaterThan(0);
   });
 
   it('a real seam: the product settling a job a second time (stale read, guards gone) is caught by settle-twice', () => {

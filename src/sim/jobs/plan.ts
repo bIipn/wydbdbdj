@@ -12,9 +12,12 @@
  *   agreed         the same, but nobody marks it done during the run
  *   no_contact     the winner never writes (sometimes the poster does: that is not the winner making contact)
  *   back_out       the winner gives the job back ("I can't take it"), sometimes after a message
- *   poster_silent  the winner writes, the poster never answers
+ *   poster_silent  the winner writes EARLY (with time left for an answer), the poster never answers
  *   no_agreement   they talk (message, or the poster's "They contacted me" tap) but never both agree
  *   poster_cancel  the poster cancels after the award
+ *   late_hello     the winner ghosts the whole window and writes once, minutes before the deadline; no answer
+ *   poster_tap     they agree by phone: only the poster taps "We've agreed", nobody writes
+ *   winner_tap     they agree by phone: only the winner taps "We've agreed", nobody writes
  */
 import { Rng } from '../../cost/synthetic.js';
 import type { SimPerson } from './people.js';
@@ -27,8 +30,12 @@ export const DAY = 24 * HOUR;
 /** Monday 2026-11-16, 08:00 Pacific: the simulation's first moment. */
 export const SIM_START = Date.parse('2026-11-16T16:00:00Z');
 
-export type Ending = 'complete' | 'agreed' | 'no_contact' | 'back_out' | 'poster_silent' | 'no_agreement' | 'poster_cancel';
-export const ENDINGS: readonly Ending[] = ['complete', 'agreed', 'no_contact', 'back_out', 'poster_silent', 'no_agreement', 'poster_cancel'];
+export type Ending =
+  | 'complete' | 'agreed' | 'no_contact' | 'back_out' | 'poster_silent' | 'no_agreement' | 'poster_cancel'
+  | 'late_hello' | 'poster_tap' | 'winner_tap';
+export const ENDINGS: readonly Ending[] = [
+  'complete', 'agreed', 'no_contact', 'back_out', 'poster_silent', 'no_agreement', 'poster_cancel', 'late_hello', 'poster_tap', 'winner_tap',
+];
 
 export type Side = 'winner' | 'poster';
 
@@ -309,9 +316,23 @@ function planEnding(rng: Rng, b: Builder, job: PlannedJob, ending: Ending, conta
       h += 2 + rng.int(0, 48);
       push(b, at(h), { kind: 'back-out', job: job.key });
       return at(h);
-    case 'poster_silent':
-      say('winner', h, W(1));
-      if (rng.chance(0.5)) say('winner', h + 5 + rng.int(0, 40), W(2));
+    case 'poster_silent': {
+      // Early enough that the poster had a fair chance to answer: well before the last 48 hours (or the last
+      // half of a short window). The plan only needs to stay clear of that line; the model decides the ending.
+      const lastFair = window - Math.min(48, window / 2);
+      const first = 1 + rng.int(0, Math.max(0, Math.floor(lastFair) - 3));
+      say('winner', first, W(1));
+      if (rng.chance(0.5)) say('winner', first + 1 + rng.int(0, 40), W(2));
+      return A + contactDays * DAY;
+    }
+    case 'late_hello':
+      // Silent for the whole window, then one line a few minutes to two hours before the deadline.
+      push(b, A + contactDays * DAY - (1 + rng.int(0, 120)) * MINUTE, { kind: 'message', job: job.key, side: 'winner', body: 'SIM message (simulated) from the winner: hi' });
+      return A + contactDays * DAY;
+    case 'poster_tap':
+    case 'winner_tap':
+      // Worked out on the phone; one side records it in the app, the other never does.
+      push(b, at(h), { kind: 'confirm', job: job.key, side: ending === 'poster_tap' ? 'poster' : 'winner' });
       return A + contactDays * DAY;
     case 'no_agreement': {
       const variant = rng.int(0, 2);
@@ -407,6 +428,7 @@ export function makePlan(input: PlanInput): Plan {
     }
     const ending = force.ending ?? weighted<Ending>(rng, [
       ['complete', 30], ['agreed', 6], ['no_contact', 14], ['back_out', 12], ['poster_silent', 13], ['no_agreement', 15], ['poster_cancel', 10],
+      ['late_hello', 5], ['poster_tap', 4], ['winner_tap', 4],
     ]);
     job.ending = ending;
     const end = planEnding(rng, b, job, ending, contactDays);
@@ -450,6 +472,7 @@ export function makePlan(input: PlanInput): Plan {
   const forced: Array<{ ending?: Ending; noBids?: boolean; openCancel?: boolean; tie?: boolean }> = [
     { ending: 'complete', tie: true }, { ending: 'no_contact' }, { ending: 'back_out' }, { ending: 'poster_silent', tie: true },
     { ending: 'no_agreement' }, { ending: 'poster_cancel' }, { ending: 'agreed' }, { noBids: true }, { openCancel: true },
+    { ending: 'late_hello' }, { ending: 'poster_tap' }, { ending: 'winner_tap' },
   ];
   const repostQueue: Array<{ from: PlannedJob; at: number }> = [];
   for (let n = 1; n <= size.jobs; n++) {

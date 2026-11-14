@@ -52,10 +52,19 @@ export function feeLines(rules, amountCents) {
   const service = has ? feeCents(amountCents, ppmOf(rules.serviceFeePct)) : null;
   const days = `${rules.contactDays} day${rules.contactDays === 1 ? '' : 's'}`;
   return {
-    noShow: `If you win and don’t send a message in BidSwipe within ${days}, or back out: a no-show fee of ${pctText(rules.noShowFeePct)} of your bid`
+    noShow: `If you win and no contact is recorded in BidSwipe within ${days} (your message or “We’ve agreed”, or the poster’s “They contacted me” or “We’ve agreed”), or you back out: a no-show fee of ${pctText(rules.noShowFeePct)} of your bid`
       + (has ? ` (${usd(noShow)}). ${usd(share)} of it goes to the poster.` : `. ${pctText(rules.posterSharePct)} of your bid goes to the poster.`),
     service: `If the job is agreed: a ${pctText(rules.serviceFeePct)} service fee${has ? ` (${usd(service)})` : ''}.`,
   };
+}
+
+/**
+ * How long a poster has to answer the winner's first message before a silence counts as the poster's no-show:
+ * min(48 hours, half the contact window), as src/jobs/rules.ts answerWindowMs. "48 hours" at 7 days, "12 hours" at 1.
+ */
+export function answerWindowText(rules) {
+  const hours = Math.min(48, (rules.contactDays * 24) / 2);
+  return `${hours} hour${hours === 1 ? '' : 's'}`;
 }
 
 /** Payments are off (rules.paymentsOn is false): the screens say so every time a fee is mentioned. */
@@ -144,7 +153,7 @@ export function stage(job, { now = Date.now(), reposted = false } = {}) {
         const by = a ? dayOnly(a.contactDeadline) : '';
         if (a?.posterConfirmedAt) return { group: 'open', status: `Lowest bid ${lowest} · you agreed`, next: `Waiting for them to confirm, by ${by}.` };
         if (a?.bidderContactedAt) return { group: 'needs', status: `Lowest bid ${lowest} · they contacted you`, next: 'Reply, then tap “We’ve agreed” once you’ve worked it out.' };
-        return { group: 'needs', status: `Lowest bid ${lowest} · waiting for them to contact you`, next: `They have until ${by}. Tap “They contacted me” if they call.` };
+        return { group: 'needs', status: `Lowest bid ${lowest} · waiting for them to contact you`, next: `They have until ${by}. Tap “They contacted me” if they call, or “We’ve agreed” if you settled it.` };
       }
       case 'agreed':
         return { group: 'needs', status: `Agreed at ${lowest}`, next: 'Tap “Job done” when the work is finished.' };
@@ -175,7 +184,7 @@ export function stage(job, { now = Date.now(), reposted = false } = {}) {
         const by = dayOnly(a.contactDeadline);
         if (a.bidderConfirmedAt) return { group: 'open', status: `You won at ${lowest} · you agreed`, next: `Waiting for the poster to confirm, by ${by}.` };
         if (a.bidderContactedAt) return { group: 'needs', status: `You won · you’ve made contact`, next: `Tap “We’ve agreed” once you’ve worked it out, by ${by}.` };
-        return { group: 'needs', status: `You won · contact them by ${by}`, next: 'Send a message in the job to make contact.' };
+        return { group: 'needs', status: `You won · contact them by ${by}`, next: 'Send a message in the job to make contact, or tap “We’ve agreed” if you already settled it by phone.' };
       }
       return { group: 'done', status: a ? `Closed · lowest bid ${lowest}${mine ? ` · yours ${dollars(mine.amountCents)}` : ''}` : 'Bidding closed', next: null };
     case 'agreed':

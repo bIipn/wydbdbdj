@@ -475,3 +475,90 @@ describe('giving the job back, and the poster cancelling', () => {
     expect(await call(sparky, 'POST', `/api/jobs/${id}/messages`, { body: 'late' })).toMatchObject({ status: 409, json: { error: 'closed' } });
   });
 });
+
+describe('the contact rule is fair to both sides', () => {
+  const tapAlerts = async (a: Account, jobId: string) =>
+    (await alertsOf(a)).filter((x) => x.kind === 'job_message' && x.dedupe_key.startsWith(`${jobId}:agreed:`));
+
+  it('a winner who ghosts and sends "hi" one minute before the deadline does not put a no-show on the poster', async () => {
+    clock = START + 100 * DAY;
+    const before = await jobStats(db, poster.id);
+    const id = await postJob({ title: 'Swap a breaker (TEST, last-minute hi)', closesInDays: 1 });
+    await bid(sparky, id, 33_333);
+    clock += DAY; // awarded; deadline in 7 days
+    clock += 7 * DAY - 60_000;
+    expect((await call(sparky, 'POST', `/api/jobs/${id}/messages`, { body: 'TEST: hi' })).status).toBe(200);
+    clock += 60_000;
+    const job = (await call(poster, 'GET', `/api/jobs/${id}`)).json.job;
+    expect(job).toMatchObject({ status: 'unfilled', outcome: 'no_agreement', fees: [] });
+    expect((await jobStats(db, poster.id)).posterNoShows).toBe(before.posterNoShows);
+    expect(await db.query('select 1 from job_fees where job_id = $1', [id])).toHaveLength(0);
+  });
+
+  it('an early message the poster never answers is still a poster no-show (no fee)', async () => {
+    clock = START + 110 * DAY;
+    const before = await jobStats(db, poster.id);
+    const id = await postJob({ title: 'Wire a shed light (TEST, early hi)', closesInDays: 1 });
+    await bid(sparky, id, 44_444);
+    clock += DAY;
+    clock += 7 * DAY - 48 * 3_600_000; // exactly deadline − 48 h: still a fair chance to answer
+    expect((await call(sparky, 'POST', `/api/jobs/${id}/messages`, { body: 'TEST: when can I come look?' })).status).toBe(200);
+    clock += 48 * 3_600_000;
+    expect((await call(poster, 'GET', `/api/jobs/${id}`)).json.job).toMatchObject({ status: 'unfilled', outcome: 'poster_no_show', fees: [] });
+    expect((await jobStats(db, poster.id)).posterNoShows).toBe(before.posterNoShows + 1);
+  });
+
+  it('agreed by phone, only the poster taps "We\'ve agreed": contact counts, no fee, the winner is told once', async () => {
+    clock = START + 120 * DAY;
+    const before = await jobStats(db, sparky.id);
+    const id = await postJob({ title: 'Install a range outlet (TEST, poster tap)', closesInDays: 1 });
+    await bid(sparky, id, 55_555);
+    clock += DAY;
+    const first = await call(poster, 'POST', `/api/jobs/${id}/confirm`);
+    expect(first.json.job.status).toBe('awarded');
+    expect(first.json.job.award.bidderContactedAt).toBe(new Date(clock).toISOString());
+    expect(first.json.job.award.posterContactedAt).toBe(new Date(clock).toISOString());
+    clock += 1_000;
+    expect((await call(poster, 'POST', `/api/jobs/${id}/confirm`)).status).toBe(200); // a second tap tells nobody again
+    const told = await tapAlerts(sparky, id);
+    expect(told).toHaveLength(1);
+    expect(told[0]!.title).toBe('The poster tapped “We’ve agreed” · Install a range outlet (TEST, poster tap)');
+    expect(told[0]!.body).toMatch(/If that’s right, open the job and tap it too\.$/);
+    expect(await tapAlerts(poster, id)).toHaveLength(0); // never to the person who tapped
+    clock += 7 * DAY;
+    expect((await call(sparky, 'GET', `/api/jobs/${id}`)).json.job).toMatchObject({ status: 'unfilled', outcome: 'no_agreement', fees: [] });
+    expect(await db.query('select 1 from job_fees where job_id = $1', [id])).toHaveLength(0);
+    expect((await jobStats(db, sparky.id)).noShows).toBe(before.noShows);
+  });
+
+  it('only the winner taps "We\'ve agreed": no fee, no "2 days left" reminder, the poster is told once', async () => {
+    clock = START + 130 * DAY;
+    const before = await jobStats(db, sparky.id);
+    const id = await postJob({ title: 'Mount a TV and hide the wire (TEST, winner tap)', closesInDays: 1 });
+    await bid(sparky, id, 66_666);
+    clock += DAY;
+    await Promise.all([call(sparky, 'POST', `/api/jobs/${id}/confirm`), call(sparky, 'POST', `/api/jobs/${id}/confirm`)]);
+    expect(await tapAlerts(poster, id)).toHaveLength(1);
+    expect((await tapAlerts(poster, id))[0]!.title).toMatch(/^The winner tapped “We’ve agreed” · /);
+    expect(await tapAlerts(sparky, id)).toHaveLength(0);
+    clock += 5 * DAY + 3_600_000; // inside the last 2 days
+    await rt.tick();
+    expect((await alertsOf(sparky)).filter((a) => a.kind === 'job_deadline' && a.dedupe_key.startsWith(id))).toHaveLength(0);
+    clock += 2 * DAY;
+    expect((await call(poster, 'GET', `/api/jobs/${id}`)).json.job).toMatchObject({ status: 'unfilled', outcome: 'no_agreement', fees: [] });
+    expect((await jobStats(db, sparky.id)).noShows).toBe(before.noShows);
+  });
+
+  it('a tap that completes the agreement sends the "Agreed" alerts and no "tap it too" alert', async () => {
+    clock = START + 140 * DAY;
+    const id = await postJob({ title: 'Add a dedicated freezer circuit (TEST)', closesInDays: 1 });
+    await bid(sparky, id, 77_777);
+    clock += DAY;
+    await call(sparky, 'POST', `/api/jobs/${id}/confirm`);
+    expect((await call(poster, 'POST', `/api/jobs/${id}/confirm`)).json.job.status).toBe('agreed');
+    expect(await tapAlerts(poster, id)).toHaveLength(1); // the winner's one-sided tap, earlier
+    expect(await tapAlerts(sparky, id)).toHaveLength(0); // the poster's tap completed it
+    expect((await alertsOf(sparky)).filter((a) => a.kind === 'job_closed' && a.dedupe_key.startsWith(id)).map((a) => a.title))
+      .toEqual(['Agreed: Add a dedicated freezer circuit (TEST)']);
+  });
+});

@@ -585,11 +585,15 @@ export async function closeMirror(db: Db, jobId: string, now: number, remove = f
 
 // ------------------------------------------------------------- reminders --
 
-/** Awarded jobs whose winner has not made contact and whose deadline is within `hours`. */
+/**
+ * Awarded jobs whose winner has not made contact and whose deadline is within `hours`. "Made contact" is
+ * rules.madeContact(): the winner's message or "We've agreed", the poster's "They contacted me" or "We've agreed".
+ */
 export async function awardedWithoutContact(db: Db, now: number, hours: number): Promise<JobRecord[]> {
   const rows = await db.query<JobRow>(
     `select * from jobs
      where status = 'awarded' and removed_at is null and bidder_messaged_at is null and poster_tapped_at is null
+       and bidder_confirmed_at is null and poster_confirmed_at is null
        and contact_deadline > $1 and contact_deadline <= $2
      order by contact_deadline, id`,
     [iso(now), iso(now + hours * 3_600_000)],

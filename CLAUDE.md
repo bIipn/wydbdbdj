@@ -28,7 +28,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 npm install
 npm run typecheck          # tsc --noEmit
 npm test                   # vitest (~1,620 tests in 68 files as of 2026-11-14, ~75s; simulate.test.ts ~25s,
-                           # simulate-jobs.test.ts ~23s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
+                           # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
@@ -41,7 +41,7 @@ npm run simulate -- --seed 20261113 --out out/sim   # 16 SIMULATED companies thr
                            # real captured bids (SAM.gov included): checks, same-seed hash, mutations; exit 1 on any miss
 npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run: invariants, limits, sha256
 npm run simulate:jobs -- --seed 20261114 --out out/sim-jobs  # 38 SIMULATED people through the real marketplace
-                           # (post, sealed bids, award, contact window, fees): 15 checks, same-seed hash, 9 mutations
+                           # (post, sealed bids, award, contact window, fees): 15 checks, same-seed hash, 10 mutations
                            # at real seams; ~8 min for its 11 runs; exit 1 on any miss
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
@@ -148,8 +148,11 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   sealed while open (only the bidder sees an amount; the poster sees a count). At closing the lowest wins (tie:
   placed first). After closing the poster and the bidders see the ranked tab; only the poster sees who. The
   poster's street address and phone go only to the winner while the job is awarded/agreed/done. Messages only
-  between poster and winner after the award. "Made contact" = the winner's first in-app message or the poster's
-  "They contacted me" tap (a phone call alone does not count). Fees: no-show 5% of the winning bid (2% of the
+  between poster and winner after the award. "Made contact" = the winner's first in-app message or "We've agreed"
+  tap, or the poster's "They contacted me" or "We've agreed" tap (a phone call alone does not count). Poster
+  no-show only when the winner's first MESSAGE left min(48 h, half the window) to answer and the poster never
+  answered; any other contact without agreement = no_agreement. A one-sided "We've agreed" tells the other side
+  once. Fees: no-show 5% of the winning bid (2% of the
   bid to the poster, the rest BidSwipe's) when the winner never made contact or backs out; service fee 1% when
   both confirm; no fee on poster no-show, no agreement, no bids or a cancel. Integer cents, ppm, BigInt, one
   half-up rounding. **PAYMENTS ARE OFF:** every fee row is 'recorded'; never say or imply a card was charged,

@@ -10,7 +10,7 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | 5 source connectors | ✅ parsers tested on raw responses · ✅ live scan 2026-11-13 read every board (107 open bids) · ⚠️ the three source fixes made after it (Douglas, NevadaEPro, NGEM paging) are tested on that day's pages, not yet re-run live |
 | Location + distance | ✅ gazetteer + nationwide ZIP table; SAM places parsed from every shape in the real responses; a listed address we can't place stays unplaced (no guess) |
 | Fit scoring + reasons | ✅ audited on the 107 live bids (see §4); certification set-asides and program contracts are hard no's, presolicitations/RFIs never alert |
-| Accounts, onboarding, settings | ✅ tested + checked in a phone-size browser (`AUTH_MODE=accounts`); OAuth (Supabase) written, never run |
+| Accounts, onboarding, settings | ✅ tested + checked in a phone-size browser (`AUTH_MODE=accounts`); OAuth (Supabase) written, never run. Delete my account and forgot password: ✅ built 2026-11-14 (see below); the reset email has never been sent for real (no Resend key on the host) |
 | Search, filters, next up, spend limits | ✅ tested; no captured bid lists a value, so limits/value filters were only seen on a simulated row (the simulation reports them as "not exercised") |
 | Live alerts (inbox + SSE) | ✅ tested + seen in the browser; frames now leave as each alert is stored (the scan yields), measured ~0.4 ms stored→stream in the simulation; web push wired, never delivered end to end |
 | Price + award watch (`MARKET_REFRESH_AT`) | ✅ tested on replays of the real BLS/USAspending captures with labelled synthetic "after" data; one live NV award pull (36 awards) by its builder. Not yet run on a schedule against the live APIs. Award matching works for SAM.gov bids only (solicitation numbers) |
@@ -51,6 +51,50 @@ $420 sealed; a second bid $380; the closing time was moved a minute into the pas
 database while the server was stopped (the server's own lazy settlement did the rest): award, bid tab, the
 loser's result, messages, both agreed, job done, service fee "recorded, not collected".
 
+**Delete my account and forgot password, 2026-11-14.** What was built:
+- **Delete my account**: Settings → "Delete my account" (web/js/account-delete.js) shows what the deletion would end
+  for this account (`GET /api/account/deletion`), asks for the password again, then `DELETE /api/account`
+  (src/routes/account.ts; 5 tries per 15 minutes). An account with no password (Google / Apple / Microsoft)
+  needs a sign-in from the last 10 minutes and types its email instead. The deletion is ONE statement
+  (`deleteAccount` in src/jobs/repo.ts): the foreign keys take the profile, sessions, jobs, bids, messages, alerts
+  and work profile; the statement also deletes the `local:<jobId>` feed rows of the account's jobs and every alert
+  that points at one (their matches and swipes cascade from `bids`).
+- **Decisions** (Ev can flip them; each is one place in that statement):
+  - *A fee row is never deleted.* `job_fees.payer_id` is now `on delete set null` and `job_fees.job_id` has no
+    foreign key, so a row outlives the payer AND the job. The row keeps who it was: `payer_ref` (the account id,
+    written with the fee), `payer_name` (the name on the account, never the email) and `payer_deleted_at`.
+    `ledgerTotals()` and `GET /api/admin/jobs/fees` read the ledger.
+  - *A deletion never records a new fee.* A winner who deletes while the job is awarded hands it back for free
+    (tapping "I can't take it" records the 5% no-show fee; deleting the account does not). Reason: nothing can
+    be collected from a deleted account, and a fee invented at the moment someone leaves would make the ledger
+    less true, not more. **Revisit when payments are switched on**: with a card on file, settle the back-out fee
+    before the deletion, or people will delete instead of backing out.
+  - *The one who stays owes nothing.* Winner leaves an awarded or agreed job: it ends unfilled / `bidder_left`
+    for the poster, who is told and can post again (a service fee already recorded stays on the leaver's line).
+    Poster leaves: the job row is gone, so the winner (and each sealed bidder of an open job) is left one
+    `job_tombstones` line (title, own bid, why), `GET /api/jobs/:id` answers 410 `gone` to them, it shows under
+    Finished on their Jobs tab, and a service fee already recorded for an agreed job is **waived** (the row stays).
+- **Forgot password**: `POST /api/auth/forgot` → a one-hour, single-use link `<APP_URL>/#reset=<token>` (the token
+  is in the fragment, so no server ever logs it; only its sha256 is stored; asking again replaces the link), the
+  same answer for every address, 3 an hour per address and 5 per caller. `POST /api/auth/reset` sets the new
+  password in one statement, signs every other device out and signs this one in. Mail goes through
+  src/notify/email.ts (Resend). **The live host has no `RESEND_API_KEY`, so today the sign-in screen says
+  "Password reset by email is not available yet" and nothing is sent.** To switch it on: a domain verified with
+  Resend, then `RESEND_API_KEY` and `EMAIL_FROM` on the host. The real email has never been sent.
+- An older database is upgraded in place at start-up (the `do $upgrade$` block in src/db/schema-jobs.ts).
+- web/privacy.html ("Deleting your account": what is deleted, what is kept and why) and web/terms.html say
+  exactly this. One new placeholder for Ev in the privacy page: how long the providers keep backups and logs.
+
+Checks (2026-11-14): typecheck, the full test suite (1,660 passed; test/account-delete.test.ts and
+test/password-reset.test.ts are new) and build pass. `npm run simulate:jobs -- --seed 20261114`: 15 checks,
+same-seed hash, 10 of 10 mutations caught. On a real Postgres 16 (the container's own, `TEST_DATABASE_URL`):
+the 5 Postgres tests pass, including ten deletions of one account at the same moment (one deletes it), and the
+in-place upgrade of an old-shape database was run by hand. Browser (Playwright 390×844, a local server on an
+in-memory database, simulated people): forgot password with email off and on, the emailed link, a used link,
+the delete panel with a wrong and a right password, and what the winner and the poster who stayed see.
+Not done: nothing was deployed; the live Supabase database has not run the upgrade yet (it runs by itself at the
+next start); the reset email was only ever written to a file by a test mailer.
+
 Known gaps (marketplace):
 - No payments: no collection, no payout of the poster's share, no statement screen. Decision open for Ev: pay
   the poster's 2% as cash through Stripe Connect (posters must pass identity checks) or as BidSwipe credit
@@ -58,8 +102,10 @@ Known gaps (marketplace):
 - Legal: the NV/CA licence lines and the after-the-fact no-show fee rest on search snippets, not pages read in
   full; one paid hour before real money moves (docs/MARKETPLACE.md §8). Terms and privacy still have Ev's
   placeholders (contact email, providers) to fill in before publishing.
-- No account deletion yet; when built it must delete the account's `local:<id>` feed rows and decide what
-  happens to fee rows.
+- Account deletion: an alert that was already in someone else's inbox (a message preview, a job title) stays
+  there; other people's saved cost checks on a deleted local job keep its id; a request of the deleted account
+  that is in flight at that very instant may be refused with a server error (a foreign key refuses its write; not seen, not tested). `job_tombstones` rows
+  are never cleaned up (they go when their owner's account goes).
 - A newly posted job is scored by looping over every profile in the request; batch it before thousands of
   users. `GET /api/jobs/mine` loads every job one at a time (median ~33 ms in the simulation).
 - On a multi-connection Postgres a bid sent in the exact millisecond of closing could, in theory, be swept to

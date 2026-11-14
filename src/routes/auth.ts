@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import { createAuth, isSignInService, type SignInError, type SignInResult } from '../auth/index.js';
+import { createAuth, isSignInService, RESET_TTL_MS, type SignInError, type SignInResult } from '../auth/index.js';
 import { normalizeEmail } from '../auth/input.js';
 import { findCode, isLive, parsePromoCodes } from '../auth/promo.js';
 import { clientIp, createRateLimiter } from '../auth/ratelimit.js';
@@ -9,6 +9,7 @@ import type { RouteContext } from '../context.js';
 import { isPlan, setPlan } from '../db/accounts.js';
 import { redeemPromo } from '../db/promo.js';
 import { env } from '../env.js';
+import { resetEmail } from '../notify/email.js';
 import { effectivePlan, featuresFor } from '../plans.js';
 import { requireAdmin } from './shared.js';
 
@@ -31,7 +32,23 @@ const REFUSALS: Record<SignInError, { status: number; message: string }> = {
   oauth_unavailable: { status: 503, message: 'The sign-in service is not answering. Try again in a minute.' },
   provider_not_supported: { status: 403, message: 'That sign-in method is not supported here.' },
   email_not_verified: { status: 403, message: 'Your sign-in provider has not verified your email address. Verify it there, then try again.' },
+  reset_link_invalid: { status: 400, message: 'That reset link is no longer valid. Links work once, for an hour. Ask for a new one.' },
 };
+
+/** "Forgot password" requests allowed per caller address, and per email, in one window (then 429). */
+const FORGOT_PER_ADDRESS = 5;
+const FORGOT_PER_EMAIL = 3;
+const FORGOT_WINDOW_MS = 60 * 60 * 1000;
+/**
+ * The one answer to every accepted "forgot password" request, whether or not the address has an account: the
+ * sentence is true either way, and the screen cannot be used to find out who has an account.
+ */
+const RESET_REQUESTED = {
+  ok: true,
+  message: 'If an account with a password uses that address, we emailed it a link to choose a new one. The link works once, for an hour.',
+};
+/** Email is not set up on this server: say exactly that. Never an "if an account exists…" that no email follows. */
+const RESET_UNAVAILABLE = { error: 'reset_unavailable', message: 'Password reset by email is not available yet. No email was sent.' };
 
 /** Promo-code tries allowed per account, and per caller address, in one window (then 429). */
 const PROMO_ATTEMPTS = 5;
@@ -68,7 +85,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     // The pilot (single mode) has no accounts, so it has no sign-in API.
     const absent = async (_req: FastifyRequest, reply: FastifyReply) => reply.code(404).send({ error: 'not_found' });
     app.get('/api/auth/config', absent);
-    for (const path of ['signup', 'login', 'oauth', 'logout']) app.post(`/api/auth/${path}`, absent);
+    for (const path of ['signup', 'login', 'oauth', 'logout', 'forgot', 'reset']) app.post(`/api/auth/${path}`, absent);
     app.post('/api/promo/redeem', absent);
     return;
   }
@@ -116,6 +133,9 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     // promo: true when the client may show the promo-code box. Left out (not `false`) when it may not, so the
     // answer for a server without codes is exactly what it was before codes existed; the client reads absent as off.
     ...(promoOn(req) ? { promo: true } : {}),
+    // passwordReset: true when this server can email a reset link (RESEND_API_KEY and a sender are set). Left out
+    // when it cannot: the sign-in screen then says reset by email is not available yet, and offers no form.
+    ...(ctx.mailer ? { passwordReset: true } : {}),
     // Both are public by design: the browser needs them to start a Google / Apple / Microsoft sign-in.
     ...(config.supabase ? { supabase: { url: config.supabase.url, anonKey: config.supabase.anonKey } } : {}),
   }));
@@ -135,6 +155,52 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   app.post('/api/auth/oauth', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     return answer(req, reply, await signIn.oauth(fields(req.body).accessToken));
+  });
+
+  const forgotLimiter = createRateLimiter({ limit: FORGOT_PER_ADDRESS, windowMs: FORGOT_WINDOW_MS, now: ctx.now });
+  const forgotEmailLimiter = createRateLimiter({ limit: FORGOT_PER_EMAIL, windowMs: FORGOT_WINDOW_MS, now: ctx.now });
+
+  /**
+   * "Forgot password": { email } → the same 200 for every address, and an email with a one-hour, single-use link
+   * when the address has an account with a password. Without a mailer nothing can be sent, so nothing is
+   * promised: 503 reset_unavailable. Only a hash of the link's token is stored; the token is never logged.
+   * (A request for a real account takes as long as the email service does, so its timing can differ from an
+   * unknown address's. Sign-up already tells a taken address from a free one; the limits above cap the probing.)
+   */
+  app.post('/api/auth/forgot', async (req, reply) => {
+    if (!ctx.mailer) return reply.code(503).send(RESET_UNAVAILABLE);
+    const email = normalizeEmail(fields(req.body).email);
+    let verdict = forgotLimiter.hit(`ip:${clientIp(req)}`);
+    if (verdict.ok && email) verdict = forgotEmailLimiter.hit(`email:${email}`);
+    if (!verdict.ok) {
+      return reply.code(429).header('retry-after', verdict.retryAfterSec)
+        .send({ error: 'too_many_attempts', message: 'Too many reset requests. Wait an hour, then try again.' });
+    }
+    if (!email) return reply.code(400).send({ error: 'invalid_email', message: REFUSALS.invalid_email.message });
+
+    const link = await signIn.startReset(email);
+    if (link) {
+      try {
+        await ctx.mailer.send(resetEmail({ to: link.email, appUrl: config.appUrl, token: link.token, minutes: RESET_TTL_MS / 60_000 }));
+        ctx.log('password reset: a link was emailed');
+      } catch (err) {
+        // The delivery service refused or did not answer. Saying "we emailed it" now would be a lie.
+        ctx.log(`password reset: the email was not sent (${err instanceof Error ? err.message : 'unknown error'})`);
+        return reply.code(502).send({ error: 'email_failed', message: 'We could not send the email just now. Nothing was sent. Try again in a few minutes.' });
+      }
+    }
+    return RESET_REQUESTED;
+  });
+
+  /**
+   * Choose a new password with the link's token: { token, password } → signed in, like a login. The link is
+   * used up, every other session of the account ends, and so do its phone-alert subscriptions.
+   */
+  app.post('/api/auth/reset', async (req, reply) => {
+    if (!allowed(req, reply)) return reply;
+    const result = await signIn.finishReset(fields(req.body));
+    if (result.ok) ctx.log(`password reset: account ${result.account.id} chose a new password`);
+    return answer(req, reply, result);
   });
 
   /**

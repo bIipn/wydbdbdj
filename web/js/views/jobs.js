@@ -3,6 +3,7 @@
 // a tap opens the job page (views/job.js).
 
 import { h, icon, ICONS } from '../dom.js';
+import { GONE_TITLE, goneWords } from '../job-words.js';
 import { jobs, jobsOn, loadMine, loadRules, openJob, staged } from '../jobs-data.js';
 import { openPostJob } from './job-post.js';
 import { setHireLanding } from '../session.js';
@@ -29,9 +30,27 @@ function jobRow({ job, st }) {
   );
 }
 
-/** One side (posted / bidding) in its three groups; groups with nothing in them are left out. */
-function side(title, list, empty) {
-  if (!list.length) return h('section', { class: 'jobs-side' }, h('h2', { class: 'section-title' }, title), empty);
+/**
+ * A job this person was waiting on whose poster deleted their account (GET /api/jobs/mine `ended`). The job is
+ * gone; the row says so and that nothing is owed, and opens the same one line as a page.
+ */
+function goneRow(g) {
+  return h('button', { class: 'row job-row group-done', type: 'button', onclick: () => openJob(g.id, 'jobs') },
+    h('div', { class: 'job-row-mark', 'aria-hidden': 'true' }),
+    h('div', { class: 'job-row-text' },
+      h('h4', {}, g.title),
+      h('p', { class: 'job-state' }, GONE_TITLE),
+      h('p', { class: 'job-next' }, goneWords(g)),
+    ),
+  );
+}
+
+/**
+ * One side (posted / bidding) in its three groups; groups with nothing in them are left out. `gone` rows (jobs
+ * that ended with their poster's account) close the Finished group.
+ */
+function side(title, list, empty, gone = []) {
+  if (!list.length && !gone.length) return h('section', { class: 'jobs-side' }, h('h2', { class: 'section-title' }, title), empty);
   // Inside a group: the job that ends soonest first.
   const soon = (s) => Date.parse(s.job.award?.contactDeadline ?? s.job.closesAt);
   return h('section', { class: 'jobs-side' },
@@ -39,10 +58,11 @@ function side(title, list, empty) {
     GROUPS.map((g) => {
       const rows = list.filter((s) => s.st.group === g.id)
         .sort((a, b) => (g.id === 'done' ? soon(b) - soon(a) : soon(a) - soon(b)));
-      if (!rows.length) return null;
+      const extra = g.id === 'done' ? gone : [];
+      if (!rows.length && !extra.length) return null;
       return h('div', { class: `jobs-group jobs-${g.id}` },
-        h('h3', { class: 'jobs-group-title' }, g.title, h('span', { class: 'jobs-group-n' }, String(rows.length))),
-        h('div', { class: 'list' }, rows.map(jobRow)));
+        h('h3', { class: 'jobs-group-title' }, g.title, h('span', { class: 'jobs-group-n' }, String(rows.length + extra.length))),
+        h('div', { class: 'list' }, rows.map(jobRow), extra.map(goneRow)));
     }),
   );
 }
@@ -76,7 +96,8 @@ function renderJobs() {
       : 'Need a hand yourself? Post a job and people nearby send sealed bids.'));
     const biddingSide = side('Your bids', bidding, emptyLine(hire
       ? 'You haven’t bid on anything. To bid on other people’s jobs too, pick “Both” in Settings and add your trade.'
-      : 'No bids yet. Local jobs that fit your trade show up in Swipe and Browse with a LOCAL JOB tag. Open one to bid.'));
+      : 'No bids yet. Local jobs that fit your trade show up in Swipe and Browse with a LOCAL JOB tag. Open one to bid.'),
+    jobs.mine.ended ?? []);
     body = hire ? [postedSide, biddingSide] : [biddingSide, postedSide];
   }
 

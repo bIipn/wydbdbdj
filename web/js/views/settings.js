@@ -1,11 +1,13 @@
 // Settings (accounts mode, from the profile chip): the onboarding answers on one page, plus what only
-// settings shows (cost settings, set-aside certifications, alert kinds, time zone), the plan, sign out.
+// settings shows (cost settings, set-aside certifications, alert kinds, time zone), the plan, sign out, and
+// "Delete my account" (web/js/account-delete.js: what it ends, the password again, then it is gone).
 // "Your paperwork" uses the same Yes / No / Not sure chips as onboarding.
 // Back with unsaved edits asks first: save, discard, or keep editing.
 // "What brings you here" sits on top and decides which sections show: someone here only to get work done sees
 // no trades, job sizes, cost settings or paperwork. "Your work profile" (web/js/work-profile.js) is saved with
 // the same button, through its own API (PUT /api/work-profile).
 
+import { deleteAccountSection } from '../account-delete.js';
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { PLAN_LABEL } from '../format.js';
@@ -233,6 +235,7 @@ function renderSettings() {
     planCard(),
     form,
     h('button', { type: 'button', class: 'cta ghost signout', onclick: () => { ui.draft = null; signOut(); } }, 'Sign out'),
+    deleteAccountSection(),
     // The Microsoft Store asks for the privacy policy inside the app too (web/privacy.html, same origin).
     h('p', { class: 'fine' }, h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
       ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),

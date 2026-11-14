@@ -44,12 +44,28 @@ export interface FieldError {
   message: string;
 }
 
+/** What is left of a job whose poster deleted their account, as the person who was waiting on it is shown it. */
+export interface GoneJob {
+  id: string;
+  title: string;
+  /** Who this person was on it: the winner of an awarded or agreed job, or someone with a sealed bid on an open one. */
+  role: 'winner' | 'bidder';
+  was: 'open' | 'awarded' | 'agreed';
+  /** Their own bid on it. */
+  amountCents: number | null;
+  /** A service fee that was on record for them and was waived, so they owe nothing. */
+  feeWaivedCents: number | null;
+  endedAt: string;
+}
+
 /** Why an operation was refused. src/routes/jobs.ts turns each into its status and body. */
 export type Refusal =
   | { error: 'invalid_input'; fields: FieldError[] }
   | { error: 'not_allowed'; message: string }
   | { error: 'not_found' }
-  | { error: 'closed'; message: string };
+  | { error: 'closed'; message: string }
+  /** The job's poster deleted their account and this person was waiting on it (410): the one line they are left. */
+  | { error: 'gone'; message: string; gone: GoneJob };
 
 export type Result<T> = { ok: true; value: T } | { ok: false; refusal: Refusal };
 
@@ -188,21 +204,45 @@ export async function loadView(deps: JobsDeps, job: JobRecord, viewerId: string 
   return viewJob({ job, bids, fees, poster, cards }, viewerId, now, publicRules(deps.rules));
 }
 
+const goneJob = (t: repo.Tombstone): GoneJob => ({
+  id: t.jobId, title: t.title, role: t.role, was: t.was, amountCents: t.amountCents, feeWaivedCents: t.feeWaivedCents,
+  endedAt: new Date(t.endedAt).toISOString(),
+});
+
+/** The sentence for someone left waiting on a job whose poster deleted their account. Nobody owes anything. */
+export function goneWords(g: Pick<GoneJob, 'role' | 'was' | 'feeWaivedCents'>): string {
+  if (g.role === 'bidder') return 'The person who posted this job deleted their BidSwipe account before bidding closed. The job was taken down and your sealed bid is closed.';
+  const waived = g.feeWaivedCents ? ` The service fee of ${formatUsd(g.feeWaivedCents)} that was recorded for you was waived.` : '';
+  return `The person who posted this job deleted their BidSwipe account, so the job ended here. You owe nothing.${waived}`;
+}
+
 export async function getJobFor(deps: JobsDeps, jobId: string, viewerId: string | null, now: number): Promise<Result<{ job: JobView; messages: MessageView[] }>> {
   const job = await repo.getJob(deps.db, jobId);
-  if (!job) return notFound();
+  if (!job) {
+    // Gone with its poster's account? The people who were waiting on it get one line; everyone else a plain 404.
+    const left = viewerId ? await repo.getTombstone(deps.db, jobId, viewerId) : null;
+    if (!left) return notFound();
+    const gone = goneJob(left);
+    return refuse({ error: 'gone', message: goneWords(gone), gone });
+  }
   const messages = viewerId && inThread(job, viewerId) ? viewMessages(await repo.listMessages(deps.db, job.id), job, viewerId) : [];
   return ok({ job: await loadView(deps, job, viewerId, now), messages });
 }
 
-export async function myJobs(deps: JobsDeps, accountId: string, now: number): Promise<{ posted: JobView[]; bidding: JobView[] }> {
-  const [posted, bidding] = await Promise.all([repo.jobsPostedBy(deps.db, accountId), repo.jobsBidOnBy(deps.db, accountId)]);
+/**
+ * `ended`: jobs this person was waiting on (won, or had a sealed bid on) whose poster deleted their account. The
+ * job rows are gone, so these are not Jobs: each is the one line that is left (GoneJob), newest first.
+ */
+export async function myJobs(deps: JobsDeps, accountId: string, now: number): Promise<{ posted: JobView[]; bidding: JobView[]; ended: GoneJob[] }> {
+  const [posted, bidding, left] = await Promise.all([
+    repo.jobsPostedBy(deps.db, accountId), repo.jobsBidOnBy(deps.db, accountId), repo.tombstonesFor(deps.db, accountId),
+  ]);
   const views = async (jobs: JobRecord[]) => {
     const out: JobView[] = [];
     for (const j of jobs) out.push(await loadView(deps, j, accountId, now));
     return out;
   };
-  return { posted: await views(posted), bidding: await views(bidding) };
+  return { posted: await views(posted), bidding: await views(bidding), ended: left.map(goneJob) };
 }
 
 // ------------------------------------------------------------- the feed --
@@ -504,6 +544,49 @@ export async function completeJob(deps: JobsDeps, accountId: string, jobId: stri
   if (!done) return closed('Only an agreed job can be marked done.');
   await tell(deps, endedEvents(done));
   return ok(await loadView(deps, done, accountId, now));
+}
+
+// ---------------------------------------------------- account deletion --
+
+/** What deleting this account would end, for the "Delete my account" screen. Changes nothing. */
+export function deletionPreview(deps: JobsDeps, accountId: string): Promise<repo.DeletionPreview> {
+  return repo.deletionPreview(deps.db, accountId);
+}
+
+/**
+ * Delete an account for good. The caller has already made sure it is the owner asking (src/routes/account.ts
+ * asks for the password again) and has run settleDue, so nothing that was due is ended by the deletion instead.
+ *
+ * One statement does all of it (repo.deleteAccount). What it means for the people on the other side of a job:
+ *   - a live job the account had WON goes back to its poster: unfilled / 'bidder_left', nothing owed, post it again;
+ *   - a live job the account had POSTED is gone: its winner (or each sealed bidder of an open one) is left one line
+ *     (GET /api/jobs/:id answers 410 'gone' to them) and owes nothing; a service fee already on record is waived.
+ * Deleting an account never records a new fee: leaving is not a no-show. The fee lines the account already owed
+ * stay in the ledger without it (payer_id null, the name kept).
+ * Then each of those people is told once, like any other ending. Returns false when there was no such account.
+ */
+export async function deleteAccount(deps: JobsDeps, accountId: string, now: number): Promise<boolean> {
+  const done = await repo.deleteAccount(deps.db, accountId, now);
+  if (!done.deleted) return false;
+  deps.log?.(`account deleted: ${done.jobsRemoved} job(s) and ${done.mirrorsRemoved} feed row(s) removed, ${done.wonEnded.length} won job(s) handed back, `
+    + `${done.leftBehind.length} person(s) left a line, ${done.feesKept} fee line(s) kept, ${done.feesWaived} waived`);
+  const events: JobEvent[] = [];
+  for (const w of done.wonEnded) {
+    events.push({
+      type: 'job', kind: 'job_closed', accountId: w.posterId, role: 'poster', jobId: w.jobId, title: w.title, status: 'unfilled',
+      outcome: 'bidder_left', amountCents: w.awardCents, contactDeadline: w.contactDeadline === null ? null : new Date(w.contactDeadline).toISOString(),
+    });
+  }
+  for (const t of done.leftBehind) {
+    events.push({
+      type: 'job', kind: 'job_closed', accountId: t.accountId, role: t.role, jobId: t.jobId, title: t.title,
+      // 'poster_left' is never a stored outcome (the job row is gone): it only words this one alert.
+      status: t.role === 'winner' ? 'unfilled' : 'cancelled', outcome: 'poster_left',
+      amountCents: t.role === 'winner' ? t.amountCents : null, myAmountCents: t.amountCents, contactDeadline: null,
+    });
+  }
+  await tell(deps, events);
+  return true;
 }
 
 // ------------------------------------------------------------- safety --

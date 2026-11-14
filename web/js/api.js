@@ -84,6 +84,15 @@ export const api = {
   logIn: (email, password) => req('api/auth/login', { method: 'POST', body: { email, password } }),
   oauth: (accessToken) => req('api/auth/oauth', { method: 'POST', body: { accessToken } }),
   logOut: () => req('api/auth/logout', { method: 'POST' }),
+  // forgot password: 200 { ok, message } for any address (it never says whether one has an account); 503
+  // reset_unavailable when the server cannot send email; 429 too_many_attempts; 502 email_failed
+  forgotPassword: (email) => req('api/auth/forgot', { method: 'POST', body: { email } }),
+  // the link's token + a new password → signed in ({ account }); 400 reset_link_invalid / invalid_password
+  resetPassword: (token, password) => req('api/auth/reset', { method: 'POST', body: { token, password } }),
+  // delete my account: what it would end ({ confirmWith: 'password' | 'recent_sign_in', email, ends }), then the
+  // delete itself with { password } (or { confirm: email }): 401 wrong_password, 403 recent_sign_in_required, 429
+  accountDeletion: () => req('api/account/deletion'),
+  deleteAccount: (body) => req('api/account', { method: 'DELETE', body }),
   trades: () => req('api/trades'),
   zip: (zip) => req(`api/geo/zip/${encodeURIComponent(zip)}`),
   // lat/lng already rounded to 2 decimals by the caller; the server answers the ZIP and never stores the point
@@ -116,7 +125,8 @@ export const api = {
   marketWatch: () => req('api/market/watch'),
 
   // local jobs (accounts mode; 404 in single mode). Money is integer cents. Refusals: 400 { error: 'invalid_input',
-  // fields: [{ path, message }] }, 403 not_allowed, 404 not_found, 409 closed, 429 too_many_attempts.
+  // fields: [{ path, message }] }, 403 not_allowed, 404 not_found, 409 closed, 429 too_many_attempts, and for a job
+  // whose poster deleted their account, to the people who were waiting on it: 410 { error: 'gone', message, gone }.
   jobRules: () => req('api/jobs/rules'),
   myJobs: () => req('api/jobs/mine'),
   job: (id) => req(`api/jobs/${encodeURIComponent(id)}`),

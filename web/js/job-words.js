@@ -131,6 +131,8 @@ export function endedWords(job) {
     case 'poster_no_show': return poster ? 'You didn’t answer the winner in time' : me ? 'The poster never answered you' : 'The poster never answered the winner';
     case 'no_agreement': return 'No agreement before the deadline';
     case 'poster_cancelled': return poster ? 'You cancelled after the award' : 'The poster cancelled after the award';
+    // The winner's account is gone, so nobody reading this is "me, the winner".
+    case 'bidder_left': return 'The winner deleted their account';
     default: return 'Ended';
   }
 }
@@ -163,7 +165,9 @@ export function stage(job, { now = Date.now(), reposted = false } = {}) {
         // A job of theirs that just ended asks for one thing: post it again. After 3 days it just sits in Finished.
         const endedAt = Date.parse(a?.contactDeadline ?? job.closesAt);
         const fresh = !reposted && now - endedAt < 3 * 864e5;
-        return { group: fresh ? 'needs' : 'done', status: endedWords(job), next: reposted ? 'Posted again.' : 'You can post it again with one tap.' };
+        // The winner deleted their account: the job ended there and then, and it cost the poster nothing.
+        const owe = job.outcome === 'bidder_left' ? 'You owe nothing. ' : '';
+        return { group: fresh ? 'needs' : 'done', status: endedWords(job), next: reposted ? 'Posted again.' : `${owe}You can post it again with one tap.` };
       }
     }
   }
@@ -195,6 +199,18 @@ export function stage(job, { now = Date.now(), reposted = false } = {}) {
     default:
       return { group: 'done', status: endedWords(job), next: null };
   }
+}
+
+/**
+ * A job whose POSTER deleted their account, for someone who was waiting on it (the API's GoneJob: GET
+ * /api/jobs/mine `ended`, and the 410 of GET /api/jobs/:id). The job itself is gone; this is its one line.
+ */
+export const GONE_TITLE = 'The poster deleted their account';
+export function goneWords(g) {
+  if (g.role === 'bidder') return 'The job was taken down before bidding closed. Your sealed bid is closed.';
+  return g.feeWaivedCents
+    ? `The job ended here. You owe nothing: the service fee of ${usd(g.feeWaivedCents)} that was recorded for you was waived.`
+    : 'The job ended here. You owe nothing.';
 }
 
 /** Words for a fee on record. Always says it was not collected (payments are off). */

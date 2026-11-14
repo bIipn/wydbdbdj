@@ -3,7 +3,8 @@ import type { FastifyRequest } from 'fastify';
 import type { JWTVerifyGetKey } from 'jose';
 import type { AppConfig } from '../context.js';
 import {
-  createAccount, findAccountByIdentity, findCredentials, linkVerifiedIdentity, recordLogin, setPasswordHash,
+  createAccount, findAccountByIdentity, findCredentials, findCredentialsById, isLiveResetToken, linkVerifiedIdentity, recordLogin,
+  replaceResetToken, setPasswordHash, useResetToken,
 } from '../db/accounts.js';
 import type { Db } from '../db/db.js';
 import type { Account } from '../types.js';
@@ -11,8 +12,14 @@ import { cleanName, normalizeEmail } from './input.js';
 import {
   DEFAULT_COST, hashPassword, isAcceptablePassword, needsRehash, PASSWORD_MAX, passwordLength, verifyPassword, type ScryptCost,
 } from './password.js';
-import { closeSession, openSession, resolveSession } from './sessions.js';
+import { closeSession, openSession, resolveSession, sessionAgeMs } from './sessions.js';
 import { OAUTH_PROVIDERS, supabaseKeys, verifySupabaseToken } from './supabase.js';
+import { hashToken, newToken, TOKEN_SHAPE } from './tokens.js';
+
+/** A password reset link works once, for this long. */
+export const RESET_TTL_MS = 60 * 60 * 1000;
+/** An account with no password proves it is its owner by a sign-in no older than this (see confirmOwner). */
+export const RECENT_SIGN_IN_MS = 10 * 60 * 1000;
 
 /**
  * Who is signed in. The request context (src/context.ts) calls this on every request in accounts
@@ -26,7 +33,27 @@ export interface AuthService {
 /** Why a sign-up or sign-in was refused. src/routes/auth.ts turns each into a status and a message. */
 export type SignInError =
   | 'invalid_email' | 'invalid_password' | 'invalid_name' | 'signup_failed' | 'invalid_credentials'
-  | 'oauth_not_configured' | 'invalid_token' | 'oauth_unavailable' | 'provider_not_supported' | 'email_not_verified';
+  | 'oauth_not_configured' | 'invalid_token' | 'oauth_unavailable' | 'provider_not_supported' | 'email_not_verified'
+  /** A reset link that was never ours, was used already, or ran out: one answer for all three. */
+  | 'reset_link_invalid';
+
+/** How an account proves it is still its owner asking: its password, or (it has none) a sign-in minutes ago. */
+export type OwnerCheck = 'password' | 'recent_sign_in';
+
+export type OwnerResult =
+  | { ok: true }
+  /**
+   * wrong_password: not the account's password. recent_sign_in_required: the account has no password and its
+   * session is older than RECENT_SIGN_IN_MS. confirm_mismatch: such an account did not type its own email.
+   */
+  | { ok: false; error: 'wrong_password' | 'recent_sign_in_required' | 'confirm_mismatch' };
+
+/** A reset link to email: the token exists only here and in that one email, the database keeps its hash. */
+export interface ResetLink {
+  email: string;
+  token: string;
+  expiresAt: Date;
+}
 
 export type SignInResult =
   /** `token` is the new session's cookie value: hand it to the browser and nowhere else. */
@@ -42,6 +69,26 @@ export interface SignInService extends AuthService {
   oauth(accessToken: unknown): Promise<SignInResult>;
   /** End the session the request carries. Safe when there is none. */
   logOut(req: FastifyRequest): Promise<void>;
+  /**
+   * "Forgot password": a new reset link for the account with this email, or null when there is nothing to send
+   * (not an address, no account, or an account that signs in through a provider and has no password). The caller
+   * emails it and answers the same either way. Asking again replaces the earlier link.
+   */
+  startReset(email: unknown): Promise<ResetLink | null>;
+  /**
+   * Set a new password with a reset link's token. On success every session of the account is ended and a new
+   * one opened for this browser. Errors: invalid_password, reset_link_invalid.
+   */
+  finishReset(input: { token?: unknown; password?: unknown }): Promise<SignInResult>;
+  /** Which proof confirmOwner will ask this account for. */
+  ownerCheck(account: Account): Promise<OwnerCheck>;
+  /**
+   * Is it the account's owner asking, right now? Asked before something that cannot be undone (deleting the
+   * account). An account with a password must give it again. An account without one (it signs in through
+   * Google, Apple or Microsoft) has nothing to type that a borrowed phone does not already show, so it needs a
+   * session opened in the last RECENT_SIGN_IN_MS, which means signing in again, and its own email as `confirm`.
+   */
+  confirmOwner(req: FastifyRequest, account: Account, input: { password?: unknown; confirm?: unknown }): Promise<OwnerResult>;
 }
 
 export const isSignInService = (auth: AuthService): auth is SignInService => typeof (auth as Partial<SignInService>).signUp === 'function';
@@ -138,5 +185,47 @@ export function createAuth(db: Db, config: AppConfig, opts: AuthOptions = {}): S
     },
 
     logOut: (req) => closeSession(db, req),
+
+    async startReset(input) {
+      const email = normalizeEmail(input);
+      const found = email ? await findCredentials(db, email) : null;
+      if (!found?.passwordHash) return null;
+      const token = newToken();
+      const at = now();
+      const expiresAt = new Date(at.getTime() + RESET_TTL_MS);
+      await replaceResetToken(db, found.account.id, hashToken(token), at, expiresAt);
+      return { email: found.account.email, token, expiresAt };
+    },
+
+    async finishReset(input) {
+      if (!isAcceptablePassword(input.password)) return failed('invalid_password');
+      const { token } = input;
+      if (typeof token !== 'string' || !TOKEN_SHAPE.test(token)) return failed('reset_link_invalid');
+      const tokenHash = hashToken(token);
+      // Looked at before the hash is computed: a made-up token must not cost 128 MiB of scrypt. The write
+      // below checks the link again, in its own WHERE, so two requests with one link cannot both win.
+      if (!(await isLiveResetToken(db, tokenHash, now()))) return failed('reset_link_invalid');
+      const passwordHash = await hashPassword(input.password, cost);
+      const account = await useResetToken(db, tokenHash, passwordHash, now());
+      if (!account) return failed('reset_link_invalid');
+      await recordLogin(db, account.id, now());
+      return signedIn(account);
+    },
+
+    async ownerCheck(account) {
+      return (await findCredentialsById(db, account.id))?.passwordHash ? 'password' : 'recent_sign_in';
+    },
+
+    async confirmOwner(req, account, input) {
+      const stored = (await findCredentialsById(db, account.id))?.passwordHash ?? null;
+      if (stored) {
+        const { password } = input;
+        if (typeof password !== 'string' || password === '' || passwordLength(password) > PASSWORD_MAX) return { ok: false, error: 'wrong_password' };
+        return (await verifyPassword(password, stored)) ? { ok: true } : { ok: false, error: 'wrong_password' };
+      }
+      const age = await sessionAgeMs(db, req, now());
+      if (age === null || age > RECENT_SIGN_IN_MS) return { ok: false, error: 'recent_sign_in_required' };
+      return normalizeEmail(input.confirm) === account.email ? { ok: true } : { ok: false, error: 'confirm_mismatch' };
+    },
   };
 }

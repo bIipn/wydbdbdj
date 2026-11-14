@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDb, type Db } from '../src/db/db.js';
 import { DEFAULT_JOB_RULES } from '../src/jobs/config.js';
+import { deleteAccount as deleteAccountRows, ledgerTotals } from '../src/jobs/repo.js';
 import * as jobs from '../src/jobs/service.js';
 import { createBus } from '../src/realtime/bus.js';
 
@@ -72,4 +73,68 @@ describe.skipIf(!url)('job marketplace on Postgres (TEST_DATABASE_URL)', () => {
     expect(row.status).toBe('agreed');
     expect(await db.query(`select 1 from job_fees where job_id = $1 and kind = 'service'`, [job])).toHaveLength(1);
   });
+
+  it('ten deletions of one account at once delete it once; the fee rows outlive the payer, then the poster and the jobs', async () => {
+    const [poster, payer, other] = [ids[0]!, ids[6]!, ids[7]!];
+    // The payer no-shows on one job (5% of $377.00 = $18.85) and agrees another (1% of $291.00 = $2.91); a third is open.
+    const noShow = await post(1);
+    await jobs.placeBid(deps(), payer, noShow, { amountCents: 37_700, agree: true }, T0 + 1000);
+    await jobs.settleDue(deps(), T0 + DAY);
+    await jobs.settleDue(deps(), T0 + 9 * DAY);
+    const at = T0 + 10 * DAY;
+    const postAt = async (closesInDays: number) => {
+      const r = await jobs.postJob(deps(), poster, {
+        title: 'TEST pg job for a deletion (simulated)', description: 'A synthetic job to test the deletion statement. TEST.', trades: ['electrical'],
+        zip: '89423', closesInDays,
+      }, at);
+      if (!r.ok) throw new Error(JSON.stringify(r.refusal));
+      return r.value.id;
+    };
+    const agreed = await postAt(1);
+    const open = await postAt(5);
+    await jobs.placeBid(deps(), payer, agreed, { amountCents: 29_100, agree: true }, at + 1000);
+    await jobs.placeBid(deps(), payer, open, { amountCents: 45_500, agree: true }, at + 1000);
+    await jobs.placeBid(deps(), other, open, { amountCents: 47_700, agree: true }, at + 2000);
+    await jobs.settleDue(deps(), at + DAY);
+    expect((await jobs.confirmAgreement(deps(), payer, agreed, at + DAY + 1000)).ok).toBe(true);
+    expect((await jobs.confirmAgreement(deps(), poster, agreed, at + DAY + 2000)).ok).toBe(true);
+    const mine = [noShow, agreed, open];
+    const feeRows = () => db.query<{ job_id: string; kind: string; payer_id: string | null; payer_ref: string | null; payer_name: string | null; amount_cents: string; status: string }>(
+      'select job_id, kind, payer_id, payer_ref, payer_name, amount_cents, status from job_fees where job_id = any($1) order by id', [mine]);
+    expect((await feeRows()).map((f) => [f.kind, f.payer_id, Number(f.amount_cents)])).toEqual([['no_show', payer, 1_885], ['service', payer, 291]]);
+    const before = await ledgerTotals(db);
+
+    // The payer deletes their account, ten requests at the same moment.
+    const results = await Promise.all(Array.from({ length: 10 }, () => deleteAccountRows(db, payer, at + 2 * DAY)));
+    expect(results.filter((r) => r.deleted)).toHaveLength(1);
+    const done = results.find((r) => r.deleted)!;
+    expect(done).toMatchObject({ feesKept: 2, feesWaived: 0, jobsRemoved: 0, leftBehind: [] });
+    expect(done.wonEnded).toEqual([{ jobId: agreed, posterId: poster, title: 'TEST pg job for a deletion (simulated)', was: 'agreed', awardCents: 29_100, contactDeadline: at + 8 * DAY }]);
+    expect(await db.query('select 1 from accounts where id = $1', [payer])).toHaveLength(0);
+    expect(await db.query('select 1 from job_bids where bidder_id = $1', [payer])).toHaveLength(0);
+    expect((await db.query<{ status: string; outcome: string; winner_id: string | null }>('select status, outcome, winner_id from jobs where id = $1', [agreed]))[0])
+      .toEqual({ status: 'unfilled', outcome: 'bidder_left', winner_id: null });
+    expect(await ledgerTotals(db)).toEqual({ ...before, payerGone: before.payerGone + 2 });
+    expect((await feeRows()).map((f) => [f.kind, f.payer_id, f.payer_ref, f.payer_name, Number(f.amount_cents), f.status])).toEqual([
+      ['no_show', null, payer, `${payer} (simulated)`, 1_885, 'recorded'], ['service', null, payer, `${payer} (simulated)`, 291, 'recorded'],
+    ]);
+
+    // Then the poster deletes theirs: the jobs and their feed rows go, the ledger keeps every row and every cent.
+    const totals = await ledgerTotals(db);
+    const mirrors = (await db.query<{ id: string }>('select id from jobs where poster_id = $1', [poster])).map((j) => `local:${j.id}`);
+    expect((await db.query('select 1 from bids where id = any($1)', [mirrors])).length).toBe(mirrors.length);
+    const gone = await deleteAccountRows(db, poster, at + 3 * DAY);
+    expect(gone.deleted).toBe(true);
+    expect(gone.leftBehind).toContainEqual({ jobId: open, accountId: other, role: 'bidder', title: 'TEST pg job for a deletion (simulated)', was: 'open', amountCents: 47_700, feeWaivedCents: null });
+    // The job agreed in the test above was still live: its winner stayed, so their service fee (1% of $333.33) is waived, not erased.
+    expect(gone.leftBehind).toContainEqual(expect.objectContaining({ accountId: ids[2], role: 'winner', was: 'agreed', amountCents: 33_333, feeWaivedCents: 333 }));
+    expect(await db.query('select 1 from jobs where poster_id = $1', [poster])).toHaveLength(0);
+    expect(await db.query('select 1 from bids where id = any($1)', [mirrors])).toHaveLength(0);
+    expect(await db.query('select role, was from job_tombstones where job_id = $1 and account_id = $2', [open, other])).toEqual([{ role: 'bidder', was: 'open' }]);
+    expect(await feeRows()).toHaveLength(2);
+    const after = await ledgerTotals(db);
+    expect(after.rows).toBe(totals.rows);
+    expect(after.waivedCents - totals.waivedCents).toBe(333);
+    expect(after.recordedCents + after.waivedCents).toBe(totals.recordedCents + totals.waivedCents);
+  }, 30_000);
 });

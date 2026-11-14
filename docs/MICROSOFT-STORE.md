@@ -244,10 +244,11 @@ see `docs/PRODUCT.md` §4. The app already turns codes off for an iOS build (`ST
 
 ## 8. What is still missing or worth doing (honest list)
 
-- **Contact email** in `web/privacy.html` (two placeholders) and the hosting-providers line — required before submitting.
-- **Account deletion in the app.** Today the privacy page says "email us to delete". Microsoft's policy
-  10.5.1 asks the policy to describe user controls (done); Apple and Google require in-app deletion, so it's
-  worth building before the phone stores.
+- **Contact email** in `web/privacy.html` (two placeholders), the hosting-providers line and the backups line —
+  required before submitting.
+- ~~Account deletion in the app~~: done 2026-11-14 (Settings → "Delete my account"; the privacy page's
+  "Deleting your account" section says what is deleted and what is kept). The phone stores ask for in-app
+  deletion; whether this flow meets their current wording was not checked against their pages.
 - **A domain you own** (see the warning in step 0).
 - ~~Privacy link inside the app~~: done, under the sign-in screen and at the bottom of Settings.
 - **`widgets`, `share_target`, `protocol_handlers`** in the manifest: optional; PWABuilder may list them as

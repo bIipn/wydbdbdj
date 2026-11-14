@@ -10,11 +10,13 @@ import type { Db } from './db/db.js';
 import { env, loadEnv } from './env.js';
 import { projectDir } from './paths.js';
 import type { MarketHttp } from './market/refresh.js';
+import { mailerFromEnv, type Mailer } from './notify/email.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
 import { createRealtime, startRealtime } from './realtime/index.js';
 import { logUrl } from './util/log-url.js';
 import { registerPlainStatic } from './static.js';
+import { register as accountRoutes } from './routes/account.js';
 import { register as adminRoutes } from './routes/admin.js';
 import { register as authRoutes } from './routes/auth.js';
 import { register as cronRoutes } from './routes/cron.js';
@@ -57,6 +59,8 @@ export interface ServerOptions {
   marketHttp?: MarketHttp;
   /** Serve the app shell with the built-in plain file server instead of @fastify/static (hosts that cannot load the plugin). */
   plainStatic?: boolean;
+  /** Sends the password reset email. Absent = email is off, and the app says so (main() builds it from the environment). */
+  mailer?: Mailer | null;
 }
 
 export interface ServerDeps {
@@ -109,10 +113,11 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     log: (msg) => app.log.info(msg),
     scan: opts.scan,
     marketHttp: opts.marketHttp,
+    mailer: opts.mailer,
   });
 
   // One plugin per area; each file has exactly one owner.
-  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes, cronRoutes, workRoutes, jobsRoutes]) {
+  for (const routes of [authRoutes, profileRoutes, feedRoutes, marketRoutes, estimateRoutes, realtimeRoutes, adminRoutes, cronRoutes, workRoutes, jobsRoutes, accountRoutes]) {
     await routes(app, ctx);
   }
 
@@ -172,6 +177,7 @@ async function boot(how: { plainStatic?: boolean } = {}) {
   const scan = createScanRunner(deps, config, bus);
   const { app, ctx } = await buildApp(deps, {
     config, bus, auth: createAuth(deps.db, config), scan, logger: true, trustProxy: env('TRUST_PROXY'), plainStatic: how.plainStatic,
+    mailer: mailerFromEnv(env),
   });
   return { app, ctx, deps, scan };
 }

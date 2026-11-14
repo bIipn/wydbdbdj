@@ -57,6 +57,14 @@ export async function findCredentials(db: Db, email: string): Promise<{ account:
   return rows[0] ? { account: toAccount(rows[0]), passwordHash: rows[0].password_hash } : null;
 }
 
+/** The same for a signed-in account, by id: what "type your password again" checks against. */
+export async function findCredentialsById(db: Db, accountId: string): Promise<{ account: Account; passwordHash: string | null } | null> {
+  const rows = await db.query<AccountRow & { password_hash: string | null }>(
+    `select ${ACCOUNT_COLS}, password_hash from accounts where id = $1`, [accountId],
+  );
+  return rows[0] ? { account: toAccount(rows[0]), passwordHash: rows[0].password_hash } : null;
+}
+
 export async function setPasswordHash(db: Db, accountId: string, passwordHash: string): Promise<void> {
   await db.query('update accounts set password_hash = $2 where id = $1', [accountId, passwordHash]);
 }
@@ -127,6 +135,14 @@ export async function findSession(db: Db, tokenHash: string, now: Date): Promise
   return rows[0] ? { account: toAccount(rows[0]), expiresAt: new Date(rows[0].expires_at) } : null;
 }
 
+/** When a live session was opened (its sign-in), or null. */
+export async function sessionStartedAt(db: Db, tokenHash: string, now: Date): Promise<Date | null> {
+  const rows = await db.query<{ created_at: Date | string }>(
+    'select created_at from sessions where token_hash = $1 and expires_at > $2', [tokenHash, now.toISOString()],
+  );
+  return rows[0] ? new Date(rows[0].created_at) : null;
+}
+
 export async function extendSession(db: Db, tokenHash: string, expiresAt: Date): Promise<void> {
   await db.query('update sessions set expires_at = $2 where token_hash = $1', [tokenHash, expiresAt.toISOString()]);
 }
@@ -137,4 +153,54 @@ export async function deleteSession(db: Db, tokenHash: string): Promise<void> {
 
 export async function deleteExpiredSessions(db: Db, now: Date): Promise<void> {
   await db.query('delete from sessions where expires_at <= $1', [now.toISOString()]);
+}
+
+// ----------------------------------------------------- password resets --
+
+/**
+ * Store a new reset link for an account (only the token's hash). One live link per account: the account's
+ * earlier ones go in the same statement, and so does every link of anybody's that has run out.
+ */
+export async function replaceResetToken(db: Db, accountId: string, tokenHash: string, now: Date, expiresAt: Date): Promise<void> {
+  await db.query(
+    `with old as (
+       delete from password_resets where account_id = $2 or expires_at <= $3
+     )
+     insert into password_resets (token_hash, account_id, created_at, expires_at) values ($1, $2, $3, $4)`,
+    [tokenHash, accountId, now.toISOString(), expiresAt.toISOString()],
+  );
+}
+
+/** Is this the hash of a reset link that has not been used and has not run out? (A read: the write below decides.) */
+export async function isLiveResetToken(db: Db, tokenHash: string, now: Date): Promise<boolean> {
+  const rows = await db.query(
+    'select 1 from password_resets where token_hash = $1 and used_at is null and expires_at > $2', [tokenHash, now.toISOString()],
+  );
+  return rows.length > 0;
+}
+
+/**
+ * Use a reset link: ONE statement marks it used, stores the new password hash and ends every session and
+ * push subscription of the account (whoever knew the old password is signed out everywhere). The link's
+ * state is in the WHERE, so of two requests with the same link exactly one gets the account back; the other,
+ * like a link that ran out or was never ours, gets null and nothing is changed.
+ */
+export async function useResetToken(db: Db, tokenHash: string, passwordHash: string, now: Date): Promise<Account | null> {
+  const rows = await db.query<AccountRow>(
+    `with used as (
+       update password_resets set used_at = $3
+       where token_hash = $1 and used_at is null and expires_at > $3
+       returning account_id
+     ), changed as (
+       update accounts set password_hash = $2 where id in (select account_id from used)
+       returning ${ACCOUNT_COLS}
+     ), signed_out as (
+       delete from sessions where account_id in (select account_id from used)
+     ), unsubscribed as (
+       delete from push_subscriptions where account_id in (select account_id from used)
+     )
+     select ${ACCOUNT_COLS} from changed`,
+    [tokenHash, passwordHash, now.toISOString()],
+  );
+  return rows[0] ? toAccount(rows[0]) : null;
 }

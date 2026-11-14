@@ -363,11 +363,11 @@ describe('sign up, sign in, sign out', () => {
     });
   });
 
-  it('single mode has no sign-in API: all five routes answer 404, and nothing asks for the CSRF header', async () => {
+  it('single mode has no sign-in API: all seven routes answer 404, and nothing asks for the CSRF header', async () => {
     const single = await buildServer({ db, profile: loadProfile('lm-electric') }, { now });
     apps.push(single);
     expect((await single.inject('/api/auth/config')).statusCode).toBe(404);
-    for (const path of ['signup', 'login', 'oauth', 'logout']) {
+    for (const path of ['signup', 'login', 'oauth', 'logout', 'forgot', 'reset']) {
       const res = await single.inject({ method: 'POST', url: `/api/auth/${path}`, payload: { email: EMAIL, password: PASSWORD, accessToken: 'x' } });
       expect(res.statusCode, path).toBe(404);
       expect(res.json()).toEqual({ error: 'not_found' });

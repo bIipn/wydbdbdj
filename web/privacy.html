@@ -10,7 +10,9 @@
   <link rel="stylesheet" href="styles.css" />
   <style>
     /* This page only. Every statement below was checked against the code (src/db/schema.ts, src/auth/,
-       src/routes/, web/js/) on 2026-11-13. Change the code → change this page. */
+       src/routes/, web/js/) on 2026-11-13; "Deleting your account" and the reset-link rows against
+       src/jobs/repo.ts deleteAccount(), src/db/schema-jobs.ts and src/routes/auth.ts on 2026-11-14.
+       Change the code → change this page. */
     .doc { max-width: 680px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 18px 48px; line-height: 1.6; }
     .doc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
     .doc-top a { text-decoration: none; }
@@ -25,6 +27,7 @@
     .doc h2 { font-size: 18px; margin: 30px 0 8px; letter-spacing: -0.01em; }
     .doc p, .doc li { color: #c9d2de; font-size: 15px; }
     .doc ul { padding-left: 20px; margin: 8px 0; }
+    .doc h3 { font-size: 15px; margin: 18px 0 4px; color: var(--text); }
     .doc li { margin: 5px 0; }
     .doc strong { color: var(--text); }
     .doc a { color: var(--volt); text-underline-offset: 3px; }
@@ -55,7 +58,7 @@
       <ul>
         <li>We keep what the app needs to find bids for your business: your sign-in, your business profile, what you do with bids, and the local jobs you post or bid on.</li>
         <li>We <strong>do not sell</strong> your information, and the app has <strong>no ads and no ad or analytics trackers</strong>.</li>
-        <li>You can ask us to show you or delete everything we hold about you.</li>
+        <li>You can <strong>delete your account yourself</strong>, in the app's settings, at any time. <a href="#delete">What that deletes, and the little that is kept</a>.</li>
       </ul>
     </div>
 
@@ -72,6 +75,7 @@
         <tr><td>Email address and name</td><td>Your account: signing in, and telling you apart from other businesses.</td></tr>
         <tr><td>Password</td><td>Only a one-way scrypt hash, never the password itself. If you sign in with Google, Apple or Microsoft instead, we store the sign-in service's id for your account and no password.</td></tr>
         <tr><td>Sign-in sessions</td><td>A cookie keeps you signed in for up to 30 days after your last visit. We store only a hash of it.</td></tr>
+        <tr><td>Password reset links</td><td>If you ask for one: a hash of the link's secret (never the link itself), when you asked, and when it was used. A link works once, for one hour. Where reset by email is not set up, the app says so and nothing is sent or stored.</td></tr>
         <tr><td>Business profile</td><td>Business name, your trades, your home base (town and ZIP, turned into map coordinates), how far you travel, the job sizes you want, the paperwork you said you have (bonding, prevailing wage, state and federal registration), spend limits, and the cost numbers you choose to enter. This is what scores each bid for you.</td></tr>
         <tr><td>Saved and passed bids</td><td>Which bids you saved, passed or opened to bid, so your lists stay the same on every device.</td></tr>
         <tr><td>Fit scores</td><td>Each bid's score for your business and the reasons, recalculated after every daily scan.</td></tr>
@@ -82,7 +86,7 @@
         <tr><td>Bids on local jobs</td><td>Your amount and your note. While the job is open only you see the amount. After closing, the poster and everyone who bid see the amounts ranked; only the poster sees who bid. Your note is shown only to you.</td></tr>
         <tr><td>Messages on a job</td><td>What the poster and the winner write to each other after the award. Only the two of them see it.</td></tr>
         <tr><td>Work profile</td><td>What you choose to add: a headline, about you, years in the trade, skills, experience, a licence as you typed it (not checked by BidSwipe), whether you are insured, and a résumé link. Your card shows these, your name and your record on BidSwipe (jobs posted, won, agreed, no-shows) to people you share a job with, never your email, phone or address.</td></tr>
-        <tr><td>Job records and fees</td><td>How each job ended, any no-show or service fee (with the amount and how it was worked out), reports someone sent about a job, and an operator's removals or waivers. Fees are recorded only; nothing is collected yet.</td></tr>
+        <tr><td>Job records and fees</td><td>How each job ended, any no-show or service fee (with the amount and how it was worked out), reports someone sent about a job, and an operator's removals or waivers. Fees are recorded only; nothing is collected yet. A fee line outlives the account it was recorded for: see <a href="#delete">Deleting your account</a>.</td></tr>
         <tr><td>Plan and promo codes</td><td>Your plan (Free or Pro), and if you redeemed a promo code, a scrambled fingerprint of the code and when you used it, never the code itself.</td></tr>
       </tbody>
     </table>
@@ -107,7 +111,7 @@
         <span class="todo">[Ev: list the providers you use, e.g. Vercel and Supabase]</span>.</li>
       <li><strong>Sign-in providers</strong> — if you choose "Continue with Google, Apple or Microsoft", that company tells us your email and an account id.</li>
       <li><strong>Push services</strong> — if you turn on alerts, the alert's title and short text pass through your browser maker's push service (for example Google, Mozilla, Apple or Microsoft) to reach your device.</li>
-      <li><strong>Email</strong> — if a daily bid email is set up for your company, it is sent through an email delivery service.</li>
+      <li><strong>Email</strong> — if a daily bid email is set up for your company, or you ask for a password reset link, it is sent through an email delivery service, which sees your address and the message.</li>
     </ul>
     <p>We would also share information if the law requires it.</p>
 
@@ -115,8 +119,52 @@
     <ul>
       <li>Change your business profile and alert settings any time in the app's settings.</li>
       <li>Turn notifications off in the app or in your browser or Windows settings.</li>
-      <li>To get a copy of your data, or to delete your account and everything tied to it (profile, saved bids, alerts,
-        cost checks, devices, jobs, bids, messages, work profile), email <span class="todo">[CONTACT EMAIL]</span> from the address you signed up with. We answer within 30 days.</li>
+      <li>Forgot your password? “Forgot password?” on the sign-in screen emails you a link to choose a new one. Choosing it signs out every other device.</li>
+      <li>Delete your account yourself, in the app: see the next section.</li>
+      <li>To get a copy of your data, email <span class="todo">[CONTACT EMAIL]</span> from the address you signed up with. We answer within 30 days.</li>
+    </ul>
+
+    <h2 id="delete">Deleting your account</h2>
+    <p>In the app: <strong>Settings, then “Delete my account”</strong>. It shows what will end, asks for your password
+      again, and then deletes the account at once. (An account that signs in with Google, Apple or Microsoft has no
+      password: it signs in again and types its email address instead.) You do not need to write to us.
+      <strong>It cannot be undone.</strong></p>
+
+    <h3>What is deleted</h3>
+    <ul>
+      <li>Your account: email address, name, password hash, the sign-in service's id, your plan and promo-code records, and any password reset link.</li>
+      <li>Every sign-in session, so every device is signed out, and every notification device.</li>
+      <li>Your business profile, fit scores, saved and passed bids, alerts and cost checks, and your work profile.</li>
+      <li>Every local job you posted, in any state: its title, description, address and phone, the bids on it and its
+        messages. It also leaves every other person's feed, saved list and bid alerts.</li>
+      <li>Your own bids, messages and reports on other people's jobs.</li>
+    </ul>
+
+    <h3>What is kept, and why</h3>
+    <ul>
+      <li><strong>Fee lines.</strong> A no-show or service fee that was recorded for you stays in our fee records, so their
+        totals stay true: the amount and how it was worked out, the date, whether it was waived, the internal id of the job and
+        of your account (which lead to nothing once the account is gone), the day you deleted the account, and
+        <strong>the name on your account</strong>. Never your email address. Fees are recorded only; nothing is collected.</li>
+      <li><strong>One line for people who were waiting on a job you posted.</strong> The winner of a job of yours that
+        was awarded or agreed, and anyone with a sealed bid on a job of yours that was still open, keeps one line:
+        the job's title, their own bid (and a fee that was waived for them, if there was one), the day it ended, and
+        that it ended because the poster's account was deleted. Only they can see it. Nothing else about the job or about you.</li>
+      <li><strong>A job you had won</strong> belongs to the person who posted it and stays theirs, without you:
+        it shows that the winner deleted their account, and the winning amount. Your name, card and messages are gone from it.</li>
+      <li><strong>What is already in other people's inboxes.</strong> An alert someone received earlier (for example
+        “New message” with its first words, or the title of your job) stays in their inbox.</li>
+      <li><strong>Backups and logs.</strong> Our hosting providers' backups and request logs can hold a copy until they
+        are replaced <span class="todo">[Ev: say how long your database and hosting providers keep backups and logs]</span>.</li>
+    </ul>
+
+    <h3>If a job was still running</h3>
+    <ul>
+      <li>A job you posted that someone had already won ends for them right away. They are told, they owe nothing, and a
+        service fee that had been recorded for that job is waived.</li>
+      <li>A job you had won and not finished goes back to the person who posted it. They are told and can post it again.
+        No fee is recorded because you deleted your account.</li>
+      <li>The <a href="terms.html#delete">terms</a> say the same from the other side.</li>
     </ul>
 
     <h2>Keeping it safe</h2>

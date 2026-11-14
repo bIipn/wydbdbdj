@@ -27,8 +27,8 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,620 tests in 68 files as of 2026-11-14, ~75s; simulate.test.ts ~25s,
-                           # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
+npm test                   # vitest (~1,665 tests in 70 files as of 2026-11-14, ~80s; simulate.test.ts ~25s,
+                           # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
@@ -77,6 +77,11 @@ src/scan.ts        fetch all sources → finalizeBid → upsert → score per pr
 src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here)
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
 src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
+src/auth/index.ts  also "forgot password" (startReset / finishReset: a 1-hour, single-use link, only its sha256 stored;
+                   tokens.ts is the one token recipe for sessions and links) and confirmOwner (the password again,
+                   before a delete); src/notify/email.ts the mailer (Resend) + the reset email, null when no key
+src/routes/account.ts  GET /api/account/deletion (what a delete would end) + DELETE /api/account (password again,
+                   then src/jobs/service.ts deleteAccount → the ONE statement in src/jobs/repo.ts deleteAccount)
 src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time match) + one-statement redeem
 src/geo/nearest.ts "Use my location": a point → nearest ZIP (never stored; src/util/log-url.ts keeps it out of logs)
 src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there)
@@ -90,7 +95,8 @@ src/sim/           the multi-company simulation (personas, takeoffs, checks, rep
 src/jobs/          the marketplace: rules.ts (pure: winner, fee lines in ppm/BigInt, the state machine settle()),
                    config.ts (JOB_* settings), repo.ts (ALL its SQL: every state-dependent write is ONE conditional
                    statement), service.ts (post/bid/award/contact/confirm/back-out, settleDue, mirrorBid),
-                   view.ts (what ONE viewer may see: hidden fields are null/[], never missing), stats.ts
+                   view.ts (what ONE viewer may see: hidden fields are null/[], never missing), stats.ts;
+                   repo.ts also holds deleteAccount (the whole account deletion), job_tombstones reads, ledgerTotals
 src/profile/work.ts + person.ts + src/db/work.ts  work profiles (headline, experience, licence as typed, résumé
                    link) and the PersonCard (never email/phone/address); src/routes/work.ts, src/routes/jobs.ts
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
@@ -100,7 +106,8 @@ web/               index.html, styles.css, desktop.css (≥900px only), sw.js (r
                    promo.js + promo-link.js: the code box and ?promo= links;
                    views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate, jobs, job-post, job)
                    register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
-                   work-profile.js; terms.html + privacy.html;
+                   work-profile.js; account-delete.js (Settings: "Delete my account"); views/signin.js also draws
+                   "Forgot password?" and the reset-link screen (main.js reads #reset=<token>); terms.html + privacy.html;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
 serverless-files.cjs every folder the Vercel function ships (web/ and EACH sub-folder, config/): add a line for
@@ -113,7 +120,9 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
                    · http.test.ts (cookie session) · pipeline / score / server / util · cost/ + cost-oracle/
                    · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
                    · simulate.test.ts · jobs-api / jobs-rules / jobs-score / jobs-reach / jobs-pg /
-                   simulate-jobs / work-profile · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
+                   simulate-jobs / work-profile · account-delete (mirror rows, fee ledger, live jobs, the upgrade of
+                   an older database) · password-reset · helpers.ts. No harness for web JS: check screens in
+                   Playwright at 390×844
 ```
 
 ## Rules
@@ -158,6 +167,22 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   half-up rounding. **PAYMENTS ARE OFF:** every fee row is 'recorded'; never say or imply a card was charged,
   and write no code that talks to a payment company. Licence notices (job-words.js) come from
   docs/MARKETPLACE.md §9; keep them sourced. An open job is mirrored into `bids` as `local:<jobId>`.
+- **Deleting an account** (Settings → "Delete my account", `DELETE /api/account`, password again, 5 tries per 15 min):
+  ONE statement, `deleteAccount` in src/jobs/repo.ts. The foreign keys take the profile, sessions, the jobs the
+  account posted and its bids, messages and reports; the statement itself deletes the `local:<jobId>` feed rows and
+  every alert that points at one, ends a live job the account had WON as unfilled / `bidder_left` for its poster,
+  and leaves one `job_tombstones` line for everyone waiting on a live job it had POSTED (they get 410 `gone`).
+  **The one who stays never owes a fee**, and **a deletion never records a new fee** (leaving is not a no-show):
+  a service fee already recorded for the winner of an agreed job whose poster leaves is waived. **A fee row is
+  never deleted**: `job_fees` has no cascading foreign key; the payer's row keeps `payer_ref` + `payer_name`
+  (never the email) and `ledgerTotals` stays true. A new table that hangs off `accounts` needs `on delete cascade`
+  or a line in that statement; web/privacy.html "Deleting your account" and web/terms.html must say what it does.
+- **Forgot password:** `POST /api/auth/forgot` answers every address the same and emails a link only to an
+  account with a password; `POST /api/auth/reset` uses it once (one statement) and signs every other device out.
+  The token rides in the link's FRAGMENT (`/#reset=…`, never sent to a server) and is never logged; only its
+  sha256 is stored. **No `RESEND_API_KEY` (+ `EMAIL_FROM` or `DIGEST_FROM`) = no mailer**: the route answers 503
+  `reset_unavailable` and the screen says reset by email is not available yet. Never answer "we emailed it" when
+  nothing was sent (a refused send is 502 `email_failed`).
 - **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
   are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
   the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
@@ -229,8 +254,14 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - One live repost per job (`jobs_one_repost_idx`): a second "Post again" answers 409.
 - The onboarding's default business name ("My electrical shop") is shared by everyone who skips the step:
   `cardName()` uses the account name instead, and the bid tab shows "Bidder N".
-- There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the
-  account's jobs (they are not cascaded) and decide what happens to its fee rows (job_fees.payer_id cascades).
+- `job_fees.job_id` has NO foreign key on purpose (the ledger outlives the job and the payer), and
+  `jobs.outcome` 'bidder_left' is written only by the account deletion, never by `settle()`. The schema upgrades an
+  older database in place with a `do $upgrade$` block at the end of src/db/schema-jobs.ts (drops the cascading
+  foreign keys, widens the outcome check); it finds nothing to do afterwards, so it is safe at every start.
+- `GET /api/jobs/:id` can answer 410 `gone` (the poster deleted their account and this viewer was waiting on the
+  job) besides 404; 'poster_left' exists only in that answer's alert, never in `jobs.outcome` (the row is gone).
+- The sign-in limiter (10 tries per caller per 15 min) also counts `POST /api/auth/reset`; "forgot" and "delete my
+  account" have their own. They are per process, like the others (weak on serverless).
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

@@ -1,7 +1,7 @@
 // BidSwipe web app entry: plain ES modules, no build step.
 // Talks to the Fastify API when it's there; otherwise runs on the bundled snapshot (demo mode).
 //
-// Boot order: demo snapshot → GET /api/me →
+// Boot order: demo snapshot → a password reset link (#reset=…) → GET /api/me →
 //   single mode (the pilot): the v0 swipe app, as before
 //   accounts mode: sign-in (401) → onboarding (needsOnboarding) → the feed
 //   401 access_code_required: the access-code gate
@@ -27,7 +27,7 @@ import { showGate } from './views/gate.js';
 import './views/market.js';
 import './views/onboarding.js';
 import { openSettings } from './views/settings.js';
-import { showSignIn } from './views/signin.js';
+import { showResetPassword, showSignIn } from './views/signin.js';
 
 // The session ended or there is no profile yet, wherever the call came from.
 setAuthHandler((code) => {
@@ -88,6 +88,32 @@ async function finishOAuth() {
   try { await api.oauth(token); } catch { /* the sign-in screen comes up and says nothing went through */ }
 }
 
+/**
+ * Opened from a password reset email: …/#reset=<token>. The token is in the fragment, which a browser never
+ * sends to a server, and it is taken out of the address bar at once so it is not left in the history either.
+ */
+function takeResetToken() {
+  const token = new URLSearchParams(location.hash.slice(1)).get('reset');
+  if (!token) return null;
+  history.replaceState(null, '', location.pathname + location.search);
+  return token;
+}
+
+/** Show the "choose a new password" screen for a link's token, whoever (if anyone) is signed in here. */
+function openReset(token) {
+  closeSheet();
+  state.mode = 'live';
+  signedOut();
+  showResetPassword(token);
+}
+
+// The link opened in a tab that already shows the app: only the fragment changes, so the page does not load
+// again and boot() never runs. (Taking the token out of the address does not fire this event.)
+window.addEventListener('hashchange', () => {
+  const token = takeResetToken();
+  if (token) openReset(token);
+});
+
 async function fallBackToDemo() {
   try {
     // No API (static hosting or opened as a file): fall back to the bundled snapshot.
@@ -101,6 +127,9 @@ async function boot() {
   if (window.BIDSWIPE_DEMO) return startDemo(window.BIDSWIPE_DEMO);
   if (new URLSearchParams(location.search).has('demo')) return startDemo(await (await fetch('demo-data.json')).json());
   state.accessCode ??= store.get('bidswipe:code');
+  // A reset link comes first, signed in or not: the person asked to choose a new password.
+  const reset = takeResetToken();
+  if (reset) return openReset(reset);
   await finishOAuth();
   try {
     state.mode = 'live';

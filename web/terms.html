@@ -10,7 +10,8 @@
   <link rel="stylesheet" href="styles.css" />
   <style>
     /* This page only, same look as privacy.html. Every rule below matches the marketplace as built
-       (src/jobs/, src/jobs/config.ts defaults) on 2026-11-14. Change the rules or the defaults → change this page. */
+       (src/jobs/, src/jobs/config.ts defaults) on 2026-11-14, "Deleting your account" included
+       (src/jobs/repo.ts deleteAccount). Change the rules or the defaults → change this page. */
     .doc { max-width: 680px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 18px 48px; line-height: 1.6; }
     .doc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
     .doc-top a { text-decoration: none; }
@@ -98,10 +99,31 @@
       <li><strong>Service fee</strong>: at most 3% of the winning bid (<strong>1% today</strong>), owed by the winner when both
         sides confirm they have agreed.</li>
       <li>There is no fee when contact was made (as above) and the poster did not answer, when the two sides cannot
-        agree, or when a job ends without a winner.</li>
+        agree, when a job ends without a winner, or when a job ends because the poster or the winner deleted their
+        account (see <a href="#delete">Deleting your account</a>).</li>
     </ul>
     <p>The exact figures are shown before you place a bid. <strong>Fees are not being collected yet.</strong> A no-show is
       recorded on your profile.</p>
+
+    <h2 id="delete">Deleting your account</h2>
+    <p>You can delete your account at any time in the app (Settings, then “Delete my account”). It asks for your
+      password again (an account without a password signs in again instead), takes effect at once, and cannot be
+      undone. This is what it does to jobs:</p>
+    <ul>
+      <li><strong>Jobs you posted are removed</strong>, in any state, with their bids and messages.
+        <ul>
+          <li>Still open for bids: everyone with a sealed bid is told the job was taken down. Their bids are closed. Nobody owes anything.</li>
+          <li>Awarded or agreed: the job ends for the winner at that moment. The winner is told and <strong>owes nothing</strong>:
+            no no-show fee can follow, and a service fee that had already been recorded for that job is waived.</li>
+        </ul>
+      </li>
+      <li><strong>A job you had won and not finished</strong> (awarded or agreed) goes back to the person who posted it.
+        They are told that the winner deleted their account, they owe nothing, and they can post the job again.
+        <strong>No fee is recorded because of the deletion.</strong></li>
+      <li><strong>Your sealed bids on open jobs are withdrawn.</strong> If yours was the lowest, the next lowest bid wins at closing.</li>
+      <li><strong>Fees recorded before you delete stay on record</strong>, as fee lines without your email address.
+        The <a href="privacy.html#delete">privacy policy</a> lists exactly what is deleted and what is kept.</li>
+    </ul>
 
     <h2>Licences and insurance</h2>
     <p>Many states require a contractor's licence for work above a small amount or work that needs a permit, and some

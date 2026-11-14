@@ -10,7 +10,13 @@
 import { divRoundHalfUp } from '../cost/money.js';
 
 export type JobStatus = 'open' | 'awarded' | 'agreed' | 'completed' | 'unfilled' | 'cancelled';
-export type JobOutcome = 'no_bids' | 'bidder_no_show' | 'bidder_backed_out' | 'poster_no_show' | 'no_agreement' | 'poster_cancelled';
+/**
+ * 'bidder_left': the winner deleted their account while the job was awarded or agreed. settle() below never
+ * decides it: the one statement that deletes the account writes it (src/jobs/repo.ts deleteAccount), and it
+ * costs nobody a fee.
+ */
+export type JobOutcome =
+  | 'no_bids' | 'bidder_no_show' | 'bidder_backed_out' | 'poster_no_show' | 'no_agreement' | 'poster_cancelled' | 'bidder_left';
 export type BidStatus = 'active' | 'won' | 'lost' | 'withdrawn' | 'defaulted';
 export type FeeKind = 'no_show' | 'service';
 

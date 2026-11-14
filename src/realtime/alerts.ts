@@ -313,6 +313,12 @@ const POST_AGAIN = 'You can post it again with one tap.';
 function closedCopy(e: BusEventOf<'job'>): { title: string; body: string } {
   const t = clip(e.title, 60);
   const mine = e.role === 'poster';
+  // The poster deleted their account (src/jobs/service.ts deleteAccount): the job is gone, nobody owes anything.
+  if (e.outcome === 'poster_left') {
+    return e.role === 'bidder'
+      ? { title: `Taken down: ${t}`, body: 'The poster deleted their BidSwipe account before bidding closed. Your bid is closed.' }
+      : { title: `Ended: ${t}`, body: 'The poster deleted their BidSwipe account, so this job ended. Nothing is owed.' };
+  }
   if (e.role === 'bidder') {
     if (e.status === 'cancelled') return { title: `Cancelled: ${t}`, body: 'The poster cancelled this job before it closed. Your bid is closed.' };
     return {
@@ -342,6 +348,9 @@ function closedCopy(e: BusEventOf<'job'>): { title: string; body: string } {
       return mine
         ? { title: `You cancelled: ${t}`, body: `Nothing is owed. ${POST_AGAIN}` }
         : { title: `Cancelled: ${t}`, body: 'The poster cancelled after the award. Nothing is owed.' };
+    case 'bidder_left':
+      // Only the poster is ever told this one: the winner is the account that was deleted.
+      return { title: `The winner left BidSwipe: ${t}`, body: `The winner deleted their account, so this job ended. Nothing is owed. ${POST_AGAIN}` };
     default:
       return { title: `Ended: ${t}`, body: 'This job has ended.' };
   }

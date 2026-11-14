@@ -103,6 +103,18 @@ create table if not exists sessions (
   expires_at  timestamptz not null
 );
 
+-- "Forgot password" links (src/auth/reset.ts). Only a SHA-256 of the token is stored, like a session's: a
+-- copy of this table cannot be turned back into links. One live link per account (asking again replaces it),
+-- good for an hour, used once: used_at is set by the same statement that stores the new password.
+create table if not exists password_resets (
+  token_hash  text primary key,
+  account_id  text not null references accounts(id) on delete cascade,
+  created_at  timestamptz not null,
+  expires_at  timestamptz not null,
+  used_at     timestamptz
+);
+create index if not exists password_resets_account_idx on password_resets (account_id);
+
 alter table profiles add column if not exists account_id text references accounts(id) on delete cascade;
 create unique index if not exists profiles_account_idx on profiles (account_id) where account_id is not null;
 alter table bids add column if not exists sol_number text;

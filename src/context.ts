@@ -5,6 +5,7 @@ import { getProfileByAccount } from './db/repo.js';
 import { env as processEnv } from './env.js';
 import type { MarketHttp, refreshMarket } from './market/refresh.js';
 import { createMarketWatcher, type MarketWatcher } from './market/watcher.js';
+import type { Mailer } from './notify/email.js';
 import { effectivePlan } from './plans.js';
 import type { Bus } from './realtime/bus.js';
 import type { ScanReport } from './scan.js';
@@ -89,6 +90,11 @@ export interface RouteContext {
   bus: Bus;
   auth: AuthService;
   log: (msg: string) => void;
+  /**
+   * Sends one email to a person (the password reset link). null = email is not set up on this server
+   * (no RESEND_API_KEY): every route that would send says so instead, and never claims an email went out.
+   */
+  mailer: Mailer | null;
   /** Runs a scan now (admin route + daily schedule). Absent when the server was built without one. */
   scan?: () => Promise<ScanReport>;
   /** The market refresh with its price and award watch (admin route, daily schedule, GET /api/market/watch). */
@@ -119,6 +125,8 @@ export interface ContextParts {
   profile?: Profile | null;
   now?: () => Date;
   log?: (msg: string) => void;
+  /** Absent or null = email is off (see RouteContext.mailer). */
+  mailer?: Mailer | null;
   scan?: () => Promise<ScanReport>;
   /** Market refresh clients (tests replay captured pages). Default: polite real clients, built on first use. */
   marketHttp?: MarketHttp;
@@ -148,7 +156,7 @@ export function createContext(parts: ContextParts): RouteContext {
   });
 
   return {
-    db, config, bus, auth, scan, market, now, log,
+    db, config, bus, auth, scan, market, now, log, mailer: parts.mailer ?? null,
     identify,
     async requireProfile(req, reply) {
       const id = await identify(req);

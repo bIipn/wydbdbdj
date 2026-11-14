@@ -7,6 +7,8 @@
 //   after closing          the bid tab, the award with its contact countdown, the other side's card, the
 //                          address and phone (winner), messages, and the buttons the state allows
 //   ended                  how it ended, in words, and any fee "recorded, not collected"
+//   gone (410)             the poster deleted their account while this person was waiting on the job: the job is
+//                          gone, and the page is the one line that is left (its title, why, "you owe nothing")
 //
 // The page is kept between redraws (a live alert redraws the app) so a half-typed bid or message survives,
 // and the focus goes back where it was.
@@ -16,7 +18,8 @@ import { PT } from '../format.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { clearErrors, formError, moneyInput, showErrors } from '../form.js';
 import {
-  answerWindowText, dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, iWon, licenceLine, parseCents, ppmOf, stage, statsWords, timeLeft, whenLong,
+  answerWindowText, dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, GONE_TITLE, iWon, licenceLine, parseCents, ppmOf, stage, statsWords,
+  timeLeft, whenLong,
 } from '../job-words.js';
 import { jobs, loadMine, openJob } from '../jobs-data.js';
 import { chip } from '../profile-form.js';
@@ -29,6 +32,7 @@ import { CLOSES_IN } from './job-post.js';
 
 const fresh = () => ({
   id: null, job: null, messages: [], error: null, loading: false,
+  gone: null, // { message, gone } from a 410: the poster deleted their account
   el: null, focus: null, // the drawn page, kept while nothing changed
   bidText: '', note: '', agree: false, editing: false, busy: false,
   confirm: null, // 'cancel' | 'backout' | 'withdraw' | 'report' | 'repost'
@@ -49,9 +53,15 @@ async function load(id = ui.id) {
     ui.job = res.job;
     ui.messages = res.messages;
     ui.error = null;
+    ui.gone = null;
   } catch (err) {
     if (ui.id !== id) return;
-    ui.error = err.status === 404 ? 'This job is gone. It may have been removed.' : err.message || 'Couldn’t load this job.';
+    if (err.status === 410 && err.body?.gone) {
+      // The poster deleted their account. Whatever this page showed a minute ago no longer exists.
+      Object.assign(ui, { gone: { message: err.message, ...err.body.gone }, job: null, messages: [], error: null, confirm: null, actionError: null });
+    } else {
+      ui.error = err.status === 404 ? 'This job is gone. It may have been removed.' : err.message || 'Couldn’t load this job.';
+    }
   }
   ui.loading = false;
   redraw();
@@ -317,11 +327,14 @@ function awardBox(job) {
         h('div', { class: 'fact' }, h('span', {}, 'Lowest bid'), h('strong', {}, dollars(a.amountCents)), h('small', {}, `awarded ${dayOnly(a.awardedAt)}`))),
       tie ? h('p', { class: 'job-note' }, 'Same amount as the winner; the bid placed first wins.') : null);
   }
+  // The winner deleted their account: there is no contact deadline any more, and their bid left the tab with them.
+  const winnerGone = job.outcome === 'bidder_left';
   return section('Award',
     h('div', { class: 'job-facts' },
-      h('div', { class: 'fact' }, h('span', {}, a.isMe ? 'Your winning bid' : 'Lowest bid'), h('strong', {}, dollars(a.amountCents)), h('small', {}, `awarded ${dayOnly(a.awardedAt)}`)),
-      h('div', { class: `fact${running && left && Date.parse(a.contactDeadline) - Date.now() < 2 * 864e5 ? ' urgent' : ''}` },
+      h('div', { class: 'fact' }, h('span', {}, a.isMe ? 'Your winning bid' : winnerGone ? 'Winning bid' : 'Lowest bid'), h('strong', {}, dollars(a.amountCents)), h('small', {}, `awarded ${dayOnly(a.awardedAt)}`)),
+      winnerGone ? null : h('div', { class: `fact${running && left && Date.parse(a.contactDeadline) - Date.now() < 2 * 864e5 ? ' urgent' : ''}` },
         h('span', {}, 'Contact by'), h('strong', {}, running ? (left ? `${left} left` : 'now') : dayOnly(a.contactDeadline)), h('small', {}, whenLong(a.contactDeadline)))),
+    winnerGone ? h('p', { class: 'job-note faint' }, 'The winner’s bid, card and messages went with their account, so the bid tab below no longer lists it.') : null,
     job.status === 'awarded' || job.status === 'agreed' || job.status === 'completed' ? h('ol', { class: 'job-steps' },
       // Contact (src/jobs/rules.ts madeContact): the winner's message or "We've agreed", the poster's "They
       // contacted me" or "We've agreed". The API's bidderContactedAt is the earliest of the four.
@@ -546,6 +559,21 @@ function page(job) {
   ];
 }
 
+/** What is left of a job whose poster deleted their account: its title, why it ended, and that nothing is owed. */
+function gonePage(g) {
+  const bid = g.amountCents != null ? `${g.role === 'winner' ? 'Your winning bid' : 'Your sealed bid'} was ${dollars(g.amountCents)}.` : null;
+  return [
+    h('section', { class: 'panel job-head' },
+      h('div', { class: 'pills' }, h('span', { class: 'pill local' }, 'Local job'), h('span', { class: 'pill status-unfilled' }, 'Ended')),
+      h('h2', { class: 'job-title', id: 'jobTitle' }, g.title),
+      h('p', { class: 'job-sub' }, `Ended ${dayOnly(g.endedAt)}`)),
+    h('section', { class: 'job-banner is-ended' }, h('strong', {}, GONE_TITLE), h('p', {}, g.message)),
+    bid ? section(null, h('p', { class: 'job-note' }, bid),
+      h('p', { class: 'job-note faint' }, 'The job’s details, messages and address went with the poster’s account.')) : null,
+    h('button', { class: 'cta ghost', type: 'button', onclick: () => setView('jobs') }, 'Go to Jobs'),
+  ];
+}
+
 function renderJob() {
   if (jobs.open.id !== ui.id) { ui = fresh(); ui.id = jobs.open.id; }
   if (ui.el) {
@@ -553,10 +581,11 @@ function renderJob() {
     if (a && ui.el.contains(a) && a.id) ui.focus = a.id;
     return ui.el;
   }
-  if (!ui.job && !ui.loading && !ui.error) load();
+  if (!ui.job && !ui.gone && !ui.loading && !ui.error) load();
   let body;
   if (ui.error) body = h('div', { class: 'empty' }, h('h3', {}, 'Can’t open this job'), h('p', {}, ui.error),
     h('button', { class: 'cta ghost', type: 'button', onclick: () => setView('jobs') }, 'Go to Jobs'));
+  else if (ui.gone) body = gonePage(ui.gone);
   else if (!ui.job) body = h('div', { class: 'empty' }, h('p', {}, 'Loading…'));
   else body = page(ui.job);
   ui.el = h('div', { class: 'screen job-page' }, header(), body);

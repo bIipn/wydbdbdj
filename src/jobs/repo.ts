@@ -54,10 +54,16 @@ export interface MessageRecord {
 export interface FeeRecord extends FeeLine {
   id: number;
   jobId: string;
-  payerId: string;
+  /** null once the payer deleted their account: payerRef, payerName and payerDeletedAt then say who it was. */
+  payerId: string | null;
   status: 'recorded' | 'waived';
   createdAt: number;
   waivedAt: number | null;
+  /** The account id the fee was recorded against. It stays when the account is gone (and then leads nowhere). */
+  payerRef: string | null;
+  /** The name on the payer's account when they deleted it. Never an email. null while the account exists. */
+  payerName: string | null;
+  payerDeletedAt: number | null;
 }
 
 type Ts = Date | string | null;
@@ -107,23 +113,28 @@ interface MessageRow { id: Big; job_id: string; sender_id: string; body: string;
 const toMessage = (r: MessageRow): MessageRecord => ({ id: n(r.id)!, jobId: r.job_id, senderId: r.sender_id, body: r.body, createdAt: ms(r.created_at)! });
 
 interface FeeRow {
-  id: Big; job_id: string; kind: FeeKind; payer_id: string; basis_cents: Big; rate_ppm: Big; amount_cents: Big; poster_share_ppm: Big;
+  id: Big; job_id: string; kind: FeeKind; payer_id: string | null; basis_cents: Big; rate_ppm: Big; amount_cents: Big; poster_share_ppm: Big;
   poster_share_cents: Big; platform_cents: Big; status: 'recorded' | 'waived'; created_at: Ts; waived_at: Ts;
+  payer_ref: string | null; payer_name: string | null; payer_deleted_at: Ts;
 }
 const toFee = (r: FeeRow): FeeRecord => ({
   id: n(r.id)!, jobId: r.job_id, kind: r.kind, payerId: r.payer_id, basisCents: n(r.basis_cents)!, ratePpm: n(r.rate_ppm)!,
   amountCents: n(r.amount_cents)!, posterSharePpm: n(r.poster_share_ppm)!, posterShareCents: n(r.poster_share_cents)!,
   platformCents: n(r.platform_cents)!, status: r.status, createdAt: ms(r.created_at)!, waivedAt: ms(r.waived_at),
+  payerRef: r.payer_ref, payerName: r.payer_name, payerDeletedAt: ms(r.payer_deleted_at),
 });
 
 const iso = (t: number | null): string | null => (t == null ? null : new Date(t).toISOString());
 
-/** The fee insert as a CTE tail: `insert into job_fees … select … from j` (j = the updated job). */
+/**
+ * The fee insert as a CTE tail: `insert into job_fees … select … from j` (j = the updated job). payer_ref is the
+ * payer's account id a second time: it stays on the row when the account is deleted and payer_id becomes null.
+ */
 const FEE_FROM_J = (p: number) => `
   insert into job_fees (job_id, kind, payer_id, basis_cents, rate_ppm, amount_cents, poster_share_ppm, poster_share_cents,
-                        platform_cents, status, created_at)
+                        platform_cents, status, created_at, payer_ref)
   select j.id, $${p}, j.winner_id, $${p + 1}::bigint, $${p + 2}::integer, $${p + 3}::bigint, $${p + 4}::integer, $${p + 5}::bigint,
-         $${p + 6}::bigint, 'recorded', $${p + 7}::timestamptz
+         $${p + 6}::bigint, 'recorded', $${p + 7}::timestamptz, j.winner_id
   from j where j.winner_id is not null
   on conflict (job_id, kind) do nothing`;
 
@@ -357,8 +368,9 @@ export async function confirm(
        returning *
      ), f as (
        insert into job_fees (job_id, kind, payer_id, basis_cents, rate_ppm, amount_cents, poster_share_ppm, poster_share_cents,
-                             platform_cents, status, created_at)
-       select j.id, $5, j.winner_id, $6::bigint, $7::integer, $8::bigint, $9::integer, $10::bigint, $11::bigint, 'recorded', $3::timestamptz
+                             platform_cents, status, created_at, payer_ref)
+       select j.id, $5, j.winner_id, $6::bigint, $7::integer, $8::bigint, $9::integer, $10::bigint, $11::bigint, 'recorded', $3::timestamptz,
+              j.winner_id
        from j where j.status = 'agreed' and j.winner_id is not null
        on conflict (job_id, kind) do nothing
      )
@@ -492,6 +504,47 @@ export async function waiveFee(db: Db, feeId: number, now: number): Promise<FeeR
     `update job_fees set status = 'waived', waived_at = coalesce(waived_at, $2) where id = $1 returning *`, [feeId, iso(now)],
   );
   return rows[0] ? toFee(rows[0]) : null;
+}
+
+export interface LedgerTotals {
+  /** Every row: recorded and waived. */
+  rows: number;
+  /** Rows whose payer deleted their account (payer_id is null; payer_ref and payer_name say who it was). */
+  payerGone: number;
+  /** The sum of the fees still on record ('recorded'): what the ledger says is owed. Nothing is collected. */
+  recordedCents: number;
+  waivedCents: number;
+  /** Of the recorded fees: the posters' part and BidSwipe's part. posterShareCents + platformCents = recordedCents. */
+  posterShareCents: number;
+  platformCents: number;
+}
+
+/**
+ * What the whole ledger adds up to. Deleting an account never takes a row away: the fees that account owed stay
+ * in recordedCents. The one thing a deletion moves is the service fee of an agreed job whose POSTER left: it
+ * goes from recordedCents to waivedCents, so the winner who stayed owes nothing (deleteAccount below).
+ */
+export async function ledgerTotals(db: Db): Promise<LedgerTotals> {
+  const rows = await db.query<Record<'rows' | 'payer_gone' | 'recorded' | 'waived' | 'poster_share' | 'platform', Big>>(
+    `select count(*) as rows,
+            count(*) filter (where payer_id is null) as payer_gone,
+            coalesce(sum(amount_cents) filter (where status = 'recorded'), 0) as recorded,
+            coalesce(sum(amount_cents) filter (where status = 'waived'), 0) as waived,
+            coalesce(sum(poster_share_cents) filter (where status = 'recorded'), 0) as poster_share,
+            coalesce(sum(platform_cents) filter (where status = 'recorded'), 0) as platform
+     from job_fees`,
+  );
+  const r = rows[0]!;
+  return {
+    rows: Number(r.rows), payerGone: Number(r.payer_gone), recordedCents: Number(r.recorded), waivedCents: Number(r.waived),
+    posterShareCents: Number(r.poster_share), platformCents: Number(r.platform),
+  };
+}
+
+/** The ledger's newest rows, for an operator (GET /api/admin/jobs/fees). */
+export async function listLedger(db: Db, limit = 200): Promise<FeeRecord[]> {
+  const rows = await db.query<FeeRow>('select * from job_fees order by id desc limit $1', [limit]);
+  return rows.map(toFee);
 }
 
 // --------------------------------------------------------------- reports --
@@ -639,4 +692,218 @@ export async function dealtWith(db: Db, a: string, b: string): Promise<boolean> 
     [a, b],
   );
   return rows.length > 0;
+}
+
+// ------------------------------------------------------- account deletion --
+
+/** What is left of a job whose poster deleted their account, for one person who was waiting on it. */
+export interface Tombstone {
+  jobId: string;
+  role: 'winner' | 'bidder';
+  title: string;
+  /** What the job was when it went: open for bids, awarded, or agreed. */
+  was: 'open' | 'awarded' | 'agreed';
+  /** This person's own bid on it (the winning bid, for the winner). */
+  amountCents: number | null;
+  /** A service fee that was on record for them on this job and was waived by the deletion. */
+  feeWaivedCents: number | null;
+  endedAt: number;
+}
+
+/** A live job the deleted account had won: it ended 'bidder_left' for its poster. */
+export interface WonEnded {
+  jobId: string;
+  posterId: string;
+  title: string;
+  was: 'awarded' | 'agreed';
+  awardCents: number | null;
+  contactDeadline: number | null;
+}
+
+export interface DeletedAccount {
+  /** False when there was no such account (deleted already, a double tap): nothing was changed. */
+  deleted: boolean;
+  /** Posters who must be told their winner is gone. */
+  wonEnded: WonEnded[];
+  /** People who were waiting on a job the account posted: each now has a tombstone, and is told. */
+  leftBehind: Array<Omit<Tombstone, 'endedAt'> & { accountId: string }>;
+  /** Counts for the log. No ids, no names. */
+  jobsRemoved: number;
+  mirrorsRemoved: number;
+  feesKept: number;
+  feesWaived: number;
+}
+
+interface DeletedRow {
+  deleted: Big; jobs_removed: Big; mirrors_removed: Big; fees_kept: Big; fees_waived: Big;
+  won: unknown; tombs: unknown;
+}
+
+const list = <T>(v: unknown): T[] => (typeof v === 'string' ? (JSON.parse(v) as T[]) : ((v as T[] | null) ?? []));
+
+/**
+ * Delete an account and everything that hangs off it, in ONE statement, so it happens whole or not at all.
+ *
+ * The foreign keys do most of it: the accounts row takes its profile (with matches, swipes, alerts, cost checks),
+ * sessions, sign-in identities, reset links, devices, promo redemptions, work profile, the jobs it posted (with
+ * their bids, messages and reports), and its own bids, messages and reports on other people's jobs.
+ * What no foreign key does is written here, in the same statement:
+ *
+ *   won           a job the account had WON and that is still live (awarded or agreed) ends now for its poster:
+ *                 unfilled / 'bidder_left'. No fee is recorded for anyone because of a deletion.
+ *   tombs         everyone waiting on a live job the account POSTED (the winner of an awarded or agreed job, each
+ *                 sealed bid on an open one) gets one line in job_tombstones: the job row itself goes.
+ *   waived        the one who stays owes nothing: a service fee already recorded for the winner of an agreed
+ *                 job whose poster leaves is waived (the row stays in the ledger as 'waived').
+ *   kept          the fee lines the account itself owes stay in the ledger. payer_id becomes null; payer_ref
+ *                 (written with the fee), payer_name and payer_deleted_at keep who it was. Never the email.
+ *   mirrors       the feed rows 'local:<jobId>' of every job the account posted (their matches and swipes
+ *                 cascade from bids), and mirror_alerts: every alert that points at one of them, for anybody.
+ *
+ * Every part joins `me`, so for an id that is not an account the statement changes nothing. The parts read
+ * the rows as they were when the statement began (that is how Postgres runs a WITH); the cascades run at its end.
+ */
+export async function deleteAccount(db: Db, accountId: string, now: number): Promise<DeletedAccount> {
+  const rows = await db.query<DeletedRow>(
+    `with me as (
+       select id, name from accounts where id = $1
+     ), won as (
+       update jobs j set status = 'unfilled', outcome = 'bidder_left', ended_at = $2::timestamptz, winner_id = null
+       from me
+       where j.winner_id = me.id and j.status in ('awarded', 'agreed')
+       returning j.id, j.poster_id, j.title, j.award_cents, j.contact_deadline, j.agreed_at, j.removed_at
+     ), stayers as (
+       select j.id as job_id, j.winner_id as account_id, 'winner' as role, j.title, j.status as was, j.award_cents as amount_cents
+       from jobs j join me on j.poster_id = me.id
+       where j.status in ('awarded', 'agreed') and j.winner_id is not null and j.removed_at is null
+       union all
+       select j.id, b.bidder_id, 'bidder', j.title, 'open', b.amount_cents
+       from jobs j join me on j.poster_id = me.id join job_bids b on b.job_id = j.id and b.status = 'active'
+       where j.status = 'open' and j.removed_at is null
+     ), waived as (
+       update job_fees f set status = 'waived', waived_at = $2::timestamptz
+       from jobs j join me on j.poster_id = me.id
+       where f.job_id = j.id and j.status in ('awarded', 'agreed') and f.status = 'recorded'
+       returning f.job_id, f.payer_id, f.amount_cents
+     ), tombs as (
+       insert into job_tombstones (job_id, account_id, role, title, was, amount_cents, fee_waived_cents, ended_at)
+       select s.job_id, s.account_id, s.role, s.title, s.was, s.amount_cents,
+              (select sum(w.amount_cents)::bigint from waived w where w.job_id = s.job_id and w.payer_id = s.account_id),
+              $2::timestamptz
+       from stayers s
+       on conflict (job_id, account_id) do nothing
+       returning job_id, account_id, role, title, was, amount_cents, fee_waived_cents
+     ), kept as (
+       update job_fees f set payer_ref = coalesce(f.payer_ref, f.payer_id), payer_name = me.name,
+                             payer_deleted_at = $2::timestamptz, payer_id = null
+       from me
+       where f.payer_id = me.id
+       returning f.id
+     ), mirror_alerts as (
+       delete from alerts a using jobs j, me
+       where j.poster_id = me.id and a.bid_id = 'local:' || j.id
+       returning a.id
+     ), mirrors as (
+       delete from bids b using jobs j, me
+       where j.poster_id = me.id and b.id = 'local:' || j.id
+       returning b.id
+     ), posted as (
+       select count(*) as n from jobs j join me on j.poster_id = me.id
+     ), gone as (
+       delete from accounts a using me where a.id = me.id returning a.id
+     )
+     select
+       (select count(*) from gone) as deleted,
+       (select n from posted) as jobs_removed,
+       (select count(*) from mirrors) as mirrors_removed,
+       (select count(*) from kept) as fees_kept,
+       (select count(*) from waived) as fees_waived,
+       (select coalesce(json_agg(json_build_object(
+          'jobId', w.id, 'posterId', w.poster_id, 'title', w.title,
+          'was', case when w.agreed_at is null then 'awarded' else 'agreed' end, 'awardCents', w.award_cents,
+          'contactDeadline', (extract(epoch from w.contact_deadline) * 1000)::bigint) order by w.id), '[]'::json)
+        from won w where w.removed_at is null) as won,
+       (select coalesce(json_agg(json_build_object(
+          'jobId', t.job_id, 'accountId', t.account_id, 'role', t.role, 'title', t.title, 'was', t.was,
+          'amountCents', t.amount_cents, 'feeWaivedCents', t.fee_waived_cents) order by t.job_id, t.account_id), '[]'::json)
+        from tombs t) as tombs`,
+    [accountId, iso(now)],
+  );
+  const r = rows[0]!;
+  return {
+    deleted: Number(r.deleted) > 0,
+    wonEnded: list<WonEnded>(r.won).map((w) => ({ ...w, awardCents: n(w.awardCents), contactDeadline: n(w.contactDeadline) })),
+    leftBehind: list<DeletedAccount['leftBehind'][number]>(r.tombs)
+      .map((t) => ({ ...t, amountCents: n(t.amountCents), feeWaivedCents: n(t.feeWaivedCents) })),
+    jobsRemoved: Number(r.jobs_removed ?? 0), mirrorsRemoved: Number(r.mirrors_removed), feesKept: Number(r.fees_kept),
+    feesWaived: Number(r.fees_waived),
+  };
+}
+
+interface TombstoneRow {
+  job_id: string; role: Tombstone['role']; title: string; was: Tombstone['was']; amount_cents: Big; fee_waived_cents: Big; ended_at: Ts;
+}
+const toTombstone = (r: TombstoneRow): Tombstone => ({
+  jobId: r.job_id, role: r.role, title: r.title, was: r.was, amountCents: n(r.amount_cents), feeWaivedCents: n(r.fee_waived_cents),
+  endedAt: ms(r.ended_at)!,
+});
+
+/** The line left for this person about a job that is gone, or null: nobody else may read it. */
+export async function getTombstone(db: Db, jobId: string, accountId: string): Promise<Tombstone | null> {
+  const rows = await db.query<TombstoneRow>('select * from job_tombstones where job_id = $1 and account_id = $2', [jobId, accountId]);
+  return rows[0] ? toTombstone(rows[0]) : null;
+}
+
+/** Every such line for one person, newest first: the "ended" part of their jobs list. */
+export async function tombstonesFor(db: Db, accountId: string): Promise<Tombstone[]> {
+  const rows = await db.query<TombstoneRow>(
+    'select * from job_tombstones where account_id = $1 order by ended_at desc, job_id limit 100', [accountId],
+  );
+  return rows.map(toTombstone);
+}
+
+/** What deleting an account would end, counted for the "Delete my account" screen before anything is changed. */
+export interface DeletionPreview {
+  /** Every job the account posted, in any state: all of them are removed. */
+  jobsPosted: number;
+  /** Of those, the ones still open for bids, and how many sealed bids are on them (those bidders are told). */
+  openPosted: number;
+  bidsOnOpenPosted: number;
+  /** Jobs it posted that someone has won and is waiting on: they end for that winner, who owes nothing. */
+  livePosted: Array<{ title: string; status: 'awarded' | 'agreed' }>;
+  /** Jobs it won that are still live: they go back to their posters, with no fee. */
+  liveWon: Array<{ title: string; status: 'awarded' | 'agreed'; awardCents: number | null }>;
+  /** Its own sealed bids on other people's open jobs: withdrawn. */
+  activeBids: number;
+  /** Fee lines it owes: they stay in the ledger, with the name on the account and without the email. */
+  feeLines: number;
+  feeCents: number;
+}
+
+export async function deletionPreview(db: Db, accountId: string): Promise<DeletionPreview> {
+  const rows = await db.query<{
+    jobs_posted: Big; open_posted: Big; bids_on_open: Big; live_posted: unknown; live_won: unknown; active_bids: Big; fee_lines: Big; fee_cents: Big;
+  }>(
+    `select
+       (select count(*) from jobs where poster_id = $1) as jobs_posted,
+       (select count(*) from jobs where poster_id = $1 and status = 'open' and removed_at is null) as open_posted,
+       (select count(*) from job_bids b join jobs j on j.id = b.job_id
+         where j.poster_id = $1 and j.status = 'open' and j.removed_at is null and b.status = 'active') as bids_on_open,
+       (select coalesce(json_agg(json_build_object('title', title, 'status', status) order by posted_at, id), '[]'::json)
+          from jobs where poster_id = $1 and status in ('awarded', 'agreed') and winner_id is not null and removed_at is null) as live_posted,
+       (select coalesce(json_agg(json_build_object('title', title, 'status', status, 'awardCents', award_cents) order by posted_at, id), '[]'::json)
+          from jobs where winner_id = $1 and status in ('awarded', 'agreed') and removed_at is null) as live_won,
+       (select count(*) from job_bids b join jobs j on j.id = b.job_id
+         where b.bidder_id = $1 and b.status = 'active' and j.status = 'open' and j.removed_at is null) as active_bids,
+       (select count(*) from job_fees where payer_id = $1) as fee_lines,
+       (select coalesce(sum(amount_cents), 0) from job_fees where payer_id = $1 and status = 'recorded') as fee_cents`,
+    [accountId],
+  );
+  const r = rows[0]!;
+  return {
+    jobsPosted: Number(r.jobs_posted), openPosted: Number(r.open_posted), bidsOnOpenPosted: Number(r.bids_on_open),
+    livePosted: list<DeletionPreview['livePosted'][number]>(r.live_posted),
+    liveWon: list<DeletionPreview['liveWon'][number]>(r.live_won).map((w) => ({ ...w, awardCents: n(w.awardCents) })),
+    activeBids: Number(r.active_bids), feeLines: Number(r.fee_lines), feeCents: Number(r.fee_cents),
+  };
 }

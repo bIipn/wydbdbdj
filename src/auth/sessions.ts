@@ -1,8 +1,8 @@
-import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
-import { deleteExpiredSessions, deleteSession, extendSession, findSession, insertSession } from '../db/accounts.js';
+import { deleteExpiredSessions, deleteSession, extendSession, findSession, insertSession, sessionStartedAt } from '../db/accounts.js';
 import type { Db } from '../db/db.js';
 import type { Account } from '../types.js';
+import { hashToken, newToken, TOKEN_SHAPE } from './tokens.js';
 
 const SESSION_COOKIE = 'bs_session';
 
@@ -11,13 +11,6 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const SESSION_TTL_MS = 30 * DAY_MS;
 /** The expiry is pushed out at most once a day: one write a day for a busy session, not one per request. */
 const RENEW_AFTER_MS = DAY_MS;
-
-/** 256 random bits as 43 base64url characters. */
-const newToken = (): string => randomBytes(32).toString('base64url');
-const TOKEN_SHAPE = /^[A-Za-z0-9_-]{43}$/;
-
-/** Only this hash is stored, so a copy of the sessions table cannot be replayed as cookies. */
-const hashToken = (token: string): string => createHash('sha256').update(token).digest('hex');
 
 /** The session token in the request's Cookie header, if there is one shaped like ours. */
 function readSessionToken(req: FastifyRequest): string | null {
@@ -67,4 +60,15 @@ export async function resolveSession(db: Db, req: FastifyRequest, now: Date): Pr
     renewed.set(req, token);
   }
   return found.account;
+}
+
+/**
+ * How long ago the request's session was opened by a sign-in, in ms, or null when it carries no live session.
+ * Sliding the expiry does not make a session younger: only signing in does.
+ */
+export async function sessionAgeMs(db: Db, req: FastifyRequest, now: Date): Promise<number | null> {
+  const token = readSessionToken(req);
+  if (!token) return null;
+  const started = await sessionStartedAt(db, hashToken(token), now);
+  return started ? now.getTime() - started.getTime() : null;
 }

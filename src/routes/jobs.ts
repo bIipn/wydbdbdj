@@ -5,7 +5,7 @@ import { env } from '../env.js';
 import { loadJobRules, publicRules } from '../jobs/config.js';
 import * as jobs from '../jobs/service.js';
 import type { JobsDeps, Refusal, Result } from '../jobs/service.js';
-import { listReports, waiveFee } from '../jobs/repo.js';
+import { ledgerTotals, listLedger, listReports, waiveFee } from '../jobs/repo.js';
 import type { Account } from '../types.js';
 import { requireAdmin } from './shared.js';
 
@@ -17,7 +17,7 @@ const LIMITS = {
   report: { limit: 10, windowMs: 60 * 60_000 },
 } as const;
 
-const STATUS: Record<Refusal['error'], number> = { invalid_input: 400, not_allowed: 403, not_found: 404, closed: 409 };
+const STATUS: Record<Refusal['error'], number> = { invalid_input: 400, not_allowed: 403, not_found: 404, closed: 409, gone: 410 };
 
 /**
  * The job marketplace: post a job, bid on it, award, contact window, messages (contract section 4).
@@ -33,7 +33,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     ['post', '/api/jobs/:id/bid'], ['delete', '/api/jobs/:id/bid'], ['post', '/api/jobs/:id/cancel'], ['post', '/api/jobs/:id/repost'],
     ['post', '/api/jobs/:id/messages'], ['post', '/api/jobs/:id/contacted'], ['post', '/api/jobs/:id/confirm'],
     ['post', '/api/jobs/:id/back-out'], ['post', '/api/jobs/:id/complete'], ['post', '/api/jobs/:id/report'],
-    ['get', '/api/admin/jobs/reports'], ['post', '/api/admin/jobs/:id/remove'], ['post', '/api/admin/jobs/fees/:feeId/waive'],
+    ['get', '/api/admin/jobs/reports'], ['post', '/api/admin/jobs/:id/remove'], ['get', '/api/admin/jobs/fees'],
+    ['post', '/api/admin/jobs/fees/:feeId/waive'],
   ];
   if (ctx.config.authMode !== 'accounts') {
     const absent = async (_req: FastifyRequest, reply: FastifyReply) => reply.code(404).send({ error: 'not_found' });
@@ -184,6 +185,14 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const now = ctx.now().getTime();
     await jobs.settleDue(deps, now);
     return (await jobs.removeJob(deps, req.params.id, now)) ? { ok: true } : reply.code(404).send({ error: 'not_found' });
+  });
+
+  // The fee ledger: what it adds up to and its newest rows. A row whose payer deleted their account has
+  // payerId null and says who it was (payerRef, payerName, payerDeletedAt). Nothing here is ever collected.
+  app.get('/api/admin/jobs/fees', async (req, reply) => {
+    if (!requireAdmin(ctx, req, reply)) return reply;
+    await jobs.settleDue(deps, ctx.now().getTime());
+    return { totals: await ledgerTotals(ctx.db), fees: await listLedger(ctx.db) };
   });
 
   app.post('/api/admin/jobs/fees/:feeId/waive', async (req: FastifyRequest<{ Params: { feeId: string } }>, reply) => {

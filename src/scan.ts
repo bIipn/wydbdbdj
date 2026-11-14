@@ -1,5 +1,6 @@
 import type { Db } from './db/db.js';
-import { getBids, getOpenBids, pruneMatches, recordScan, upsertBids, upsertMatches, upsertProfile } from './db/repo.js';
+import { getBids, getOpenBids, listProfiles, pruneMatches, recordScan, upsertBids, upsertMatches, upsertProfile } from './db/repo.js';
+import { accountProfileIds, ownLocalBidIds } from './jobs/repo.js';
 import { locate } from './geo/locate.js';
 import type { Bus } from './realtime/bus.js';
 import { isCandidate } from './score/candidates.js';
@@ -71,7 +72,13 @@ async function scoreBids(
   const threshold = alertThreshold(profile);
   let newGood = 0;
   const scored: Array<{ bid: Bid; bidId: string; score: ScoreResult }> = [];
+  // A job this company's own account posted is never scored for it, so it never reaches its own feed. Nor is
+  // any local job scored for a profile that cannot take one (seesLocalJobs).
+  const hasLocal = bids.some((b) => b.source === 'local');
+  const own = hasLocal ? await ownLocalBidIds(db, profile.id) : new Set<string>();
+  const local = hasLocal && seesLocalJobs(profile, (await accountProfileIds(db)).has(profile.id));
   for (const bid of bids) {
+    if (bid.source === 'local' && (!local || own.has(bid.id))) continue;
     if (!candidate(profile, bid)) continue;
     const s = scoreBid(bid, profile, now);
     scored.push({ bid, bidId: bid.id, score: s });
@@ -102,6 +109,46 @@ async function scoreBids(
 export async function scoreProfile(db: Db, profile: Profile, now: Date, bus?: Bus): Promise<number> {
   const bids = await getOpenBids(db, now);
   return (await scoreBids(db, profile, bids, now, new Set(), bus)).scored;
+}
+
+/**
+ * May this profile be shown local jobs (people's posts, bid on in the app)? Only when an account owns it (a
+ * config profile, the pilot's single mode, has no account to bid with: the card would be a dead end) and it does
+ * some kind of work: a "Get work done" profile has no trades and no keywords, and its work feed stays empty
+ * (jobs contract section 5), so it is not handed jobs at score 0 either.
+ */
+export function seesLocalJobs(profile: Profile, hasAccount: boolean): boolean {
+  const doesWork = (profile.trades?.length ?? 0) > 0 || profile.keywords.strong.length > 0;
+  return hasAccount && doesWork;
+}
+
+/**
+ * Score ONE new bid for every stored profile it could matter to, except `exceptProfileId` (a local job's poster:
+ * nobody is shown their own job), store the scores, and raise the normal 'match' events for the good fits.
+ * This is what makes a job someone just posted reach the people who fit it without waiting for a scan.
+ * Returns how many profiles got a stored score.
+ */
+export async function scoreNewBid(
+  db: Db, bid: Bid, now: Date, bus?: Bus, opts: { exceptProfileId?: string | null } = {},
+): Promise<number> {
+  let n = 0;
+  const withAccount = bid.source === 'local' ? await accountProfileIds(db) : null;
+  for (const profile of await listProfiles(db)) {
+    if (profile.id === opts.exceptProfileId || !isCandidate(profile, bid)) continue;
+    if (withAccount && !seesLocalJobs(profile, withAccount.has(profile.id))) continue;
+    try {
+      const s = scoreBid(bid, profile, now);
+      await upsertMatches(db, profile.id, [{ bidId: bid.id, score: s }]);
+      n++;
+      if (bus && s.score >= alertThreshold(profile) && !s.rejected && !s.overLimit && !s.capped) {
+        await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: true });
+      }
+    } catch (err) {
+      // One bad profile must not keep the job from everyone else (the same rule as a scan).
+      console.error(`[scan] scoring ${bid.id} for ${profile.id} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return n;
 }
 
 /** Which bids a profile gets a stored score for. Always isCandidate, except in the simulation's mutation run. */
@@ -152,7 +199,11 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
   // One card per job: drafts with the same id (a SAM solicitation from two queries, or two notices of it)
   // merge, newest first. A place or set-aside that only the stored card still knows is carried over.
   // The stored cards are read in one query per few hundred ids, not one per draft (thousands with SAM's bulk file).
-  const merged = mergeDrafts(drafts);
+  // 'local' rows are jobs people posted on BidSwipe (src/jobs): only the jobs module writes them. A scan knows the
+  // boards alone, so it never stores, overwrites or removes one, whatever a source hands back.
+  const boardDrafts = drafts.filter((d) => d.source !== 'local');
+  if (boardDrafts.length < drafts.length) ctx.log(`! ${drafts.length - boardDrafts.length} draft(s) claiming source 'local' ignored`);
+  const merged = mergeDrafts(boardDrafts);
   const stored = await getBids(db, merged.filter((d) => placeIsBlank(d.location) || !d.setAside).map((d) => `${d.source}:${d.sourceId}`));
   const bids: Bid[] = merged.map((d) =>
     finalizeBid(placeIsBlank(d.location) || !d.setAside ? inheritFromStored(d, stored.get(`${d.source}:${d.sourceId}`) ?? null) : d));

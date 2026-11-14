@@ -115,6 +115,16 @@ export const api = {
   prevailing: (bidId) => req(`api/market/prevailing?bidId=${encodeURIComponent(bidId)}`),
   marketWatch: () => req('api/market/watch'),
 
+  // local jobs (accounts mode; 404 in single mode). Money is integer cents. Refusals: 400 { error: 'invalid_input',
+  // fields: [{ path, message }] }, 403 not_allowed, 404 not_found, 409 closed, 429 too_many_attempts.
+  jobRules: () => req('api/jobs/rules'),
+  myJobs: () => req('api/jobs/mine'),
+  job: (id) => req(`api/jobs/${encodeURIComponent(id)}`),
+  postJob: (body) => req('api/jobs', { method: 'POST', body }),
+  placeJobBid: (id, body) => req(`api/jobs/${encodeURIComponent(id)}/bid`, { method: 'POST', body }),
+  withdrawJobBid: (id) => req(`api/jobs/${encodeURIComponent(id)}/bid`, { method: 'DELETE' }),
+  jobAction: (id, action, body) => req(`api/jobs/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }),
+
   // cost check (premium: 402 premium_required on plans without the estimator)
   estimate: (body) => req('api/estimate', { method: 'POST', body }),
   estimates: (bidId) => req(`api/estimates?${bidId ? `bidId=${encodeURIComponent(bidId)}&` : ''}limit=20`),

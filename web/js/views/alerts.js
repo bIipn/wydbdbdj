@@ -4,6 +4,7 @@
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { fmtDay, clock } from '../format.js';
+import { jobsOn, openJob } from '../jobs-data.js';
 import { currentSubscription, pushKey, pushSupport, turnOffPush, turnOnPush } from '../push.js';
 import { onSignedOut } from '../session.js';
 import { openSheet } from '../sheet.js';
@@ -13,7 +14,11 @@ import { features, mergeItems, state } from '../state.js';
 const ui = { back: 'swipe', loading: false, error: null, push: 'checking', pushNote: '' };
 onSignedOut(() => { ui.push = 'checking'; });
 
-const KIND = { match: 'New match', deadline: 'Deadline', award: 'Award', price: 'Price move' };
+const KIND = {
+  match: 'New match', deadline: 'Deadline', award: 'Award', price: 'Price move',
+  // local jobs (src/realtime/alerts.ts decideJob): the title says what happened, the tag says it is a local job
+  job_awarded: 'Local job', job_message: 'Message', job_deadline: 'Contact reminder', job_closed: 'Local job',
+};
 
 /** Open one bid's detail sheet by id (an alert, a notification tap). */
 export async function openBidById(id) {
@@ -138,7 +143,9 @@ function alertRow(a) {
       class: `alert-row${unread ? ' unread' : ''} kind-${a.kind}`, type: 'button',
       onclick: () => {
         if (unread) markRead([a.id]);
-        if (a.bidId) openBidById(a.bidId);
+        const jobId = String(a.kind).startsWith('job_') ? a.data?.jobId : null;
+        if (typeof jobId === 'string' && jobsOn()) openJob(jobId, 'alerts');
+        else if (a.bidId) openBidById(a.bidId);
       },
     },
     h('span', { class: 'alert-dot', 'aria-hidden': 'true' }),

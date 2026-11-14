@@ -6,6 +6,8 @@ import {
 } from '../db/alerts.js';
 import { lastScanAt } from '../db/repo.js';
 import { env } from '../env.js';
+import { loadJobRules } from '../jobs/config.js';
+import { settleDue, type JobsDeps } from '../jobs/service.js';
 import { featuresFor } from '../plans.js';
 import { parseSubscription, usableVapid } from '../realtime/push.js';
 import { createStreamHub, MAX_STREAMS_PER_ACCOUNT, MAX_STREAMS_SINGLE, REPLAY_LIMIT } from '../realtime/stream.js';
@@ -176,9 +178,22 @@ function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext): void {
 
   // ------------------------------------------------------------- inbox --
 
+  // Local jobs settle lazily (no timers on the serverless host). The alert poll is what an open app calls every
+  // minute, so it settles too: a winner then hears "You won" at the next poll after closing, not when someone
+  // happens to open a jobs screen (or at the daily tick). Accounts mode only; single mode has no marketplace.
+  let jobsDeps: JobsDeps | null = null;
+  const settleJobs = async (): Promise<void> => {
+    if (ctx.config.authMode !== 'accounts') return;
+    jobsDeps ??= { db, bus: ctx.bus, rules: loadJobRules(env), appUrl: ctx.config.appUrl, log: ctx.log };
+    const settled = await settleDue(jobsDeps, ctx.now().getTime());
+    // An award raises pushes on a short timer; send them before answering (a serverless function freezes then).
+    if (settled.closed || settled.ended) await ctx.realtime?.flush();
+  };
+
   app.get('/api/alerts', async (req, reply) => {
     const id = await ctx.requireProfile(req, reply);
     if (!id) return reply;
+    await settleJobs();
     const q = req.query as { unread?: unknown; limit?: unknown; before?: unknown };
     const items = await listAlerts(db, id.profile.id, {
       unread: q.unread === '1' || q.unread === 'true', limit: wholeNumber(q.limit), before: wholeNumber(q.before),

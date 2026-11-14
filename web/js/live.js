@@ -15,9 +15,11 @@ import { mergeItems, state } from './state.js';
 import { loadFeed, onEnteredApp, onSignedOut } from './session.js';
 import { openSheet } from './sheet.js';
 import { openAlerts } from './views/alerts.js';
+import { openJob } from './jobs-data.js';
 import { render, setView } from './shell.js';
 
-const ALERT_KINDS = ['match', 'deadline', 'award', 'price'];
+// The stream names each event after the alert's kind (src/realtime/stream.ts); the job_* kinds are the local jobs.
+const ALERT_KINDS = ['match', 'deadline', 'award', 'price', 'job_awarded', 'job_message', 'job_deadline', 'job_closed'];
 const RETRY_MS = 5000;
 const BUSY_RETRY_MS = 60_000; // 429: too many open connections for this account
 
@@ -46,7 +48,12 @@ export async function loadUnread() {
 
 /** Alerts that arrive together (one scan) make one toast, not a row of them. */
 const burst = { alerts: [], items: new Map(), timer: null, shownAt: 0 };
-const KIND_LABEL = { match: 'New match', deadline: 'Deadline', award: 'Award posted', price: 'Price move' };
+const KIND_LABEL = {
+  match: 'New match', deadline: 'Deadline', award: 'Award posted', price: 'Price move',
+  job_awarded: 'Local job', job_message: 'Message', job_deadline: 'Reminder', job_closed: 'Local job',
+};
+/** The local job an alert is about, or null. */
+const jobOf = (a) => (String(a.kind).startsWith('job_') && typeof a.data?.jobId === 'string' ? a.data.jobId : null);
 
 function toastBurst() {
   const alerts = burst.alerts.splice(0);
@@ -56,7 +63,8 @@ function toastBurst() {
   if (alerts.length === 1) {
     const [a] = alerts;
     const item = a.bidId ? burst.items.get(a.bidId) : null;
-    showToast(`${KIND_LABEL[a.kind] ?? 'Alert'}: ${a.title}`, item ? () => openSheet(item) : openAlerts, item ? 'View' : 'Open', 8000);
+    const job = jobOf(a);
+    showToast(`${KIND_LABEL[a.kind] ?? 'Alert'}: ${a.title}`, item ? () => openSheet(item) : job ? () => openJob(job) : openAlerts, item || job ? 'View' : 'Open', 8000);
   } else {
     const matches = alerts.filter((a) => a.kind === 'match').length;
     showToast(matches === alerts.length ? `${matches} new bids fit you` : `${alerts.length} new alerts`, openAlerts, 'See them', 8000);
@@ -71,6 +79,9 @@ async function onAlert(alert) {
   state.unread += 1;
   if (state.alerts) state.alerts.items.unshift(alert);
   burst.alerts.push(alert);
+  // A local job moved on (a message, the award, the end): the Jobs tab and an open job page read it again.
+  const job = jobOf(alert);
+  if (job) window.dispatchEvent(new CustomEvent('bidswipe:job-alert', { detail: { jobId: job } }));
   clearTimeout(burst.timer);
   burst.timer = setTimeout(toastBurst, 700);
 

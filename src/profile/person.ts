@@ -41,10 +41,19 @@ export const ANONYMOUS_NAME = 'BidSwipe member';
 export function cardName(businessName: string | null, accountName: string | null): string {
   for (const n of [businessName, accountName]) {
     const name = n?.replace(/\s+/g, ' ').trim();
-    if (name && !name.includes('@')) return name;
+    if (name && !name.includes('@') && !(n === businessName && isDefaultShopName(name))) return name;
   }
-  return ANONYMOUS_NAME;
+  // Only the onboarding default was there: better that than nothing.
+  const fallback = businessName?.replace(/\s+/g, ' ').trim();
+  return fallback && !fallback.includes('@') ? fallback : ANONYMOUS_NAME;
 }
+
+/**
+ * The name onboarding fills in when the business-name step is skipped ("My electrical shop", "My shop":
+ * web/js/profile-form.js defaultBusinessName). Every electrician who skipped the step has the same one, so on a
+ * card it would leave the poster unable to tell bidders apart: the account's own name is used instead.
+ */
+export const isDefaultShopName = (name: string): boolean => /^My( .+)? shop$/.test(name);
 
 /**
  * The card for an account, or null when there is no such account. Built field by field from the work

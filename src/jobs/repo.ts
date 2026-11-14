@@ -151,16 +151,24 @@ export interface NewJob {
   repostedFrom: string | null;
 }
 
-export async function insertJob(db: Db, j: NewJob): Promise<JobRecord> {
+/** The new job, or null when it is a repost of a job that was already posted again (jobs_one_repost_idx). */
+export async function insertJob(db: Db, j: NewJob): Promise<JobRecord | null> {
   const rows = await db.query<JobRow>(
     `insert into jobs (id, poster_id, title, description, trades, zip, city, state, lat, lng, address, phone, budget_max_cents,
                        posted_at, closes_at, reposted_from)
      values ($1, $2, $3, $4, $5::text[], $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+     on conflict do nothing
      returning *`,
     [j.id, j.posterId, j.title, j.description, j.trades, j.zip, j.city, j.state, j.lat, j.lng, j.address, j.phone, j.budgetMaxCents,
       iso(j.postedAt), iso(j.closesAt), j.repostedFrom],
   );
-  return toJob(rows[0]!);
+  return rows[0] ? toJob(rows[0]) : null;
+}
+
+/** Was this job already posted again (a repost that an operator has not removed)? */
+export async function hasRepost(db: Db, jobId: string): Promise<boolean> {
+  const rows = await db.query('select 1 from jobs where reposted_from = $1 and removed_at is null limit 1', [jobId]);
+  return rows.length > 0;
 }
 
 /** A job anyone may look at: removed jobs are gone (null). */
@@ -553,6 +561,15 @@ export async function ownLocalBidIds(db: Db, profileId: string): Promise<Set<str
   const rows = await db.query<{ id: string }>(
     `select 'local:' || j.id as id from jobs j join profiles p on p.account_id = j.poster_id where p.id = $1`, [profileId],
   );
+  return new Set(rows.map((r) => r.id));
+}
+
+/**
+ * The profiles that belong to an account. Local jobs are an accounts-mode feature: a config profile (the pilot's
+ * config/<id>.json, stored by single mode) has no account to bid with, so it is never shown one.
+ */
+export async function accountProfileIds(db: Db): Promise<Set<string>> {
+  const rows = await db.query<{ id: string }>('select id from profiles where account_id is not null');
   return new Set(rows.map((r) => r.id));
 }
 

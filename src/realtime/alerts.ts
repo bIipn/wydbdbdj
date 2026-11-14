@@ -13,6 +13,7 @@
  *         about a bid that was already on the boards (inbox only).
  */
 import type { NewAlert, SavedDeadline } from '../db/alerts.js';
+import { formatUsd } from '../jobs/rules.js';
 import { periodName } from '../market/watch.js';
 import { featuresFor } from '../plans.js';
 import { alertThreshold } from '../scan.js';
@@ -287,6 +288,112 @@ export function decidePrice(event: BusEventOf<'price'>, label: SeriesLabel | nul
       data: {
         seriesId: event.seriesId, changePct: event.changePct, period: event.period, source: label.source, sourceUrl: label.sourceUrl, ...extra,
       },
+    },
+    push: pushDecision(profile.alerts, plan, now),
+  };
+}
+
+// ------------------------------------------------------------------ jobs --
+
+/** "Mon, Nov 23, 5:00 PM" on the profile's wall clock. */
+function whenLabel(iso: string | null, timeZone: string): string {
+  if (!iso) return 'the deadline';
+  return new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    .format(new Date(iso));
+}
+
+/** Integer cents → "$1,234.56" without floating point (src/jobs/rules.ts formatUsd). */
+const centsLabel = (cents: number | null | undefined): string => (cents == null ? 'not stated' : formatUsd(cents));
+
+/** Fees are off (contract rule 8): every line that mentions a no-show says so, and never that anything was charged. */
+const NO_FEES_YET = 'Fees are not being collected yet. A no-show is recorded on your profile.';
+const POST_AGAIN = 'You can post it again with one tap.';
+
+/** Title and body for a job that ended, by who this person is on it. */
+function closedCopy(e: BusEventOf<'job'>): { title: string; body: string } {
+  const t = clip(e.title, 60);
+  const mine = e.role === 'poster';
+  if (e.role === 'bidder') {
+    if (e.status === 'cancelled') return { title: `Cancelled: ${t}`, body: 'The poster cancelled this job before it closed. Your bid is closed.' };
+    return {
+      title: `Not this time: ${t}`,
+      body: `Lowest bid: ${centsLabel(e.amountCents)}${e.myAmountCents != null ? ` · yours: ${centsLabel(e.myAmountCents)}` : ''}.`,
+    };
+  }
+  if (e.status === 'agreed') return { title: `Agreed: ${t}`, body: 'You both confirmed. Good luck with the job.' };
+  if (e.status === 'completed') return { title: `Job done: ${t}`, body: mine ? 'You marked the job done.' : 'The poster marked the job done.' };
+  switch (e.outcome) {
+    case 'no_bids': return { title: `No bids: ${t}`, body: `Nobody bid before it closed. ${POST_AGAIN}` };
+    case 'bidder_no_show':
+      return mine
+        ? { title: `No contact: ${t}`, body: `The winner didn't make contact in time. ${POST_AGAIN}` }
+        : { title: `No-show recorded: ${t}`, body: `You didn't make contact in time. ${NO_FEES_YET}` };
+    case 'bidder_backed_out':
+      return mine
+        ? { title: `The winner gave it back: ${t}`, body: POST_AGAIN }
+        : { title: `You gave it back: ${t}`, body: NO_FEES_YET };
+    case 'poster_no_show':
+      return mine
+        ? { title: `Contact window closed: ${t}`, body: `The winner reached out and there was no answer in time. ${POST_AGAIN}` }
+        : { title: `No answer: ${t}`, body: "The poster didn't answer in time. Nothing is owed." };
+    case 'no_agreement':
+      return { title: `No agreement: ${t}`, body: `The contact window closed without an agreement. Nothing is owed.${mine ? ` ${POST_AGAIN}` : ''}` };
+    case 'poster_cancelled':
+      return mine
+        ? { title: `You cancelled: ${t}`, body: `Nothing is owed. ${POST_AGAIN}` }
+        : { title: `Cancelled: ${t}`, body: 'The poster cancelled after the award. Nothing is owed.' };
+    default:
+      return { title: `Ended: ${t}`, body: 'This job has ended.' };
+  }
+}
+
+/**
+ * A local job alert for one person (src/jobs/service.ts publishes the 'job' event). Each kind has its own switch
+ * in Settings (alerts.kinds.job_awarded and so on). The dedupe keys make a settlement that runs twice tell
+ * nobody twice:
+ *   job_awarded   <jobId>:<role>                      one per side
+ *   job_message   <jobId>:<messageId>                 one per message
+ *   job_deadline  <jobId>:<contact deadline>          one per award
+ *   job_closed    <jobId>:<role>:<status>:<outcome>   one per way the job ended
+ */
+export function decideJob(e: BusEventOf<'job'>, profile: Profile, plan: Plan, now: Date): AlertDecision | null {
+  if (!kindOn(profile, e.kind)) return null;
+  const zone = formatFor(alertZone(profile.alerts)).resolvedOptions().timeZone;
+  const t = clip(e.title, 60);
+  let title: string;
+  let body: string;
+  let dedupeKey: string;
+  switch (e.kind) {
+    case 'job_awarded':
+      dedupeKey = `${e.jobId}:${e.role}`;
+      if (e.role === 'winner') {
+        title = `You won: ${t}`;
+        body = `Your bid of ${centsLabel(e.amountCents)} was the lowest. Contact the poster by ${whenLabel(e.contactDeadline, zone)} in the job's messages.`;
+      } else {
+        title = `Bids are in: ${t}`;
+        body = `Lowest bid: ${centsLabel(e.amountCents)}. The winner has until ${whenLabel(e.contactDeadline, zone)} to contact you.`;
+      }
+      break;
+    case 'job_message':
+      dedupeKey = `${e.jobId}:${e.messageId ?? 0}`;
+      title = `New message · ${t}`;
+      body = e.preview ?? '';
+      break;
+    case 'job_deadline':
+      dedupeKey = `${e.jobId}:${e.contactDeadline ?? ''}`;
+      title = '2 days left to make contact';
+      body = `${t}: message the poster by ${whenLabel(e.contactDeadline, zone)}. If you don't, a no-show is recorded on your profile.`;
+      break;
+    case 'job_closed':
+      dedupeKey = `${e.jobId}:${e.role}:${e.status}:${e.outcome ?? ''}`;
+      ({ title, body } = closedCopy(e));
+      break;
+  }
+  return {
+    alert: {
+      kind: e.kind, bidId: null, dedupeKey,
+      title: clip(title, 80), body: clip(body, 200),
+      data: { jobId: e.jobId, role: e.role, status: e.status, outcome: e.outcome },
     },
     push: pushDecision(profile.alerts, plan, now),
   };

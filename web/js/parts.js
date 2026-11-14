@@ -3,6 +3,8 @@
 import { markOpened } from './actions.js';
 import { h, icon, ICONS, safeUrl } from './dom.js';
 import { dueInfo, estLabel, orderedReasons, shortSource } from './format.js';
+import { jobIdOf, jobsOn, openJob } from './jobs-data.js';
+
 
 export function scoreRing(score) {
   const C = 2 * Math.PI * 24;
@@ -25,7 +27,7 @@ export function facts(item) {
     h('div', { class: 'fact' }, h('span', {}, 'Where'), h('strong', {}, where), h('small', {}, dist)),
     h('div', { class: `fact${due.urgent ? ' urgent' : ''}` }, h('span', {}, 'Bids due'), h('strong', {}, due.big), h('small', {}, due.small)),
     h('div', { class: `fact${item.overLimit ? ' over' : ''}` }, h('span', {}, 'Est. value'), h('strong', {}, estLabel(item.estValue) ?? 'Not listed'),
-      h('small', {}, item.overLimit ? 'over your limit' : 'from the bid notice')),
+      h('small', {}, item.overLimit ? 'over your limit' : jobIdOf(item) ? 'the poster’s ceiling' : 'from the bid notice')),
     h('div', { class: 'fact' }, h('span', {}, 'Type'), h('strong', {}, item.category ?? 'Bid'), h('small', {}, item.sourceName)),
   );
 }
@@ -40,7 +42,22 @@ export function overLimitTag(item) {
   return item.overLimit ? h('span', { class: 'tag over' }, 'Over your limit') : null;
 }
 
+/** The LOCAL JOB pill: a job posted on BidSwipe, bid on in the app (not an agency's board). */
+export function localPill(item) {
+  return jobIdOf(item) ? h('span', { class: 'pill local' }, 'Local job') : null;
+}
+
+/**
+ * The main button. A public bid links out to the agency's site; a local job opens its page here ("See job and bid"),
+ * where the sealed bid is placed. Opening a local job is not recorded as a swipe: nothing was bid yet.
+ */
 export function bidLink(item, extraClass = '') {
+  const jobId = jobIdOf(item);
+  if (jobId) {
+    // Without accounts (the pilot's single mode, the demo) there is nobody to bid as: say so, no dead button.
+    if (!jobsOn()) return h('p', { class: `cta-note ${extraClass}` }, 'Local jobs need an account to bid.');
+    return h('button', { class: `cta ${extraClass}`, type: 'button', onclick: () => openJob(jobId) }, 'See job and bid');
+  }
   return h('a', {
     class: `cta ${extraClass}`,
     href: safeUrl(item.url),

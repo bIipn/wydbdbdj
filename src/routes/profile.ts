@@ -48,8 +48,9 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     return {
       account: publicAccount(id.account),
       profile: id.profile ? summaryFor(id.profile, features) : null,
-      // "What brings you here" (the work profile's): which screens the app leads with.
-      intent,
+      // "What brings you here" (the work profile's): which screens the app leads with. Sent only when it is not
+      // 'work': the client reads a missing intent as 'work', and /api/me stays exactly as before for everyone else.
+      ...(intent !== 'work' ? { intent } : {}),
       needsOnboarding: !id.profile,
       features,
       ...(id.profile ? legacyMe(id.profile) : {}),

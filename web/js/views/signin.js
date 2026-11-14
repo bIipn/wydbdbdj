@@ -107,7 +107,8 @@ function renderSignIn() {
     h('p', { class: 'fine' },
       creating ? 'Free to start. We never take bids — you bid on the agency’s own site.' : 'We never take bids — you bid on the agency’s own site.',
       state.authConfig?.demo ? h('span', { class: 'demo-flag' }, 'Demo mode: all features on') : null,
-      h('br'), h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy')),
+      h('br'), h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
+      ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),
   );
 }
 

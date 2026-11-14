@@ -11,7 +11,8 @@ const ACTIONS: SwipeAction[] = ['save', 'pass', 'bid'];
 
 const SORTS: readonly FeedSort[] = ['fit', 'due', 'near', 'new', 'value'];
 const VERDICTS: readonly Verdict[] = ['great', 'good', 'maybe', 'skip'];
-const SOURCE_IDS: readonly SourceId[] = ALL_SOURCES.map((s) => s.id);
+/** The boards, plus 'local': jobs posted on BidSwipe itself, mirrored into the feed (src/jobs/service.ts). */
+const SOURCE_IDS: readonly SourceId[] = [...ALL_SOURCES.map((s) => s.id), 'local'];
 const MAX_SEARCH_CHARS = 200;
 const MAX_DOLLARS = 1e12;
 

@@ -105,11 +105,26 @@ export const MAX_PAYLOAD_BYTES = 3000;
 
 const HOUR = 3600;
 /** A reminder that arrives a day late is wrong, so deadlines expire quickly. */
-const TTL: Record<AlertKind, number> = { match: 24 * HOUR, deadline: 4 * HOUR, award: 24 * HOUR, price: 24 * HOUR };
-const URGENCY: Record<AlertKind, Urgency> = { match: 'high', deadline: 'high', award: 'normal', price: 'low' };
+const TTL: Record<AlertKind, number> = {
+  match: 24 * HOUR, deadline: 4 * HOUR, award: 24 * HOUR, price: 24 * HOUR,
+  job_awarded: 24 * HOUR, job_message: 24 * HOUR, job_deadline: 12 * HOUR, job_closed: 24 * HOUR,
+};
+const URGENCY: Record<AlertKind, Urgency> = {
+  match: 'high', deadline: 'high', award: 'normal', price: 'low',
+  job_awarded: 'high', job_message: 'high', job_deadline: 'high', job_closed: 'normal',
+};
 const URGENCY_ORDER: Urgency[] = ['very-low', 'low', 'normal', 'high'];
 
-const SUMMARY_NOUN: Record<AlertKind, string> = { match: 'new bids fit', deadline: 'deadlines coming up', award: 'awards posted', price: 'price moves' };
+const SUMMARY_NOUN: Record<AlertKind, string> = {
+  match: 'new bids fit', deadline: 'deadlines coming up', award: 'awards posted', price: 'price moves',
+  job_awarded: 'jobs awarded', job_message: 'new messages', job_deadline: 'contact reminders', job_closed: 'job updates',
+};
+
+/** A notification about one local job opens that job (web/js reads ?job=); everything else opens the app. */
+function openUrl(alert: Alert, appUrl: string): string {
+  const jobId = alert.kind.startsWith('job_') ? alert.data.jobId : undefined;
+  return typeof jobId === 'string' && jobId ? `${appUrl}/?job=${encodeURIComponent(jobId)}` : `${appUrl}/`;
+}
 
 /** Half the text, cut on a character boundary, with the cut marked. */
 function halve(text: string): string {
@@ -141,7 +156,7 @@ export function pushMessage(alerts: Alert[], appUrl: string): PushMessage {
     body: one ? first.body : [...alerts.slice(0, 3).map((a) => a.title), ...(alerts.length > 3 ? [`+${alerts.length - 3} more`] : [])].join('\n'),
     tag,
     kind: one ? first.kind : 'summary',
-    url: `${appUrl}/`,
+    url: one ? openUrl(first, appUrl) : `${appUrl}/`,
     bidId: one ? first.bidId : null,
     alertIds: alerts.map((a) => a.id).slice(0, 50),
   };

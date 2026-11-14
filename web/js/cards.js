@@ -3,7 +3,7 @@
 import { commit } from './actions.js';
 import { $, h } from './dom.js';
 import { dueInfo, estLabel, VERDICT_LABEL } from './format.js';
-import { bidLink, facts, overLimitTag, reasonsList, scoreRing } from './parts.js';
+import { bidLink, facts, localPill, overLimitTag, reasonsList, scoreRing } from './parts.js';
 import { openSheet } from './sheet.js';
 
 export function card(item, layer) {
@@ -13,7 +13,7 @@ export function card(item, layer) {
     h('div', { class: 'card-head' },
       h('div', { class: 'pills' },
         h('span', { class: 'pill verdict' }, VERDICT_LABEL[item.verdict] ?? item.verdict),
-        h('span', { class: 'pill' }, item.sourceName),
+        localPill(item) ?? h('span', { class: 'pill' }, item.sourceName),
       ),
       scoreRing(item.score),
     ),
@@ -36,7 +36,8 @@ export function row(item) {
   const value = estLabel(item.estValue);
   const swipeTag = item.swipe === 'save' || item.swipe === 'bid' ? h('span', { class: 'tag saved' }, item.swipe === 'bid' ? 'Opened' : 'Saved')
     : item.swipe === 'pass' ? h('span', { class: 'tag passed' }, 'Passed') : null;
-  const tags = swipeTag || item.overLimit ? h('div', { class: 'tags' }, swipeTag, overLimitTag(item)) : null;
+  const local = localPill(item);
+  const tags = swipeTag || item.overLimit || local ? h('div', { class: 'tags' }, local ? h('span', { class: 'tag local' }, 'Local job') : null, swipeTag, overLimitTag(item)) : null;
   return h('button', { class: `row verdict-${item.verdict}`, type: 'button', onclick: () => openSheet(item) },
     h('div', { class: 'badge' }, item.score),
     h('div', {},

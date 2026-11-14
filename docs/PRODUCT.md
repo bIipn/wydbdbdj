@@ -21,6 +21,13 @@ estimators, or they miss the work entirely.
 and the owner won't trust anything he can't see the reasoning for. Every design choice has to pass
 "would the owner trust this?"
 
+**Three kinds of user (since 2026-11-14).** The first screen after sign-up asks "What brings you here?":
+- **Find work** — contractors big and small, and solo tradespeople between jobs: public bids that fit their
+  trade, plus local jobs people post on BidSwipe.
+- **Get work done** — a homeowner, a nanny's employer, a property manager, a business: they post a job and
+  let people bid. Only a place and a name; no trades, no work feed, no work alerts.
+- **Both** — a shop that also subcontracts out, or anyone who does both.
+
 ## 2. How it works (the 30-second version)
 
 1. **Set up once, by taps (about 14 taps, nothing typed):** ✅ built
@@ -102,6 +109,31 @@ costs — so you can decide fast whether it's worth bidding and at what price. C
 - **Get-registered helper:** which agencies' vendor lists/portals to join (many $10K–$50K jobs are
   quoted from vendor lists and never posted publicly).
 - Runs once per *bid* (shared across users), so free users stay cheap and Pro stays profitable.
+
+### 3.6 Local jobs — the marketplace ✅ (built 2026-11-14; payments off)
+Ev's idea: people post a job, others bid on it, and like government contracting the lowest bid gets it.
+- **Post:** title, what needs doing, up to 4 trades, ZIP (the public place is city, state, ZIP), an optional
+  street address and phone (shown only to the winner after the award), an optional budget ceiling, and how
+  long bidding stays open (1, 3, 7 or 14 days). Nearby workers who fit get the normal 'match' alert at once.
+- **Bid:** sealed. Only the bidder sees an amount while the job is open; the poster sees a count. Bids can be
+  changed or withdrawn free until closing. Bids are placed IN the app (unlike public bids, which link out).
+- **Closing:** the lowest bid wins automatically (tie: placed first). The poster and the bidders then see the
+  ranked tab, like a public bid opening; only the poster sees who bid.
+- **Contact window:** the winner has 7 days to make contact (a message in the app, or the poster's "They
+  contacted me"). Both tap "We've agreed", and later the poster taps "Job done".
+- **Fees (Ev: "5–10%, and a very small fee for us"):** a winner who never makes contact or backs out owes a
+  **5% no-show fee**, of which **2% of the bid goes to the poster** whose time was wasted and 3% to BidSwipe; an
+  agreed job carries a **1% service fee**. No fee when the poster is the one who goes quiet, when the sides
+  can't agree, or when nobody bid. Each is a setting with hard limits (no-show 0–10%, service 0–3%).
+  **Payments are off:** fees are recorded on the person's record and never collected; no payment company is
+  connected. Before money moves: docs/MARKETPLACE.md §8 (one paid hour on the after-the-fact card fee; ask
+  Apple's App Review about in-app purchase) and docs/APIS.md (Stripe Connect; pay the poster's share as credit).
+- **Work profile ("like Indeed"):** headline, about, years, skills, experience, licence as typed (not verified
+  by BidSwipe), insured, résumé link, what they're looking for. Others see a card with the name and their
+  record (jobs posted, won, agreed, no-shows), only once they share a job — never an email, phone or address.
+- **Safety valves:** report a job; an operator can remove a job or waive a fee; posting, bidding, messages
+  and reports are rate-limited. Licence notices on the post and bid screens (Nevada, California, general).
+- **Terms:** web/terms.html (the rules in plain words); web/privacy.html covers the marketplace's data.
 
 ## 4. Free vs Pro, and codes
 

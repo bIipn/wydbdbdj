@@ -8,7 +8,7 @@
 
 import { api, setAuthHandler } from './api.js';
 import { $, $$, store } from './dom.js';
-import { enterApp, signedOut, startDemo } from './session.js';
+import { enterApp, onEnteredApp, signedOut, startDemo } from './session.js';
 import { setView, showMessage } from './shell.js';
 import { fling } from './actions.js';
 import { closeSheet, openSheet, sheetOpen } from './sheet.js';
@@ -19,6 +19,10 @@ import './promo.js';
 import { openAlerts, openBidById } from './views/alerts.js';
 import './views/cost.js';
 import './views/feed.js';
+import './views/job.js';
+import './views/job-post.js';
+import './views/jobs.js';
+import { jobsOn, openJob } from './jobs-data.js';
 import { showGate } from './views/gate.js';
 import './views/market.js';
 import './views/onboarding.js';
@@ -43,17 +47,27 @@ $('#bell').addEventListener('click', openAlerts);
 // A tapped phone notification: the service worker focuses this tab and names the bid.
 navigator.serviceWorker?.addEventListener('message', (e) => {
   if (e.data?.type === 'open-bid' && typeof e.data.bidId === 'string' && state.me) openBidById(e.data.bidId);
+  if (e.data?.type === 'open-job' && typeof e.data.jobId === 'string' && jobsOn()) openJob(e.data.jobId, 'jobs');
 });
 
-/** Opened from a notification (…/?bid=<id>): show that bid once the feed is in. */
-function openLinkedBid() {
+/**
+ * Opened from a notification or a shared link: …/?bid=<id> shows that bid once the feed is in, …/?job=<id> opens
+ * that local job's page (accounts mode). The parameter is taken out of the address so a reload does not reopen it.
+ */
+function openLinked() {
   const params = new URLSearchParams(location.search);
-  const id = params.get('bid');
-  if (!id) return;
+  const bid = params.get('bid');
+  const job = params.get('job');
+  if (!bid && !job) return;
   params.delete('bid');
+  params.delete('job');
   history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
-  if (state.me && !state.me.needsOnboarding) openBidById(id);
+  if (!state.me || state.me.needsOnboarding) return;
+  if (job && jobsOn()) openJob(job, 'jobs');
+  else if (bid) openBidById(bid);
 }
+// After every way in (boot, sign-in, the end of onboarding): a link opened while signed out still lands.
+onEnteredApp(openLinked);
 $('#sheetBackdrop').addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') return closeSheet();
@@ -91,7 +105,6 @@ async function boot() {
   try {
     state.mode = 'live';
     await enterApp(await api.me({ quiet: true }));
-    openLinkedBid();
   } catch (err) {
     if (err.code === 'access_code_required') {
       return showGate(state.accessCode ? 'That code didn’t work — try again.' : undefined, boot);

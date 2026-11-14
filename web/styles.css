@@ -175,6 +175,7 @@ a { color: inherit; }
 }
 .cta:active { transform: translateY(1px); }
 .cta.ghost { background: transparent; color: var(--text); border: 1px solid var(--line-2); box-shadow: none; }
+.cta-note { margin: 12px 0 0; padding: 12px 14px; border: 1px dashed var(--line-2); border-radius: 14px; text-align: center; color: var(--muted); font-size: 13.5px; }
 .card-foot { margin-top: 10px; display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--faint); }
 .card-foot button { border: 0; background: none; padding: 0; color: var(--muted); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
@@ -902,3 +903,237 @@ a { color: inherit; }
 .cc-hero-sub span { white-space: nowrap; }
 .row-cells .cell-prevBasic { grid-column: 1 / span 1; }
 .screen.cost > .cc-for { margin: 0 2px 14px; }
+
+/* =========================================== "what brings you here" + work profile */
+/* Three large one-tap cards (onboarding); the compact list in Settings uses the same pieces, smaller. */
+.intent-list { display: flex; flex-direction: column; gap: 12px; }
+.intent {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; width: 100%; min-height: 92px;
+  text-align: left; cursor: pointer; padding: 18px 18px; border-radius: 18px; font: inherit; color: var(--text);
+  border: 1px solid var(--line-2); background: linear-gradient(180deg, var(--card-2), var(--card));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25); transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+.intent:active { transform: scale(0.99); }
+.intent-text { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.intent-text strong { font-size: 19px; font-weight: 780; letter-spacing: -0.01em; }
+.intent-text small { font-size: 14px; line-height: 1.35; color: var(--muted); }
+.intent[aria-checked='true'] { border-color: var(--volt); background: rgba(255, 212, 59, 0.08); }
+.intent[aria-checked='true'] .choice-dot { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+.intent-list.compact { gap: 8px; }
+.intent-list.compact .intent { min-height: 0; padding: 12px 14px; border-radius: 14px; box-shadow: none; background: rgba(255, 255, 255, 0.03); }
+.intent-list.compact .intent-text strong { font-size: 15.5px; }
+.intent-list.compact .intent-text small { font-size: 12.5px; }
+
+.input.textarea { resize: vertical; min-height: 104px; line-height: 1.45; }
+.input.textarea.short { min-height: 64px; }
+.wp-intro { margin: -4px 0 14px; }
+.wp-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; }
+.wp-count { font-size: 11.5px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; }
+.wp-add-row { display: flex; gap: 8px; }
+.wp-add-row .input { flex: 1 1 auto; }
+.cta.ghost.wp-add { flex: 0 0 auto; width: auto; margin-top: 0; padding: 0 18px; }
+.wp-license { display: grid; grid-template-columns: 96px 1fr; gap: 8px; align-items: start; }
+.wp-license-number { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.wp-note { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); font-style: italic; }
+.wp-jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.wp-job {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 12px 12px 12px 14px;
+  border-radius: 14px; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03);
+}
+.wp-job-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.wp-job-text strong { font-size: 14.5px; }
+.wp-job-text span { font-size: 12.5px; color: var(--muted); }
+.wp-job-text p { margin: 4px 0 0; font-size: 13px; line-height: 1.4; color: var(--text); white-space: pre-line; }
+.wp-job-actions { display: flex; align-items: center; gap: 12px; flex: none; }
+.wp-job.is-editing { flex-direction: column; align-items: stretch; gap: 10px; border-color: rgba(255, 212, 59, 0.4); }
+.wp-job.is-editing .wp-job-actions { justify-content: flex-start; }
+.cta.wp-done { width: auto; margin-top: 0; padding: 11px 20px; }
+.cta.ghost.wp-add-job { margin-top: 0; }
+.text-btn.danger { color: #fda4af; }
+
+/* "How others see you": the card a poster or a bidder sees */
+.pcard-wrap { display: flex; flex-direction: column; }
+.person-card {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 18px; min-width: 0;
+  border: 1px solid var(--line-2); background: var(--bg-2); overflow-wrap: anywhere;
+}
+.pcard-head { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.pcard-avatar {
+  flex: none; width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--volt); color: var(--volt-ink); font-weight: 800; font-size: 16px; letter-spacing: 0.02em;
+}
+.pcard-who { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pcard-name { font-size: 17px; font-weight: 780; letter-spacing: -0.01em; }
+.pcard-headline { font-size: 13.5px; line-height: 1.35; color: var(--muted); }
+.pcard-facts { margin: 0; font-size: 13.5px; font-weight: 650; }
+.pcard-license { margin: 0; font-size: 13.5px; display: flex; flex-direction: column; gap: 1px; }
+.pcard-license small { font-size: 11.5px; color: var(--faint); }
+.pcard-skills { display: flex; flex-wrap: wrap; gap: 6px; }
+.pcard-skill { padding: 5px 10px; border-radius: 999px; font-size: 12.5px; font-weight: 650; background: rgba(255, 255, 255, 0.06); border: 1px solid var(--line-2); }
+.pcard-about { margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.pcard-jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pcard-jobs li { display: flex; flex-direction: column; gap: 1px; padding-left: 10px; border-left: 2px solid var(--line-2); }
+.pcard-jobs strong { font-size: 13.5px; }
+.pcard-jobs span { font-size: 12px; color: var(--muted); }
+.pcard-link { display: inline-flex; align-items: center; gap: 6px; color: var(--volt); font-size: 13.5px; font-weight: 650; text-decoration: none; min-width: 0; }
+.pcard-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pcard-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
+
+/* =========================================================== local jobs */
+/* Five tabs (Swipe, Browse, Saved, Market, Jobs) on one line at 360 px: tighter padding and type, never a wrap. */
+/* Flex, not equal grid columns: "Browse 87" needs more room than "Jobs", and the spare room is shared evenly. */
+.tabs[data-tabs='5'] { display: flex; gap: 2px; padding: 3px; }
+.tabs[data-tabs='5'] .tab { flex: 1 1 auto; min-width: 0; }
+.tabs[data-tabs='5'] .tab { font-size: 12.5px; padding: 9px 1px; letter-spacing: -0.01em; }
+.tabs[data-tabs='5'] .count { margin-left: 2px; font-size: 10.5px; }
+@media (min-width: 400px) { .tabs[data-tabs='5'] .tab { font-size: 13.5px; } }
+
+.sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* The LOCAL JOB pill and tag: volt, so a job posted here never looks like an agency's bid. */
+.pill.local { color: var(--volt); border-color: rgba(255, 212, 59, 0.4); background: rgba(255, 212, 59, 0.1); }
+.row .tag.local { color: var(--volt); }
+button.cta:disabled { cursor: not-allowed; }
+
+/* The Jobs tab */
+.cta.post-job { margin-top: 0; }
+.cta.post-job svg { flex: none; }
+.jobs-intro { margin: 10px 2px 2px; font-size: 12.5px; line-height: 1.45; color: var(--muted); text-align: center; }
+.jobs-side .section-title { margin-top: 22px; }
+.jobs-group + .jobs-group { margin-top: 14px; }
+.jobs-group-title { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; font-weight: 700; }
+.jobs-group-n { min-width: 20px; padding: 1px 7px; border-radius: 99px; font-size: 11.5px; font-weight: 750; text-align: center; background: rgba(255, 255, 255, 0.07); color: var(--muted); }
+.jobs-needs .jobs-group-n { background: var(--volt); color: var(--volt-ink); }
+.jobs-empty { padding: 14px 16px; border-radius: 16px; border: 1px dashed var(--line-2); }
+.jobs-empty p { margin: 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.row.job-row { grid-template-columns: 4px 1fr; gap: 12px; }
+.job-row-mark { align-self: stretch; border-radius: 4px; background: var(--line-2); }
+.job-row.group-needs { border-color: rgba(255, 212, 59, 0.35); }
+.job-row.group-needs .job-row-mark { background: var(--volt); box-shadow: 0 0 10px rgba(255, 212, 59, 0.35); }
+.job-row.group-open .job-row-mark { background: var(--great); }
+.job-row-text { min-width: 0; overflow-wrap: anywhere; }
+.row .job-state { margin-top: 6px; color: var(--text); font-weight: 650; font-size: 13px; }
+.row .job-next { margin-top: 2px; }
+.job-row.group-done { opacity: 0.82; }
+
+/* Post a job */
+.jp-form { display: flex; flex-direction: column; gap: 12px; }
+.jp-form .panel + .panel { margin-top: 0; }
+.jp-licence { margin: 0; padding: 10px 12px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; color: var(--muted); background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); }
+.jp-review { border-color: rgba(255, 212, 59, 0.3); }
+.jp-review-body { display: flex; flex-direction: column; gap: 6px; padding: 14px; border-radius: 16px; background: var(--bg-2); border: 1px solid var(--line-2); overflow-wrap: anywhere; }
+.jp-review-title { margin: 6px 0 0; font-size: 18px; line-height: 1.25; letter-spacing: -0.01em; }
+.jp-review-meta { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+.jp-review-meta svg { flex: none; color: var(--volt); }
+.jp-review-desc { margin: 4px 0 0; font-size: 14px; line-height: 1.5; white-space: pre-line; }
+.jp-review-private { margin: 6px 0 0; display: flex; gap: 6px; align-items: flex-start; font-size: 12.5px; line-height: 1.4; color: var(--faint); }
+.jp-review-private svg { flex: none; margin-top: 1px; }
+.jp-rules { margin: 14px 0 0; padding: 0 0 0 18px; display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; line-height: 1.4; }
+.jp-rules li::marker { color: var(--volt); }
+.fine.jp-fine { margin: 12px 0 0; text-align: left; }
+
+/* The job page */
+.job-page { gap: 12px; }
+.job-page > .screen-head { padding-bottom: 4px; }
+.job-page .panel + .panel { margin-top: 0; }
+.job-head { display: flex; flex-direction: column; gap: 6px; overflow-wrap: anywhere; }
+.job-title { margin: 8px 0 2px; font-size: 22px; line-height: 1.2; letter-spacing: -0.02em; }
+.job-place { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 650; }
+.job-place svg { flex: none; color: var(--volt); }
+.job-sub { margin: 0; font-size: 12.5px; color: var(--muted); }
+.job-desc { margin: 8px 0 0; font-size: 14.5px; line-height: 1.55; white-space: pre-line; }
+.pill.status-open, .pill.status-agreed, .pill.status-completed { color: var(--great); border-color: rgba(34, 197, 94, 0.35); }
+.pill.status-awarded { color: var(--text); border-color: var(--line-2); }
+.pill.status-unfilled, .pill.status-cancelled { color: var(--faint); }
+.job-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.job-facts .fact strong { font-size: 17px; font-weight: 750; }
+.panel .job-facts + .job-steps { margin-top: 12px; }
+.job-note { margin: 0; font-size: 13.5px; line-height: 1.45; }
+.job-note.faint { color: var(--muted); font-size: 12.5px; }
+.panel > .job-note + *, .panel > * + .job-note { margin-top: 10px; }
+.my-bid { margin: 0 0 6px; font-size: 15px; }
+.my-bid strong { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; color: var(--volt); margin-left: 4px; }
+.job-buttons.two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.job-buttons .cta { margin-top: 0; }
+.panel > .job-buttons { margin-top: 12px; }
+.cta.danger { background: #f43f5e; color: #fff; box-shadow: none; }
+.cta.ghost.danger-ghost { color: #fda4af; }
+.job-confirm { margin-top: 12px; padding: 14px; border-radius: 14px; border: 1px solid rgba(244, 63, 94, 0.4); background: rgba(244, 63, 94, 0.07); }
+.job-confirm strong { font-size: 15px; }
+.job-confirm p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.job-confirm-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.job-confirm-actions .cta { margin-top: 0; }
+
+.bid-form { margin-top: 12px; }
+.bid-form .money .input { font-size: 22px; font-weight: 750; padding-top: 12px; padding-bottom: 12px; }
+.bid-form .money .money-sign { font-size: 20px; }
+.bid-form > .cta { margin-top: 0; }
+.bid-form > .text-btn { align-self: center; }
+.fee-lines { display: flex; flex-direction: column; gap: 6px; padding: 12px; border-radius: 12px; background: rgba(255, 255, 255, 0.03); border: 1px solid var(--line); }
+.fee-lines p { margin: 0; font-size: 13px; line-height: 1.45; }
+.fee-lines .fees-off { color: var(--volt); font-weight: 650; }
+.check.agree { border-top: 0; padding: 4px 2px; }
+.check.agree .fine-link { color: var(--volt); }
+
+.job-banner { padding: 14px 16px; border-radius: 18px; border: 1px solid var(--line-2); background: var(--card); }
+.job-banner strong { font-size: 16px; }
+.job-banner p { margin: 4px 0 0; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
+.job-banner.banner-needs { border-color: rgba(255, 212, 59, 0.5); background: rgba(255, 212, 59, 0.07); }
+.job-banner.banner-open { border-color: rgba(34, 197, 94, 0.4); background: rgba(34, 197, 94, 0.06); }
+.job-banner.is-ended { border-color: var(--line-2); background: rgba(255, 255, 255, 0.03); }
+
+.job-steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.job-steps li { display: flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--muted); }
+.job-steps li.done { color: var(--text); }
+.step-dot { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 1.5px solid var(--line-2); display: grid; place-items: center; }
+.job-steps li.done .step-dot { background: var(--great); border-color: var(--great); color: #04220f; }
+.job-actions { display: flex; flex-direction: column; gap: 10px; }
+.job-actions .cta { margin-top: 0; }
+.job-actions .job-confirm { margin-top: 0; }
+
+.job-private { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
+.panel > .job-private:first-of-type { margin-top: 0; }
+.panel-title + .job-private { margin-top: 0; padding-top: 0; border-top: 0; }
+.job-private-head { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
+.job-private p:not(.job-private-head) { margin: 0; display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: 14px; overflow-wrap: anywhere; }
+.job-private p span { color: var(--faint); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 2px; }
+.job-private a { color: var(--volt); font-weight: 650; }
+
+/* A person on a job, short; tap for the whole card */
+.pmini { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: start; width: 100%; text-align: left; padding: 12px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); font: inherit; }
+button.pmini { cursor: pointer; }
+button.pmini:active { background: var(--card-2); }
+.pmini-avatar { width: 42px; height: 42px; font-size: 14px; }
+.pmini-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.pmini-role { font-size: 10.5px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
+.pmini-name { font-size: 15.5px; font-weight: 750; }
+.pmini-line { font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.pmini-stats { font-size: 12.5px; font-weight: 650; color: var(--text); }
+.pmini-since { font-size: 11.5px; color: var(--faint); }
+.pmini-go { align-self: center; font-size: 24px; line-height: 1; color: var(--faint); }
+
+/* The bid tab: ranked amounts after closing */
+.bid-tab { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.bid-tab li { display: grid; grid-template-columns: 26px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 2px; border-top: 1px solid var(--line); font-size: 14px; }
+.bid-tab li:first-child { border-top: 0; }
+.bt-rank { width: 24px; height: 24px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 750; background: rgba(255, 255, 255, 0.06); color: var(--muted); }
+.bid-tab li.first .bt-rank { background: var(--volt); color: var(--volt-ink); }
+.bt-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.bid-tab li.mine .bt-who { color: var(--volt); font-weight: 700; }
+.bt-amt { font-variant-numeric: tabular-nums; }
+.text-btn.bt-card { padding: 4px 2px; color: var(--volt); }
+
+/* Messages between the poster and the winner */
+.msgs { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.msg { max-width: 85%; padding: 9px 12px; border-radius: 16px; overflow-wrap: anywhere; }
+.msg p { margin: 0; font-size: 14px; line-height: 1.45; white-space: pre-line; }
+.msg small { display: block; margin-top: 3px; font-size: 11px; color: var(--faint); }
+.msg.theirs { align-self: flex-start; background: var(--card-2); border: 1px solid var(--line-2); border-bottom-left-radius: 6px; }
+.msg.mine { align-self: flex-end; background: rgba(255, 212, 59, 0.13); border: 1px solid rgba(255, 212, 59, 0.3); border-bottom-right-radius: 6px; }
+.msg.mine small { text-align: right; }
+.msg-box { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+.msg-box .field-error { grid-column: 1 / -1; }
+.cta.msg-send { width: auto; margin-top: 0; padding: 13px 18px; }
+
+.fee-list { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.5; }
+.report-link { color: var(--faint); font-weight: 600; font-size: 12.5px; }

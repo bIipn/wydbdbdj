@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0a0d12" />
+  <meta name="description" content="The rules for posting and bidding on local jobs in BidSwipe, in plain words." />
+  <title>Terms — BidSwipe</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    /* This page only, same look as privacy.html. Every rule below matches the marketplace as built
+       (src/jobs/, src/jobs/config.ts defaults) on 2026-11-14. Change the rules or the defaults → change this page. */
+    .doc { max-width: 680px; margin: 0 auto; padding: calc(env(safe-area-inset-top) + 18px) 18px 48px; line-height: 1.6; }
+    .doc-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 18px; }
+    .doc-top a { text-decoration: none; }
+    .doc .doc-brand { color: var(--text); }
+    .doc-brand { display: flex; align-items: center; gap: 8px; font-weight: 750; font-size: 19px; letter-spacing: -0.02em; }
+    .doc-brand svg { width: 22px; height: 22px; fill: var(--volt); }
+    .doc .doc-back { color: var(--muted); }
+    .doc-back { font-size: 14px; font-weight: 650; color: var(--muted); border: 1px solid var(--line-2); border-radius: 12px; padding: 7px 12px; }
+    .doc .doc-back:hover { color: var(--text); }
+    .doc h1 { font-size: 28px; line-height: 1.2; letter-spacing: -0.02em; margin: 10px 0 4px; }
+    .doc .dated { color: var(--faint); font-size: 13px; margin: 0 0 22px; }
+    .doc h2 { font-size: 18px; margin: 30px 0 8px; letter-spacing: -0.01em; }
+    .doc p, .doc li { color: #c9d2de; font-size: 15px; }
+    .doc ul { padding-left: 20px; margin: 8px 0; }
+    .doc li { margin: 5px 0; }
+    .doc strong { color: var(--text); }
+    .doc a { color: var(--volt); text-underline-offset: 3px; }
+    .doc .summary { background: var(--card); border: 1px solid var(--line-2); border-radius: 16px; padding: 14px 16px; margin: 0 0 8px; }
+    .doc .summary li { margin: 3px 0; }
+    .doc .todo { background: rgba(251, 146, 60, 0.12); border: 1px dashed var(--over); color: #fed7aa; border-radius: 8px; padding: 1px 6px; font-weight: 700; }
+    @media (max-width: 520px) { .doc h1 { font-size: 24px; } }
+  </style>
+</head>
+<body>
+  <main class="doc">
+    <div class="doc-top">
+      <a class="doc-brand" href="./">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6.1L9.8 22l8.7-11.5h-6.1z" /></svg>
+        <span>BidSwipe</span>
+      </a>
+      <a class="doc-back" href="./">Open the app</a>
+    </div>
+
+    <h1>Terms for local jobs</h1>
+    <p class="dated">Effective November 14, 2026</p>
+
+    <div class="summary">
+      <ul>
+        <li>BidSwipe is where people post jobs and bid on them. We are not part of any job.</li>
+        <li>Bids are sealed until closing, and the lowest bid wins.</li>
+        <li>The winner has a set number of days (7 today) to make contact in BidSwipe. Fees are <strong>not being collected yet</strong>.</li>
+        <li>Licences and insurance are your own responsibility. We do not check them.</li>
+      </ul>
+    </div>
+
+    <h2>What BidSwipe is</h2>
+    <p>BidSwipe is a place to meet. It is not a party to any job, does not hire anyone or do any work, and does not
+      guarantee payment or the quality of work. The deal for a job is between the person who posts it and the
+      person who wins it.</p>
+    <p>Public bids from government boards are different: you bid on the agency's own website, and these terms
+      do not cover them.</p>
+
+    <h2>Who can use it</h2>
+    <p>You must be 18 or older and signed in. Anyone signed in may post a job and bid on other people's jobs, but
+      never on their own.</p>
+
+    <h2>How a job works</h2>
+    <ul>
+      <li>The poster picks how long the job is open for bids, up to 30 days.</li>
+      <li><strong>Bids are sealed.</strong> While a job is open, only you see your amount. The poster sees only how
+        many bids there are. You can change or withdraw your bid for free until closing.</li>
+      <li>At closing, <strong>the lowest bid wins</strong> automatically. If two bids are equal, the one placed first wins.</li>
+      <li>After closing, the poster and everyone who bid see the amounts, ranked. Only the poster sees who bid.</li>
+      <li>The winner has a contact window, shown on each job (<strong>7 days</strong> today), to make contact and work out the
+        details with the poster. After the award, the winner sees the address and phone the poster added, and the two of
+        them can message each other.</li>
+      <li><strong>Making contact</strong> means sending at least one message in the job's thread in BidSwipe, or the poster
+        tapping “They contacted me”. A phone call alone does not count unless the poster taps it.</li>
+      <li>A job that ends without a deal can be posted again.</li>
+    </ul>
+
+    <h2>Fees</h2>
+    <p>The rates are settings. The figures on the bid screen when you bid are the ones that apply.</p>
+    <ul>
+      <li><strong>No-show fee</strong>: between 0% and 10% of the winning bid (<strong>5% today</strong>), owed by a winner
+        who never makes contact within the contact window or gives the job back. Up to that share goes to the poster whose
+        time was wasted (<strong>2% of the bid today</strong>), and BidSwipe keeps the rest.</li>
+      <li><strong>Service fee</strong>: at most 3% of the winning bid (<strong>1% today</strong>), owed by the winner when both
+        sides confirm they have agreed.</li>
+      <li>There is no fee when the poster is the one who does not answer, when the two sides cannot agree, or when a
+        job ends without a winner.</li>
+    </ul>
+    <p>The exact figures are shown before you place a bid. <strong>Fees are not being collected yet.</strong> A no-show is
+      recorded on your profile.</p>
+
+    <h2>Licences and insurance</h2>
+    <p>Many states require a contractor's licence for work above a small amount or work that needs a permit, and some
+      trades always need one. Checking and following your state's rules is your own responsibility, and so is
+      insurance. A licence or insurance shown on a profile is as the person typed it. <strong>BidSwipe does not
+      verify it.</strong></p>
+
+    <h2>No promises about people or jobs</h2>
+    <p>We do not check that a job, a poster or a bidder is what they say. Meet with care, and agree on the work and the
+      price in writing before it starts.</p>
+
+    <h2>Conduct</h2>
+    <ul>
+      <li>Post real jobs and bid amounts you mean.</li>
+      <li>No fake bids, harassment, discrimination, illegal work, or using a job to collect people's details.</li>
+      <li>Keep the other person's address and phone to yourself.</li>
+    </ul>
+
+    <h2>Reports and removal</h2>
+    <p>Anyone can report a job from the job's screen. We may remove a job that breaks these terms, and it then disappears
+      everywhere. We may also waive a fee. Posting, bidding and messages have limits to stop spam.</p>
+
+    <h2>Your information</h2>
+    <p>See the <a href="privacy.html">privacy policy</a>.</p>
+
+    <h2>Changes and contact</h2>
+    <p>If we change these terms, we update this page and its date first. Questions:
+      <span class="todo">[CONTACT EMAIL — Ev to fill in before publishing]</span>.</p>
+  </main>
+</body>
+</html>

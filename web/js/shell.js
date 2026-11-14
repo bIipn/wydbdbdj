@@ -12,6 +12,11 @@ import { DECK_MIN_SCORE, deck, isLive, savedList, state } from './state.js';
 
 const views = new Map();
 const afterRender = [];
+/** Extra tabs that count something of their own (Jobs): view name → () => { show, count, label }. */
+const tabCounts = new Map();
+
+/** A tab whose button and count belong to another module (index.html has the button, hidden by default). */
+export function registerTabCount(view, fn) { tabCounts.set(view, fn); }
 
 export function registerView(name, view) {
   if (views.has(name)) throw new Error(`view "${name}" registered twice`);
@@ -58,13 +63,24 @@ export function render() {
     // Market needs the API: the bundled demo has no market data.
     const live = isLive();
     $('#marketTab').hidden = !live;
-    $('.tabs').dataset.tabs = live ? '4' : '3';
+    for (const [name, fn] of tabCounts) {
+      const t = $(`.tab[data-view="${name}"]`);
+      const c = fn();
+      t.hidden = !c.show;
+      $('.count', t).textContent = c.count || '';
+      label(`.tab[data-view="${name}"]`, c.label);
+    }
+    // How many tabs show: five on a 360 px phone need tighter tabs (styles.css .tabs[data-tabs='5']).
+    $('.tabs').dataset.tabs = String($$('.tab').filter((t) => !t.hidden).length);
     $('#countSaved').textContent = savedList().length || '';
     const scan = state.lastScan ? `Last scan ${fmtDay.format(new Date(state.lastScan))} · ${fmtTime.format(new Date(state.lastScan))}. ` : '';
     $('#footnote').textContent =
       state.mode === 'demo'
         ? `Demo — ${state.note} Swipes stay on this device.`
-        : `${scan}Scores are a first pass — always read the bid documents before you price a job.`;
+        // The Jobs tab is about local jobs, not scored public bids: its own honest line.
+        : state.view === 'jobs'
+          ? 'Local jobs: bids are sealed until closing. Licences are as typed, not checked by BidSwipe.'
+          : `${scan}Scores are a first pass — always read the bid documents before you price a job.`;
   }
 
   // The bell (unread count + live dot) is kept current on every screen, shown or not.

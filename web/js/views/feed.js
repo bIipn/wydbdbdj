@@ -7,6 +7,7 @@ import { h, icon, ICONS, safeUrl } from '../dom.js';
 import { openFilters } from '../filter-sheet.js';
 import { activeChips, defaultFilters, hasPriceFilter, isFiltered, SORTS } from '../filters.js';
 import { VERDICT_LABEL } from '../format.js';
+import { jobIdOf, openJob } from '../jobs-data.js';
 import { openSheet } from '../sheet.js';
 import { onAfterRender, registerView, render, setView } from '../shell.js';
 import { browseList, deck, savedList, state } from '../state.js';
@@ -58,10 +59,13 @@ function renderSwipe() {
     stack,
     h('div', { class: 'actions' },
       h('button', { class: 'round pass', type: 'button', 'aria-label': 'Pass', onclick: () => fling(current, 'pass') }, icon(ICONS.pass)),
-      h('a', {
-        class: 'round open', href: safeUrl(current.url), target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Open bid',
-        onclick: () => markOpened(current),
-      }, icon(ICONS.open)),
+      // A local job opens its page in the app (where the sealed bid is placed); a public bid opens the agency's site.
+      jobIdOf(current)
+        ? h('button', { class: 'round open', type: 'button', 'aria-label': 'See job and bid', onclick: () => openJob(jobIdOf(current)) }, icon(ICONS.open))
+        : h('a', {
+          class: 'round open', href: safeUrl(current.url), target: '_blank', rel: 'noopener noreferrer', 'aria-label': 'Open bid',
+          onclick: () => markOpened(current),
+        }, icon(ICONS.open)),
       h('button', { class: 'round save', type: 'button', 'aria-label': 'Save', onclick: () => fling(current, 'save') }, icon(ICONS.save)),
     ),
     h('p', { class: 'hint' }, 'Swipe right to save · left to pass'),

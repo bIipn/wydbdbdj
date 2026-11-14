@@ -21,6 +21,12 @@ export const FLAGS = {
 } as const;
 
 /**
+ * The flag on a local job's card (a job someone posted on BidSwipe, bid on in the app: src/jobs/service.ts
+ * mirrorBid). It changes no score; the client tells a local job by its source, not by this string.
+ */
+export const LOCAL_JOB_FLAG = 'Local job';
+
+/**
  * Requirement flags: what the notice (or the whole board) asks of a bidder. Written by src/util/flags.ts
  * (detectFlags, from notice text) and src/sources/questcdn.ts (the SPWD board); read by score.ts (the
  * paperwork answers) and src/market/prevailing.ts. One copy, so a reader never matches by a loose pattern.

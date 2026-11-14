@@ -154,10 +154,10 @@ export const INTENTS = [
 
 // ------------------------------------------------------------- sections --
 
-export function nameSection(d) {
+export function nameSection(d, { label = 'Business name', help = 'How your company shows up in BidSwipe.' } = {}) {
   const input = textInput({ value: d.businessName, autocomplete: 'organization', placeholder: 'e.g. Carson Valley Electric', maxlength: 80, enterkeyhint: 'next' });
   input.addEventListener('input', () => (d.businessName = input.value));
-  return field({ key: 'businessName', label: 'Business name', help: 'How your company shows up in BidSwipe.', control: input });
+  return field({ key: 'businessName', label, help, control: input });
 }
 
 export function tradesSection(d, trades) {
@@ -192,8 +192,8 @@ export function tradesSection(d, trades) {
   return wrap;
 }
 
-/** ZIP with a live lookup ("Gardnerville, NV"), and the travel radius. */
-export function whereSection(d) {
+/** ZIP with a live lookup ("Gardnerville, NV"), and the travel radius (`radius: false` leaves it out). */
+export function whereSection(d, { radius: withRadius = true } = {}) {
   const zip = textInput({ value: d.zip, inputmode: 'numeric', autocomplete: 'postal-code', maxlength: 10, placeholder: '89410', class: 'input zip' });
   const place = h('p', { class: 'place-line', 'aria-live': 'polite' });
   let ticket = 0;
@@ -234,6 +234,9 @@ export function whereSection(d) {
   range.addEventListener('input', () => { d.radiusMi = Number(range.value); paint(); });
   paint();
 
+  if (!withRadius) {
+    return h('div', { class: 'stack' }, field({ key: 'zip', label: 'Your ZIP code', help: 'Jobs you post show this town. Your street address never shows.', control: zip }), place);
+  }
   return h('div', { class: 'stack' },
     field({ key: 'zip', label: 'Shop ZIP code', control: zip }),
     place,
@@ -269,7 +272,10 @@ function limitField(d, key, label, help) {
   });
 }
 
-/** Minimum fit and quiet hours; settings also shows the alert kinds and the time zone (`opts`). */
+/**
+ * Minimum fit and quiet hours; settings also shows the alert kinds and the time zone (`opts`).
+ * `kindIds` limits the kinds listed; `minScore: false` leaves out the fit slider (no bids are scored for them).
+ */
 export function alertsSection(d, opts = {}) {
   const readout = h('output', { class: 'range-value' });
   const words = h('p', { class: 'field-help' });
@@ -293,7 +299,7 @@ export function alertsSection(d, opts = {}) {
 
   const kinds = opts.kinds ? h('div', { class: 'field', 'data-field': 'alerts.kinds' },
     h('p', { class: 'field-label' }, 'What to alert me about'),
-    h('div', { class: 'kind-list' }, ALERT_KINDS.map((k) => h('div', { class: 'kind' },
+    h('div', { class: 'kind-list' }, ALERT_KINDS.filter((k) => !opts.kindIds || opts.kindIds.includes(k.id)).map((k) => h('div', { class: 'kind' },
       toggle({ checked: d.kinds[k.id], label: k.label, onchange: (on) => { d.kinds[k.id] = on; } }),
       h('p', { class: 'field-help' }, k.help, k.feature && opts.features?.[k.feature] !== true ? h('span', { class: 'pro-note' }, ' Part of BidSwipe Pro.') : null)))),
     h('p', { class: 'field-error', role: 'alert' })) : null;
@@ -304,7 +310,7 @@ export function alertsSection(d, opts = {}) {
 
   return h('div', { class: 'stack' },
     kinds,
-    h('div', { class: 'field', 'data-field': 'alerts.minScore' },
+    opts.minScore === false ? null : h('div', { class: 'field', 'data-field': 'alerts.minScore' },
       h('div', { class: 'range-head' }, h('label', { class: 'field-label', for: 'minfit' }, 'Minimum fit to alert me'), readout),
       range, words, h('p', { class: 'field-error', role: 'alert' })),
     h('div', { class: 'field', 'data-field': 'alerts.quietHours' },

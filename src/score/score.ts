@@ -1,6 +1,6 @@
 import { milesBetween } from '../geo/locate.js';
 import { FLAGS, NOT_OPEN_FLAGS, PROGRAM_ACRONYMS, PROGRAM_CONTRACT_TERMS, REQUIREMENT_FLAGS, SET_ASIDES } from '../sources/flags.js';
-import { tradeNoun } from '../trades/catalog.js';
+import { getTrade, tradeNoun } from '../trades/catalog.js';
 import type { Bid, Profile, Qualifications, Reason, ScoreResult, SpendLimits, Verdict } from '../types.js';
 import { formatMoneyShort, formatRange } from '../util/money.js';
 
@@ -263,6 +263,22 @@ function answerFor(need: Need, q: Qualifications, profile: Profile) {
   return q[need.key] ?? 'unsure';
 }
 
+/**
+ * A job posted on BidSwipe itself (source 'local', src/jobs) carries the trades its poster picked from the trades
+ * list, as their labels in `category` ("Electrical, Plumbing"). When one of them is one of this company's trades,
+ * that is as plain a statement of the trade as a board's text mentioning it. Only local jobs are read this way,
+ * so no board's score changes. Returns the label, or null.
+ */
+export function postedTrade(bid: Pick<Bid, 'source' | 'category'>, profile: Pick<Profile, 'trades'>): string | null {
+  if (bid.source !== 'local' || !bid.category) return null;
+  const posted = new Set(bid.category.split(',').map((s) => s.trim()));
+  for (const id of profile.trades ?? []) {
+    const label = getTrade(id)?.label;
+    if (label && posted.has(label)) return label;
+  }
+  return null;
+}
+
 export function verdictFor(score: number): Verdict {
   if (score >= 75) return 'great';
   if (score >= 55) return 'good';
@@ -296,6 +312,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   const relatedTitle = m.related.test(title);
   const relatedBody = relatedTitle ? null : m.related.test(body);
   const general = m.general.test(title) ?? m.general.test(body);
+  const posted = strongTitle || naicsStrong ? null : postedTrade(bid, profile);
 
   let trade = 0;
   let factor = 0;
@@ -308,6 +325,10 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   } else if (naicsStrong) {
     trade = 36; factor = 1;
     plus.push({ kind: 'plus', text: `NAICS ${bid.naics} — ${m.words.naics}` });
+  } else if (posted) {
+    // Worth the same as the trade named in a notice's text (strongBody below).
+    trade = 30; factor = 1;
+    plus.push({ kind: 'plus', text: `Posted as ${posted} work` });
   } else if (strongBody) {
     trade = 30; factor = 1;
     plus.push({ kind: 'plus', text: `${m.words.mentioned}: “${strongBody}”` });

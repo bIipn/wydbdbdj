@@ -53,6 +53,8 @@ create table if not exists jobs (
 create index if not exists jobs_poster_idx on jobs (poster_id, posted_at desc);
 create index if not exists jobs_open_close_idx on jobs (closes_at) where status = 'open';
 create index if not exists jobs_awarded_deadline_idx on jobs (contact_deadline) where status = 'awarded';
+-- one live repost per job: two taps on "Post again" (or two requests at once) must not list the job twice
+create unique index if not exists jobs_one_repost_idx on jobs (reposted_from) where reposted_from is not null and removed_at is null;
 
 -- One bid per account per job: placing again replaces it (unique), so two taps at once leave one row.
 create table if not exists job_bids (

@@ -185,6 +185,12 @@ describe('person card', () => {
     expect(cardName(null, ' TEST  Dana (simulated) ')).toBe('TEST Dana (simulated)');
     expect(cardName('  ', null)).toBe(ANONYMOUS_NAME);
     expect(cardName(null, 'test9@example.com')).toBe(ANONYMOUS_NAME);
+    // The onboarding default ("My electrical shop") is the same for everyone who skipped the step: the account
+    // name tells bidders apart; with no usable account name the default is still better than nothing.
+    expect(cardName('My electrical shop', 'TEST Dana (simulated)')).toBe('TEST Dana (simulated)');
+    expect(cardName('My shop', 'TEST Lee (simulated)')).toBe('TEST Lee (simulated)');
+    expect(cardName('My electrical shop', 'test9@example.com')).toBe('My electrical shop');
+    expect(cardName('My Shop Of Sparks', 'TEST Dana (simulated)')).toBe('My Shop Of Sparks');
     expect(ANONYMOUS_NAME).toBe('BidSwipe member');
   });
 });
@@ -401,10 +407,10 @@ describe('"what brings you here": intent in the onboarding answers', () => {
       await db.close();
     });
 
-    it('an account with no stored intent is "work", and saving the pilot answers stores none', async () => {
-      expect((await me()).intent).toBe('work');
+    it('an account with no stored intent is "work" (/api/me leaves it out), and saving the pilot answers stores none', async () => {
+      expect((await me()).intent).toBeUndefined();
       expect((await putProfile(PILOT)).statusCode).toBe(200);
-      expect((await me()).intent).toBe('work');
+      expect((await me()).intent).toBeUndefined();
       expect(await db.query('select account_id from work_profiles')).toEqual([]);
     });
 

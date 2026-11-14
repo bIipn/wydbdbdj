@@ -4,8 +4,13 @@ Public bids that fit your trade, one swipe at a time. **v0 is tuned for L&M Elec
 
 Every morning it pulls open bids from county, state, local-agency and federal boards, scores each one for
 L&M (electrical scope, distance from Gardnerville, job size, days left to bid), emails the good ones, and
-serves a phone-friendly swipe app. Bidding itself happens on the agency's own site — every card links
-straight there.
+serves a phone-friendly swipe app. Bidding on a public bid happens on the agency's own site — every card
+links straight there; BidSwipe never takes those bids.
+
+**Local jobs** (accounts mode): anyone signed in can post a job; others place a **sealed** bid in the app; at
+closing the lowest bid wins; the winner has 7 days to make contact. A winner who never makes contact or backs
+out owes a 5% no-show fee (2% of the bid to the poster); an agreed job carries a 1% service fee. **Payments
+are off: fees are recorded, never collected.** Rules and research: `docs/MARKETPLACE.md`.
 
 ```
 sources ──► normalize + locate ──► score per contractor ──► Postgres ──► API ──► swipe app (PWA)
@@ -85,7 +90,9 @@ and `out/bidswipe-demo.html` (a single-file, no-server demo of the app; premium 
 @example.com) through the real server on the real captured bids, SAM.gov included, and writes
 `report.md` + `report.json`: per-company results, checks (and which ones this data cannot exercise),
 a same-seed hash and mutation runs that prove the checks can fail. `npm run simulate:cost -- --companies
-2000 --seed 4242` stress-runs the cost engine on seeded simulated companies.
+2000 --seed 4242` stress-runs the cost engine on seeded simulated companies. `npm run simulate:jobs -- --seed
+20261114 --out out/sim-jobs` runs 38 simulated people through the real marketplace (post, sealed bids, award,
+contact window, fees): 15 checks, a same-seed hash and 9 mutations at real seams; about 8 minutes.
 
 Environment (all in `.env`, see `.env.example`): `PORT`, `HOST`, `DATA_DIR` (embedded DB folder),
 `DATABASE_URL`, `AUTH_MODE`, `DEMO_MODE`, `SOURCES`, `ACCESS_CODE`, `ADMIN_TOKEN`, `SCAN_DAILY_AT` and
@@ -161,7 +168,20 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
 | `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature |
 | `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`) |
-| `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it) |
+| `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it); `tick` also settles local jobs and sends the "2 days left to make contact" reminders |
+| `GET /api/jobs/rules` | local jobs (accounts mode; 404 in single mode): fee rates, contact days, limits, `paymentsOn: false`. No sign-in needed |
+| `POST /api/jobs {title, description, trades, zip, address?, phone?, budgetMaxCents?, closesInDays}` | post a job → 201 `{job}`; scored at once for nearby workers ('match' alerts) |
+| `GET /api/jobs/mine`, `GET /api/jobs/:id` | `{posted, bidding}` · `{job, messages}`, shaped for the viewer (hidden fields are `null`/`[]`) |
+| `POST`/`DELETE /api/jobs/:id/bid {amountCents, note?, agree: true}` | place/replace or withdraw a sealed bid while open |
+| `POST /api/jobs/:id/{cancel,repost,messages,contacted,confirm,back-out,complete,report}` | poster/winner actions; repost once per job (409 after) |
+| `GET /api/admin/jobs/reports`, `POST /api/admin/jobs/:id/remove`, `POST /api/admin/jobs/fees/:feeId/waive` | operator (`x-admin-token`) |
+| `GET`/`PUT /api/work-profile`, `GET /api/people/:id` | work profile + its card · someone's card, only once you share a job (404 otherwise) |
+
+Jobs errors: 400 `{error:'invalid_input', fields:[{path,message}]}`, 403 `not_allowed`, 404 `not_found`, 409
+`closed`, 429 `too_many_attempts`. Settlement is lazy and idempotent: every jobs route, `GET /api/alerts` and
+the realtime tick run `settleDue`. Settings: `JOB_NO_SHOW_FEE_PCT` (default 5, 0–10), `JOB_POSTER_SHARE_PCT`
+(2, at most the no-show fee), `JOB_SERVICE_FEE_PCT` (1, 0–3), `JOB_CONTACT_DAYS` (7, 1–30), `JOB_MAX_CENTS`
+(25000000); a bad value stops the boot with a plain sentence.
 
 Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
 mode), the app asks for it once and sends it as `x-access-code`.

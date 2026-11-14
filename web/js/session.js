@@ -44,6 +44,8 @@ export async function loadAuthConfig() {
  */
 let hireLanding = 'swipe';
 export function setHireLanding(view) { hireLanding = view; }
+/** The first screen for this account: the deck, or the hire landing for someone here only to post jobs. */
+export const homeView = () => (intent() === 'hire' ? hireLanding : 'swipe');
 
 /** After boot, sign-in or onboarding: onboarding if there is no profile yet, else the feed. */
 export async function enterApp(me) {
@@ -51,7 +53,7 @@ export async function enterApp(me) {
   if (state.auth === 'accounts') await loadAuthConfig();
   if (state.me.needsOnboarding) return setView('onboarding');
   await loadFeed();
-  setView(intent() === 'hire' ? hireLanding : 'swipe');
+  setView(homeView());
   for (const fn of enterHooks) fn();
 }
 

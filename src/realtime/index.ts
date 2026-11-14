@@ -5,7 +5,10 @@
  *   once (alerts table, unique per profile + kind + dedupe key) → announced as 'alert' on the bus,
  *   which the /api/stream connections listen to → pushed to the profile's devices.
  *
- *   Every 15 minutes: deadline reminders for saved bids, then every push that is still waiting.
+ *   'job' (src/jobs) → decideJob → the same store / stream / push path, to the profile of the account it is about.
+ *
+ *   Every 15 minutes: deadline reminders for saved bids, the job marketplace's settlement and contact reminders,
+ *   then every push that is still waiting.
  *
  * Storing and streaming happen inside the bus listener (the scan awaits it). Pushes never do: they
  * are scheduled, coalesced per profile (several alerts in a burst = one notification) and sent in
@@ -19,11 +22,15 @@ import {
   releasePushClaim, savedBidsDueWithin, seriesLabel, subscriptionsForProfile, type AlertTarget,
 } from '../db/alerts.js';
 import { getBid } from '../db/repo.js';
+import { env as processEnv } from '../env.js';
+import { loadJobRules } from '../jobs/config.js';
+import { profileIdOf } from '../jobs/repo.js';
+import { remindContact, settleDue, type JobsDeps } from '../jobs/service.js';
 import { PPI_SERIES } from '../market/bls.js';
 import { watchedSeries } from '../market/watch.js';
 import { effectivePlan } from '../plans.js';
 import {
-  DEADLINE_LOOKAHEAD_HOURS, decideAward, decideDeadline, decideMatch, decidePrice, pushDecision, type AlertDecision,
+  DEADLINE_LOOKAHEAD_HOURS, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, pushDecision, type AlertDecision,
 } from './alerts.js';
 import type { BusEventOf } from './bus.js';
 import { createWebPushSender, pushMessage, toPushResult, usableVapid, type PushResult, type PushSender } from './push.js';
@@ -167,7 +174,29 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
     }
   }
 
+  /** A local job event is about one account: its profile's inbox (an account with no profile yet has no inbox). */
+  async function onJob(e: BusEventOf<'job'>): Promise<void> {
+    const profileId = await profileIdOf(db, e.accountId);
+    const target = profileId ? await getAlertTarget(db, profileId) : null;
+    const decision = target && decideJob(e, target.profile, planOf(target), ctx.now());
+    if (decision && profileId) await store(profileId, decision);
+  }
+
   // ------------------------------------------------------------- tick --
+
+  /**
+   * The job marketplace has no timers of its own (settlement is lazy): each tick settles what is due, so award
+   * and no-show alerts go out even when nobody opens a job, and sends the "2 days left to make contact" reminders.
+   * Accounts mode only: single mode (the pilot) has no marketplace. The settings were checked at start-up.
+   */
+  let jobsDeps: JobsDeps | null = null;
+  async function tickJobs(): Promise<void> {
+    if (config.authMode !== 'accounts') return;
+    jobsDeps ??= { db, bus, rules: loadJobRules(processEnv), appUrl: config.appUrl, log: ctx.log };
+    const now = ctx.now().getTime();
+    await settleDue(jobsDeps, now);
+    await remindContact(jobsDeps, now);
+  }
 
   /** One alert per saved bid per stage; the unique key makes every later tick a no-op. */
   async function remindDeadlines(): Promise<void> {
@@ -185,6 +214,7 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
   async function runTick(): Promise<void> {
     if (stopped) return;
     await remindDeadlines();
+    await tickJobs().catch(failed('jobs'));
     if (!sender) return;
     const since = new Date(ctx.now().getTime() - PUSH_MAX_AGE_MS);
     for (const profileId of await profilesWithWaitingPush(db, since)) await deliver(profileId).catch(failed('push'));
@@ -203,6 +233,7 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
     bus.on('match', (e) => inOrder(() => onMatch(e))),
     bus.on('award', (e) => inOrder(() => onAward(e))),
     bus.on('price', (e) => inOrder(() => onPrice(e))),
+    bus.on('job', (e) => inOrder(() => onJob(e))),
   ];
   const firstTick = tickMs > 0 ? setTimeout(() => void tick(), Math.min(tickMs, FIRST_TICK_MS)) : undefined;
   const everyTick = tickMs > 0 ? setInterval(() => void tick(), tickMs) : undefined;

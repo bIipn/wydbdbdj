@@ -19,6 +19,56 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the 111 real captured bids, all checks pass, same seed same hash, 10 of 10 mutations caught (+1 checker self-test) |
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
+| Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
+
+**Job marketplace, 2026-11-14** (commit "Job marketplace: post a job, sealed bids…"). What was built:
+- `src/jobs/` (rules, config, repo, service, view, stats), `src/db/schema-jobs.ts` (jobs, job_bids, job_messages,
+  job_fees, job_reports), `src/routes/jobs.ts`; work profiles in `src/profile/work.ts`, `person.ts`,
+  `src/db/work.ts`, `src/routes/work.ts`; four new alert kinds (job_awarded, job_message, job_deadline,
+  job_closed); screens `web/js/views/jobs.js`, `job-post.js`, `job.js`, onboarding's "What brings you here?",
+  the Settings work-profile section; `web/terms.html`; the marketplace rows in `web/privacy.html`.
+- Research: `docs/MARKETPLACE.md` (licence rules NV/CA, bid-security yardsticks, fees, money transmission,
+  app stores; every outside fact tagged [search], none read directly) and `docs/APIS.md` (every outside
+  service, its price, what turns each feature on).
+- Fees: no-show 5% of the winning bid (2% of the bid to the poster), service 1% when agreed. Settings
+  `JOB_*` (see `.env.example`); limits enforced at boot. **Payments are off**: rows are 'recorded' only.
+- Settlement is lazy and idempotent: every jobs route, `GET /api/alerts` and the realtime tick
+  (`GET /api/cron/tick`) run `settleDue`. Jobs routes flush pushes before answering (Vercel freezes after).
+- Fixes after review: the bid note's copy (only the bidder sees it); the onboarding's default business name no
+  longer names a bidder on cards ("Bidder N" in the tab); fee box wording; losers see only the result; the
+  checklist counts "We've agreed" as an answer; a viewer who never bid cannot open the poster's card; Pacific
+  times on messages; the privacy line follows the job's state; Nevada licence line limited to repair or
+  maintenance under $1,000, California line adds "part of a bigger job"; terms define "making contact" and give
+  the fee ranges; privacy policy covers the marketplace; one live repost per job (unique index); the pilot's
+  config profile and "Get work done" profiles are never scored for local jobs; Google Play fees updated.
+
+Checks (2026-11-14): see the commit's run — typecheck, the full test suite and build pass;
+`npm run simulate -- --seed 20261113` (hash unchanged), `npm run simulate:cost -- --companies 2000 --seed 4242`
+(sha256 70de5331…3830, unchanged) and `npm run simulate:jobs -- --seed 20261114` (15 checks, same-seed hash,
+9 of 9 mutations caught) all pass. Browser (Playwright 390×844 and 1280×800, built server, accounts mode,
+`SOURCES=fixtures` after a fixtures scan): a "Get work done" account signed up and posted; an electrician bid
+$420 sealed; a second bid $380; the closing time was moved a minute into the past in the local embedded
+database while the server was stopped (the server's own lazy settlement did the rest): award, bid tab, the
+loser's result, messages, both agreed, job done, service fee "recorded, not collected".
+
+Known gaps (marketplace):
+- No payments: no collection, no payout of the poster's share, no statement screen. Decision open for Ev: pay
+  the poster's 2% as cash through Stripe Connect (posters must pass identity checks) or as BidSwipe credit
+  (recommended in docs/APIS.md and docs/MARKETPLACE.md).
+- Legal: the NV/CA licence lines and the after-the-fact no-show fee rest on search snippets, not pages read in
+  full; one paid hour before real money moves (docs/MARKETPLACE.md §8). Terms and privacy still have Ev's
+  placeholders (contact email, providers) to fill in before publishing.
+- No account deletion yet; when built it must delete the account's `local:<id>` feed rows and decide what
+  happens to fee rows.
+- A newly posted job is scored by looping over every profile in the request; batch it before thousands of
+  users. `GET /api/jobs/mine` loads every job one at a time (median ~33 ms in the simulation).
+- On a multi-connection Postgres a bid sent in the exact millisecond of closing could, in theory, be swept to
+  'lost' (very unlikely; the embedded database cannot hit it).
+- The 'match' alert of a 3-day job says "2 days left" (whole-day rounding). A "Get work done" account still
+  sees the Swipe/Browse/Saved/Market tabs (empty work feed); the alerts inbox copy talks only about bids.
+- terms.html states today's fee figures as "today"; edit it by hand if the JOB_* settings change.
+- No harness for web JS: the screens were checked in Playwright only; a job notification tap on a real phone
+  was not tried.
 
 **Final check, 2026-11-13** (commit "v1: reconciled core…"): typecheck, 1025 tests and build pass. The
 built server (`node dist/server.js`, `SOURCES=fixtures`) was driven in Chromium at 390×844: sign-up,

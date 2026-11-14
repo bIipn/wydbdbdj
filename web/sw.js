@@ -13,7 +13,7 @@
 //
 // The push payload is what src/realtime/push.ts pushMessage() sends: { title, body, tag, kind, url, bidId, alertIds }.
 
-const SHELL_VERSION = '2026-11-13.1';
+const SHELL_VERSION = '2026-11-14.1';
 const CACHE = `bidswipe-shell-${SHELL_VERSION}`;
 const SHELL = ['./', 'index.html', 'styles.css', 'desktop.css', 'icon.svg', 'manifest.webmanifest', 'icons/icon-192.png'];
 
@@ -104,21 +104,35 @@ self.addEventListener('push', (event) => {
     // PNG: Windows and Android do not draw SVG notification icons.
     icon: 'icons/icon-192.png',
     badge: 'icons/badge-96.png',
-    data: { bidId: typeof p.bidId === 'string' ? p.bidId : null },
+    // jobId only on a local job's alert, so a bid's notification data stays { bidId } as before.
+    data: jobIdFrom(p) ? { bidId: null, jobId: jobIdFrom(p) } : { bidId: typeof p.bidId === 'string' ? p.bidId : null },
   }));
 });
 
-// Open the app on the bid. The address is always this app's own (never a URL from the payload).
+/**
+ * A local job alert's payload carries url …/?job=<id>. Only the id is taken from it (checked to be a plain id);
+ * the address that opens is always built here, never the payload's.
+ */
+function jobIdFrom(p) {
+  if (typeof p.kind !== 'string' || !p.kind.startsWith('job_') || typeof p.url !== 'string') return null;
+  try {
+    const id = new URL(p.url).searchParams.get('job');
+    return id && /^[A-Za-z0-9-]{1,64}$/.test(id) ? id : null;
+  } catch { return null; }
+}
+
+// Open the app on the bid or the local job. The address is always this app's own (never a URL from the payload).
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   const bidId = event.notification.data?.bidId ?? null;
-  const target = new URL(bidId ? `./?bid=${encodeURIComponent(bidId)}` : './', self.registration.scope).href;
+  const jobId = event.notification.data?.jobId ?? null;
+  const target = new URL(jobId ? `./?job=${encodeURIComponent(jobId)}` : bidId ? `./?bid=${encodeURIComponent(bidId)}` : './', self.registration.scope).href;
   event.waitUntil((async () => {
     const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const app = open.find((c) => c.url.startsWith(self.registration.scope));
     if (app) {
       await app.focus();
-      app.postMessage({ type: 'open-bid', bidId });
+      app.postMessage(jobId ? { type: 'open-job', jobId } : { type: 'open-bid', bidId });
       return;
     }
     await self.clients.openWindow(target);

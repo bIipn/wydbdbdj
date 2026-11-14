@@ -2,14 +2,21 @@
 
 Public bids that fit your trade, one swipe at a time. A scanner pulls open public bids every morning,
 scores them per contractor, emails the good ones, and serves a phone-first swipe app ("Tinder deck +
-Indeed list"). Contractors bid on the agency's own site via the card's link — we never take bids.
+Indeed list"). Two kinds of work live in one app:
+- **Public bids** (government boards): contractors bid on the agency's own site via the card's link —
+  BidSwipe never takes those bids.
+- **Local jobs** (the marketplace, accounts mode): a person or business posts a job on BidSwipe and others
+  place a SEALED bid on it IN the app; the lowest bid wins at closing; the winner has 7 days to make contact.
+  Three kinds of user: find work · get work done (post only) · both. Rules: `docs/MARKETPLACE.md` (research +
+  licence notices), the jobs contract summarised under Rules below.
 
 - **Pilot customer:** L&M Electric, a small electrical contractor in Gardnerville/Minden, NV. They want
   $10K–$50K jobs within ~90 mi, and the owner must see *why* a bid fits before trusting it.
 - **Goal after the pilot:** App Store + Google Play, thousands of mostly-free users, paid tier later.
 - **Product spec:** `docs/PRODUCT.md` — the full vision: contracts feed, price action, spend limit, phone
   alerts, the Pro "bot", Free vs Pro, codes/demo mode (and the App Store rules around codes).
-- **Read next:** `README.md` (setup/deploy/API) and `docs/HANDOFF.md` (research notes, decisions, roadmap).
+- **Read next:** `README.md` (setup/deploy/API) and `docs/HANDOFF.md` (research notes, decisions, roadmap);
+  `docs/APIS.md` (every outside service, what it costs, what turns each feature on).
 
 ## Stack
 Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "module"`, imports end in `.js`)
@@ -20,8 +27,9 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,530 tests in 61 files as of 2026-11-13, ~50s; simulate.test.ts alone ~25s;
-                           # 1 is skipped unless TEST_DATABASE_URL names a throwaway Postgres: test/pg-startup.test.ts)
+npm test                   # vitest (~1,620 tests in 68 files as of 2026-11-14, ~75s; simulate.test.ts ~25s,
+                           # simulate-jobs.test.ts ~23s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
+                           # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
@@ -32,6 +40,9 @@ npm run demo:snapshot      # rebuild web/demo-data.json + out/bidswipe-demo.html
 npm run simulate -- --seed 20261113 --out out/sim   # 16 SIMULATED companies through the real server on the
                            # real captured bids (SAM.gov included): checks, same-seed hash, mutations; exit 1 on any miss
 npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run: invariants, limits, sha256
+npm run simulate:jobs -- --seed 20261114 --out out/sim-jobs  # 38 SIMULATED people through the real marketplace
+                           # (post, sealed bids, award, contact window, fees): 15 checks, same-seed hash, 9 mutations
+                           # at real seams; ~8 min for its 11 runs; exit 1 on any miss
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
 `POST /api/admin/scan` on the running server. Modes (env): `AUTH_MODE=single` (default, the pilot: one
@@ -41,7 +52,9 @@ config profile, optional `ACCESS_CODE`) · `AUTH_MODE=accounts` (sign-up, onboar
 (Pacific "HH:MM": the daily scan and the daily market refresh + price/award watch; blank = off)
 · `SAM_SOURCE=bulk|api` (default bulk: SAM.gov's public daily file, no key) · `PROMO_CODES` (`CODE:pro[:uses][:ISO]`,
 real codes only on the host) · `REALTIME_MODE=stream|poll` (poll is the default when `VERCEL` is set) +
-`REALTIME_POLL_MS` · `CRON_SECRET` (serverless cron routes).
+`REALTIME_POLL_MS` · `CRON_SECRET` (serverless cron routes) · `JOB_NO_SHOW_FEE_PCT` (5, 0–10) ·
+`JOB_POSTER_SHARE_PCT` (2, ≤ no-show fee) · `JOB_SERVICE_FEE_PCT` (1, 0–3) · `JOB_CONTACT_DAYS` (7, 1–30) ·
+`JOB_MAX_CENTS` (25000000): a value out of its limits stops the boot with a sentence.
 
 ## Map
 ```
@@ -72,13 +85,22 @@ src/market/        USAspending awards, BLS wages + material indexes, NV prevaili
                    watch.ts (pure price/award watch rules) + watcher.ts (runs the refresh, publishes 'price'/'award')
 src/cost/          the cost engine (21 modules, integer cents, BigInt where it multiplies): estimate.ts is the
                    API (EstimateRequest → EstimateResult, "needed" instead of guesses); test/cost-oracle re-derives it
-src/sim/           the multi-company simulation (personas, takeoffs, checks, report) behind `npm run simulate`
+src/sim/           the multi-company simulation (personas, takeoffs, checks, report) behind `npm run simulate`;
+                   src/sim/jobs/ the marketplace simulation behind `npm run simulate:jobs` (plan, expect, checks, mutations)
+src/jobs/          the marketplace: rules.ts (pure: winner, fee lines in ppm/BigInt, the state machine settle()),
+                   config.ts (JOB_* settings), repo.ts (ALL its SQL: every state-dependent write is ONE conditional
+                   statement), service.ts (post/bid/award/contact/confirm/back-out, settleDue, mirrorBid),
+                   view.ts (what ONE viewer may see: hidden fields are null/[], never missing), stats.ts
+src/profile/work.ts + person.ts + src/db/work.ts  work profiles (headline, experience, licence as typed, résumé
+                   link) and the PersonCard (never email/phone/address); src/routes/work.ts, src/routes/jobs.ts
 src/notify/        digest email (Resend) or data/digest-latest.html when no key
 web/               index.html, styles.css, desktop.css (≥900px only), sw.js (registered on every load; bump
                    SHELL_VERSION when the shell list changes), manifest.webmanifest, icons/ (from icon.svg via
                    scripts/make-icons.cjs), privacy.html, js/*.js (ES modules, no build). main.js imports every view;
                    promo.js + promo-link.js: the code box and ?promo= links;
-                   views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate) register themselves;
+                   views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate, jobs, job-post, job)
+                   register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
+                   work-profile.js; terms.html + privacy.html;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
 serverless-files.cjs every folder the Vercel function ships (web/ and EACH sub-folder, config/): add a line for
@@ -90,7 +112,8 @@ test/fixtures/     REAL responses, raw as the scanner receives them: HTML captur
 test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
                    · http.test.ts (cookie session) · pipeline / score / server / util · cost/ + cost-oracle/
                    · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
-                   · simulate.test.ts · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
+                   · simulate.test.ts · jobs-api / jobs-rules / jobs-score / jobs-reach / jobs-pg /
+                   simulate-jobs / work-profile · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
 ```
 
 ## Rules
@@ -121,6 +144,17 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - **Never fabricate bids, awards, wages or prices.** Demo data comes from captured real pages. The SAM.gov
   fixtures are real (trimmed): `npm run simulate` uses them, fixture mode and the demo do not yet. Anything
   synthetic says so (TEST- ids, example.com, "SIM … (simulated)"); simulated persona figures are labelled.
+- **Local jobs (marketplace):** accounts mode only (single mode answers 404 on every jobs route). Bids are
+  sealed while open (only the bidder sees an amount; the poster sees a count). At closing the lowest wins (tie:
+  placed first). After closing the poster and the bidders see the ranked tab; only the poster sees who. The
+  poster's street address and phone go only to the winner while the job is awarded/agreed/done. Messages only
+  between poster and winner after the award. "Made contact" = the winner's first in-app message or the poster's
+  "They contacted me" tap (a phone call alone does not count). Fees: no-show 5% of the winning bid (2% of the
+  bid to the poster, the rest BidSwipe's) when the winner never made contact or backs out; service fee 1% when
+  both confirm; no fee on poster no-show, no agreement, no bids or a cancel. Integer cents, ppm, BigInt, one
+  half-up rounding. **PAYMENTS ARE OFF:** every fee row is 'recorded'; never say or imply a card was charged,
+  and write no code that talks to a payment company. Licence notices (job-words.js) come from
+  docs/MARKETPLACE.md §9; keep them sourced. An open job is mirrored into `bids` as `local:<jobId>`.
 - **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
   are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
   the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
@@ -182,6 +216,18 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - `openDb` takes a Postgres advisory lock before the schema: without it 11 of 12 simultaneous cold starts
   failed on an empty database (`TEST_DATABASE_URL=… npx vitest run test/pg-startup.test.ts` shows it).
 - Supabase: the app's tables live in schema `bidswipe_app` (the login's own), never `public`.
+- Jobs settle LAZILY (no timers on the host): every jobs route, `GET /api/alerts` and the realtime tick
+  (`GET /api/cron/tick`) run `settleDue`, which is idempotent; award time = the closing time, contact deadline =
+  closing + JOB_CONTACT_DAYS however late it runs. Every jobs route flushes `ctx.realtime` before answering
+  (onSend hook) so pushes leave before a serverless function freezes.
+- A scan never stores, overwrites or removes a `local` row. Local jobs are scored only for profiles an
+  account owns that do work (`seesLocalJobs` in src/scan.ts): never the pilot's config profile, never a
+  "Get work done" profile (no trades), never the poster's own.
+- One live repost per job (`jobs_one_repost_idx`): a second "Post again" answers 409.
+- The onboarding's default business name ("My electrical shop") is shared by everyone who skips the step:
+  `cardName()` uses the account name instead, and the bid tab shows "Bidder N".
+- There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the
+  account's jobs (they are not cascaded) and decide what happens to its fee rows (job_fees.payer_id cascades).
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

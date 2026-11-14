@@ -153,7 +153,11 @@ export interface AlertSettings {
   push?: boolean; // wants phone push
   quietHours?: { start: string; end: string } | null; // "21:00".."06:00" in timeZone
   timeZone?: string; // IANA, default America/Los_Angeles
-  kinds?: { match?: boolean; deadline?: boolean; award?: boolean; price?: boolean };
+  kinds?: {
+    match?: boolean; deadline?: boolean; award?: boolean; price?: boolean;
+    /** The job marketplace (src/jobs): you won / the bids are in, a message, contact reminder, the job ended. */
+    job_awarded?: boolean; job_message?: boolean; job_deadline?: boolean; job_closed?: boolean;
+  };
 }
 
 export type ReasonKind = 'plus' | 'minus' | 'info';
@@ -208,7 +212,10 @@ export interface Account {
 
 // ----------------------------------------------------------------- alerts --
 
-export type AlertKind = 'match' | 'deadline' | 'award' | 'price';
+export type AlertKind = 'match' | 'deadline' | 'award' | 'price' | JobAlertKind;
+
+/** The job marketplace's alerts (src/jobs). Same inbox, same push, same per-kind switch in Settings. */
+export type JobAlertKind = 'job_awarded' | 'job_message' | 'job_deadline' | 'job_closed';
 
 /** One row of the in-app inbox (table `alerts`). Unique on (profileId, kind, dedupeKey). */
 export interface Alert {

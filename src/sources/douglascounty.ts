@@ -130,6 +130,8 @@ export const douglasCountySource: Source = {
   id: 'douglascounty',
   name: 'Douglas County, NV',
   homepage: DOUGLAS_URL,
+  states: ['NV'],
+  timeZone: 'America/Los_Angeles',
   async fetch(ctx) {
     const page = parseDouglasPage(await ctx.http.text(DOUGLAS_URL), { now: ctx.now });
     // A page we can't read must show up as FAILED in the scan report, never as "0 bids". The table always

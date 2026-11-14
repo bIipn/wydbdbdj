@@ -471,6 +471,14 @@ export function mergeTrades(ids: readonly string[]): TradeMix {
   };
 }
 
+/**
+ * Every trade's strong and related words, once each, in catalog order. src/sources/relevance.ts reads them to
+ * tell trade work from software and supplies on boards that list everything (a catalog edit reaches it too).
+ */
+export function allTradeWords(): string[] {
+  return unique(SPECS.flatMap((s) => [...s.strong, ...s.related]));
+}
+
 /** Electrical first: it is the trade the product was built and tuned on. */
 export const TRADES: Trade[] = SPECS.map((s) => ({
   id: s.id,

@@ -8,6 +8,11 @@ import { createMarketWatcher, type MarketWatcher } from './market/watcher.js';
 import { effectivePlan } from './plans.js';
 import type { Bus } from './realtime/bus.js';
 import type { ScanReport } from './scan.js';
+
+/** What a scan request may ask for. No group = the default group (src/sources/groups.ts). */
+export interface ScanRequest {
+  group?: string;
+}
 import { nextDailyRun } from './scheduler.js';
 import type { Account, Plan, Profile } from './types.js';
 
@@ -89,8 +94,8 @@ export interface RouteContext {
   bus: Bus;
   auth: AuthService;
   log: (msg: string) => void;
-  /** Runs a scan now (admin route + daily schedule). Absent when the server was built without one. */
-  scan?: () => Promise<ScanReport>;
+  /** Runs a scan of one group now (admin route, cron route, daily schedule). Absent when the server was built without one. */
+  scan?: (req?: ScanRequest) => Promise<ScanReport>;
   /** The market refresh with its price and award watch (admin route, daily schedule, GET /api/market/watch). */
   market: MarketWatcher;
   /**
@@ -119,7 +124,7 @@ export interface ContextParts {
   profile?: Profile | null;
   now?: () => Date;
   log?: (msg: string) => void;
-  scan?: () => Promise<ScanReport>;
+  scan?: (req?: ScanRequest) => Promise<ScanReport>;
   /** Market refresh clients (tests replay captured pages). Default: polite real clients, built on first use. */
   marketHttp?: MarketHttp;
   /** Stand-in for refreshMarket (tests). */

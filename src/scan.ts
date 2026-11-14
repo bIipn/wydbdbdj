@@ -7,12 +7,15 @@ import { isCandidate } from './score/candidates.js';
 import { scoreBid } from './score/score.js';
 import { inheritFromStored, mergeDrafts, placeIsBlank } from './sources/dedupe.js';
 import { FLAGS } from './sources/flags.js';
+import { DEFAULT_GROUP } from './sources/scan-groups.js';
 import type { Bid, BidDraft, Profile, ScoreResult, Source, SourceContext, SourceId, Tier, Verdict } from './types.js';
 
 export interface SourceReport {
   ok: boolean;
   skipped?: string;
   error?: string;
+  /** Set when the source stopped early and kept what it had, e.g. "commbuys: stopped at the time budget, 300 of 890 read". */
+  stopped?: string;
   fetched: number;
   ms: number;
 }
@@ -32,6 +35,8 @@ export interface ProfileReport {
 }
 
 export interface ScanReport {
+  /** The scan group this run read (src/sources/groups.ts); absent for a run of every source (local `npm run scan`). */
+  group?: string;
   startedAt: string;
   finishedAt: string;
   sources: Partial<Record<SourceId, SourceReport>>;
@@ -181,20 +186,37 @@ export interface ScanDeps {
   candidate?: CandidateTest;
   /** Default mayAnnounce. A seam for `npm run simulate`'s "sub-alerts" mutation only. */
   announce?: AnnounceRule;
+  /** The scan group being read, copied into the report (src/sources/groups.ts). */
+  group?: string;
+  /**
+   * How long all the sources together may fetch (a group on the serverless host: groups.ts FETCH_BUDGET_MS).
+   * Each source gets ctx.deadline = its fair share of what is left: (time left) / (sources still to run), so time
+   * a quick source does not use goes to the ones after it. Absent = no deadline at all.
+   */
+  budgetMs?: number;
+}
+
+/** A source's deadline: an equal share of the time left, counted from now. */
+export function shareDeadline(runEndsAt: number, sourcesLeft: number, now = Date.now()): Date {
+  return new Date(now + Math.max(0, runEndsAt - now) / Math.max(1, sourcesLeft));
 }
 
 /**
  * One scan: pull every source (a broken source never stops the others), merge duplicates, store (in
  * batches), then score every open bid that is a candidate for each profile (src/score/candidates.ts).
  */
-export async function runScan({ db, sources, profiles, ctx, bus, candidate = isCandidate, announce = mayAnnounce }: ScanDeps): Promise<ScanReport> {
+export async function runScan({
+  db, sources, profiles, ctx, bus, candidate = isCandidate, announce = mayAnnounce, group, budgetMs,
+}: ScanDeps): Promise<ScanReport> {
   const started = new Date();
   const report: ScanReport = {
+    ...(group ? { group } : {}),
     startedAt: started.toISOString(), finishedAt: '', sources: {}, totalBids: 0, newBids: 0, profiles: {},
   };
+  const runEndsAt = budgetMs != null ? started.getTime() + budgetMs : null;
 
   const drafts: BidDraft[] = [];
-  for (const source of sources) {
+  for (const [i, source] of sources.entries()) {
     const t0 = Date.now();
     const skip = source.disabledReason?.(ctx) ?? null;
     if (skip) {
@@ -202,10 +224,16 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
       ctx.log(`- ${source.id}: skipped (${skip})`);
       continue;
     }
+    const note: { stopped?: string } = {};
+    const sctx: SourceContext = {
+      ...ctx,
+      ...(runEndsAt != null ? { deadline: shareDeadline(runEndsAt, sources.length - i, t0) } : {}),
+      partial: (why) => { note.stopped = note.stopped ? `${note.stopped}; ${why}` : why; }, // every note kept
+    };
     try {
-      const got = await source.fetch(ctx);
+      const got = await source.fetch(sctx);
       drafts.push(...got);
-      report.sources[source.id] = { ok: true, fetched: got.length, ms: Date.now() - t0 };
+      report.sources[source.id] = { ok: true, fetched: got.length, ms: Date.now() - t0, ...(note.stopped ? { stopped: note.stopped } : {}) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       report.sources[source.id] = { ok: false, error: msg, fetched: 0, ms: Date.now() - t0 };
@@ -235,8 +263,11 @@ export async function runScan({ db, sources, profiles, ctx, bus, candidate = isC
   // Every still-open stored bid is re-scored too, not only what the boards returned today: SAM.gov is asked
   // for the last 3 days and NevadaEPro shows its 25 newest, so a bid drops out of the fetch long before it
   // closes, and its "N days to bid" and score would freeze. Those are stored quietly (no 'match' events).
+  // Only one run a day does this: an ungrouped scan or the default group. The other groups (eight more a day on
+  // the host) score what they fetched, so a day's re-score of every open bid for every profile happens once.
   const fetched = new Set(bids.map((b) => b.id));
-  const stale = (await getOpenBids(db, ctx.now)).filter((b) => !fetched.has(b.id));
+  const rescoreStale = !group || group === DEFAULT_GROUP;
+  const stale = rescoreStale ? (await getOpenBids(db, ctx.now)).filter((b) => !fetched.has(b.id)) : [];
   const quiet = new Set(stale.map((b) => b.id));
   const toScore = [...bids, ...stale];
 

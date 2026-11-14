@@ -3,6 +3,7 @@ import { env } from './env.js';
 import { openDb, type Db } from './db/db.js';
 import { listProfiles } from './db/repo.js';
 import { loadProfile } from './profiles.js';
+import { scanSources } from './sources/groups.js';
 import { selectSources } from './sources/index.js';
 import { withCatalogLists } from './trades/catalog.js';
 import type { Profile, Source, SourceContext } from './types.js';
@@ -14,7 +15,10 @@ export interface AppDeps {
   config: AppConfig;
   /** The config profile (single mode). null in accounts mode, where profiles live in the database. */
   profile: Profile | null;
+  /** Every source this deployment reads (the SOURCES setting, else all), unsliced: a full scan. */
   sources: Source[];
+  /** One scan group's sources (src/sources/groups.ts), cut down to the SOURCES setting when it is set. Throws on an unknown group. */
+  sourcesFor: (group: string) => Source[];
   makeCtx: () => SourceContext;
 }
 
@@ -30,6 +34,7 @@ export async function buildDeps(config: AppConfig = loadConfig()): Promise<AppDe
     config,
     profile,
     sources: selectSources(env('SOURCES')),
+    sourcesFor: (group) => scanSources({ group, list: env('SOURCES') }),
     makeCtx: () => ({ http, now: new Date(), env, log: (m) => console.log(`[scan] ${m}`) }),
   };
 }

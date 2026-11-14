@@ -5,7 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { buildDeps, scanProfiles, type AppDeps } from './app.js';
 import { registerCsrfGuard } from './auth/guard.js';
 import { createAuth, type AuthService } from './auth/index.js';
-import { createContext, loadConfig, type AppConfig, type RouteContext } from './context.js';
+import { createContext, loadConfig, type AppConfig, type RouteContext, type ScanRequest } from './context.js';
 import type { Db } from './db/db.js';
 import { env, loadEnv } from './env.js';
 import { projectDir } from './paths.js';
@@ -28,6 +28,7 @@ import { register as workRoutes } from './routes/work.js';
 import { safeEqual } from './routes/shared.js';
 import { runScan, type ScanReport } from './scan.js';
 import { scheduleDaily } from './scheduler.js';
+import { DEFAULT_GROUP, FETCH_BUDGET_MS, getGroup, SCAN_GROUPS } from './sources/groups.js';
 import type { Profile } from './types.js';
 
 const WEB_DIR = projectDir('web');
@@ -36,8 +37,8 @@ export interface ServerOptions {
   /** Shortcuts for config.accessCode / config.adminToken; they win over `config`. */
   accessCode?: string;
   adminToken?: string;
-  /** Called by POST /api/admin/scan and the daily schedule. */
-  scan?: () => Promise<ScanReport>;
+  /** Called by POST /api/admin/scan, GET /api/cron/scan and the daily schedule. */
+  scan?: (req?: ScanRequest) => Promise<ScanReport>;
   logger?: boolean;
   /** Injectable clock (tests). */
   now?: () => Date;
@@ -136,16 +137,32 @@ export async function buildServer(deps: ServerDeps, opts: ServerOptions = {}): P
 
 // ---------------------------------------------------------------- main --
 
-/** One scan at a time (manual trigger, schedule, cron route), with the pilot's digest after it. */
-function createScanRunner(deps: AppDeps, config: AppConfig, bus: Bus): () => Promise<ScanReport> {
-  let running: Promise<ScanReport> | null = null;
-  return async () => {
-    // Never run two scans at once (manual trigger + schedule).
-    running ??= (async () => {
+/**
+ * Scans of one group at a time (manual trigger, schedule, cron route). A second request for a group that is
+ * already running gets that run's report; a request for another group waits for it (one scan at a time: the
+ * embedded database runs on this thread). The pilot's digest goes out after the default group, as before.
+ * An unknown group throws before anything runs (the routes check first and answer 400).
+ */
+export function createScanRunner(
+  deps: Pick<AppDeps, 'db' | 'profile' | 'sourcesFor' | 'makeCtx'>, config: Pick<AppConfig, 'appUrl'>, bus?: Bus,
+  scan: typeof runScan = runScan,
+): (req?: ScanRequest) => Promise<ScanReport> {
+  const running = new Map<string, Promise<ScanReport>>();
+  let queue: Promise<unknown> = Promise.resolve();
+  return async (req = {}) => {
+    const group = getGroup(req.group ?? DEFAULT_GROUP);
+    if (!group) throw new Error(`Unknown scan group "${req.group}"`);
+    const name = group.name;
+    const already = running.get(name);
+    if (already) return already;
+    const job = queue.then(async () => {
       try {
-        const report = await runScan({ db: deps.db, sources: deps.sources, profiles: scanProfiles(deps), ctx: deps.makeCtx(), bus });
+        const report = await scan({
+          db: deps.db, sources: deps.sourcesFor(name), profiles: scanProfiles(deps), ctx: deps.makeCtx(), bus,
+          group: name, budgetMs: FETCH_BUDGET_MS,
+        });
         // The emailed digest is the pilot's (single mode). In accounts mode alerts go out through the bus.
-        if (deps.profile) {
+        if (deps.profile && name === DEFAULT_GROUP) {
           await sendDigest(deps.db, deps.profile, {
             resendApiKey: env('RESEND_API_KEY'), from: env('DIGEST_FROM'),
             to: (env('DIGEST_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -154,11 +171,29 @@ function createScanRunner(deps: AppDeps, config: AppConfig, bus: Bus): () => Pro
         }
         return report;
       } finally {
-        running = null;
+        running.delete(name);
       }
-    })();
-    return running;
+    });
+    queue = job.catch(() => {});
+    running.set(name, job);
+    return job;
   };
+}
+
+/**
+ * The in-process daily schedule (SCAN_DAILY_AT, a server that stays up): every group, one after another, the
+ * default group LAST so the pilot's digest includes what the other groups found. A failed group is logged and
+ * the next one still runs.
+ */
+export async function scanEveryGroup(scan: (req?: ScanRequest) => Promise<ScanReport>, log = console.error): Promise<void> {
+  const order = [...SCAN_GROUPS.filter((g) => g.name !== DEFAULT_GROUP), ...SCAN_GROUPS.filter((g) => g.name === DEFAULT_GROUP)];
+  for (const g of order) {
+    try {
+      await scan({ group: g.name });
+    } catch (err) {
+      log(`[scan] group ${g.name} failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
 }
 
 /** Database, sources, bus, app and realtime wiring: everything except listening and timers. */
@@ -183,7 +218,7 @@ async function main() {
 
   const stopRealtime = startRealtime(ctx);
   const at = env('SCAN_DAILY_AT');
-  const stopSchedule = at ? scheduleDaily(at, async () => void (await scan())) : () => {};
+  const stopSchedule = at ? scheduleDaily(at, () => scanEveryGroup(scan)) : () => {};
   // The daily market refresh + price/award watch (MARKET_REFRESH_AT). Its own timer: a failed refresh
   // is logged and shows in GET /api/market/watch, and never touches the scan's schedule.
   const stopMarket = ctx.market.start();

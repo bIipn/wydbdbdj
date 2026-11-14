@@ -359,6 +359,7 @@ export const samgovSource: Source = {
   id: 'samgov',
   name: 'SAM.gov (federal)',
   homepage: 'https://sam.gov/search/?index=opp',
+  states: 'US',
   disabledReason: (ctx) =>
     samMode(ctx) === 'bulk' || ctx.env('SAM_API_KEY')
       ? null

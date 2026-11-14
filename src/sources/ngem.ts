@@ -217,6 +217,8 @@ export const ngemSource: Source = {
   id: 'ngem',
   name: 'NGEM (local agencies)',
   homepage: NGEM_URL,
+  states: ['NV'],
+  timeZone: 'America/Los_Angeles',
   async fetch(ctx) {
     // The grid pages by ASP.NET postback: a POST of the page's hidden fields, tied to the cookies
     // of the first GET. (The "…ChangePage=2_20" links a browser shows just return page 1 again.)

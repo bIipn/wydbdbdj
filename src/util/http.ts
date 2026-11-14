@@ -98,7 +98,9 @@ function cookieHeader(jar: CookieJar, url: string): string | null {
 export function createHttp(opts: HttpOptions): Http {
   const timeoutMs = opts.timeoutMs ?? 25_000;
   const retries = opts.retries ?? 2;
-  const gap = opts.perHostDelayMs ?? 900;
+  // 1,000 ms start to start: the Socrata hosts (data.lacity.org, data.sf.gov, data.cityofnewyork.us,
+  // opendata.usac.org) ask for "Crawl-delay: 1" in robots.txt, so every host gets at least that.
+  const gap = opts.perHostDelayMs ?? 1000;
   const lastHit = new Map<string, number>();
 
   async function pace(url: string) {
@@ -120,20 +122,41 @@ export function createHttp(opts: HttpOptions): Http {
       if (attempt > 0) await sleep(1000 * 3 ** (attempt - 1)); // 1s, 3s
       await pace(url);
       try {
-        const cookie = jar && cookieHeader(jar, url);
-        const res = await fetch(url, {
-          ...init,
-          headers: {
-            'User-Agent': opts.userAgent,
-            Accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
-            ...(cookie ? { Cookie: cookie } : {}),
-            ...(init.headers ?? {}),
-          },
-          signal: AbortSignal.timeout(timeoutMs),
-          redirect: 'follow',
-        });
-        // fetch follows redirects itself, so we only see the last answer: its cookies belong to that host.
-        if (jar) storeCookies(jar, originOf(res.url || url), res.headers.getSetCookie());
+        // The plain helper lets fetch follow redirects. A session follows them by hand (at most 5), so a cookie a
+        // redirect sets reaches the next hop: Cal eProcure's PeopleSoft answers with a 302 that sets its session
+        // cookie, and the page behind it without that cookie is the sign-in page.
+        const signal = AbortSignal.timeout(timeoutMs);
+        let at = url;
+        let hopInit = init;
+        let res: Response;
+        for (let hop = 0; ; hop++) {
+          const cookie = jar && cookieHeader(jar, at);
+          res = await fetch(at, {
+            ...hopInit,
+            headers: {
+              'User-Agent': opts.userAgent,
+              Accept: 'text/html,application/json;q=0.9,*/*;q=0.8',
+              ...(cookie ? { Cookie: cookie } : {}),
+              ...(hopInit.headers ?? {}),
+            },
+            signal,
+            redirect: jar ? 'manual' : 'follow',
+          });
+          // The plain helper only sees the last answer; a session sees every hop. Cookies go to the host that set them.
+          if (jar) storeCookies(jar, originOf(res.url || at), res.headers.getSetCookie());
+          const location = jar && REDIRECTS.has(res.status) ? res.headers.get('location') : null;
+          if (!location) break;
+          await res.body?.cancel();
+          if (hop >= MAX_REDIRECTS) throw new HttpError(res.status, url, `Too many redirects from ${redactUrl(url)}`);
+          // As fetch does: a 303, or a 301/302 after a POST, goes on as a GET without the body.
+          if (res.status === 303 || ((res.status === 301 || res.status === 302) && (hopInit.method ?? 'GET').toUpperCase() === 'POST')) {
+            const headers = new Headers(hopInit.headers);
+            headers.delete('content-type');
+            hopInit = { ...hopInit, method: 'GET', body: undefined, headers: Object.fromEntries(headers) };
+          }
+          at = new URL(location, at).toString();
+          await pace(at);
+        }
         if (res.status === 429 || res.status >= 500) {
           lastErr = new HttpError(res.status, url);
           continue;

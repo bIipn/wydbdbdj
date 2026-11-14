@@ -3,7 +3,7 @@
 import { api, demoSwipes } from './api.js';
 import { defaultFilters } from './filters.js';
 import { setView } from './shell.js';
-import { intent, state } from './state.js';
+import { forgetBrowse, intent, mergeItems, state } from './state.js';
 
 /** Take GET /api/me. Single mode answers the v0 fields only; accounts mode adds { account, profile, features }. */
 export function applyMe(me) {
@@ -20,11 +20,14 @@ export function onFeedLoaded(fn) { feedHooks.push(fn); }
 export function onEnteredApp(fn) { enterHooks.push(fn); }
 
 export async function loadFeed() {
-  const feed = await api.feed();
+  // Saved comes on its own: a bid saved from Browse page 4 is not in the feed's best 300, and Saved must still list it.
+  const [feed, saved] = await Promise.all([api.feed(), api.saved().catch(() => null)]);
   state.items = feed.items;
+  state.feedLen = feed.items.length; // the feed's own rows, before the saved ones join (shell.js: is the list cut?)
+  if (saved?.items) mergeItems(saved.items);
   state.counts = feed.counts ?? null; // an older server sends none: the screens then count the list itself
   state.lastScan = feed.lastScan;
-  state.browseIds = null; // Browse asks the API again with its filters
+  forgetBrowse(); // Browse asks the API again with its filters
   for (const fn of feedHooks) fn();
 }
 
@@ -73,8 +76,9 @@ export function signedOut() {
   state.browseCounts = null;
   state.lastScan = null;
   state.browse = defaultFilters();
-  state.browseIds = null;
+  forgetBrowse();
   state.browseError = null;
+  state.browseSources = null;
   state.next = null;
   state.unread = 0;
   state.alerts = null;

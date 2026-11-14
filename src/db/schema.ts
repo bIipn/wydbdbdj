@@ -111,6 +111,10 @@ alter table matches add column if not exists over_limit boolean not null default
 alter table bids add column if not exists psc text;
 -- 'fit' | 'sub' | 'other' (src/types.ts Tier). Null = scored before tiers: read as 'fit' at score >= 35, else 'other'.
 alter table matches add column if not exists tier text;
+-- Why this match is never announced (src/scan.ts): 'load' = stored by a source's first load or a quiet scan (no
+-- alert, no push, never in a digest); 'held' = held back by the per-scan alert cap (no alert; the digest may list it).
+-- Null = a normal match. Set once, never cleared by a later scan.
+alter table matches add column if not exists quiet text;
 
 create table if not exists push_subscriptions (
   endpoint     text primary key,

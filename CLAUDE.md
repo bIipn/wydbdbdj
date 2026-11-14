@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,050 tests in 83 files as of 2026-11-14, ~100s; simulate.test.ts ~25s,
+npm test                   # vitest (~2,290 tests in 90 files as of 2026-11-14, ~110s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -83,6 +83,14 @@ src/sources/samgov-bulk.ts SAM.gov's public daily CSV (~222 MB): streaming RFC 4
 src/geo/           gazetteer (places.ts) + nationwide ZIP table (zip.ts) + locate(): gazetteer town → ZIP →
                    nationwide ZIP / city+state → county → town in text → agency → region → state; a listed
                    address it can't place stays unplaced (no guess)
+src/geo/california.ts  the 58 counties + seats (CSAC list), the 12 Caltrans districts (dot.ca.gov district pages),
+                   campuses and facilities whose town is certain; areaCounties() reads an AREA off a stored card
+src/geo/caleprocure-place.ts  where a Cal eProcure event is: corroborated town → one county → several counties →
+                   the Caltrans district in a 2660 event id → the agency's own place → unplaced
+src/sources/statewide.ts  the ONE table of statewide/regional boards (caleprocure, oregonbuys, commbuys, bidbuy,
+                   njstart, flmfmp, txesbd, laramp, sfbids, nycrecord; never a Nevada board) and their reasons
+src/sources/relevance.ts  isTradeWork(): what a board row must be to be stored (purchases, rentals, design,
+                   advice and IT are not trade work); every non-Nevada source calls it
 src/score/score.ts fit score + plain-English reasons (the product's brain); paperwork answers
                    (profile.qualifications) → plus / check / minus lines, a "no" caps the score (capped)
 src/score/subwork.ts the Sub work tier: a building/facility prime whose trade is ordinarily subcontracted
@@ -149,6 +157,26 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   One scan a day is plenty.
 - **Times:** boards list Pacific wall-clock times with no offset — always go through `util/time.ts`
   (`parseUsDateTime`, `findDueInText`), never `new Date(string)` on board text. Store ISO UTC.
+- **Places and areas:** a distance is shown only when it is one: a point we placed the job at. One county with no
+  town, several counties and a Caltrans district are an AREA (precision 'region', NO point, the county field holds
+  the list "Humboldt, Shasta"). An area is in reach when its nearest county seat is within radius +
+  `AREA_REACH_EXTRA_MI` (25): a capped "maybe" whose reason names the area, never an alert; otherwise a no that says
+  what was measured (to the seat). An unplaced card of a statewide board (src/sources/statewide.ts) is a capped
+  maybe "could be anywhere in <state>" for a company based there, held at 34 (Browse only) for one based elsewhere,
+  even when the board printed a county it could not place. A SAM notice that names only the state is capped too
+  (Nevada keeps its old rule: the pilot's audit). No "? mi" anywhere: a card with no miles says so in words.
+- **Trade work only:** a purchase (goods, parts, a rental), design or consulting work, audits and IT are not trade
+  work: `src/sources/relevance.ts` drops them at the source. A row that names installing, repairing, replacing or
+  building something stays. Sub work never lands on a rental, a service or a trade-package call.
+- **Quiet first load:** a source's FIRST load (no stored bid of it, or of that slice's states, before the scan) and
+  any `quiet` scan (`?quiet=1`, `--quiet`) store and score but announce nothing, and those bids never enter a later
+  digest (`matches.quiet = 'load'`). Backstop: at most `MAX_MATCH_ALERTS_PER_SCAN` (10) new 'match' alerts per
+  profile per scan, best first; the rest are marked 'held' for good. A bid already alerted is not published again.
+- **Open rule:** a bid with no due date is open only while its board still lists it: `last_seen_at` within
+  `UNLISTED_GRACE_DAYS` (3). ONE SQL rule, `openBidSql()` in src/db/repo.ts, used by every "open" query.
+- **Paging:** `GET /api/feed` takes `limit` (1–300, default 100) and `offset` and answers `{ items, counts, total,
+  lastScan }`; `total` counts every filter, tier included; ties are broken by bid id so pages never overlap. Browse
+  pages through it ("Showing 100 of 787 · Show 100 more"); Saved loads `GET /api/saved` on its own.
 - **Tiers:** every score has a tier (fit ≥ 35 · sub · other). Sub work scores 36–50, is always "maybe" and capped,
   never alerts, never enters a digest or Next up, ignores spend limits (they are the prime's) and its first reason
   says "Sub work: …". A general-building profile gets none; `showSubWork: false` keeps it out of the deck.
@@ -273,6 +301,13 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   web/js/shell.js `hiddenFor()` hides Swipe/Browse/Saved/Market and `render()` sends those views to 'jobs'.
 - The onboarding's default business name ("My electrical shop") is shared by everyone who skips the step:
   `cardName()` uses the account name instead, and the bid tab shows "Bidder N".
+- An area card has no lat/lng: anything that sorts or filters by distance must treat it as "no distance" (Nearest
+  puts them last). Old rows placed at a CA county seat (precision 'county', no city) are scored as areas too.
+- County membership is by seat distance only (no county outlines): a company far from its own county's seat
+  (Needles is 161 mi from San Bernardino) is told "the nearest county seat named is 161 mi away", never "in range".
+- The stored data predates a rule change until the next scan re-reads the board: re-placing or re-filtering stored
+  rows by hand is a stand-in (the measuring scripts say so), never something the app does.
+- The first production scan with new boards must be a first load or run quietly (docs/HANDOFF.md, 2026-11-14).
 - There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the
   account's jobs (they are not cascaded) and decide what happens to its fee rows (job_fees.payer_id cascades).
 

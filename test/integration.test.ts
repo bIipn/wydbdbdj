@@ -28,6 +28,7 @@ import { ALL_SOURCES, selectSources } from '../src/sources/index.js';
 import { mergeTrades, tradeNoun, TRADES, withCatalogLists } from '../src/trades/catalog.js';
 import type { Alert, Bid, BidDraft, FeedItem, Profile, Source } from '../src/types.js';
 import { accountsConfig, CAPTURED, fakeAuth, memoryDb, NOW, realBids, resetDb, scanCtx, seedAccount, testBid, testProfile } from './helpers.js';
+import { markSourcesKnown } from './scan-helpers.js';
 
 /** The server's clock: the capture day, so every real bid in the fixtures is open. */
 const now = () => CAPTURED;
@@ -310,6 +311,8 @@ describe('accounts mode, end to end', () => {
 
   beforeAll(async () => {
     await resetDb(db);
+    // SAM.gov was read before (its first load would be quiet: test/scan-quiet.test.ts); here it brings the new bids.
+    await markSourcesKnown(db, ['samgov']);
     bus = createBus();
     for (const type of ['match', 'scan', 'alert'] as const) bus.on(type, (e) => void events.push(e.type));
     const config = accountsConfig({ demoMode: true, adminToken: 'TEST-admin', vapid: testVapid });
@@ -431,8 +434,9 @@ describe('accounts mode, end to end', () => {
     const report = await scan();
     await rt.flush();
     expect(report).toMatchObject({ totalBids: REAL, newBids: 0 });
-    expect(events.filter((e) => e === 'match')).toHaveLength(before.length); // re-announced on the bus…
-    expect(events.filter((e) => e === 'alert')).toEqual([]); // …and recognised as already told
+    // The bids already alerted are not published again (the scan reads which are), so no alert either.
+    expect(events.filter((e) => e === 'match')).toEqual([]);
+    expect(events.filter((e) => e === 'alert')).toEqual([]);
     expect(events.at(-1)).toBe('scan');
     expect((await inbox()).map((a) => a.id)).toEqual(before.map((a) => a.id));
     expect(pushes).toEqual([]);
@@ -559,7 +563,8 @@ describe('single mode is still the pilot', () => {
       id: 'lm-electric', name: 'L&M Electric', base: 'Gardnerville, NV', maxDistanceMi: 90, valueRange: { min: 10_000, max: 50_000 }, notifyMinScore: 55,
     });
     const feed = (await app.inject('/api/feed?all=1&minScore=0&limit=300')).json();
-    expect(Object.keys(feed).sort()).toEqual(['counts', 'items', 'lastScan']);
+    expect(Object.keys(feed).sort()).toEqual(['counts', 'items', 'lastScan', 'total']);
+    expect(feed.total).toBe(REAL);
     expect(feed.items).toHaveLength(REAL);
     expect((feed.items as FeedItem[]).every((b) => b.overLimit === false)).toBe(true); // the pilot has set no limits
     const best = (feed.items as FeedItem[])[0]!;

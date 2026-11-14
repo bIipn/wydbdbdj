@@ -348,3 +348,23 @@ El Dorado County's own site (Akamai "Access Denied" to the host), anything behin
 What every one of them must do (CLAUDE.md "Rules"): a pure parser tested on a raw saved response; `fetch()` throws
 on a page it does not expect; times through `util/time.ts` in the board's own zone; only trade work
 (`src/sources/relevance.ts isTradeWork`, with the board's category or codes), the rest counted in the log.
+
+## 8. Placement tables (where a state bid is, checked 2026-11-14)
+
+Cal eProcure lists only an event name, a department and an event id: no site. `src/geo/caleprocure-place.ts` places
+a card from those three, in this order: a town the title names with corroboration, one county, several counties,
+the Caltrans district in a department-2660 event id, the department's own place, else unplaced
+(`src/geo/california.ts` holds the tables). Nothing here is fetched at run time; every table is typed in the repo.
+
+| Table | Where it comes from | What it is used for |
+|---|---|---|
+| 58 counties and their seats (`CA_COUNTIES`) | the California State Association of Counties county list (counties.org), the same seats the Secretary of State lists. Ventura's official seat is San Buenaventura; the ZIP table calls it Ventura | an area's reach: in reach when its nearest county seat is within the travel radius + 25 mi. The seat is never shown as the job's distance |
+| 12 Caltrans districts and their counties (`CALTRANS_DISTRICTS`) | Caltrans' own district pages, dot.ca.gov/caltrans-near-me/district-1 … district-12. Kern is in District 6 (west) and District 9 (east); District 12 is Orange County alone | a 2660 event id that starts with 01–12 ("10-1H0204", "03A4243") is an area of that district. Checked against the 26 real rows of 2026-11-14 that name counties: 25 name only their district's counties; the nine TMS rows (56A0915–56A0923) list each district's counties exactly |
+| Campuses and agencies with one town (`CA_AGENCY_TOWNS`) | the campuses' own addresses (CSU Channel Islands is in Camarillo, Dominguez Hills in Carson, Northridge in Los Angeles; UC Davis Medical Center in Sacramento; 22nd DAA = Del Mar Fairgrounds) | a card of that department is placed in that town (precision 'agency') |
+| Facilities whose town is certain (`CA_FACILITIES`) | each facility's published address: CSP Solano (Vacaville), SATF and CSP Corcoran (Corcoran), Pelican Bay (Crescent City), SVSP (Soledad), DSH Napa / Atascadero, Porterville DC, CalPERS Lincoln Plaza (Sacramento), the CHP Academy (West Sacramento), named state parks, Ramona Air Attack Base, Camp San Luis Obispo, Camp Roberts | a title that names the facility is placed in its town; a facility certain only of its county is an area of that county |
+| Town points | the nationwide ZIP table (`src/geo/zip.ts`, the `zipcodes` package) | a corroborated town's point, and every seat's point |
+
+There are no county outlines: whether a company lies in a county is not known, only how far it is from the seat.
+A one-county area is therefore judged by the seat's distance, and the no says so ("San Bernardino County's seat is
+161 mi away — outside your 60 mi range (site not named …)").
+

@@ -154,6 +154,21 @@ a { color: inherit; }
 .fact small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* The detail sheet has room: show the whole fact there (the swipe card keeps one line each). */
 #sheet .fact strong, #sheet .fact small { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+/* A long place label ("Caltrans District 10: Amador, Calaveras …") takes a row of its own. On the swipe card it
+   wraps to two lines at most and the Type tile steps aside (the board is on the pill and the button), so the card
+   is no taller than with four tiles and the reasons keep their room. The detail sheet shows everything. */
+.fact.wide, .facts.has-wide .fact.type { grid-column: 1 / -1; }
+.card .facts.has-wide .fact.type { display: none; }
+.fact.wide strong { white-space: normal; line-height: 1.3; overflow-wrap: anywhere; }
+.card .fact.wide strong { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* The board's name under Type: two lines before it is cut, never a sideways scroll. */
+.fact small.board { white-space: normal; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+#sheet .fact small.board { display: block; }
+.pill { max-width: 100%; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pills { min-width: 0; }
+/* A link button that names a long board: the words wrap inside the button, the arrow stays. */
+.cta { text-align: center; overflow-wrap: anywhere; }
+.cta svg { flex: none; }
 .fact.urgent strong { color: #fb7185; }
 
 .reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; flex: 1; min-height: 0; overflow: hidden; }
@@ -221,6 +236,9 @@ a { color: inherit; }
 }
 .row h4 { margin: 1px 0 4px; font-size: 15px; line-height: 1.3; font-weight: 650; }
 .row p { margin: 0; color: var(--muted); font-size: 12.5px; line-height: 1.4; }
+/* Board titles like "CR25-319742.FMD.DataCenterEmergencyGenerator" have no spaces: break them, never scroll sideways. */
+.row > div { min-width: 0; }
+.row h4, .row p.meta, .card h2, #sheetTitle, .next-title { overflow-wrap: anywhere; }
 .row .due { color: var(--text); font-weight: 600; }
 .row .due.urgent { color: #fb7185; }
 .row .tag { display: inline-block; margin-top: 6px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--faint); }
@@ -582,6 +600,18 @@ a { color: inherit; }
 @keyframes shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
 .empty.compact { margin: 18px 0 0; padding: 24px 12px; }
 
+/* Browse at volume: the line under the tier filter, the "no distance" divider, and "Show more". */
+.tier-note { margin: -4px 2px 0; font-size: 12px; line-height: 1.4; color: var(--faint); }
+.list-divider {
+  margin: 6px 2px 0; padding-top: 12px; border-top: 1px dashed var(--line-2);
+  font-size: 12px; font-weight: 650; line-height: 1.4; color: var(--faint);
+}
+.list-divider:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+.more-bar { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 6px; text-align: center; }
+.more-count { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--faint); font-variant-numeric: tabular-nums; }
+.cta.more-btn { width: 100%; max-width: 320px; margin-top: 0; }
+.more-error { margin: 0; font-size: 12.5px; color: #fda4af; }
+
 /* --------------------------------------------------------- filter sheet */
 .filter-sheet { display: flex; flex-direction: column; gap: 18px; padding-bottom: 4px; }
 .fs-head { display: flex; align-items: center; justify-content: space-between; }
@@ -590,6 +620,9 @@ a { color: inherit; }
 .fs-group h3 { margin: 0; font-size: 13px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
 .fs-group .field-help { margin-top: -4px; }
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.filter-sheet .chip { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.chip-state { margin-left: 6px; font-size: 11px; font-weight: 700; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.more-boards { align-self: flex-start; font-size: 13px; }
 .fs-foot {
   position: sticky; bottom: calc(-1 * (env(safe-area-inset-bottom) + 18px)); display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
   padding: 14px 0 calc(env(safe-area-inset-bottom) + 18px); margin-bottom: calc(-1 * (env(safe-area-inset-bottom) + 18px));
@@ -1205,7 +1238,9 @@ button.pmini:active { background: var(--card-2); }
   display: flex; flex-direction: column; gap: 2px; padding: 12px 10px; border-radius: 16px; min-width: 0;
   background: var(--card); border: 1px solid var(--line);
 }
-.reach-tile b { font-size: 28px; font-weight: 850; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.reach-tile b { font-size: 28px; font-weight: 850; letter-spacing: -0.02em; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+/* "12,345" in a third of a 390 px phone: a step smaller so it stays on one line. */
+.reach-tiles.long .reach-tile b { font-size: 23px; }
 .reach-tile span { font-size: 12px; font-weight: 750; letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); }
 .reach-tile small { margin-top: 4px; font-size: 11.5px; line-height: 1.35; color: var(--faint); }
 .reach-tile.fit b { color: var(--great); }

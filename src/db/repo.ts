@@ -3,6 +3,24 @@ import type { Db } from './db.js';
 
 // --------------------------------------------------------------- bids --
 
+/**
+ * A bid with no due date (an E-Rate form that names none, the open lists in SF and NYC, some SAM notices) is open
+ * only while its board still lists it: seen by a scan within this many days. After that it counts as closed
+ * everywhere (feed, counts, re-score, digest, next pick), though the row stays (Saved keeps it).
+ */
+export const UNLISTED_GRACE_DAYS = 3;
+
+/**
+ * THE "is this bid open at <now>" rule, as one SQL fragment, used by every query that asks it. `now` is the SQL
+ * text of a timestamp parameter ("$3"), `b` the bids alias. Open = a deadline still ahead, or no deadline and seen
+ * by a scan within UNLISTED_GRACE_DAYS. A job posted on BidSwipe ('local', mirrored by src/jobs) always has a due
+ * date and is closed by the jobs module itself, so the last-seen half never applies to it.
+ */
+export function openBidSql(now: string, b = 'b'): string {
+  return `(${b}.due_at > ${now}::timestamptz or (${b}.due_at is null and (${b}.source = 'local'
+    or ${b}.last_seen_at > ${now}::timestamptz - interval '${UNLISTED_GRACE_DAYS} days')))`;
+}
+
 const BID_COLS = [
   'id', 'source', 'source_id', 'source_name', 'title', 'agency', 'description', 'category', 'city', 'county', 'state',
   'zip', 'lat', 'lng', 'loc_precision', 'loc_label', 'posted_at', 'due_at', 'est_min', 'est_max', 'naics', 'set_aside',
@@ -76,7 +94,14 @@ export async function upsertProfile(db: Db, p: Profile): Promise<void> {
   );
 }
 
-const MATCH_COLS = ['profile_id', 'bid_id', 'score', 'verdict', 'reasons', 'distance_mi', 'over_limit', 'tier'] as const;
+const MATCH_COLS = ['profile_id', 'bid_id', 'score', 'verdict', 'reasons', 'distance_mi', 'over_limit', 'tier', 'quiet'] as const;
+
+/**
+ * Why a match is never announced (matches.quiet): 'load' = stored by a source's first load or a quiet scan (never
+ * an alert, never in a digest); 'held' = held back by the per-scan alert cap (never an alert). Set once: a later
+ * write never clears it.
+ */
+export type MatchQuiet = 'load' | 'held';
 /** Casts on the first VALUES row's types: a VALUES list is typed before the insert sees it. */
 const MATCH_CASTS: Record<number, string> = { 2: '::integer', 4: '::jsonb', 5: '::double precision', 6: '::boolean' };
 
@@ -84,8 +109,13 @@ export async function upsertMatch(db: Db, profileId: string, bidId: string, s: S
   await upsertMatches(db, profileId, [{ bidId, score: s }]);
 }
 
-/** Store one profile's scores, MATCH_BATCH rows per statement. A bid id listed twice keeps its last score. */
-export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyArray<{ bidId: string; score: ScoreResult }>): Promise<void> {
+/**
+ * Store one profile's scores, MATCH_BATCH rows per statement. A bid id listed twice keeps its last score.
+ * `quiet` marks a row as never announced (MatchQuiet); a row already marked keeps its mark.
+ */
+export async function upsertMatches(
+  db: Db, profileId: string, scored: ReadonlyArray<{ bidId: string; score: ScoreResult; quiet?: MatchQuiet | null }>,
+): Promise<void> {
   const unique = [...new Map(scored.map((x) => [x.bidId, x])).values()];
   for (const batch of chunks(unique, MATCH_BATCH)) {
     await db.query(
@@ -93,8 +123,9 @@ export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyA
        select v.*, now() from (values ${valuesList(batch.length, MATCH_COLS.length, (c) => MATCH_CASTS[c] ?? '')}) as v (${MATCH_COLS.join(', ')})
        on conflict (profile_id, bid_id) do update set
          score = excluded.score, verdict = excluded.verdict, reasons = excluded.reasons,
-         distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, tier = excluded.tier, scored_at = excluded.scored_at`,
-      batch.flatMap(({ bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit, s.tier]),
+         distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, tier = excluded.tier, scored_at = excluded.scored_at,
+         quiet = coalesce(matches.quiet, excluded.quiet)`,
+      batch.flatMap(({ bidId, score: s, quiet }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit, s.tier, quiet ?? null]),
     );
   }
 }
@@ -105,19 +136,24 @@ export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyA
  * company swiped (Saved must not lose a bid), closed bids (the feed already hides them), and bids the digest
  * already emailed (notified_at): deleting those would forget the "sent" mark, so moving back would email the
  * same bid again, and the email's link would open nothing.
+ * `among`: only these bids are judged (a group's scan, which scores only what its own boards returned: every other
+ * open bid is simply not in it, and must not lose its row). null = every open bid (a full re-score, scoreProfile).
  * Returns how many rows went.
  */
-export async function pruneMatches(db: Db, profileId: string, candidateIds: readonly string[], now: Date): Promise<number> {
+export async function pruneMatches(
+  db: Db, profileId: string, candidateIds: readonly string[], now: Date, among: readonly string[] | null = null,
+): Promise<number> {
   const rows = await db.query<{ bid_id: string }>(
     `delete from matches m
      using bids b
      where m.profile_id = $1 and b.id = m.bid_id
-       and (b.due_at is null or b.due_at > $2)
+       and ${openBidSql('$2')}
        and not (m.bid_id = any ($3::text[]))
+       and ($4::text[] is null or m.bid_id = any ($4::text[]))
        and not exists (select 1 from swipes s where s.profile_id = m.profile_id and s.bid_id = m.bid_id)
        and m.notified_at is null
      returning m.bid_id`,
-    [profileId, now.toISOString(), [...candidateIds]],
+    [profileId, now.toISOString(), [...candidateIds], among ? [...among] : null],
   );
   return rows.length;
 }
@@ -167,9 +203,9 @@ function toFeedItem(r: FeedRow): FeedItem {
   };
 }
 
-/** Every bid still open at `now` (no deadline, or a deadline in the future). */
+/** Every bid still open at `now` (openBidSql: a deadline ahead, or none and still listed by its board). */
 export async function getOpenBids(db: Db, now: Date): Promise<Bid[]> {
-  const rows = await db.query<BidRow>('select * from bids where due_at is null or due_at > $1 order by id', [now.toISOString()]);
+  const rows = await db.query<BidRow>(`select * from bids b where ${openBidSql('$1')} order by id`, [now.toISOString()]);
   return rows.map(toBid);
 }
 
@@ -205,6 +241,8 @@ export type FeedSort = 'fit' | 'due' | 'near' | 'new' | 'value';
 export interface FeedQuery {
   minScore?: number;
   limit?: number;
+  /** Rows to skip before `limit` (0-based paging; default 0). The order is stable across pages (ties by bid id). */
+  offset?: number;
   /** Include bids already swiped (for the Browse list). */
   includeSwiped?: boolean;
   /** Leave out bids over the profile's spend limits (the swipe deck never shows them). */
@@ -263,7 +301,7 @@ function feedWhere(profileId: string, q: FeedQuery, now: Date): { sql: string; p
   return {
     sql: `m.profile_id = $1
        and m.score >= $2
-       and (b.due_at is null or b.due_at > $3)
+       and ${openBidSql('$3')}
        and ($4::boolean or s.action is null)
        and ($5::text = 'include' or m.over_limit = ($5::text = 'only'))
        and ${FEED_SEARCH_TEXT} ilike all ($6::text[])
@@ -294,10 +332,28 @@ export async function getFeed(db: Db, profileId: string, q: FeedQuery = {}): Pro
      where ${where.sql}
        and ($14::text[] is null or ${TIER_SQL} = any ($14::text[]))
      order by ${FEED_ORDER[q.sort ?? 'fit']}, b.id
-     limit $15`,
-    [...where.params, q.tiers?.length ? q.tiers : null, q.limit ?? 100],
+     limit $15 offset $16`,
+    [...where.params, q.tiers?.length ? q.tiers : null, q.limit ?? 100, Math.max(0, Math.floor(q.offset ?? 0))],
   );
   return rows.map(toFeedItem);
+}
+
+/**
+ * How many rows getFeed would return for this query with no limit and no offset: every filter, tiers and
+ * includeSwiped included. What Browse's "Showing 100 of 787" counts.
+ */
+export async function getFeedTotal(db: Db, profileId: string, q: FeedQuery = {}): Promise<number> {
+  const where = feedWhere(profileId, q, q.now ?? new Date());
+  const rows = await db.query<{ n: string | number }>(
+    `select count(*) as n
+     from matches m
+     join bids b on b.id = m.bid_id
+     left join swipes s on s.profile_id = m.profile_id and s.bid_id = m.bid_id
+     where ${where.sql}
+       and ($14::text[] is null or ${TIER_SQL} = any ($14::text[]))`,
+    [...where.params, q.tiers?.length ? q.tiers : null],
+  );
+  return Number(rows[0]?.n ?? 0);
 }
 
 export type TierCounts = Record<Tier, number>;
@@ -358,8 +414,9 @@ export async function getUnnotified(db: Db, profileId: string, minScore: number,
   const rows = await db.query<FeedRow>(
     `${FEED_SELECT}
      where m.profile_id = $1 and m.score >= $2 and m.notified_at is null and not m.over_limit
-       and (b.due_at is null or b.due_at > $3) and s.action is null
+       and ${openBidSql('$3')} and s.action is null
        and ${TIER_SQL} <> 'sub'
+       and m.quiet is distinct from 'load'
      order by m.score desc, b.due_at asc nulls last`,
     [profileId, minScore, now.toISOString()],
   );
@@ -369,6 +426,52 @@ export async function getUnnotified(db: Db, profileId: string, minScore: number,
 export async function markNotified(db: Db, profileId: string, bidIds: string[]): Promise<void> {
   if (bidIds.length === 0) return;
   await db.query(`update matches set notified_at = now() where profile_id = $1 and bid_id = any($2::text[])`, [profileId, bidIds]);
+}
+
+// ------------------------------------------------------- announcing --
+
+/**
+ * For one profile and some bids it has a stored score for: the row's quiet mark (MatchQuiet or null) and whether
+ * a 'match' alert for it is already stored (alerts.dedupe_key = the bid id). One query, whatever the count.
+ */
+export async function matchAnnounceState(
+  db: Db, profileId: string, bidIds: readonly string[],
+): Promise<Map<string, { quiet: MatchQuiet | null; alerted: boolean }>> {
+  const out = new Map<string, { quiet: MatchQuiet | null; alerted: boolean }>();
+  if (bidIds.length === 0) return out;
+  const rows = await db.query<{ bid_id: string; quiet: MatchQuiet | null; alerted: boolean }>(
+    `select m.bid_id, m.quiet,
+            exists (select 1 from alerts a where a.profile_id = m.profile_id and a.kind = 'match' and a.dedupe_key = m.bid_id) as alerted
+     from matches m
+     where m.profile_id = $1 and m.bid_id = any ($2::text[])`,
+    [profileId, [...new Set(bidIds)]],
+  );
+  for (const r of rows) out.set(r.bid_id, { quiet: r.quiet, alerted: r.alerted === true || String(r.alerted) === 'true' });
+  return out;
+}
+
+/** Mark matches as never announced (MatchQuiet). A row that already has a mark keeps it. One statement. */
+export async function markMatchesQuiet(db: Db, profileId: string, bidIds: readonly string[], quiet: MatchQuiet): Promise<void> {
+  if (bidIds.length === 0) return;
+  await db.query(
+    `update matches set quiet = $3 where profile_id = $1 and bid_id = any ($2::text[]) and quiet is null`,
+    [profileId, [...new Set(bidIds)], quiet],
+  );
+}
+
+/**
+ * The states (as stored, null = none) that bids of each source already hold, for the given sources. What tells a
+ * source's first load (nothing of it stored, or nothing in the slice it reads) from a source the app already knows.
+ */
+export async function storedSourceStates(db: Db, sources: readonly string[]): Promise<Map<string, Array<string | null>>> {
+  const out = new Map<string, Array<string | null>>();
+  if (sources.length === 0) return out;
+  const rows = await db.query<{ source: string; state: string | null }>(
+    `select distinct source, state from bids where source = any ($1::text[])`,
+    [[...new Set(sources)]],
+  );
+  for (const r of rows) out.set(r.source, [...(out.get(r.source) ?? []), r.state]);
+  return out;
 }
 
 // ----------------------------------------------------------- profiles --
@@ -421,15 +524,24 @@ export async function recordScan(db: Db, startedAt: Date, report: unknown): Prom
   ]);
 }
 
-/** When the last scan finished (ISO), or null: what a polling app compares to know the feed changed. */
+/**
+ * A scan that changed what a feed holds: it stored bids, or it was the day's re-score of every open bid (the
+ * default group, or a full scan with no group). A group whose sources all failed or found nothing changed nothing,
+ * so it never moves "Last scan" (nine group scans a day on the host) and never makes a polling app reload.
+ */
+const SCAN_CHANGED_FEED = `(coalesce((report->>'totalBids')::int, 0) > 0 or coalesce(report->>'group', 'default') = 'default')`;
+
+/**
+ * When the last scan that changed the feeds finished (ISO), or null: what a polling app compares to know the
+ * feed changed (GET /api/alerts), and what the screens print as "Last scan".
+ */
 export async function lastScanAt(db: Db): Promise<string | null> {
-  const rows = await db.query<{ finished_at: Date | string }>('select finished_at from scans order by id desc limit 1');
-  return rows[0] ? new Date(rows[0].finished_at).toISOString() : null;
+  return (await lastScan(db))?.finishedAt ?? null;
 }
 
 export async function lastScan(db: Db): Promise<{ finishedAt: string; report: unknown } | null> {
   const rows = await db.query<{ finished_at: Date | string; report: unknown }>(
-    'select finished_at, report from scans order by id desc limit 1',
+    `select finished_at, report from scans where ${SCAN_CHANGED_FEED} order by id desc limit 1`,
   );
   const r = rows[0];
   return r ? { finishedAt: new Date(r.finished_at).toISOString(), report: json(r.report as object) } : null;

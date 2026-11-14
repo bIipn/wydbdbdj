@@ -18,6 +18,8 @@ export const state = {
   /** The header chip: { name, base }. */
   profile: null,
   items: [],
+  /** How many rows the last feed load sent (Saved's rows join state.items after it). */
+  feedLen: null,
   /** GET /api/feed `counts` for the whole feed ({ fit, sub, other }: open, unswiped candidates), null if not sent. */
   counts: null,
   /** The same counts for Browse's current search and filters (any tier), null if not sent. */
@@ -31,6 +33,16 @@ export const state = {
   browseIds: null,
   browseError: null,
   browseLoading: false,
+  /** GET /api/feed `total`: rows matching every Browse filter (tier included), swiped ones too. null = not sent. */
+  browseTotal: null,
+  /** true when a server without `total` filled its largest page: there may be more rows than it sent. */
+  browseCut: false,
+  /** "Show more": null | 'loading' | 'error'. */
+  browseMore: null,
+  /** The first row a "Show more" added (keyboard focus moves there), then null. */
+  browseFocus: null,
+  /** Per-board counts for this account, if the server sends them ({ samgov: 12, … }); null = not sent. */
+  browseSources: null,
   /** GET /api/next: { item, why } (null = not loaded, or demo mode). */
   next: null,
   /** The alert inbox: unread count, and the list once the inbox has been opened. */
@@ -84,13 +96,24 @@ export const deck = () => state.items.filter((i) => !i.swipe && !i.overLimit && 
 export function feedCounts() {
   const out = { fit: 0, sub: 0, other: 0 };
   for (const i of state.items) if (!i.swipe && isOpen(i)) out[tierOf(i)] += 1;
+  // The server counts every candidate; the list holds the best 300 (plus the Browse pages seen). Its counts are
+  // asked again after each swipe (browse.js), so when they say more than the list holds, they win.
   const server = state.counts;
-  if (server && server.fit + server.sub + server.other > out.fit + out.sub + out.other && state.items.length >= 300) return { ...server };
+  if (server && server.fit + server.sub + server.other > out.fit + out.sub + out.other) return { ...server };
   return out;
 }
 
 export const savedList = () =>
   state.items.filter((i) => i.swipe === 'save' || i.swipe === 'bid').sort((a, b) => dueInfo(a.dueAt).days - dueInfo(b.dueAt).days);
+
+/** Browse must ask the server again (new filters, a new feed): its rows, total and paging are forgotten. */
+export function forgetBrowse() {
+  state.browseIds = null;
+  state.browseTotal = null;
+  state.browseCut = false;
+  state.browseMore = null;
+  state.browseFocus = null;
+}
 
 /** Browse: the API's results in its order, read from state.items so a swipe shows everywhere at once. */
 export function browseList() {

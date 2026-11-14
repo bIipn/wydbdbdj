@@ -24,3 +24,13 @@ export function requireAdmin(ctx: RouteContext, req: FastifyRequest, reply: Fast
 export function notImplemented(reply: FastifyReply): FastifyReply {
   return reply.code(501).send({ error: 'not_implemented' });
 }
+
+/** A "quiet" query value: absent or blank = false, 1/true = true, 0/false = false, anything else (or repeated) = null. */
+export function quietFlag(v: unknown): boolean | null {
+  if (v === undefined) return false;
+  if (typeof v !== 'string') return null;
+  const s = v.trim().toLowerCase();
+  if (s === '' || s === '0' || s === 'false') return false;
+  if (s === '1' || s === 'true') return true;
+  return null;
+}

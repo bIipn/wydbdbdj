@@ -8,17 +8,17 @@ import type { FetchLike, SourceContext } from '../src/types.js';
 import { createHttp } from '../src/util/http.js';
 import { CAPTURED, fx } from './helpers.js';
 
-// The real grid captured 2026-11-14 05:59 UTC, trimmed to 12 whole rows (test/fixtures/caleprocure-grid.md).
+// The real grid captured 2026-11-14 05:59 UTC, trimmed to 68 whole rows (test/fixtures/caleprocure-grid.md).
 const RAW = fx('caleprocure-grid.html');
 // The trimmed file still announces all 376 events of the capture; a page that holds every row it announces:
-const WHOLE = RAW.replace('1-376 of 376', '1-12 of 12');
+const WHOLE = RAW.replace('1-376 of 376', '1-68 of 68');
 
 describe('parseCaleprocurePage (real grid)', () => {
   const page = parseCaleprocurePage(RAW);
 
   it('reads every row by its element ids, and the board counter', () => {
-    expect(page.rows).toBe(12);
-    expect(page.bids).toHaveLength(12);
+    expect(page.rows).toBe(68);
+    expect(page.bids).toHaveLength(68);
     expect(page.total).toBe(376);
     expect(page.signIn).toBe(false);
   });
@@ -63,7 +63,7 @@ describe('parseCaleprocurePage (real grid)', () => {
     const b = page.bids.find((x) => x.solNumber === '10-1H0204')!;
     expect(b.sourceId).toBe('2660-10-1H0204');
     expect(b.url).toBe('https://caleprocure.ca.gov/event/2660/10-1H0204');
-    expect(new Set(page.bids.map((x) => x.sourceId)).size).toBe(12);
+    expect(new Set(page.bids.map((x) => x.sourceId)).size).toBe(68);
   });
 
   it('RFI format: the "info only" flag only when the name also says it asks for information', () => {
@@ -78,11 +78,16 @@ describe('parseCaleprocurePage (real grid)', () => {
     }
   });
 
-  it('place: a town the name states (Sacramento), else California only, never a guess', () => {
-    const sac = finalizeBid(page.bids.find((b) => b.solNumber === '0000040809')!);
-    expect(sac.location).toMatchObject({ city: 'Sacramento', state: 'CA', precision: 'city' });
+  it('place: by the title, department and event id (src/geo/caleprocure-place.ts), never a bare word', () => {
+    // "Sacramento Okinawa FMS-22": the word Sacramento with nothing to back it is not a place.
+    const okinawa = finalizeBid(page.bids.find((b) => b.solNumber === '0000040809')!);
+    expect(okinawa.location).toMatchObject({ city: null, state: 'CA', lat: null, lng: null, precision: 'state' });
+    // "…, NAPA STATE HOSPITAL, NAPA, NAPA COUNTY, CALIFORNIA": the town, backed by its county.
     const napa = finalizeBid(page.bids.find((b) => b.solNumber === '0000040420')!);
-    expect(napa.location).toMatchObject({ city: null, state: 'CA', lat: null, lng: null, precision: 'state' });
+    expect(napa.location).toMatchObject({ city: 'Napa', county: 'Napa', state: 'CA', precision: 'city', label: 'Napa, CA' });
+    // A Caltrans construction ad: the district in its event id, an area with no point.
+    const d10 = finalizeBid(page.bids.find((b) => b.solNumber === '10-1H0204')!);
+    expect(d10.location).toMatchObject({ precision: 'region', lat: null, lng: null, label: 'Caltrans District 10: Alpine, Amador, Calaveras + 5 more counties' });
   });
 });
 
@@ -91,7 +96,7 @@ describe('checkCaleprocurePage: loud, never a quiet 0', () => {
     expect(() => checkCaleprocurePage(parseCaleprocurePage(WHOLE))).not.toThrow();
   });
   it('fails when the board announces more events than the page holds', () => {
-    expect(() => checkCaleprocurePage(parseCaleprocurePage(RAW))).toThrow(/announces 376 events but the page holds 12 rows/);
+    expect(() => checkCaleprocurePage(parseCaleprocurePage(RAW))).toThrow(/announces 376 events but the page holds 68 rows/);
   });
   it('fails on a page with no event rows', () => {
     const empty = WHOLE.replace(/AUC_ID_COL\$/g, 'XX_COL$');
@@ -99,7 +104,7 @@ describe('checkCaleprocurePage: loud, never a quiet 0', () => {
   });
   it('fails on rows it cannot read', () => {
     const broken = WHOLE.replace(/RESP_INQA1_WK_ZZ_AUC_NAME\$/g, 'RENAMED$');
-    expect(() => checkCaleprocurePage(parseCaleprocurePage(broken))).toThrow(/12 event rows but none could be read/);
+    expect(() => checkCaleprocurePage(parseCaleprocurePage(broken))).toThrow(/68 event rows but none could be read/);
   });
   it('fails on the PeopleSoft sign-in page (TEST markup, synthetic)', () => {
     const signIn = '<html><head><title>Oracle PeopleSoft Sign-in</title></head><body><form name="login"><input name="userid"><input type="password" name="pwd"></form></body></html>';
@@ -135,7 +140,7 @@ describe('caleprocureSource.fetch', () => {
     expect(titles).not.toContain('C5613445-D American Sign Language (ASL) In-Person Interpreting (IPI) Services');
     expect(titles).not.toContain('79050750-Telesign Service Platform');
     expect(titles).not.toContain('Dam Safety Engineering Services ¿ Southern California');
-    expect(logs).toEqual([`caleprocure: 12 events read (board lists 12), ${bids.length} kept, ${12 - bids.length} left out as not trade work`]);
+    expect(logs).toEqual([`caleprocure: 68 events read (board lists 68), ${bids.length} kept, ${68 - bids.length} left out as not trade work`]);
   });
 
   it('throws (FAILED in the report) on a page that is not the grid', async () => {

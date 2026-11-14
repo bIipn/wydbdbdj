@@ -267,6 +267,25 @@ export function isPresolicitation(o: Pick<SamOpportunity, 'type' | 'title'>): bo
 const EMPTY_CODE = /^(?:|none|n\/a|null)$/i;
 
 /**
+ * A notice title without the product/service code its office typed into it: a leading "Z1DA--", "J--", "H961--"
+ * and a trailing " -- S208" (SAM.gov bulk file, 2026-11-14: 20,960 titles lead with their own PSC, 300 end with it).
+ * The code is already the card's `psc`. A leading code is taken off when it is the notice's PSC or a part of it
+ * ("R4--" on PSC R), or an all-digit FSC group ("70--DISPLAY UNIT" on 7E20, "3417--" on 3419); a trailing one only
+ * when it is the PSC. Nothing else is rewritten: no case change, no number taken out, a mid-title code
+ * ("Amendment 0002 Y1DZ--36C261-…") stays. A title that would be left empty is returned as it was. Pure.
+ */
+export function samTitle(title: string, psc: string | null | undefined): string {
+  const code = (psc ?? '').trim().toUpperCase();
+  const related = (c: string): boolean => code !== '' && (code.startsWith(c) || c.startsWith(code));
+  let t = title;
+  const lead = /^\s*([A-Z0-9]{1,4})\s*--\s*/.exec(t);
+  if (lead && (related(lead[1]!) || /^\d{2,4}$/.test(lead[1]!))) t = t.slice(lead[0].length);
+  const trail = /\s+--\s*([A-Z0-9]{1,4})\s*$/.exec(t);
+  if (trail && code !== '' && trail[1] === code) t = t.slice(0, trail.index);
+  return t.trim() ? t.trim() : title;
+}
+
+/**
  * One draft per solicitation: every notice in the response is read, then notices of the same
  * solicitation (amendments, the presolicitation that announced it) are merged — the newest wins and
  * a place or set-aside only an older notice carries is kept. The card id is the solicitation number
@@ -302,7 +321,8 @@ export function parseSamResponse(json: SamResponse): BidDraft[] {
 export function samDraft(o: SamOpportunity): BidDraft {
   const place = parseSamPlace(o.placeOfPerformance);
   const sol = cleanOrNull(o.solicitationNumber);
-  const title = cleanOrNull(o.title) ?? `Federal opportunity ${sol ?? o.noticeId}`;
+  const raw = cleanOrNull(o.title);
+  const title = raw ? samTitle(raw, o.classificationCode) : `Federal opportunity ${sol ?? o.noticeId}`;
   const ownText = o.description && !/^https?:\/\//i.test(o.description.trim()) ? o.description : null; // usually a link
   const code = clean(o.typeOfSetAside);
   const setAside = EMPTY_CODE.test(code) ? setAsideFromText([title, ownText].filter(Boolean).join(' · ')) : code;

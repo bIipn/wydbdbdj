@@ -70,6 +70,14 @@ and the owner won't trust anything he can't see the reasoning for. Every design 
   next step (sub work, Browse everything, a wider reach). The onboarding ends by saying how many open bids are in
   reach, by tier. Federal notices filed under repair, maintenance and installation codes are kept, and one that
   names no work site is shown at its contracting office, labelled so.
+- **Where, honestly** (2026-11-14): a distance is shown only when it is one. A state list that names a county, a
+  few counties or a Caltrans district gives an AREA: the card says "Caltrans District 10: Alpine, Amador,
+  Calaveras + 5 more counties", never a mileage, and is a "maybe" that never alerts. A statewide list with no site
+  says "could be anywhere in California". A card with no miles says so in words ("No distance: site not named").
+- **Only work, not purchases:** a state's purchasing list also buys tuna, forklifts and software; those never
+  reach the app. Parts, goods, rentals, design, consulting, audits and IT are not trade work.
+- **Long lists page:** Browse shows 100 at a time ("Showing 100 of 787 · Show 100 more"); search, filters and sort
+  run on the server, over every bid, not only the loaded ones.
 
 ### 3.2 Price action — the money side of every contract 🟡
 *Ev's term. Read as: what a job is worth, what similar jobs actually went for, and what moves your
@@ -108,6 +116,9 @@ costs — so you can decide fast whether it's worth bidding and at what price. C
   posted on a board reaches you up to a day later — not the second the agency posts it. (Today: inbox +
   live in-app stream work; web push is wired but has not been delivered end to end.)
 - Quiet hours + per-type toggles. Never alert on over-limit jobs.
+- **No flood:** a newly added board's first load is quiet (stored and scored, no alerts, never in a digest), and
+  any scan sends at most 10 new match alerts per company, best first. A bid with no deadline leaves the app 3 days
+  after its board stops listing it.
 - Delivery: web push for the pilot web app, then APNs/FCM in the store apps. Email digest stays.
 
 ### 3.5 The bot — AI agent (Pro) ⬜

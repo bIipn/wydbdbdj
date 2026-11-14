@@ -62,16 +62,7 @@ export function render() {
       t.classList.toggle('is-active', on);
       t.setAttribute('aria-selected', String(on));
     });
-    // The two counts count different things, so each tab says what its number is: Swipe = bids left to swipe
-    // (never over the spend limits), Browse = open bids that match the filters (over-limit ones included).
-    const toSwipe = deck().length;
-    // Before Browse has loaded, the same set its default list holds: every open bid (all tiers, every fit level).
-    const browseN = state.browseIds ? state.browseIds.length : state.items.filter(isOpen).length;
-    $('#countSwipe').textContent = toSwipe || '';
-    $('#countBrowse').textContent = browseN || '';
-    const label = (sel, text) => { const t = $(sel); t.setAttribute('aria-label', text); t.title = text; };
-    label('.tab[data-view="swipe"]', `Swipe: ${toSwipe} bid${toSwipe === 1 ? '' : 's'} left to swipe`);
-    label('.tab[data-view="browse"]', `Browse: ${browseN} open bid${browseN === 1 ? '' : 's'} match your filters, over-limit ones included`);
+    paintTabCounts();
     // Market needs the API: the bundled demo has no market data. The bid tabs are hidden for 'hire' (BID_TABS).
     const live = isLive();
     for (const name of BID_TABS) $(`.tab[data-view="${name}"]`).hidden = hiddenFor(name) || (name === 'market' && !live);
@@ -80,7 +71,7 @@ export function render() {
       const c = fn();
       t.hidden = !c.show;
       $('.count', t).textContent = c.count || '';
-      label(`.tab[data-view="${name}"]`, c.label);
+      tabLabel(`.tab[data-view="${name}"]`, c.label);
     }
     // How many tabs show: five on a 360 px phone need tighter tabs (styles.css .tabs[data-tabs='5']); one (Jobs,
     // for 'hire') is drawn as the screen's title bar (.tabs[data-tabs='1']).
@@ -105,6 +96,38 @@ export function render() {
 
   $('#view').replaceChildren(view.render());
   for (const fn of afterRender) fn(state.view);
+}
+
+const tabLabel = (sel, text) => { const t = $(sel); t.setAttribute('aria-label', text); t.title = text; };
+
+/** A tab number that stays narrow: 787, 1.2k, 12k (the exact number is in the tab's label). */
+export function tabNumber(n) {
+  if (!n) return '';
+  if (n < 1000) return String(n);
+  const k = n / 1000;
+  return `${k < 10 ? k.toFixed(1).replace(/\.0$/, '') : Math.round(k)}k`;
+}
+
+/**
+ * The Swipe and Browse tab numbers, without redrawing the view (a Browse load in the background, new counts after
+ * a swipe). They count different things, so each tab says what its number is: Swipe = bids left to swipe (never
+ * over the spend limits), Browse = open bids that match the filters (swiped and over-limit ones included).
+ */
+export function paintTabCounts() {
+  if (!$('#countSwipe')) return;
+  const toSwipe = deck().length;
+  // Browse: the server's total for the current filters. A server that sends none: the rows it sent ("300+" when it
+  // filled its largest page). Not loaded yet: the open bids in hand, unless that list is the feed's cut-off 300.
+  let browseN = null;
+  let more = false;
+  if (state.browseTotal != null) browseN = state.browseTotal;
+  else if (state.browseIds) { browseN = state.browseIds.length; more = state.browseCut; }
+  else if ((state.feedLen ?? state.items.length) < 300) browseN = state.items.filter(isOpen).length;
+  $('#countSwipe').textContent = tabNumber(toSwipe);
+  $('#countBrowse').textContent = browseN ? `${tabNumber(browseN)}${more ? '+' : ''}` : '';
+  tabLabel('.tab[data-view="swipe"]', `Swipe: ${toSwipe.toLocaleString('en-US')} bid${toSwipe === 1 ? '' : 's'} left to swipe`);
+  tabLabel('.tab[data-view="browse"]', browseN == null ? 'Browse'
+    : `Browse: ${more ? 'more than ' : ''}${browseN.toLocaleString('en-US')} open bid${browseN === 1 ? '' : 's'} match your filters, swiped and over-limit ones included`);
 }
 
 export function setView(name) {

@@ -165,6 +165,15 @@ export const CAPPED_FLOOR = 35;
  */
 export const AREA_REACH_EXTRA_MI = 25;
 
+/** "Shasta County, CA (site not named)" → "Shasta County"; an area's label otherwise as stored. */
+function areaWords(label: string | null, counties: readonly string[]): string {
+  if (counties.length === 1 && (!label || /^[A-Za-z ]+ County, CA/.test(label))) return `${counties[0]} County`;
+  return label ?? counties.join(', ');
+}
+
+/** States whose scoring rules are the pilot's and stay as they are (test/score-audit.test.ts pins them). */
+const PILOT_STATES: ReadonlySet<string> = new Set(['NV']);
+
 /** The cap for this profile: BELOW_ALERT_CAP, and also under its own alert lines, never below CAPPED_FLOOR. */
 function capFor(p: Profile): number {
   return Math.max(CAPPED_FLOOR, Math.min(BELOW_ALERT_CAP, p.notify.minScore - 1, (p.alerts?.minScore ?? Infinity) - 1));
@@ -293,6 +302,12 @@ export function tierFor(score: number): Tier {
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
 
+/**
+ * Trade words used as figures of speech in a notice's text, taken out before the body is matched: "The program
+ * functions as a conduit for individuals experiencing homelessness" (San Mateo, OpenGov, 2026-11-14) is not conduit.
+ */
+const FIGURATIVE = /\b(?:a|as|the)\s+conduit\s+(?:for|between|to|of|through)\b/gi;
+
 /** The fit alone, before spend limits. This is what scoreBid returns for a profile that has set none. */
 export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): ScoreResult {
   const m = matchers(profile);
@@ -309,7 +324,7 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
 
   // ---- trade ------------------------------------------------------------
   const title = bid.title;
-  const body = [bid.category, bid.description].filter(Boolean).join(' · ');
+  const body = [bid.category, bid.description].filter(Boolean).join(' · ').replace(FIGURATIVE, ' ');
   const strongTitle = m.strong.test(title);
   const strongBody = strongTitle ? null : m.strong.test(body);
   const naicsStrong = !!bid.naics && profile.naics.strong.includes(bid.naics);
@@ -399,10 +414,27 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
   let dist = 8;
   const loc = bid.location;
   const atOffice = bid.flags.includes(FLAGS.placeFromOffice);
-  const area = loc.lat == null ? areaCounties(loc) : null;
+  // An area has no point. A California county with no town (an older row placed at its seat) is read as one too:
+  // the seat is not the job, so its miles are never shown.
+  const area = loc.lat == null ? areaCounties(loc)
+    : loc.state === 'CA' && loc.precision === 'county' && !loc.city ? areaCounties({ ...loc, lat: null, precision: 'region' }) : null;
   const board = loc.lat == null ? statewideBoard(bid.source) : null;
   let elsewhere = false; // an unplaced statewide-board card for a company based in another state
-  if (loc.lat != null && loc.lng != null && atOffice) {
+  if (area && !atOffice) {
+    // One county, several, or a Caltrans district: in reach when one county seat is within the radius +
+    // AREA_REACH_EXTRA_MI. Never a distance: the seat is not the job. There are no county outlines here, so the
+    // no says what was measured (to the seat), never that the job itself is too far.
+    dist = 0;
+    const seatMi = nearestSeatMiles(profile.base, area);
+    if (loc.state && !profile.states.includes(loc.state)) {
+      rejected ??= `Out of your states (${loc.state})`;
+    } else if (seatMi > profile.maxDistanceMi + AREA_REACH_EXTRA_MI) {
+      rejected ??= `${area.length === 1 ? `${area[0]} County's seat is` : 'The nearest county seat named is'} ${Math.round(seatMi)} mi away — outside your ${profile.maxDistanceMi} mi range (site not named: ${areaWords(loc.label, area)})`;
+    } else {
+      capped = true;
+      minus.push({ kind: 'minus', text: `Site not named — somewhere in ${areaWords(loc.label, area)}; open the listing to see where` });
+    }
+  } else if (loc.lat != null && loc.lng != null && atOffice) {
     // The notice names no work site; the point is its contracting office. The miles are real miles to the office,
     // not to the job: no distance points, never an alert (the same cap as a site we cannot measure).
     distanceMi = Math.round(milesBetween(profile.base, { lat: loc.lat, lng: loc.lng }));
@@ -432,36 +464,39 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     // The title names the job's state, not the office's (src/geo/locate.ts stateInTitle): a state, no point.
     dist = 0; capped = true;
     minus.push({ kind: 'minus', text: `Work site not named — only the state is known (${loc.state ?? '?'}), check the distance` });
-  } else if (area) {
-    // Several counties or a Caltrans district: in reach when one county seat is within the radius + AREA_REACH_EXTRA_MI.
-    dist = 0;
-    if (nearestSeatMiles(profile.base, area) > profile.maxDistanceMi + AREA_REACH_EXTRA_MI) {
-      rejected ??= `Every county named is outside your ${profile.maxDistanceMi} mi range (${loc.label})`;
-    } else {
-      capped = true;
-      minus.push({ kind: 'minus', text: `Site not named — somewhere in ${loc.label}; open the listing to see where` });
-    }
   } else {
     // No point to measure. Only a home-state board listing (state known, no site given) keeps the neutral
     // points; anything else could be anywhere, so it gets none and cannot alert.
     const listed = [loc.city, loc.zip].filter((s) => s && /[a-z0-9]/i.test(s)).join(' ')
       || (loc.label && !/\(location not listed\)$/.test(loc.label) ? loc.label : '');
-    if (listed && loc.precision !== 'region') {
+    const home = homeState(profile);
+    if (board && loc.state && loc.state !== home) {
+      // A statewide board's card we could not place, for a company based in another state: held under the deck
+      // line, Browse only, whether or not the board printed a county ("Marion County, OR").
+      dist = 0; capped = true; elsewhere = true;
+      info.push({ kind: 'info', text: statewideElsewhereReason(loc.state === board.state ? board.name : loc.state) });
+    } else if (listed && loc.precision !== 'region') {
       dist = 0; capped = true;
       const several = /\b(various|multiple|several)\b|\bother locations\b/i.test(listed);
       minus.push({
         kind: 'minus',
         text: several ? 'Several work sites listed — check which are in reach' : `Location could not be placed (“${listed.slice(0, 60)}”) — check the distance`,
       });
-    } else if (board && loc.state === board.state && loc.precision !== 'region') {
+    } else if (board) {
       // A state's (or a big city's) whole list with no site on it: could be anywhere in the state.
+      const where = !loc.state || loc.state === board.state ? board.name : loc.state;
       dist = 0; capped = true;
-      if (loc.state === homeState(profile)) minus.push({ kind: 'minus', text: statewideSiteReason(board.name) });
+      if (loc.state && loc.state === homeState(profile)) minus.push({ kind: 'minus', text: statewideSiteReason(where) });
       else {
         elsewhere = true; // based in another state: held under the deck line, Browse only
-        info.push({ kind: 'info', text: statewideElsewhereReason(board.name) });
+        info.push({ kind: 'info', text: statewideElsewhereReason(where) });
       }
-    } else if (loc.state && loc.state === homeState(profile)) {
+    } else if (bid.source === 'samgov' && loc.state && loc.state === home && !PILOT_STATES.has(loc.state)) {
+      // A federal notice that names only the state: the job could be anywhere in it. Capped, no distance points.
+      // Nevada keeps its old rule (the pilot's: test/score-audit.test.ts).
+      dist = 0; capped = true;
+      minus.push({ kind: 'minus', text: `Work site not named on the notice — only the state is known (${loc.state}); open it to see where` });
+    } else if (loc.state && loc.state === home) {
       const region = loc.precision === 'region' && loc.label ? loc.label : null;
       const text = !region ? 'Work location not listed — check the bid' : /not listed/i.test(region) ? region : `${region} — exact site not listed, check the bid`;
       info.push({ kind: 'info', text });

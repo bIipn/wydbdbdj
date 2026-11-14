@@ -68,8 +68,15 @@ const RENO_ON_BOARD = compileKeywords([
   'building rehabilitation', 'facility improvement*', 'interior improvement*', 'building addition*',
 ]);
 
-/** A teardown or clean-up, not a building job with trades inside it. */
-const NOT_A_BUILD = compileKeywords(['decommission*', 'demolition', 'demolish*', 'demo', 'abatement', 'remediat*', 'removal', 'disposal', 'cleanup', 'clean-up']);
+/**
+ * A teardown or clean-up, a rental or a study: not a building job with trades inside it ("IFB 7CA08060 - Portable
+ * Restroom and Handwash Station Rental Services" names a restroom but rents them; "Public Safety Building Space Needs
+ * Assessment and Renovations" is a design study first).
+ */
+const NOT_A_BUILD = compileKeywords([
+  'decommission*', 'demolition', 'demolish*', 'demo', 'abatement', 'remediat*', 'removal', 'disposal', 'cleanup', 'clean-up',
+  'rental*', 'rent', 'lease', 'leasing', 'portable restroom*', 'portable toilet*', 'assessment', 'study', 'master plan*',
+]);
 
 /** Words that put a title outside a building, whatever its code says. */
 const CIVIL_IN_TITLE = compileKeywords([
@@ -77,13 +84,19 @@ const CIVIL_IN_TITLE = compileKeywords([
   'trail*', 'sewer*', 'water main*', 'waterline*', 'water line*', 'pipeline*', 'dam', 'dams', 'levee*', 'channel*',
   'dredg*', 'canal*', 'culvert*', 'runway*', 'taxiway*', 'apron', 'airfield', 'reservoir*', 'storm drain*', 'stormwater',
   'seawall', 'shoreline', 'breakwater', 'jetty', 'pier', 'wharf', 'dock*', 'fence', 'fencing', 'campground*', 'pump', 'pumps',
-  'fishway*', 'stadium*',
+  'fishway*', 'stadium*', 'field', 'fields', 'court', 'courts', 'athletic complex', 'golf course*', 'ballfield*',
 ]);
+/**
+ * The civil thing itself being renovated, whatever building the title also names: "Polk Street Community Center Parking
+ * Lot Renovation Project", "26190 - Tennis & Basketball Court Renovation IDQ FY27".
+ */
+const CIVIL_WORKED_ON = /\b(?:parking\s+lots?|(?<!food\s)courts?|fields?|trails?|roads?|streets?|bridges?|playgrounds?)\s+(?:renovat|remodel|improvement|rehab|replacement|upgrade|resurfac|repair)/i;
 /** A building named in the title: civil words beside one are a place name ("Englebright Dam and Lake HQ Building"). */
 const BUILDING_NOUN = compileKeywords([
   'building', 'buildings', 'bldg*', 'facility', 'facilities', 'headquarters', 'barracks', 'dormitor*', 'school*',
   'clinic*', 'hospital*', 'office building*', 'administration building*', 'library', 'courthouse', 'fire station*',
   'visitor center*', 'community center*', 'health center*', 'medical center*', 'imaging center*', 'warehouse*', 'hangar*',
+  'clubhouse*',
 ]);
 /** What a code-only building job must name: a facility, not a component. */
 const FACILITY_NOUN = compileKeywords([
@@ -91,6 +104,10 @@ const FACILITY_NOUN = compileKeywords([
   'clinic', 'hospital', 'hangar', 'office', 'offices', 'headquarters', 'lab', 'laboratory', 'chapel', 'shop', 'quarters',
   'housing', 'apartment*', 'duplex', 'port of entry', 'lpoe', 'courthouse', 'barn', 'warehouse', 'library', 'greenhouse*',
 ]);
+/** A shell with no plumbing or HVAC in it ("Y1DA--NRM-CONST | 528A4-27-202 Salt Barn Batavia | FY27 NRM"). */
+const SHELL_ONLY = compileKeywords(['salt barn*', 'salt shed*', 'salt dome*', 'pole barn*', 'storage shed*', 'pavilion*', 'canop*', 'bus shelter*']);
+const NEEDS_MEP: ReadonlySet<string> = new Set(['plumbing', 'hvac']);
+
 /** How a job is bought, not what it is. */
 const GENERIC_NEW: ReadonlySet<string> = new Set(['construct', 'construction', 'constructing', 'design-build', 'design build', 'design-bid-build']);
 /** Work inside an existing building: no roof, no site work, no planting in it. */
@@ -107,8 +124,16 @@ const BUILDING_CONSTRUCTION_PSC = /^Y1[ACDEFHJ]/;
 /** A board's road or utility job, by its title (no code to go on). */
 const CIVIL_BOARD: Readonly<Record<CivilKind, Matcher>> = {
   road: compileKeywords(['road', 'roads', 'roadway*', 'street', 'streets', 'highway*', 'boulevard', 'intersection*', 'bridge*']),
-  utility: compileKeywords(['water main*', 'waterline*', 'water line*', 'sewer*', 'pipeline*', 'treatment plant*', 'wastewater']),
+  utility: compileKeywords([
+    'water main*', 'waterline*', 'water line*', 'sewer*', 'pipeline*', 'treatment plant*', 'wastewater', 'wrf', 'water reclamation',
+    'water well*', 'storage tank*', 'lift station*', 'pump station*',
+  ]),
 };
+/**
+ * On a board a road word can be an address: "Fifth Street Parking Garage Security Project" is work in a garage, "DEP SRF
+ * Harbor Road WRF Expansion" and "Water Well Rehabilitation: Willow Bank and Eldridge Road" are utility jobs.
+ */
+const NOT_A_ROAD_ON_BOARD = compileKeywords(['garage*', 'parking structure*', 'security']);
 
 /**
  * "PSC Z2DA — Repair or alteration of hospitals and infirmaries": the code and the PSC Manual's own title
@@ -159,6 +184,8 @@ function nounsOf(ids: readonly string[]): string {
  * Is this bid sub work for a company with these trades? `tradeIds` are the profile's catalog trades; a config
  * profile with none (the pilot) passes ['electrical']. Pure.
  */
+const DIRECT_TRADE_CALL = /\btrade\s+packages?\b|\bfiled\s+sub-?bids?\b/i;
+
 export function subWorkFor(
   bid: Pick<Bid, 'source' | 'title' | 'category' | 'description' | 'naics' | 'psc' | 'location'>, tradeIds: readonly string[], hits: TradeHits,
 ): SubWork | null {
@@ -167,6 +194,9 @@ export function subWorkFor(
   // anywhere, and quoting a GC on it is no option at all.
   if (bid.location.lat == null && !bid.location.state) return null;
   if (hits.fitInTitle || hits.otherInTitle || hits.supplyOnly || hits.program) return null;
+  // A call for trade packages or filed sub-bids is bid by the trade contractors themselves, to the owner: not a GC's
+  // job to quote ("TRC1909 RFQ for Fifteen (15) Trade Packages for Renovation/Stabilization of Lynn Courthouse", COMMBUYS).
+  if (DIRECT_TRADE_CALL.test(bid.title)) return null;
   const title = bid.title;
   const naics = bid.naics ?? null;
   const psc = bid.psc ? bid.psc.toUpperCase() : null;
@@ -180,8 +210,8 @@ export function subWorkFor(
   const codeSaysBuilding = (naics !== null && BUILDING_PRIME_NAICS.includes(naics)) || (!tradeOrCivil && psc !== null && BUILDING_PSC.test(psc));
   const hasCode = naics !== null || psc !== null;
   // A federal notice is only a building job when its code says so; a board (no code) only by its title.
-  if ((codeSaysBuilding || !hasCode) && (!CIVIL_IN_TITLE.test(title) || BUILDING_NOUN.test(title)) && !NOT_A_BUILD.test(title)
-    && !otherTradesOf(tradeIds).test(title)) {
+  if ((codeSaysBuilding || !hasCode) && (!CIVIL_IN_TITLE.test(title) || BUILDING_NOUN.test(title)) && !CIVIL_WORKED_ON.test(title)
+    && !NOT_A_BUILD.test(title) && !otherTradesOf(tradeIds).test(title)) {
     // Code only (no work word): a "Construction of …" building PSC, a building NAICS, and a building named in the
     // title, not one system or one repair ("Replace Pneumatic Tube System", "Lightning Protection System").
     const builds = psc !== null && BUILDING_CONSTRUCTION_PSC.test(psc) && naics !== null && BUILDING_PRIME_NAICS.includes(naics)
@@ -198,7 +228,9 @@ export function subWorkFor(
     const isNew = !inside && !existing && (newWord !== null || (builds && /\b(?:new|replacement)\b/i.test(title)));
     // No word, but the PSC is "Construction of …" a building: the code is the evidence, and the reason says so.
     const word = newWord ?? renoWord;
+    const shell = SHELL_ONLY.test(title) !== null;
     const trades = tradeIds.filter((id) => {
+      if (shell && NEEDS_MEP.has(id)) return false;
       const spec = SUB_WORK[id]?.building;
       return spec === 'all' ? builds || word !== null : spec === 'new' ? isNew : false;
     });
@@ -220,7 +252,8 @@ export function subWorkFor(
   for (const kind of ['road', 'utility'] as const) {
     const prime = CIVIL_PRIME[kind];
     const byCode = (naics !== null && prime.naics.includes(naics)) || (psc !== null && prime.psc.test(psc));
-    const isKind = byCode || (!hasCode && CIVIL_BOARD[kind].test(title) !== null);
+    const isKind = byCode || (!hasCode && CIVIL_BOARD[kind].test(title) !== null
+      && (kind !== 'road' || (!CIVIL_BOARD.utility.test(title) && !BUILDING_NOUN.test(title) && !NOT_A_ROAD_ON_BOARD.test(title))));
     if (!isKind) continue;
     const named = tradeIds
       .filter((id) => SUB_WORK[id]?.civil.includes(kind))

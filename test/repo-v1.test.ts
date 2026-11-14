@@ -25,8 +25,14 @@ describe('bids (v1 columns)', () => {
     const stored = bids.find((b) => b.id === open.id)!;
     expect(stored).toEqual({ ...open, solNumber: 'TEST-SOL-42', psc: null }); // a plain Bid, round-tripped
     expect(bids.find((b) => b.id === noDeadline.id)!.solNumber).toBeNull();
-    // Everything has closed a year later, except the bid with no deadline.
-    expect((await getOpenBids(db, new Date('2027-11-11T00:00:00Z'))).map((b) => b.id)).toEqual([noDeadline.id]);
+    // A year later everything has closed. The bid with no deadline too: it is open only while its board still lists
+    // it (seen within UNLISTED_GRACE_DAYS, repo.ts openBidSql), and no scan has seen it since NOW.
+    const later = new Date('2027-11-11T00:00:00Z');
+    expect((await getOpenBids(db, later)).map((b) => b.id)).toEqual([]);
+    // A scan that still sees it there keeps it open.
+    await upsertBids(db, [noDeadline], new Date(later.getTime() - 86_400_000));
+    expect((await getOpenBids(db, later)).map((b) => b.id)).toEqual([noDeadline.id]);
+    await upsertBids(db, [noDeadline], NOW); // back as it was, for the tests below
   });
 
   it('getBid finds one bid, open or not', async () => {

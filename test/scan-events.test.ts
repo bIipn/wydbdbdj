@@ -7,6 +7,7 @@ import { alertThreshold, runScan, scoreProfile, type ScanReport } from '../src/s
 import { scoreBid } from '../src/score/score.js';
 import type { Profile } from '../src/types.js';
 import { memoryDb, NOW, questSource, resetDb, scanCtx, testBid, testProfile } from './helpers.js';
+import { cappedIds, markSourcesKnown } from './scan-helpers.js';
 
 // Spend limits are a later module. Until then (and after), this lets a test put chosen bids
 // "over the limit" without knowing how the scorer decides it.
@@ -34,11 +35,14 @@ function recordingBus() {
 }
 
 /** The rule under test, stated once: which stored bids deserve a 'match' event for this profile. */
-async function alertWorthy(p: Profile): Promise<{ ids: string[]; rejected: number; open: number }> {
+async function alertWorthy(p: Profile): Promise<{ ids: string[]; capped: string[]; rejected: number; open: number }> {
   const open = await getOpenBids(db, NOW);
-  const scores = open.map((bid) => ({ id: bid.id, s: scoreBid(bid, p, NOW) }));
+  const scores = open.map((bid) => ({ id: bid.id, bid, s: scoreBid(bid, p, NOW) }));
+  const worthy = scores.filter(({ s }) => s.score >= alertThreshold(p) && !s.rejected && !s.overLimit);
   return {
-    ids: scores.filter(({ s }) => s.score >= alertThreshold(p) && !s.rejected && !s.overLimit).map(({ id }) => id).sort(),
+    ids: worthy.map(({ id }) => id).sort(),
+    // What one scan may alert when every one of them is new: the best MAX_MATCH_ALERTS_PER_SCAN (src/scan.ts).
+    capped: cappedIds(worthy.map(({ bid, s }) => ({ bid, score: s }))),
     rejected: scores.filter(({ s }) => s.rejected).length,
     open: open.length,
   };
@@ -51,6 +55,9 @@ beforeAll(async () => {
 beforeEach(async () => {
   overLimitIds.clear();
   await resetDb(db);
+  // The board was read before: these tests are about announcing, and a source's first load announces nothing
+  // (test/scan-quiet.test.ts).
+  await markSourcesKnown(db, ['questcdn']);
 });
 afterAll(async () => db.close());
 
@@ -98,7 +105,9 @@ describe('runScan events', () => {
     await runScan({ db, sources: [questSource()], profiles: [picky, eager], ctx: scanCtx(), bus });
     const got = (id: string) => matches().filter((m) => m.profileId === id).map((m) => m.bid.id).sort();
     expect(got('test-picky')).toEqual((await alertWorthy(picky)).ids);
-    expect(got('test-eager')).toEqual((await alertWorthy(eager)).ids);
+    // 11 bids are worth an alert at score 1: the scan sends the best 10 (MAX_MATCH_ALERTS_PER_SCAN) and holds one back.
+    expect((await alertWorthy(eager)).ids.length).toBeGreaterThan(10);
+    expect(got('test-eager')).toEqual((await alertWorthy(eager)).capped);
     expect(got('test-eager').length).toBeGreaterThan(got('test-picky').length);
   });
 
@@ -122,8 +131,11 @@ describe('runScan events', () => {
     const { ids, rejected, open } = await alertWorthy(anything);
     expect(open).toBe(report.totalBids);
     expect(rejected).toBeGreaterThan(0); // the fixture has real hard no's (janitorial, out of range…)
-    expect(matches()).toHaveLength(report.totalBids - rejected);
-    expect(matches().map((m) => m.bid.id).sort()).toEqual(ids);
+    expect(ids).toHaveLength(report.totalBids - rejected);
+    // Capped at the best 10 new alerts per scan; the rest are stored silently (held back).
+    expect(matches()).toHaveLength(Math.min(10, ids.length));
+    expect(matches().map((m) => m.bid.id).sort()).toEqual((await alertWorthy(anything)).capped);
+    expect(report.profiles[anything.id]!.heldBack ?? 0).toBe(ids.length - Math.min(10, ids.length));
     expect(matches().every((m) => m.score.rejected === null)).toBe(true);
   });
 
@@ -133,6 +145,7 @@ describe('runScan events', () => {
     const best = dry.matches().sort((a, b) => b.score.score - a.score.score)[0]!.bid.id;
 
     await resetDb(db);
+    await markSourcesKnown(db, ['questcdn']);
     overLimitIds.add(best);
     const { bus, matches } = recordingBus();
     const report = await runScan({ db, sources: [questSource()], profiles: [profile], ctx: scanCtx(), bus });
@@ -160,6 +173,7 @@ describe('runScan events', () => {
     const strip = (r: ScanReport) => ({ ...r, startedAt: '', finishedAt: '', sources: Object.keys(r.sources) });
     const plain = await runScan({ db, sources: [questSource()], profiles: [profile], ctx: scanCtx() });
     await resetDb(db);
+    await markSourcesKnown(db, ['questcdn']);
     const withBus = await runScan({ db, sources: [questSource()], profiles: [profile], ctx: scanCtx(), bus: createBus() });
     expect(strip(withBus)).toEqual(strip(plain));
   });

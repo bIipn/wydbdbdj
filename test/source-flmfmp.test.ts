@@ -25,12 +25,17 @@ describe('parseFlmfmp (real MFMP pages)', () => {
   });
 
   it('then leaves out what is not trade work', () => {
-    expect(one.notTrade).toBe(2); // Citrus CHD Janitorial Services; Continuing A/E Services
+    // Citrus CHD Janitorial Services; Continuing A/E Services; and what stays unclear on a state purchasing list
+    // (relevance.ts UNCLEAR_DROPPED): "224003 Chipley REVAMP", "USF Environmental & Oceanographic Sciences",
+    // "Preadmission Screening and Resident Review", "Planning and Economic Development Services"
+    expect(one.notTrade).toBe(6);
     expect(by(17277)).toBeUndefined();
-    expect(two.notTrade).toBe(2); // two A/E qualifications
-    expect(by(17256)!.title).toMatch(/Construction Management Services/); // a qualifications ad that is construction
-    expect(one.bids).toHaveLength(10);
-    expect(two.bids).toHaveLength(2);
+    expect(by(17297)).toBeUndefined();
+    // two A/E qualifications and two construction MANAGEMENT ads (the owner's adviser, not a contractor)
+    expect(two.notTrade).toBe(4);
+    expect(by(17256)).toBeUndefined();
+    expect(one.bids).toHaveLength(6);
+    expect(two.bids).toHaveLength(0);
   });
 
   it('one ad, fully checked: electrical maintenance and repair (FDC)', () => {
@@ -50,14 +55,19 @@ describe('parseFlmfmp (real MFMP pages)', () => {
 
   it('close times are the API\'s own instants (Eastern 5 PM, 11 PM, 11:59 PM; the Central panhandle needs nothing)', () => {
     expect(by(14026).dueAt).toBe('2026-12-31T22:00:00.000Z'); // 5:00 PM EST
-    expect(by(17147).dueAt).toBe('2026-12-02T04:00:00.000Z'); // 11:00 PM EST on Dec 1
-    expect(by(16853).dueAt).toBe('2027-01-30T04:59:00.000Z');
-    expect(by(17297)).toMatchObject({ title: '224003 Chipley REVAMP', dueAt: '2026-12-17T20:00:00.000Z', solNumber: null });
+    expect(by(17108).dueAt).toBe('2026-11-24T14:00:00.000Z'); // 9:00 AM EST
+    expect(by(17417).dueAt).toBe('2026-12-07T19:00:00.000Z');
+    // Rows the trade rule now leaves out still read their instants the same way (titles relabelled TEST, simulated).
+    const relabel = (id: number) => ({ ...P1.find((r) => r.advertisementId === id)!, title: 'TEST Roof Repair (simulated)' });
+    const late = parseFlmfmp([relabel(17147), relabel(16853), relabel(17297)]).bids;
+    expect(late.map((b) => b.dueAt)).toEqual(['2026-12-02T04:00:00.000Z', '2027-01-30T04:59:00.000Z', '2026-12-17T20:00:00.000Z']); // 11 PM, 11:59 PM EST
+    expect(late[2]!.solNumber).toBeNull();
     expect(by(14026).postedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
   });
 
   it('places a town from its own name, nothing else', () => {
-    expect(finalizeBid(by(17339)).location).toMatchObject({ city: 'Orange Park', state: 'FL', precision: 'city' });
+    const orangePark = parseFlmfmp([{ ...P1.find((r) => r.advertisementId === 17339)!, title: 'TEST Roof Repair (simulated)' }]).bids[0]!;
+    expect(finalizeBid(orangePark).location).toMatchObject({ city: 'Orange Park', state: 'FL', precision: 'city' });
     // A county named in the title is not a place for us: "…for Miami-Dade County Health Dept" stays FL.
     expect(finalizeBid(by(17125)).location).toMatchObject({ city: null, state: 'FL', precision: 'state' });
   });

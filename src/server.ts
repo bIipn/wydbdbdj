@@ -153,16 +153,18 @@ export function createScanRunner(
     const group = getGroup(req.group ?? DEFAULT_GROUP);
     if (!group) throw new Error(`Unknown scan group "${req.group}"`);
     const name = group.name;
+    // A request for a group that is already running joins that run (quiet or not: the run decides).
     const already = running.get(name);
     if (already) return already;
     const job = queue.then(async () => {
       try {
         const report = await scan({
           db: deps.db, sources: deps.sourcesFor(name), profiles: scanProfiles(deps), ctx: deps.makeCtx(), bus,
-          group: name, budgetMs: FETCH_BUDGET_MS,
+          group: name, budgetMs: FETCH_BUDGET_MS, ...(req.quiet ? { quiet: true } : {}),
         });
         // The emailed digest is the pilot's (single mode). In accounts mode alerts go out through the bus.
-        if (deps.profile && name === DEFAULT_GROUP) {
+        // A quiet scan announces nothing, so it sends no digest either.
+        if (deps.profile && name === DEFAULT_GROUP && !req.quiet) {
           await sendDigest(deps.db, deps.profile, {
             resendApiKey: env('RESEND_API_KEY'), from: env('DIGEST_FROM'),
             to: (env('DIGEST_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean),

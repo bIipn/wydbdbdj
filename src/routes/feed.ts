@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
-import { getFeed, getFeedCounts, getItem, getSaved, lastScan, recordSwipe, undoSwipe, type FeedQuery, type FeedSort } from '../db/repo.js';
+import { getFeed, getFeedCounts, getFeedTotal, getItem, getSaved, lastScan, recordSwipe, undoSwipe, type FeedQuery, type FeedSort } from '../db/repo.js';
 import { pickNext } from '../feed/next.js';
 import { ALL_SOURCES } from '../sources/index.js';
 import { TIERS, type Profile, type SourceId, type SwipeAction, type Tier, type Verdict } from '../types.js';
@@ -16,6 +16,8 @@ const TIER_CHOICES: readonly (Tier | 'all')[] = [...TIERS, 'all'];
 const SOURCE_IDS: readonly SourceId[] = [...ALL_SOURCES.map((s) => s.id), 'local'];
 const MAX_SEARCH_CHARS = 200;
 const MAX_DOLLARS = 1e12;
+/** Paging stops making sense long before this; a bigger offset is pulled down to it (an empty page). */
+const MAX_OFFSET = 1_000_000;
 
 /** A query the client got wrong. The message goes back to it in a 400. */
 class BadQuery extends Error {}
@@ -86,7 +88,7 @@ export type FeedQueryResult = { ok: true; query: FeedQuery } | { ok: false; mess
 
 /**
  * GET /api/feed's query string → a FeedQuery, every parameter checked.
- *   minScore 0–100 (35) · limit 1–300 (100) · all=1 Browse: swiped bids too, over-limit ones kept and tagged
+ *   minScore 0–100 (35) · limit 1–300 (100) · offset 0-based (0) · all=1 Browse: swiped bids too, over-limit ones kept and tagged
  *   q · minValue / maxValue · hasValue=1 · maxDistance (mi) · dueWithinDays · source · verdict
  *   sort fit | due | near | new | value · overLimit exclude | only · tier fit | sub | other | all
  * Without all=1 this is the swipe deck, which never holds an over-limit bid. An absent tier is left
@@ -103,9 +105,12 @@ export function parseFeedQuery(raw: RawQuery): FeedQueryResult {
     const maxValue = number(raw, 'maxValue', 0, MAX_DOLLARS);
     if (minValue !== undefined && maxValue !== undefined && minValue > maxValue) throw new BadQuery('minValue is more than maxValue');
     const limit = number(raw, 'limit', 0, 300);
+    const offset = number(raw, 'offset', 0, MAX_OFFSET);
+    if (offset !== undefined && !Number.isInteger(offset)) throw new BadQuery('offset must be a whole number');
     const query: FeedQuery = {
       minScore: Math.ceil(number(raw, 'minScore', 0, 100) ?? 35), // scores are whole numbers
       limit: limit ? Math.max(1, Math.floor(limit)) : 100, // 0 has always meant "the default"
+      offset, // absent = 0
       includeSwiped: all,
       overLimit: oneOf(raw, 'overLimit', ['exclude', 'only'] as const) ?? (all ? 'include' : 'exclude'),
       q, minValue, maxValue,
@@ -139,7 +144,10 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const query: FeedQuery = { ...parsed.query, tiers: parsed.query.tiers ?? (deck ? deckTiers(id.profile) : undefined), now: now() };
     const items = await getFeed(db, id.profile.id, query);
     const counts = await getFeedCounts(db, id.profile.id, query);
-    return { items, counts, lastScan: (await lastScan(db))?.finishedAt ?? null };
+    // total: every row this request's filters (tier included) match, before limit and offset. Pages are
+    // stable (ties broken by bid id), so offset = 0, limit, 2 x limit ... neither overlaps nor skips.
+    const total = await getFeedTotal(db, id.profile.id, query);
+    return { items, counts, total, lastScan: (await lastScan(db))?.finishedAt ?? null };
   });
 
   app.get('/api/saved', async (req, reply) => {

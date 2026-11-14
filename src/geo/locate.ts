@@ -2,7 +2,7 @@ import { FLAGS } from '../sources/flags.js';
 import { statesInText } from '../sources/samgov.js';
 import type { BidDraft, BidLocation, LocationPrecision } from '../types.js';
 import { placeCaleprocure } from './caleprocure-place.js';
-import { caCounty, seatOf } from './california.js';
+import { caCounty } from './california.js';
 import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } from './places.js';
 import { lookupCity, lookupZip } from './zip.js';
 
@@ -178,13 +178,11 @@ function locateGiven(draft: Pick<BidDraft, 'title' | 'description' | 'agency' | 
     if (p) {
       return { ...placeLoc(p, 'county', zip), city: null, county: p.county, label: `${p.county} County, ${p.state}` };
     }
-    // Any other California county: its county seat (./california.ts), the same rule.
+    // Any other California county: an AREA of that one county (./california.ts areaCounties). No point: its seat
+    // is not the job, so no distance is shown; score.ts says whether the county is in reach.
     const ca = state === 'CA' ? caCounty(county) : null;
-    const caSeat = ca ? seatOf(ca.name) : null;
-    if (ca && caSeat) {
-      return {
-        city: null, county: ca.name, state, zip, lat: caSeat.lat, lng: caSeat.lng, precision: 'county', label: `${ca.name} County, CA`,
-      };
+    if (ca) {
+      return { city: null, county: ca.name, state, zip, lat: null, lng: null, precision: 'region', label: `${ca.name} County, CA (site not named)` };
     }
   }
 

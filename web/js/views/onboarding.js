@@ -10,6 +10,7 @@
 
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
+import { num } from '../format.js';
 import { clearErrors, field, formError, showErrors, textInput } from '../form.js';
 import {
   alertChoices, answersFrom, defaultBusinessName, emptyDraft, hireAnswersFrom, homeSection, INTENTS, jobSizeChips, loadTrades,
@@ -174,8 +175,8 @@ async function finish(button) {
     await enterApp();
     if (hire) return showToast('All set — post a job whenever you’re ready');
     const fits = deck().length;
-    showToast(fits ? `All set — ${fits} bid${fits === 1 ? '' : 's'} fit you right now`
-      : res.scored ? `All set — none of the ${res.scored} open bids fit yet` : 'All set — new bids arrive with the morning scan');
+    showToast(fits ? `All set — ${num(fits)} bid${fits === 1 ? '' : 's'} fit you right now`
+      : res.scored ? `All set — none of the ${num(res.scored)} open bids fit yet` : 'All set — new bids arrive with the morning scan');
   } catch (err) {
     ui.busy = false;
     const fields = err.body?.fields ?? { form: err.message || 'That did not save. Try again.' };
@@ -221,14 +222,14 @@ async function goToBids() {
   }
 }
 
-const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const plural = (n, one, many = `${one}s`) => `${num(n)} ${n === 1 ? one : many}`;
 
 /** The last screen: "In your reach right now: 5 fits · 46 sub work · 87 other open bids", from PUT /api/profile. */
 function renderResult() {
   const { counts: c, answers, widened } = ui.result;
   const withSub = !(answers.trades ?? []).includes(PRIME_TRADE);
   const total = c.fit + c.sub + c.other;
-  const tile = (n, label, cls, help) => h('div', { class: `reach-tile ${cls}` }, h('b', {}, n), h('span', {}, label), h('small', {}, help));
+  const tile = (n, label, cls, help) => h('div', { class: `reach-tile ${cls}` }, h('b', {}, num(n)), h('span', {}, label), h('small', {}, help));
   const small = c.fit + (withSub ? c.sub : 0) < SMALL;
   const wider = WIDER.filter((mi) => mi > answers.radiusMi);
   const tip = !small ? null : h('section', { class: 'panel reach-tip' },
@@ -246,9 +247,10 @@ function renderResult() {
     h('p', { class: 'step-count' }, widened ? `Saved: you travel ${answers.radiusMi} mi` : 'You’re set up'),
     h('h1', { class: 'step-title' }, 'In your reach right now'),
     h('p', { class: 'step-sub', 'aria-live': 'polite' }, total
-      ? [plural(c.fit, 'fit'), withSub ? `${c.sub} sub work` : null, plural(c.other, 'other open bid')].filter(Boolean).join(' · ')
+      ? [plural(c.fit, 'fit'), withSub ? `${num(c.sub)} sub work` : null, plural(c.other, 'other open bid')].filter(Boolean).join(' · ')
       : 'No open bids in your reach yet.'),
-    h('div', { class: `reach-tiles${withSub ? '' : ' two'}` },
+    // A number in the thousands sets every tile a step smaller, so the three stay even.
+    h('div', { class: `reach-tiles${withSub ? '' : ' two'}${Math.max(c.fit, c.sub, c.other) >= 1000 ? ' long' : ''}` },
       tile(c.fit, c.fit === 1 ? 'Fit' : 'Fits', 'fit', 'Work in your own trade, scored 35 or more.'),
       withSub ? tile(c.sub, 'Sub work', 'sub', 'A general contractor bids it; you’d quote the bidders.') : null,
       tile(c.other, 'Other', 'other', 'Open in your reach, scored under 35: a related trade or a weaker match. In Browse.'),

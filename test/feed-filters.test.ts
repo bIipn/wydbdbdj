@@ -85,8 +85,9 @@ describe('the seeded feed', () => {
   it('with no parameters it is still the swipe deck: unswiped, score ≥ 35, under the limits, best fit first', async () => {
     const res = await app.inject('/api/feed');
     expect(res.statusCode).toBe(200);
-    expect(Object.keys(res.json()).sort()).toEqual(['counts', 'items', 'lastScan']);
+    expect(Object.keys(res.json()).sort()).toEqual(['counts', 'items', 'lastScan', 'total']);
     const deck = res.json().items as FeedItem[];
+    expect(res.json().total).toBe(deck.length); // one page holds the whole deck here
     expect(sorted(ids(deck))).toEqual(sorted(ids(all.filter((b) => b.score >= 35 && !b.overLimit))));
     expect(deck.length).toBeGreaterThanOrEqual(5);
     expect(deck.map((b) => b.score)).toEqual(deck.map((b) => b.score).sort((a, b) => b - a));
@@ -516,7 +517,7 @@ describe('parameter checking', () => {
   });
 
   it('whatever the query string, the answer is 200 or 400 — never a 500', async () => {
-    const names = ['minScore', 'limit', 'all', 'q', 'minValue', 'maxValue', 'hasValue', 'maxDistance', 'dueWithinDays', 'source', 'verdict', 'sort', 'overLimit'];
+    const names = ['minScore', 'limit', 'offset', 'all', 'q', 'minValue', 'maxValue', 'hasValue', 'maxDistance', 'dueWithinDays', 'source', 'verdict', 'sort', 'overLimit'];
     const value = fc.oneof(
       fc.string({ maxLength: 12 }),
       fc.integer({ min: -1000, max: 5_000_000 }).map(String),

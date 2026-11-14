@@ -291,3 +291,26 @@ describe('paperwork answers adapt the score, and never hide a bid', () => {
     expect(decideMatch({ ...event, score: yes }, anything, 'pro', CAPTURED)).not.toBeNull();
   });
 });
+
+describe('a trade word used as a figure of speech is not the trade (real row: OpenGov, County of San Mateo, 2026-11-14)', () => {
+  it('"functions as a conduit for individuals" is not electrical work', async () => {
+    const { buildProfile, validateAnswers } = await import('../src/profile/build.js');
+    const v = validateAnswers({ businessName: 'TEST Sac Electric (simulated)', trades: ['electrical'], zip: '95814', radiusMi: 100, valueRange: { min: 0, max: 1_000_000 } });
+    if (!v.ok) throw new Error('answers');
+    const p = { ...buildProfile('test-sac-electric', v.value), states: ['CA'] };
+    const bid = finalizeBid({
+      source: 'opengov', sourceId: 'smcgov:322209', sourceName: 'OpenGov Procurement',
+      title: 'Expanding Nutrition Services for People Experiencing Homelessness', agency: 'County of San Mateo',
+      // An excerpt of the row's own description, verbatim.
+      description: 'Health - SMMC · SMMC - Request for Proposals\nThe program functions as a conduit for individuals experiencing homelessness or farmworkers along with their families to access critical health services through various touch points within San Mateo County.',
+      category: 'SMMC - Request for Proposals', location: { city: 'Redwood City', state: 'CA' }, postedAt: null,
+      dueAt: '2026-12-04T20:00:00.000Z', estValue: null, naics: null, setAside: null, url: 'https://procurement.opengov.com/portal/smcgov/projects/322209',
+    });
+    const r = scoreBid(bid, p, new Date('2026-11-14T08:30:00Z'));
+    expect(r.reasons.some((x) => /conduit/.test(x.text))).toBe(false);
+    expect(r.tier).toBe('other');
+    // The real word still counts: "Install conduit and wire" in a description.
+    const real = scoreBid({ ...bid, title: 'Parking Lot Lights (TEST)', description: 'Install conduit and wire for new poles.' }, p, new Date('2026-11-14T08:30:00Z'));
+    expect(real.reasons.some((x) => /conduit/.test(x.text))).toBe(true);
+  });
+});

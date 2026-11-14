@@ -4,6 +4,7 @@
  *               npm run scan -- --fixtures   (offline: load the pages captured in test/fixtures)
  *               npm run scan -- --no-notify --group=east            (one scan group, with its time budget)
  *               npm run scan -- --no-notify --group=opengov-1 --source=opengov   (one source's slice)
+ *               npm run scan -- --quiet --group=west   (store and score, announce nothing now or later; no digest)
  *
  * --source alone runs those sources whole (no slice, no time budget); --group runs that group the way the
  * cron call does (src/sources/groups.ts). Both together: the group's sources cut down to the list.
@@ -42,11 +43,14 @@ try {
   const report = await runScan({
     db: deps.db, sources, profiles: scanProfiles(deps), ctx: deps.makeCtx(),
     ...(group ? { group, budgetMs: FETCH_BUDGET_MS } : {}),
+    ...(args.has('quiet') ? { quiet: true } : {}),
   });
 
   console.log('\nSources');
   for (const [id, r] of Object.entries(report.sources)) {
-    const status = r.skipped ? `skipped — ${r.skipped}` : r.ok ? `${r.fetched} bids in ${r.ms} ms${r.stopped ? ` (${r.stopped})` : ''}` : `FAILED — ${r.error}`;
+    const status = r.skipped
+      ? `skipped — ${r.skipped}`
+      : r.ok ? `${r.fetched} bids in ${r.ms} ms${r.stopped ? ` (${r.stopped})` : ''}${r.firstLoad ? ' (first load: stored quietly)' : ''}` : `FAILED — ${r.error}`;
     console.log(`  ${id.padEnd(14)} ${status}`);
   }
   console.log(`\n${report.totalBids} open bids (${report.newBids} new).`);
@@ -63,11 +67,11 @@ try {
     if (top.length) {
       console.log('\nTop matches');
       for (const b of top) {
-        console.log(`  ${String(b.score).padStart(3)}  ${b.title.slice(0, 64).padEnd(64)}  ${b.distanceMi ?? '?'} mi`);
+        console.log(`  ${String(b.score).padStart(3)}  ${b.title.slice(0, 64).padEnd(64)}  ${b.distanceMi != null ? `${b.distanceMi} mi` : (b.location?.label ?? 'no distance')}`);
       }
     }
 
-    if (!args.has('no-notify')) {
+    if (!args.has('no-notify') && !args.has('quiet')) {
       await sendDigest(deps.db, deps.profile, {
         resendApiKey: env('RESEND_API_KEY'), from: env('DIGEST_FROM'),
         to: (env('DIGEST_TO') ?? '').split(',').map((s) => s.trim()).filter(Boolean),

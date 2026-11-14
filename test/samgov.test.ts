@@ -14,7 +14,7 @@ import { scoreBid } from '../src/score/score.js';
 import { inheritFromStored, mergeDrafts, samKey } from '../src/sources/dedupe.js';
 import { FLAGS } from '../src/sources/flags.js';
 import {
-  isProgramContract, isPresolicitation, parseSamPlace, parseSamResponse, placeAtOffice, SAM_FLAGS, setAsideFromText,
+  isProgramContract, isPresolicitation, parseSamPlace, parseSamResponse, placeAtOffice, SAM_FLAGS, samDraft, samTitle, setAsideFromText,
   type SamOpportunity, type SamResponse,
 } from '../src/sources/samgov.js';
 import type { BidDraft, Profile, Source } from '../src/types.js';
@@ -185,7 +185,7 @@ describe('one card per solicitation', () => {
 
   it('three notices of "Replace Dental Vacuum Piping" (one numbered _1) are one card, the newest', () => {
     expect(['f6bc57b0', 'b494949b', '1fec7c17'].map((p) => notice(p).solicitationNumber)).toEqual(['36C26127Q0072_1', '36C26127Q0072', '36C26127Q0072']);
-    expect(building.filter((b) => b.title === 'Z1DZ--Replace Dental Vacuum Piping')).toHaveLength(1);
+    expect(building.filter((b) => b.title === 'Replace Dental Vacuum Piping')).toHaveLength(1);
     expect(byKey(building, '36C26127Q0072').url).toContain(notice('f6bc57b0').noticeId); // posted 11-10, the others 10-19
   });
 
@@ -229,7 +229,11 @@ describe('scans over several days (real notices, in-memory database)', () => {
     db = await memoryDb();
   });
   afterAll(async () => db.close());
-  beforeEach(async () => resetDb(db));
+  beforeEach(async () => {
+    await resetDb(db);
+    // SAM.gov was read before: its first load would be quiet (src/scan.ts; test/scan-quiet.test.ts).
+    await (await import('./scan-helpers.js')).markSourcesKnown(db, ['samgov']);
+  });
 
   // The pilot, made eligible for the VA's SDVOSB set-aside and alerted from 1 point up, so the real Reno
   // breaker-testing job is an alert whatever the set-aside rules are (simulated settings, not L&M's).
@@ -284,7 +288,7 @@ describe('scans over several days (real notices, in-memory database)', () => {
     const open = await getOpenBids(db, new Date('2026-11-13T14:15:00Z'));
     expect(open.map((b) => b.id)).toEqual(['samgov:36C26126Q1297']);
     expect(open[0]).toMatchObject({
-      title: 'Z2DA--654-24-004 | Remediate Old Parking Garage', category: 'Solicitation', setAside: 'SDVOSBC',
+      title: '654-24-004 | Remediate Old Parking Garage', category: 'Solicitation', setAside: 'SDVOSBC',
       location: { city: 'Reno', state: 'NV', precision: 'city' }, dueAt: '2026-11-20T23:00:00.000Z',
     });
     expect(open[0]!.url).toContain(notice('ebf23d8b').noticeId);
@@ -307,5 +311,43 @@ describe('scans over several days (real notices, in-memory database)', () => {
     expect(report.sources.samgov).toMatchObject({ fetched: 3 });
     expect(report.totalBids).toBe(1);
     expect((await getOpenBids(db, new Date('2026-11-13T14:15:00Z'))).map((b) => b.id)).toEqual(['samgov:36C26127Q0072']);
+  });
+});
+
+/**
+ * samTitle: the PSC code an office typed into a title comes off (it is already the card's psc). Real titles: the SAM
+ * API captures (test/fixtures/samgov-*.json) and today's bulk file (2026-11-14).
+ */
+describe('samTitle: a leading or trailing PSC code comes off, nothing else changes', () => {
+  it.each([
+    ['Z1DA--FY27 NRM - Correct Mather Loop Road', 'Z1DA', 'FY27 NRM - Correct Mather Loop Road'],
+    ['J--LAKE25-101-CC LIFT STATION PUMP REPAIR', 'J045', 'LAKE25-101-CC LIFT STATION PUMP REPAIR'],
+    ['H961--Tri-Annual Electrical Inspection', 'H961', 'Tri-Annual Electrical Inspection'],
+    ['Z2NZ-- 658-23-108 Correct Stormwater Drainage', 'Z2NZ', '658-23-108 Correct Stormwater Drainage'],
+    ['Grounds maintenance services for Riverside National Cemetery. -- S208', 'S208', 'Grounds maintenance services for Riverside National Cemetery.'],
+    ['R4--Systems Engineering Services', 'R', 'Systems Engineering Services'], // the code is a longer form of the PSC
+    ['70--DISPLAY UNIT, IN REPAIR/MODIFICATION OF', '7E20', 'DISPLAY UNIT, IN REPAIR/MODIFICATION OF'], // an FSC group
+  ])('%s', (raw, psc, want) => {
+    expect(samTitle(raw, psc)).toBe(want);
+  });
+
+  it('leaves everything else as it is', () => {
+    // a mid-title code, a case, a number, a code that is not the notice's
+    expect(samTitle('Amendment 0002 Y1DZ--36C261-28-AP-0022 | 612-27-1-6009-0001 | Construct Modular Imaging Center in Stockton', 'Y1DZ'))
+      .toBe('Amendment 0002 Y1DZ--36C261-28-AP-0022 | 612-27-1-6009-0001 | Construct Modular Imaging Center in Stockton');
+    expect(samTitle('S--Snow Removal Services Gaylord, MI', 'Z2AA')).toBe('S--Snow Removal Services Gaylord, MI');
+    expect(samTitle('Repair HVAC -- Z2AA', 'J041')).toBe('Repair HVAC -- Z2AA');
+    expect(samTitle('REPLACE ROOF BLDG 12', 'Z2AA')).toBe('REPLACE ROOF BLDG 12');
+    expect(samTitle('Z2AA--', 'Z2AA')).toBe('Z2AA--'); // nothing would be left
+    expect(samTitle('Z2AA--Roof', null)).toBe('Z2AA--Roof'); // no PSC to check it against
+  });
+
+  it('the API path and the bulk path give the card the same stripped title; the id does not change', () => {
+    const json = JSON.parse(fx('samgov-ca-236220.json')) as SamResponse;
+    const cards = parseSamResponse(json);
+    expect(cards.filter((c) => /^[A-Z0-9]{1,4}--/.test(c.title) && c.psc && c.title.startsWith(c.psc.slice(0, 1)))).toEqual([]);
+    for (const c of cards) expect(c.sourceId).not.toMatch(/--/);
+    const d = samDraft({ noticeId: 'TEST-1', title: 'Z1DA--FY27 NRM - Correct Mather Loop Road', classificationCode: 'Z1DA', solicitationNumber: 'TEST-SOL-1' });
+    expect(d).toMatchObject({ title: 'FY27 NRM - Correct Mather Loop Road', psc: 'Z1DA', sourceId: 'TEST-SOL-1' });
   });
 });

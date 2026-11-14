@@ -11,6 +11,7 @@ import { runScan } from '../src/scan.js';
 import { fixtureSources } from '../src/sources/fixtures.js';
 import type { Source, SourceContext } from '../src/types.js';
 import { CAPTURED, FIXTURE_DIR } from './helpers.js';
+import { markSourcesKnown } from './scan-helpers.js';
 
 const NOW = CAPTURED; // the day the pages were fetched (2026-11-13, noon Pacific)
 const profile = loadProfile('lm-electric');
@@ -31,6 +32,8 @@ const ctx: SourceContext = {
 let db: Db;
 beforeAll(async () => {
   db = await openDb({ dataDir: 'memory://' });
+  // The boards were read before (a source's first load is quiet and never reaches a digest: test/scan-quiet.test.ts).
+  await markSourcesKnown(db, ['questcdn', 'ngem', 'douglascounty', 'nevadaepro']);
 });
 afterAll(async () => db.close());
 

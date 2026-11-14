@@ -50,6 +50,9 @@ export const dollarsText = (v) => (v == null ? '' : Number(v).toLocaleString('en
 /** "NV Public Works (QuestCDN)" → "NV Public Works" for buttons. */
 export const shortSource = (name) => (name ?? 'source').replace(/\s*\([^)]*\)\s*$/, '');
 
+/** 1234 → "1,234": every count a person reads. */
+export const num = (n) => Number(n).toLocaleString('en-US');
+
 export const VERDICT_LABEL = { great: 'Great fit', good: 'Good fit', maybe: 'Maybe', skip: 'Not a fit' };
 export const PLAN_LABEL = { free: 'Free', pro: 'Pro', pilot: 'Pilot' };
 

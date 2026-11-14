@@ -70,19 +70,19 @@ describe('parseOpenGovProjects (County of Sacramento, 11 open projects)', () => 
   const parsed = parseOpenGovProjects(SAC, SACRAMENTO);
 
   it('counts what it saw, kept and left out', () => {
-    expect(parsed).toMatchObject({ open: 11, notTrade: 4, notBiddable: 0 });
-    expect(parsed.bids).toHaveLength(7);
+    expect(parsed).toMatchObject({ open: 11, notTrade: 7, notBiddable: 0 });
+    expect(parsed.bids).toHaveLength(4);
     // Left out: a records notification system (template "Request for Bid (Goods/Services)"), psychiatry and
-    // breastfeeding support services, and a cattle grazing land lease (relevance.ts).
+    // breastfeeding support services, a cattle grazing land lease, two purchases of parts and an operating-subsidy
+    // programme that names no work (relevance.ts: OpenGov's unclear rows are dropped).
     for (const t of ['County Clerk Recorder Notification System', 'Breastfeeding Support Services',
       "Psychiatry Services at Sacramento County's Youth Detention Facility Open Enrollment",
-      'Cattle Grazing Land Lease within the Lower Dry Creek Floodplain']) {
+      'Cattle Grazing Land Lease within the Lower Dry Creek Floodplain', 'Traffic Signal Parts', 'HVAC and Refrigeration Parts']) {
       expect(parsed.bids.map((b) => b.title)).not.toContain(t);
     }
     expect(parsed.bids.map((b) => b.title)).toEqual(expect.arrayContaining([
       'SMF Pedestrian Walkway - Riparian Public Art Installation Project',
       'CNG Fueling Station Maintenance and Repair Services',
-      'HVAC and Refrigeration Parts',
       'Construction Manager at Risk Services for Sacramento International Airport Airfield Maintenance Facility Project',
     ]));
   });
@@ -219,15 +219,15 @@ describe('openGovSource.fetch', () => {
       expect(JSON.parse(c.body!)).toEqual({ filters: [{ type: 'status', value: 'open' }], quickSearchQuery: null, limit: 100, page: 1 });
     }
     const lakeport = parseOpenGovProjects(LAKEPORT, { ...SACRAMENTO, code: 'cityoflakeport' }).bids.length;
-    expect(bids).toHaveLength(7 + lakeport);
+    expect(bids).toHaveLength(4 + lakeport);
     expect(logs[0]).toBe('opengov: 7 governments to read (slice opengov-1; of 13 listed: 1 inactive/deleted, 1 OpenGov internal, 1 with no state, 3 in other slices)');
-    expect(logs.at(-1)).toBe(`opengov: 7 governments read; 12 open projects at 2 of them; ${7 + lakeport} kept, ${4 + (1 - lakeport)} left out as not trade work, 0 private/paused/coming soon`);
+    expect(logs.at(-1)).toBe(`opengov: 7 governments read; 12 open projects at 2 of them; ${4 + lakeport} kept, ${7 + (1 - lakeport)} left out as not trade work, 0 private/paused/coming soon`);
   });
 
   it('a government that answers an error is logged and skipped; the rest go on', async () => {
     const { ctx, logs, partial } = fake({ saccounty: SAC, sjrtd: new Error('HTTP 500 for https://api.procurement.opengov.com/…') }, { slice: CA_SLICE });
     const bids = await source.fetch(ctx);
-    expect(bids.filter((b) => b.sourceId.startsWith('saccounty:'))).toHaveLength(7);
+    expect(bids.filter((b) => b.sourceId.startsWith('saccounty:'))).toHaveLength(4);
     // and the scan report says so (report.sources.opengov.stopped), not only the log
     expect(partial).toEqual(['opengov: 1 of 7 governments failed (sjrtd)']);
     expect(logs).toContain('opengov sjrtd (San Joaquin Regional Transit District): skipped — HTTP 500 for https://api.procurement.opengov.com/…');

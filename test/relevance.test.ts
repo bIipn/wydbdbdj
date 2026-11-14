@@ -404,3 +404,22 @@ describe('isTradeWork: purchases, design and IT are not trade work (live scan ro
     expect(matchText('Traffic Signal Parts')).toBe('Traffic Signal Parts');
   });
 });
+
+describe('isTradeWork: on-call services, IT upkeep, audits, goods and sales that carry a trade or work word (review, 2026-11-14)', () => {
+  it.each([
+    'Town of Chester Real Estate Brokerage Services (On-Call)', 'On Call Engineering', 'Designer On Call Services',
+    'RFP 27-25 On-Call Utility Billing Assistance Services', 'On-Call Labor Compliance Services',
+    'Airport Security Coordinator (ASC) On-Call Services', 'Palo Alto Firewall & Panorama Maintenance Renewal',
+    'MMIS Controls Audit', 'Cloud-Hosted Phone System (UCaaS)', 'Golf Course Merchandise', 'Gate Valves',
+    'Traffic Marking Paint', 'IRU Dark Fiber', 'Sale of 16 Benefit Street Property', 'Boot Repair',
+  ])('drops %s', (title) => {
+    expect(isTradeWork({ title, board: 'questcdn' }).keep).toBe(false);
+  });
+
+  it.each([
+    'On-Call Electrical Services', 'On-Call Plumbing Repair Services', 'Valve Replacement Project (TEST)',
+    'Energy Audit and Lighting Retrofit Installation (TEST)',
+  ])('keeps %s', (title) => {
+    expect(isTradeWork({ title, board: 'questcdn' }).keep).toBe(true);
+  });
+});

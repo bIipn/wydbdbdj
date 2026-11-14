@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RouteContext } from '../context.js';
 import { getGroup, SCAN_GROUPS } from '../sources/groups.js';
-import { safeEqual } from './shared.js';
+import { quietFlag, safeEqual } from './shared.js';
 
 /**
  * The daily jobs as plain GET routes, for hosts that cannot keep a timer alive.
@@ -32,13 +32,16 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   // the scan report (per source: OK, FAILED, or stopped at the time budget).
   // flush(): the scan's alerts queue their pushes on a short timer; send them before answering, because the
   // host freezes the function as soon as the reply is out and that timer would never fire.
-  app.get<{ Querystring: { group?: string } }>('/api/cron/scan', async (req, reply) => {
+  // ?quiet=1: store and score, announce nothing (src/scan.ts ScanDeps.quiet), e.g. a first run on a new host.
+  app.get<{ Querystring: { group?: string; quiet?: string } }>('/api/cron/scan', async (req, reply) => {
     if (!allowed(req, reply)) return reply;
     if (!ctx.scan) return reply.code(501).send({ error: 'scan not configured' });
     const asked = typeof req.query.group === 'string' && req.query.group !== '' ? req.query.group : undefined;
     const group = asked === undefined ? undefined : getGroup(asked);
     if (group === null) return reply.code(400).send({ error: 'unknown_group', groups: SCAN_GROUPS.map((g) => g.name) });
-    const report = await ctx.scan(group ? { group: group.name } : {});
+    const quiet = quietFlag(req.query.quiet);
+    if (quiet === null) return reply.code(400).send({ error: 'invalid_query', message: 'quiet must be 1 or 0' });
+    const report = await ctx.scan({ ...(group ? { group: group.name } : {}), ...(quiet ? { quiet: true } : {}) });
     await ctx.realtime?.flush();
     return report;
   });

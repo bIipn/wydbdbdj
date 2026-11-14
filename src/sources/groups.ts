@@ -29,7 +29,7 @@ export function resolveSlices(source: Pick<Source, 'slices'>): Array<{ group: st
 
 /** The same source, with `slice` on every context it is handed. Same id, so the report keys stay the source's. */
 export function withSlice(source: Source, slice: SourceSlice): Source {
-  return { ...source, fetch: (ctx) => source.fetch({ ...ctx, slice }) };
+  return { ...source, runSlice: slice, fetch: (ctx) => source.fetch({ ...ctx, slice }) };
 }
 
 /** The group a plain (unsliced) source runs in. */

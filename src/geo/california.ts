@@ -179,14 +179,14 @@ export function nearestCounty(from: LatLng): CaCounty {
 }
 
 /**
- * An AREA stored on a card (several counties, or a Caltrans district): precision 'region', no point, state CA, and
- * the county field holding the list "Humboldt, Shasta". Returns the counties, or null for anything else (a Nevada
- * region has no county list, so it is never an area).
+ * An AREA stored on a card (one county with no town, several counties, or a Caltrans district): precision 'region',
+ * no point, state CA, and the county field holding the list "Humboldt, Shasta". Returns the counties, or null for
+ * anything else (a Nevada region has no county list, so it is never an area).
  */
 export function areaCounties(loc: { precision: string; state: string | null; lat: number | null; county: string | null }): string[] | null {
   if (loc.precision !== 'region' || loc.state !== 'CA' || loc.lat != null || !loc.county) return null;
   const names = loc.county.split(',').map((s) => caCounty(s)?.name ?? null);
-  return names.length >= 2 && names.every((n): n is string => n !== null) ? names : null;
+  return names.length >= 1 && names.every((n): n is string => n !== null) ? names : null;
 }
 
 /**

@@ -12,6 +12,7 @@ import { isCandidate } from '../src/score/candidates.js';
 import { scoreBid } from '../src/score/score.js';
 import type { Bid, BidDraft, Source } from '../src/types.js';
 import { memoryDb, NOW, questSource, resetDb, scanCtx, testBid, testProfile } from './helpers.js';
+import { markSourcesKnown } from './scan-helpers.js';
 
 let db: Db;
 beforeAll(async () => { db = await memoryDb(); });
@@ -171,6 +172,7 @@ describe('the scan keeps its promises', () => {
     const old = spread(4).filter(alertable);
     expect(old.length).toBeGreaterThan(0);
     await runScan({ db, sources: [sourceOf(old)], profiles: [profile], ctx: scanCtx() });
+    await markSourcesKnown(db, ['questcdn']); // not its first load (that one is quiet: test/scan-quiet.test.ts)
 
     const bus = createBus();
     const seen: BusEventOf<'match'>[] = [];

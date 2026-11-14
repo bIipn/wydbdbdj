@@ -145,7 +145,8 @@ describe('runScan with a time budget', () => {
 
   it('with time to spare every page is read, and nothing says "stopped"', async () => {
     const report = await runScan({ db, sources: [pager('bidbuy', 4)], profiles: [], ctx: scanCtx(), budgetMs: FETCH_BUDGET_MS });
-    expect(report.sources.bidbuy).toEqual({ ok: true, fetched: 8, ms: expect.any(Number) });
+    // firstLoad: nothing of bidbuy was stored before, so these 8 are stored quietly (src/scan.ts).
+    expect(report.sources.bidbuy).toEqual({ ok: true, fetched: 8, ms: expect.any(Number), firstLoad: true });
   });
 
   it('no budget = no deadline on the context (a local full scan)', async () => {

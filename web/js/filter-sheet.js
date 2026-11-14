@@ -4,14 +4,17 @@
 import { loadBrowse } from './browse.js';
 import { h } from './dom.js';
 import { defaultFilters, DISTANCES, DUE_DAYS, FITS, SORTS, SOURCES } from './filters.js';
+import { SOURCE_LABELS } from './source-labels.js';
 import { dollarsText, parseDollars } from './format.js';
 import { clearErrors, field, formError, moneyInput, showErrors, toggle } from './form.js';
 import { closeSheet, showInSheet } from './sheet.js';
 import { render } from './shell.js';
-import { state } from './state.js';
+import { forgetBrowse, state } from './state.js';
 
 let draft = null;
 let text = { min: '', max: '' };
+/** "More boards" opened in this sheet. */
+let moreBoards = false;
 
 function chip(label, on, onclick) {
   return h('button', { class: `chip${on ? ' is-on' : ''}`, type: 'button', 'aria-pressed': String(on), onclick }, label);
@@ -36,6 +39,43 @@ function multi(key, options) {
   }));
 }
 
+/** The company's home state: the two letters at the end of its base ("River Pines, CA" → "CA"). */
+const homeState = () => /,\s*([A-Z]{2})\s*$/.exec(state.profile?.base ?? '')?.[1] ?? null;
+
+/**
+ * The Source choices. 18 boards are too many to scan, so the sheet leads with the boards that matter here:
+ * when the server says which boards have bids for this account (`sources`), only those. Otherwise the home
+ * state's boards, the nationwide ones and any board already seen in this account's bids, the rest behind
+ * "More boards", each with its state. A board that is picked always shows.
+ */
+function sourceChoices() {
+  const counts = state.browseSources;
+  const seen = new Set(state.items.map((i) => i.source));
+  const home = homeState();
+  const picked = (id) => draft.sources.includes(id);
+  const lead = (b) => picked(b.id) || (counts ? (counts[b.id] ?? 0) > 0 : b.state === home || b.state === 'US' || seen.has(b.id));
+  const rank = (b) => (b.state === home ? 0 : b.state === 'US' ? 1 : 2); // home state, nationwide, then others seen
+  const first = SOURCE_LABELS.filter(lead).sort((a, b) => rank(a) - rank(b));
+  const rest = counts ? [] : SOURCE_LABELS.filter((b) => !lead(b)).sort((a, b) => a.state.localeCompare(b.state));
+  const boardChip = (b, withState) => {
+    const on = picked(b.id);
+    const n = counts?.[b.id];
+    return chip([b.label, withState ? h('small', { class: 'chip-state' }, b.state === 'US' ? 'US' : b.state) : null,
+      n != null ? h('small', { class: 'chip-state' }, n.toLocaleString('en-US')) : null], on, () => {
+      draft.sources = on ? draft.sources.filter((x) => x !== b.id) : [...draft.sources, b.id];
+      draw();
+    });
+  };
+  return [
+    h('div', { class: 'chip-row' }, first.map((b) => boardChip(b, false))),
+    rest.length ? h('button', {
+      class: 'link-btn more-boards', type: 'button', 'aria-expanded': String(moreBoards),
+      onclick: () => { moreBoards = !moreBoards; draw(); },
+    }, moreBoards ? 'Fewer boards' : `More boards (${rest.length}, other states)`) : null,
+    rest.length && moreBoards ? h('div', { class: 'chip-row' }, rest.map((b) => boardChip(b, true))) : null,
+  ];
+}
+
 const group = (title, help, ...body) => h('section', { class: 'fs-group' },
   h('h3', {}, title), help ? h('p', { class: 'field-help' }, help) : null, ...body);
 
@@ -54,9 +94,9 @@ function apply(form) {
   state.browse = draft;
   draft = null;
   closeSheet();
-  state.browseIds = null;
+  forgetBrowse();
+  loadBrowse(); // first: it marks the list as loading, so the render below does not ask a second time
   render();
-  loadBrowse();
 }
 
 function draw() {
@@ -76,8 +116,8 @@ function draw() {
     group('Distance', `Straight-line miles from your base${base}. Bids we couldn’t place are left out when you pick a distance.`, single('maxDistance', DISTANCES, 'mi')),
     group('Bids due within', null, single('dueWithinDays', DUE_DAYS, 'days')),
     group('Fit level', null, multi('fits', FITS)),
-    group('Source', 'Pick none to see every board.', multi('sources', SOURCES)),
-    group('Sort by', null, h('div', { class: 'chip-row' }, SORTS.map((s) => chip(s.label, draft.sort === s.id, () => { draft.sort = s.id; draw(); })))),
+    group('Source', state.browseSources ? 'Boards with bids for you. Pick none to see every board.' : 'Pick none to see every board.', ...sourceChoices()),
+    group('Sort by', draft.sort === 'near' ? 'Bids with no distance (no site we can place) come last.' : null, h('div', { class: 'chip-row' }, SORTS.map((s) => chip(s.label, draft.sort === s.id, () => { draft.sort = s.id; draw(); })))),
     formError(),
     h('div', { class: 'fs-foot' },
       h('button', { class: 'cta ghost', type: 'button', onclick: () => { draft = null; closeSheet(); } }, 'Cancel'),
@@ -93,6 +133,7 @@ function draw() {
 /** The Filters button. */
 export function openFilters() {
   draft = structuredClone(state.browse);
+  moreBoards = false;
   text = { min: dollarsText(draft.minValue), max: dollarsText(draft.maxValue) };
   if (draft.fits.length === 0) draft.fits = FITS.map((f) => f.id);
   draw();

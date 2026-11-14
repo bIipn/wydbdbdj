@@ -1,5 +1,8 @@
 import type { Db } from './db/db.js';
-import { getBids, getOpenBids, listProfiles, pruneMatches, recordScan, upsertBids, upsertMatches, upsertProfile } from './db/repo.js';
+import {
+  getBids, getOpenBids, listProfiles, markMatchesQuiet, matchAnnounceState, pruneMatches, recordScan, storedSourceStates, upsertBids,
+  upsertMatches, upsertProfile,
+} from './db/repo.js';
 import { accountProfileIds, ownLocalBidIds } from './jobs/repo.js';
 import { locate } from './geo/locate.js';
 import type { Bus } from './realtime/bus.js';
@@ -16,6 +19,11 @@ export interface SourceReport {
   error?: string;
   /** Set when the source stopped early and kept what it had, e.g. "commbuys: stopped at the time budget, 300 of 890 read". */
   stopped?: string;
+  /**
+   * True when this was the source's FIRST load (no bid of it stored before this scan; for a sliced source, none in
+   * the slice's states): its bids were stored and scored but announced to nobody (no alert, no push, no digest).
+   */
+  firstLoad?: boolean;
   fetched: number;
   ms: number;
 }
@@ -30,6 +38,8 @@ export interface ProfileReport {
   byTier?: Record<Tier, number>;
   /** New bids at or above the digest line that may alert: never sub work, capped or over-limit bids. */
   newGood: number;
+  /** 'match' alerts NOT published for this profile in this scan because of the cap (MAX_MATCH_ALERTS_PER_SCAN). */
+  heldBack?: number;
   /** Set when scoring this profile failed; the other profiles were still scored. */
   error?: string;
 }
@@ -42,8 +52,17 @@ export interface ScanReport {
   sources: Partial<Record<SourceId, SourceReport>>;
   totalBids: number;
   newBids: number;
+  /** True for a quiet scan (?quiet=1, --quiet): everything it fetched was stored and scored, nothing announced. */
+  quiet?: boolean;
   profiles: Record<string, ProfileReport>;
 }
+
+/**
+ * The backstop: at most this many NEW 'match' alerts per profile per scan, best scores first. The rest are stored
+ * silently (matches.quiet = 'held', never announced later). A bid already alerted does not count: its event is a
+ * repeat the alert store ignores.
+ */
+export const MAX_MATCH_ALERTS_PER_SCAN = 10;
 
 /** Draft from a source → full Bid (stable id, resolved location, flags array). */
 export function finalizeBid(d: BidDraft): Bid {
@@ -68,6 +87,29 @@ export function mayAnnounce(s: ScoreResult, threshold: number): boolean {
   return s.score >= threshold && !s.rejected && !s.overLimit && !s.capped && s.tier !== 'sub';
 }
 
+/** What scoreBids announces and how. */
+interface AnnounceOpts {
+  /** Stored bids this scan did not fetch: re-scored quietly (no events), their rows left as they are. */
+  quiet?: ReadonlySet<string>;
+  /** Bids a quiet load fetched (a source's first load, a quiet scan): never announced, their rows marked 'load'. */
+  silent?: ReadonlySet<string>;
+  /** At most this many new 'match' alerts (a scan: MAX_MATCH_ALERTS_PER_SCAN); absent = no cap (onboarding). */
+  cap?: number;
+  /**
+   * The bids whose stale rows may be taken back (pruneMatches `among`). A group's scan scores only what its boards
+   * returned, so only those may lose a row; absent = every open bid (`bids` is then every open bid).
+   */
+  pruneAmong?: readonly string[];
+  /** The profiles an account owns, read once per scan (accountProfileIds); absent = read here when a local job is scored. */
+  accountProfiles?: ReadonlySet<string>;
+}
+
+/** Best first: score, then the sooner deadline (none last), then the id. */
+function bestFirst(a: { bid: Bid; score: ScoreResult }, b: { bid: Bid; score: ScoreResult }): number {
+  const due = (x: Bid) => (x.dueAt ? Date.parse(x.dueAt) : Number.POSITIVE_INFINITY);
+  return b.score.score - a.score.score || due(a.bid) - due(b.bid) || (a.bid.id < b.bid.id ? -1 : a.bid.id > b.bid.id ? 1 : 0);
+}
+
 /**
  * Score one profile's candidates and store them. Only `isCandidate` bids are scored at all: a bid certainly
  * out of reach (placed far beyond the travel radius, or unplaced in a state the company does not work) gets no
@@ -75,14 +117,20 @@ export function mayAnnounce(s: ScoreResult, threshold: number): boolean {
  * Rows are written MATCH_BATCH at a time, then stale rows of bids that stopped being candidates are taken back.
  *
  * With a bus, every match worth an alert (at or above the threshold, not rejected, not over the spend limit)
- * is published as a 'match' event — on every scan, so listeners de-duplicate. Bids in `quiet` are re-scored and
- * stored but never published: they are stored bids this scan did not fetch, re-scored only so "N days to bid"
- * stays true. Events go out after the profile's rows are stored, so a listener that reads the match finds it.
+ * is published as a 'match' event, once: a bid whose 'match' alert is already stored is not published again
+ * (listeners still de-duplicate). Never published:
+ *   - bids in `quiet`: stored bids this scan did not fetch, re-scored only so "N days to bid" stays true;
+ *   - bids in `silent` (a source's first load, a quiet scan) and any match marked quiet before ('load' or 'held'):
+ *     they are not news, today or on any later scan;
+ *   - with a `cap`, the new alerts past the cap (best first), which are marked 'held' and logged.
+ * Events go out after the profile's rows are stored, so a listener that reads the match finds it.
  */
 async function scoreBids(
-  db: Db, profile: Profile, bids: Bid[], now: Date, fresh: ReadonlySet<string>, bus?: Bus, quiet: ReadonlySet<string> = new Set(),
+  db: Db, profile: Profile, bids: Bid[], now: Date, fresh: ReadonlySet<string>, bus?: Bus, opts: AnnounceOpts = {},
   candidate: CandidateTest = isCandidate, announce: AnnounceRule = mayAnnounce,
 ): Promise<ProfileReport> {
+  const quiet = opts.quiet ?? new Set<string>();
+  const silent = opts.silent ?? new Set<string>();
   const byVerdict = noVerdicts();
   const byTier = noTiers();
   const threshold = alertThreshold(profile);
@@ -92,7 +140,7 @@ async function scoreBids(
   // any local job scored for a profile that cannot take one (seesLocalJobs).
   const hasLocal = bids.some((b) => b.source === 'local');
   const own = hasLocal ? await ownLocalBidIds(db, profile.id) : new Set<string>();
-  const local = hasLocal && seesLocalJobs(profile, (await accountProfileIds(db)).has(profile.id));
+  const local = hasLocal && seesLocalJobs(profile, (opts.accountProfiles ?? await accountProfileIds(db)).has(profile.id));
   for (const bid of bids) {
     if (bid.source === 'local' && (!local || own.has(bid.id))) continue;
     if (!candidate(profile, bid)) continue;
@@ -100,21 +148,35 @@ async function scoreBids(
     scored.push({ bid, bidId: bid.id, score: s });
     byVerdict[s.verdict]++;
     byTier[s.tier]++;
-    if (fresh.has(bid.id) && mayAnnounce(s, profile.notify.minScore)) newGood++;
+    if (fresh.has(bid.id) && !silent.has(bid.id) && mayAnnounce(s, profile.notify.minScore)) newGood++;
   }
-  await upsertMatches(db, profile.id, scored);
-  await pruneMatches(db, profile.id, scored.map((x) => x.bidId), now);
+  await upsertMatches(db, profile.id, scored.map((x) => (silent.has(x.bidId) ? { ...x, quiet: 'load' as const } : x)));
+  await pruneMatches(db, profile.id, scored.map((x) => x.bidId), now, opts.pruneAmong ?? null);
 
+  let heldBack = 0;
   if (bus) {
-    for (const { bid, score: s } of scored) {
-      if (quiet.has(bid.id) || !announce(s, threshold)) continue;
+    const worthy = scored.filter(({ bid, score: s }) => !quiet.has(bid.id) && !silent.has(bid.id) && announce(s, threshold));
+    const state = await matchAnnounceState(db, profile.id, worthy.map((x) => x.bidId));
+    const open = worthy.filter((x) => state.get(x.bidId)?.quiet == null);
+    // A bid already alerted is a repeat: it is not published again (the alert store would only drop it, two
+    // statements per bid per scan). Only the rest are new alerts, and they are capped.
+    const news = open.filter((x) => !state.get(x.bidId)?.alerted).sort(bestFirst);
+    const keep = opts.cap == null ? news : news.slice(0, opts.cap);
+    const held = news.slice(keep.length);
+    if (held.length) {
+      await markMatchesQuiet(db, profile.id, held.map((x) => x.bidId), 'held');
+      heldBack = held.length;
+    }
+    for (const { bid, score: s } of keep) {
       await bus.emit({ type: 'match', profileId: profile.id, bid, score: s, isNewBid: fresh.has(bid.id) });
       // Let the event loop run once: the alert's stream frame and push go out now, not when the whole
       // scan ends (the embedded database runs on this thread, so a long scan would otherwise hold them).
       await new Promise<void>((r) => setImmediate(r));
     }
   }
-  return { scored: scored.length, outOfReach: bids.length - scored.length, byVerdict, byTier, newGood };
+  return {
+    scored: scored.length, outOfReach: bids.length - scored.length, byVerdict, byTier, newGood, ...(heldBack ? { heldBack } : {}),
+  };
 }
 
 /**
@@ -189,6 +251,12 @@ export interface ScanDeps {
   /** The scan group being read, copied into the report (src/sources/groups.ts). */
   group?: string;
   /**
+   * A quiet scan (GET /api/cron/scan?quiet=1, POST /api/admin/scan?quiet=1, `npm run scan -- --quiet`): every bid it
+   * fetches is stored and scored like any scan, but announced to nobody, now or later (no alert, no push, no digest).
+   * A source's first load is always quiet, whatever this says.
+   */
+  quiet?: boolean;
+  /**
    * How long all the sources together may fetch (a group on the serverless host: groups.ts FETCH_BUDGET_MS).
    * Each source gets ctx.deadline = its fair share of what is left: (time left) / (sources still to run), so time
    * a quick source does not use goes to the ones after it. Absent = no deadline at all.
@@ -206,16 +274,19 @@ export function shareDeadline(runEndsAt: number, sourcesLeft: number, now = Date
  * batches), then score every open bid that is a candidate for each profile (src/score/candidates.ts).
  */
 export async function runScan({
-  db, sources, profiles, ctx, bus, candidate = isCandidate, announce = mayAnnounce, group, budgetMs,
+  db, sources, profiles, ctx, bus, candidate = isCandidate, announce = mayAnnounce, group, budgetMs, quiet: quietRun = false,
 }: ScanDeps): Promise<ScanReport> {
   const started = new Date();
   const report: ScanReport = {
     ...(group ? { group } : {}),
+    ...(quietRun ? { quiet: true } : {}),
     startedAt: started.toISOString(), finishedAt: '', sources: {}, totalBids: 0, newBids: 0, profiles: {},
   };
   const runEndsAt = budgetMs != null ? started.getTime() + budgetMs : null;
 
   const drafts: BidDraft[] = [];
+  /** Which source run handed back each draft: a source's first load is judged per run (a sliced source: per slice). */
+  const ran: Array<{ source: Source; drafts: BidDraft[] }> = [];
   for (const [i, source] of sources.entries()) {
     const t0 = Date.now();
     const skip = source.disabledReason?.(ctx) ?? null;
@@ -233,6 +304,7 @@ export async function runScan({
     try {
       const got = await source.fetch(sctx);
       drafts.push(...got);
+      ran.push({ source, drafts: got });
       report.sources[source.id] = { ok: true, fetched: got.length, ms: Date.now() - t0, ...(note.stopped ? { stopped: note.stopped } : {}) };
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
@@ -256,6 +328,21 @@ export async function runScan({
   const stored = await getBids(db, merged.filter(inherits).map((d) => `${d.source}:${d.sourceId}`));
   const bids: Bid[] = merged.map((d) =>
     finalizeBid(inherits(d) ? inheritFromStored(d, stored.get(`${d.source}:${d.sourceId}`) ?? null) : d));
+  // A source's first load: nothing of it is stored yet (a sliced source: nothing in its slice's states). Its bids,
+  // and everything a quiet scan fetches, are stored and scored but never announced (silent). Asked before storing.
+  const silent = new Set<string>();
+  const known = await storedSourceStates(db, ran.filter((r) => r.drafts.length > 0).map((r) => r.source.id));
+  for (const { source, drafts: got } of ran) {
+    if (got.length === 0) continue;
+    const states = known.get(source.id) ?? [];
+    const firstLoad = source.runSlice ? !states.some((st) => source.runSlice!.has(st)) : states.length === 0;
+    if (firstLoad) report.sources[source.id] = { ...report.sources[source.id]!, firstLoad: true };
+    if (firstLoad || quietRun) for (const d of got) if (d.source !== 'local') silent.add(`${d.source}:${d.sourceId}`);
+  }
+  const firstLoads = Object.entries(report.sources).filter(([, r]) => r?.firstLoad).map(([id]) => id);
+  if (firstLoads.length) ctx.log(`first load of ${firstLoads.join(', ')}: ${silent.size} bid(s) stored quietly (no alerts, no digest)`);
+  else if (quietRun) ctx.log(`quiet scan: ${silent.size} bid(s) stored quietly (no alerts, no digest)`);
+
   const fresh = await upsertBids(db, bids, ctx.now);
   report.totalBids = bids.length;
   report.newBids = fresh.size;
@@ -271,16 +358,30 @@ export async function runScan({
   const quiet = new Set(stale.map((b) => b.id));
   const toScore = [...bids, ...stale];
 
+  // Read once for the whole scan, and only when a local job is in it (seesLocalJobs).
+  const accountProfiles = toScore.some((b) => b.source === 'local') ? await accountProfileIds(db) : undefined;
   for (const profile of typeof profiles === 'function' ? await profiles() : profiles) {
     // One bad profile must not cost everyone else their matches.
     try {
       await upsertProfile(db, profile);
-      report.profiles[profile.id] = await scoreBids(db, profile, toScore, ctx.now, fresh, bus, quiet, candidate, announce);
+      report.profiles[profile.id] = await scoreBids(
+        db, profile, toScore, ctx.now, fresh, bus,
+        {
+          quiet, silent, cap: MAX_MATCH_ALERTS_PER_SCAN, ...(rescoreStale ? {} : { pruneAmong: [...fetched] }),
+          ...(accountProfiles ? { accountProfiles } : {}),
+        }, candidate, announce,
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       report.profiles[profile.id] = { scored: 0, byVerdict: noVerdicts(), byTier: noTiers(), newGood: 0, error: msg };
       ctx.log(`! profile ${profile.id} failed: ${msg}`);
     }
+  }
+
+  const held = Object.values(report.profiles).filter((p) => p.heldBack);
+  if (held.length) {
+    const n = held.reduce((sum, p) => sum + (p.heldBack ?? 0), 0);
+    ctx.log(`match alerts: ${n} held back for ${held.length} profile(s) (at most ${MAX_MATCH_ALERTS_PER_SCAN} per profile per scan, best first)`);
   }
 
   report.finishedAt = new Date().toISOString();

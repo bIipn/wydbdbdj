@@ -178,7 +178,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 
 | | |
 |---|---|
-| `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort, `tier=fit\|sub\|other\|all`. Every item carries `tier`; the response carries `counts: {fit, sub, other}` (open, unswiped, same non-tier filters). The deck (no `all`) holds sub work below the fits unless the profile's `showSubWork` is false or `tier=fit` |
+| `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort, `tier=fit\|sub\|other\|all`, and paging: `limit` (1–300, default 100) and `offset` (0-based, default 0). Answers `{ items, counts, total, lastScan }`: every item carries `tier`; `counts: {fit, sub, other}` (open, unswiped, same non-tier filters); `total` = rows that match every filter of the request (tier included) before limit/offset. The order is stable across pages (ties broken by bid id). The deck (no `all`) holds sub work below the fits unless the profile's `showSubWork` is false or `tier=fit` |
 | `GET /api/bids/:id`, `GET /api/next` | one bid · the "next up" pick with its reasons |
 | `POST /api/swipe {bidId, action}` | `save` · `pass` · `bid` |
 | `DELETE /api/swipe/:bidId` | undo |
@@ -192,8 +192,8 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
 | `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature |
-| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`) |
-| `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it); `tick` also settles local jobs and sends the "2 days left to make contact" reminders |
+| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`). `POST /api/admin/scan?quiet=1` (or body `{"quiet": true}`) stores and scores but announces nothing: no 'match' alert, no push, and those bids never enter a digest |
+| `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it); `scan?group=…&quiet=1` is a quiet scan; `tick` also settles local jobs and sends the "2 days left to make contact" reminders |
 | `GET /api/jobs/rules` | local jobs (accounts mode; 404 in single mode): fee rates, contact days, limits, `paymentsOn: false`. No sign-in needed |
 | `POST /api/jobs {title, description, trades, zip, address?, phone?, budgetMaxCents?, closesInDays}` | post a job → 201 `{job}`; scored at once for nearby workers ('match' alerts) |
 | `GET /api/jobs/mine`, `GET /api/jobs/:id` | `{posted, bidding}` · `{job, messages}`, shaped for the viewer (hidden fields are `null`/`[]`) |
@@ -207,6 +207,12 @@ Jobs errors: 400 `{error:'invalid_input', fields:[{path,message}]}`, 403 `not_al
 the realtime tick run `settleDue`. Settings: `JOB_NO_SHOW_FEE_PCT` (default 5, 0–10), `JOB_POSTER_SHARE_PCT`
 (2, at most the no-show fee), `JOB_SERVICE_FEE_PCT` (1, 0–3), `JOB_CONTACT_DAYS` (7, 1–30), `JOB_MAX_CENTS`
 (25000000); a bad value stops the boot with a plain sentence.
+
+**Quiet loads.** A board's FIRST load (no stored bid of that board, or of that slice's states, before the scan) is
+always quiet, whatever the switch: its bids are stored and scored but raise no alert and never reach a digest. Any
+other scan sends at most 10 new 'match' alerts per profile (best first); the rest are held for good (still in the
+deck). `npm run scan -- --quiet` is the same switch from the command line. A bid with no due date counts as open only
+while its board still lists it (`last_seen_at` within 3 days).
 
 Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
 mode), the app asks for it once and sends it as `x-access-code`.

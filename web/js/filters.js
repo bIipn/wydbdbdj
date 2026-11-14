@@ -50,9 +50,17 @@ export function defaultFilters() {
 
 const sameSet = (a, b) => a.length === b.length && a.every((x) => b.includes(x));
 
-/** The query string for GET /api/feed (Browse: swiped bids too, over-limit ones kept and tagged). */
-export function toQuery(f) {
-  const p = new URLSearchParams({ all: '1', minScore: '0', limit: '300' });
+/** Rows per Browse page (GET /api/feed limit: 1-300). */
+export const PAGE_SIZE = 100;
+
+/**
+ * The query string for GET /api/feed (Browse: swiped bids too, over-limit ones kept and tagged). Every filter,
+ * the search, the tier and the sort go to the server: nothing filters only the rows already loaded.
+ * `offset` (0-based) asks for a later page of the same query.
+ */
+export function toQuery(f, { limit = PAGE_SIZE, offset = 0 } = {}) {
+  const p = new URLSearchParams({ all: '1', minScore: '0', limit: String(limit) });
+  if (offset > 0) p.set('offset', String(offset));
   if (f.q.trim()) p.set('q', f.q.trim());
   if (f.minValue != null) p.set('minValue', String(f.minValue));
   if (f.maxValue != null) p.set('maxValue', String(f.maxValue));

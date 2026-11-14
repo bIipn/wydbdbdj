@@ -342,6 +342,8 @@ describe('the feed: tiers, counts and the "Show sub work" switch', () => {
   it('the scan report counts each profile\'s candidates by tier, and sub work is never a "new good" bid or a match event', async () => {
     const scanDb = await memoryDb();
     try {
+      // SAM.gov was read before: a source's first load announces nothing (src/scan.ts; test/scan-quiet.test.ts).
+      await (await import('./scan-helpers.js')).markSourcesKnown(scanDb, ['samgov']);
       const bus = createBus();
       const events: Array<BusEventOf<'match'>> = [];
       bus.on('match', (e) => void events.push(e));
@@ -370,5 +372,58 @@ describe('the profile switch', () => {
     expect(summarize(buildProfile('t', on.value)).showSubWork).toBe(true);
     expect(validateAnswers({ ...base, showSubWork: 'yes' })).toMatchObject({ ok: false, errors: { showSubWork: expect.any(String) } });
     expect(summarize(pilot).showSubWork).toBe(true); // the pilot's config keeps sub work on
+  });
+});
+
+/**
+ * Sub work never lands on a rental, a study or a civil job named for a building, and never on a road job whose
+ * "road" is an address (REAL titles from the live test scan of 2026-11-14; every tier-sub row of four simulated
+ * profiles was read). subWorkFor is called directly with the hits the scorer would pass for a title that names
+ * no trade (all false).
+ */
+describe('sub work: real board titles that are not a general contractor\'s building job (2026-11-14)', () => {
+  const noHits = { fitInTitle: false, otherInTitle: null, supplyOnly: false, program: false };
+  const board = (source: Bid['source'], title: string, description: string | null = null) =>
+    ({ source, title, category: null, description, naics: null, psc: null, location: testBid({}).location });
+  const all = ['electrical', 'plumbing', 'hvac', 'painting'];
+
+  it.each([
+    ['caleprocure', 'IFB 7CA08060 - Portable Restroom and Handwash Station Rental Services'],
+    ['opengov', 'Portable Restroom and Handwashing Station Rentals'],
+    ['opengov', 'Public Safety Building Space Needs Assessment and Renovations'],
+    ['opengov', 'Polk Street Community Center Parking Lot Renovation Project'],
+    ['opengov', '26190 - Tennis & Basketball Court Renovation IDQ FY27'],
+    ['opengov', 'Soccer Field and Structural Renovations at Silver Lakes North Park'],
+    ['opengov', '(RFP) 27-27, Richard Craig Park Athletic Complex Renovation'],
+  ] as const)('%s: "%s" is not sub work for any trade', (source, title) => {
+    for (const t of all) expect(subWorkFor(board(source, title), [t], noHits), t).toBeNull();
+  });
+
+  it('a road word that is an address does not make a road job; a utility title is a utility job', () => {
+    expect(subWorkFor(board('opengov', 'Fifth Street Parking Garage Security Project', 'Install electrical conduit'), ['electrical'], noHits)).toBeNull();
+    expect(subWorkFor(board('opengov', 'DEP SRF Harbor Road WRF Expansion, Phase 3 - Reclaimed Water Ground Storage Tank', 'SCADA, electrical'), ['electrical'], noHits)?.kind).toBe('utility');
+    expect(subWorkFor(board('opengov', 'Silverbell Road Roadway Improvements - El Camino del Cerro to Goret Road', 'street lighting'), ['electrical'], noHits)?.kind).toBe('road');
+  });
+
+  it('the honest ones stay: building renovations and remodels a GC bids with the trades inside', () => {
+    for (const title of ['County Office Building 1 Renovation and Modernization Work Package 2 (WP2) Project (Project No. P33Z1)',
+      'North South Building Food Service and Food Courts Renovations', 'Kenton County Golf Course Clubhouse Renovation and Expansion',
+      'CITY OF NORTH MIAMI BEACH PUBLIC LIBRARY RESTROOM REMODEL']) {
+      expect(subWorkFor(board('opengov', title), ['plumbing'], noHits)?.kind, title).toBe('building');
+    }
+  });
+
+  it('a shell (a salt barn) is sub work for an electrician or a painter, not for plumbing or HVAC', () => {
+    const barn = { ...board('samgov', 'Y1DA--NRM-CONST | 528A4-27-202 Salt Barn Batavia | FY27 NRM'), naics: '236220', psc: 'Y1DA' };
+    expect(subWorkFor(barn, ['electrical'], noHits)?.trades).toEqual(['electrical']);
+    expect(subWorkFor(barn, ['painting'], noHits)?.trades).toEqual(['painting']);
+    expect(subWorkFor(barn, ['plumbing'], noHits)).toBeNull();
+    expect(subWorkFor(barn, ['hvac'], noHits)).toBeNull();
+  });
+
+  it('a call for trade packages is bid by the trade contractors themselves: not sub work (COMMBUYS, 2026-11-14)', () => {
+    const lynn = { ...board('commbuys', 'TRC1909 RFQ for Fifteen (15) Trade Packages for Renovation/Stabilization of Lynn Courthouse, Lynn MA'),
+      location: { city: 'Lynn', county: null, state: 'MA', zip: null, lat: null, lng: null, precision: 'state' as const, label: 'MA' } };
+    for (const t of ['electrical', 'hvac', 'painting', 'plumbing']) expect(subWorkFor(lynn, [t], noHits), t).toBeNull();
   });
 });

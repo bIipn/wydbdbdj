@@ -123,6 +123,11 @@ export interface Source {
    * slice and reads everything.
    */
   slices?: readonly SliceSpec[];
+  /**
+   * Set by groups.ts withSlice on the copy one group runs: the slice it reads. runScan uses it to tell a slice's
+   * first load (no stored bid of this source in the slice's states) from a source it already knows.
+   */
+  runSlice?: SourceSlice;
   /** Return a reason string if the source can't run (e.g. missing API key). */
   disabledReason?(ctx: SourceContext): string | null;
   fetch(ctx: SourceContext): Promise<BidDraft[]>;

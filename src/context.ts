@@ -12,6 +12,8 @@ import type { ScanReport } from './scan.js';
 /** What a scan request may ask for. No group = the default group (src/sources/groups.ts). */
 export interface ScanRequest {
   group?: string;
+  /** Store and score, announce nothing (no alert, no push, no digest, now or later): src/scan.ts ScanDeps.quiet. */
+  quiet?: boolean;
 }
 import { nextDailyRun } from './scheduler.js';
 import type { Account, Plan, Profile } from './types.js';

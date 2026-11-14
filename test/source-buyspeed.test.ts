@@ -281,9 +281,10 @@ describe('fetch(): paging through a session', () => {
     expect(p3!.body!.get('javax.faces.ViewState')).toBe('TEST-VS-2'); // the one page 2 handed out
 
     // 10 + 7 + 7 read. Left out: page 1's printing and water-system engineering, each answer's Medford canal
-    // engineering services, each answer's "Vegetables Frozen, Assorted", and page 1's four notices.
-    expect(t.logs).toEqual(['oregonbuys: 24 of 60 listed (pages 3/3), 14 kept (6 not trade work, 4 notices that are not a bid)']);
-    expect(bids).toHaveLength(14);
+    // engineering services, each answer's "Vegetables Frozen, Assorted", each answer's "SUD Housing Rental
+    // Assistance LOI" (a rental programme, relevance.ts), and page 1's four notices.
+    expect(t.logs).toEqual(['oregonbuys: 24 of 60 listed (pages 3/3), 12 kept (8 not trade work, 4 notices that are not a bid)']);
+    expect(bids).toHaveLength(12);
     expect(bids.map((b) => b.sourceId)).toContain('S-73000-00018356');
     expect(t.partial).toEqual([]);
   });
@@ -355,8 +356,10 @@ describe('fetch(): paging through a session', () => {
     const t = board(page('njstart'), []);
     const bids = await njstartSource.fetch(t.ctx);
     expect(t.calls.map((c) => c.method)).toEqual(['GET']);
-    expect(t.logs).toEqual(['njstart: 19 of 19 listed, 4 kept (15 not trade work, 0 notices that are not a bid)']);
-    expect(bids.map((b) => b.sourceId)).toEqual(['27DPP01351', '26DPP01264', '26DPP01310', '26DPP01212']);
+    // Kept: "T1434 - Operation & Maintenance of Wastewater and Potable Water Treatment Plants". Plant operators, re-entry
+    // programming and a system administrator stay unclear and a state purchasing list drops those (relevance.ts).
+    expect(t.logs).toEqual(['njstart: 19 of 19 listed, 1 kept (18 not trade work, 0 notices that are not a bid)']);
+    expect(bids.map((b) => b.sourceId)).toEqual(['26DPP01264']);
   });
 
   it('without a cookie session (a plain fetch): the first page only, as before', async () => {

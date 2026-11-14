@@ -61,7 +61,7 @@ export const MUTATIONS: Readonly<Record<MutationId, { check: CheckId; how: strin
   trade: { check: 'trade', how: 'the scan gives plumbing/HVAC profiles the electrical word lists, and electrical profiles the plumbing and HVAC lists' },
   'alert-reason': { check: 'alert-reason', how: 'the scan publishes its matches with the reasons stripped' },
   'alert-missing': { check: 'alert-missing', how: 'scans 2 and 3 publish no matches at all (the alert path is cut)' },
-  'repeat-scan': { check: 'repeat-scan', how: 'the repeat scan publishes its matches under a changed bid id (de-duplication bypassed)' },
+  'repeat-scan': { check: 'repeat-scan', how: "before the repeat scan the stored match alerts lose their bid keys, so the scan's already-alerted check and the store's de-duplication both pass them again" },
   'free-no-premium': { check: 'free-no-premium', how: 'the locked market-awards answer gets a median price added' },
   'estimate-not-silent': { check: 'estimate-not-silent', how: 'the estimate answer is turned into a "complete" estimate with a total of 0' },
   'stream-cut': { check: 'stream-delivery', how: "the bus drops every 'alert' event, so stored alerts never reach an open stream" },
@@ -226,7 +226,7 @@ function mutateProfile(p: Profile, mutation: MutationId | undefined): Profile {
 
 /** A bus the scan publishes on: forwards to the real one, changing 'match' events under a mutation. */
 function scanBus(real: Bus, mutation: MutationId | undefined, phase: () => string): Bus {
-  if (mutation !== 'alert-reason' && mutation !== 'repeat-scan' && mutation !== 'alert-missing' && mutation !== 'sub-alerts') return real;
+  if (mutation !== 'alert-reason' && mutation !== 'alert-missing' && mutation !== 'sub-alerts') return real;
   return {
     on: real.on, off: real.off,
     emit: (e: BusEvent) => {
@@ -236,7 +236,6 @@ function scanBus(real: Bus, mutation: MutationId | undefined, phase: () => strin
       }
       if (e.type === 'match' && mutation === 'alert-missing' && phase() !== 'first') return Promise.resolve();
       if (e.type === 'match' && mutation === 'alert-reason') return real.emit({ ...e, score: { ...e.score, reasons: [] } });
-      if (e.type === 'match' && mutation === 'repeat-scan' && phase() === 'repeat') return real.emit({ ...e, bid: { ...e.bid, id: `${e.bid.id}#again` } });
       return real.emit(e);
     },
   };
@@ -392,6 +391,8 @@ export async function runSimulation(opts: SimOptions): Promise<SimResult> {
     const repeatEvents = new Map<string, number>();
     const offRepeat = bus.on('alert', (e) => void repeatEvents.set(e.profileId, (repeatEvents.get(e.profileId) ?? 0) + 1));
     phase = 'repeat';
+    // The seam: the stored alerts lose their link to their bids, so the scan's "already alerted" check finds none.
+    if (mutation === 'repeat-scan') await db.exec("update alerts set dedupe_key = dedupe_key || '#lost' where kind = 'match'");
     await runAdminScan('scan 3 (identical repeat)');
     await realtime.flush();
     offRepeat();

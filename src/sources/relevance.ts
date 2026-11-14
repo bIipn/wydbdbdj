@@ -161,7 +161,9 @@ const DESIGN_IT = compileKeywords([
   'construction management', 'program management', 'project management', 'cost estimat*', 'independent cost',
   'plan review', 'plan check', 'special inspection*', 'materials testing', 'consulting', 'consultant*', 'advisory',
   'feasibility', 'study', 'studies', 'assessment', 'assmt', 'appraisal', 'master plan', 'master planning',
-  'technical assistance', 'on-call professional',
+  'technical assistance', 'on-call professional', 'on call engineering', 'on-call engineering', 'designer*',
+  // audits are advice, whatever they audit ("MMIS Controls Audit", Cal eProcure 2026-11-14: "controls" is a trade word)
+  'audit', 'audits', 'auditing',
 ]);
 
 /**
@@ -173,6 +175,8 @@ const IT = compileKeywords([
   'cyber*', 'software', 'saas', 'information technology', 'it services', 'artificial intelligence', 'data integration',
   'integration system', 'information management', 'information security', 'web-based',
   'web based', 'website', 'online', 'erp', 'database*', 'point of sale', 'digital certificate', 'registration system',
+  // "Palo Alto Firewall & Panorama Maintenance Renewal", "Cloud-Hosted Phone System (UCaaS)" (2026-11-14)
+  'firewall*', 'ucaas', 'cloud-hosted', 'cloud hosted', 'iru', 'dark fiber',
 ]);
 
 /** Building work strong enough to beat a NEVER_CONTRACTOR phrase that names the place, not the job. */
@@ -199,7 +203,11 @@ const NEVER_CONTRACTOR = compileKeywords([
   'funding availability', 'gap funding', 'funding application*', 'broadband funding', 'development rights', 'capacity building',
   'mural', 'call for artists', 'percent for art', 'scrap metal', 'salvage',
   // sales and leases, not work: "Sandhill Road 26/27 Timber Sale" names a road but is a timber sale (MFMP 2026-11-14)
-  'timber sale', 'grazing lease', 'cattle grazing', 'farm lease', 'surplus', 'auction',
+  'timber sale', 'grazing lease', 'cattle grazing', 'farm lease', 'surplus', 'auction', 'sale of', 'real estate',
+  'brokerage', 'concession*',
+  // services named "on-call" that are not a trade ("On-Call Utility Billing Assistance Services", "On-Call Labor
+  // Compliance Services", "Airport Security Coordinator (ASC) On-Call Services", 2026-11-14)
+  'utility billing', 'billing services', 'billing assistance', 'labor compliance', 'security coordinator',
 ]);
 
 /**
@@ -216,6 +224,8 @@ const GOODS = compileKeywords([
   'delivered', 'delivery', 'purchase', 'purchasing', 'procurement of', 'manufacturing', 'trailer-mounted',
   'trailer mounted', 'skid-mounted', 'vehicle', 'vehicles', 'truck', 'trucks', 'forklift*', 'tractor*', 'utv', 'suvs',
   'mower*', 'trash bags', 'towels', 'water heaters', 'blasters', 'lockers', 'products',
+  // "Golf Course Merchandise", "Gate Valves", "Traffic Marking Paint" (2026-11-14): goods, whatever trade word they carry
+  'merchandise', 'valves', 'marking paint', 'boots',
 ]);
 
 /** A rental or lease is not a job unless the title also names building work ("… Installation and Rental Services"). */
@@ -247,7 +257,7 @@ const NON_TRADE = compileKeywords([
   'call center', 'escrow', 'analytical testing', 'laboratory analysis', 'deceased animals', 'dead animals',
   // vehicles and machines are not buildings (Cal eProcure "IFB Small Engine Repair Services, Orange County",
   // "IFB Locomotive Overhaul Services in Oakland, CA", NYC "Auto Body and Chassis Repair Services for Queens East")
-  'small engine', 'locomotive', 'auto body', 'chassis', 'motor vehicle', 'vehicle inspection', 'fleet maintenance', 'heavy equipment', 'diver',
+  'boot repair', 'shoe repair', 'small engine', 'locomotive', 'auto body', 'chassis', 'motor vehicle', 'vehicle inspection', 'fleet maintenance', 'heavy equipment', 'diver',
   '3rd party testing', 'third party testing', 'protective ensembles', 'ladder inspection', 'calibration', 'emissions measurement', 'pems', 'legionella',
   // software and IT
   'information system*', 'platform', 'application support', 'application maintenance', 'data hosting', 'learning management',
@@ -278,7 +288,7 @@ const CONSTRUCTION = compileKeywords([
   'construction', 'construct', 'renovation*', 'remodel*', 'rehabilitation', 'refurbish*', 'demolition', 'design build',
   'design-build', 'design/build', 'retrofit*', 'tenant improvement*', 'repairs', 'repair', 'replacement*', 'replace',
   'installation', 'install', 'improvement project', 'improvements', 'structure*', 'building', 'facility repair*',
-  'maintenance and repair', 'trade contractor*', 'contracting services', 'on call', 'on-call', 'upgrade*', 'restoration',
+  'maintenance and repair', 'trade contractor*', 'contracting services', 'upgrade*', 'restoration',
   'resurfacing', 'conversion', 'drilling', 'maintenance', 'cupccaa', 'minor b', 'evse', 'egress stair*', 'bid package',
   'infrastructure', 'traffic control', 'window film', 'grey water', 'gray water', 'greywater',
   // COMMBUYS rows the unclear rule would lose ("2027 Tree Work: Line Clearing and Tree Removals", "Route 3A Force Main
@@ -326,7 +336,9 @@ export function isTradeWork(input: TradeWorkInput): TradeWorkAnswer {
 
   // 1. Design, advice, IT.
   const design = DESIGN_IT.test(title);
-  if (design && !(design === 'construction management' && CM_AT_RISK.test(title))) {
+  // An audit that comes with the work it finds stays ("Energy Audit and Lighting Retrofit Installation").
+  const auditWithWork = /^audit/.test(design ?? '') && STRONG_WORK.test(title);
+  if (design && !auditWithWork && !(design === 'construction management' && CM_AT_RISK.test(title))) {
     return { keep: false, why: `not contractor work: ${design}` };
   }
   const it = IT.test(title);

@@ -27,8 +27,10 @@ import { keepTradeWork } from './relevance.js';
  *   ZZ_DERIVED_DESCR254$i             status: "Posted"
  * Fixture: test/fixtures/caleprocure-grid.html (+ .md).
  *
- * The list has no site, county, licence class or description, only the department. A card is placed by what the
- * event NAME states (locate()'s town-in-text step) or else in California only. The event detail (counties, UNSPSC
+ * The list has no site, county, licence class or description, only the department. A card is placed from its name,
+ * department and event id by src/geo/caleprocure-place.ts (locate() hands every Cal eProcure draft to it): a town
+ * the name backs up, one county, several counties or a Caltrans district (an area, no point), a campus or facility,
+ * else California only. The event detail (counties, UNSPSC
  * codes, licence) is behind a PeopleSoft postback per event on this host (no GET link in the page) and behind the
  * 403 on caleprocure.ca.gov: not read for now.
  */

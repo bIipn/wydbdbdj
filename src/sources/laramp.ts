@@ -97,7 +97,7 @@ export interface ParsedLaRamp {
  *   "Ontario International Airport Authority" → Ontario · "Port of Long Beach" → Long Beach
  *   "Los Angeles County" → the county, no city (its sites run from Bell to Lancaster: locate() reads a town from
  *     the text if it knows one) · "Water & Power" → CA only (LADWP also lists its Nevada and Owens Valley sites)
- * BidSwipe has no LA County seat in its table, so a county row stays at state precision unless the text names a town.
+ * A county row with no town in its text becomes an area of that one county (src/geo/locate.ts): no point, no miles.
  */
 export function laRampPlace(department: string | null): Partial<BidLocation> {
   const d = department ?? '';

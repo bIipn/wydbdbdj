@@ -69,6 +69,8 @@ function persistDemo() {
 export const api = {
   me: (opts) => req('api/me', opts),
   feed: () => req('api/feed?all=1&minScore=0&limit=300'),
+  /** Every saved or bid-on bid, whatever its rank: the feed above holds only the best 300. */
+  saved: () => req('api/saved', { quiet: true }),
   async swipe(id, action) {
     if (state.mode === 'demo') return persistDemo();
     await req('api/swipe', { method: 'POST', body: { bidId: id, action } });

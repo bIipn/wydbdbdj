@@ -464,7 +464,7 @@ describe('SAM.gov', () => {
       source: 'samgov',
       sourceId: '36C26127Q0067',
       sourceName: 'SAM.gov (federal)',
-      title: 'J061--Triennial Circuit Breaker and Feeder Testing',
+      title: 'Triennial Circuit Breaker and Feeder Testing', // samTitle: the J061 prefix is the psc
       agency: 'Veterans Affairs, Department of · 261-network Contract Office 21 (36c261)', // prettyAgency's title case
       description: 'Solicitation · Service-Disabled Veteran-Owned Small Business (SDVOSB) Set-Aside (FAR 19.14) · Sol. 36C26127Q0067',
       category: 'Solicitation',

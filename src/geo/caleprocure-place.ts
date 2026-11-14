@@ -10,10 +10,11 @@
  *      that holds it (the town lies within TOWN_IN_COUNTY_MI of that county's seat, or that seat is its nearest);
  *      on a Caltrans row, a town in the reach of its district's counties. Never a bare capitalised word: "PERS Q
  *      Lincoln Plaza" is not the City of Lincoln, "Nevada Facilities" is not Nevada County.
- *   2. ONE county the title names → precision 'county', the seat's point, "Shasta County, CA (site not named)".
+ *   2. ONE county the title names → an area of one county: precision 'region', NO point, "Shasta County, CA (site
+ *      not named)".
  *   3. SEVERAL counties → an AREA: precision 'region', NO point, the county field holds the list.
  *   4. the Caltrans district in the event id (department 2660, "10-1H0204", "03A4243") → an area of its counties
- *      (District 12 is Orange County alone: one county).
+ *      (District 12 is Orange County alone: still an area, labelled "Caltrans District 12: Orange County").
  *   5. the department's own place: a CSU or UC campus, the Del Mar Fairgrounds … (CA_AGENCY_TOWNS), or a facility
  *      certain only of its county.
  *   6. else unplaced: California only, the board's own "(location not listed)" label.
@@ -156,10 +157,14 @@ function cityLoc(town: CityPlace, county: string | null, note?: string, precisio
   };
 }
 
-function countyLoc(name: string): BidLocation {
-  const seat = seatOf(name)!;
+/**
+ * ONE county and no town: an area of one county. No point is stored: the seat is not the job, so no distance is
+ * ever shown for it (score.ts treats it like any area: in reach when the company is in that county or its seat is
+ * within the radius + AREA_REACH_EXTRA_MI).
+ */
+export function countyLoc(name: string): BidLocation {
   return {
-    city: null, county: name, state: 'CA', zip: null, lat: seat.lat, lng: seat.lng, precision: 'county',
+    city: null, county: name, state: 'CA', zip: null, lat: null, lng: null, precision: 'region',
     label: `${name} County, CA (site not named)`,
   };
 }
@@ -167,6 +172,7 @@ function countyLoc(name: string): BidLocation {
 /** "A, B, C + 2 more counties" — the first LABEL_COUNTIES names, then how many more. */
 function listWords(counties: readonly string[]): string {
   if (counties.length <= LABEL_COUNTIES) {
+    if (counties.length === 1) return counties[0]!;
     return counties.length === 2 ? `${counties[0]} and ${counties[1]}` : `${counties.slice(0, -1).join(', ')} and ${counties.at(-1)}`;
   }
   const more = counties.length - LABEL_COUNTIES;
@@ -177,7 +183,7 @@ export function areaLoc(counties: readonly string[], district: number | null): B
   const shown = listWords(counties);
   const few = counties.length <= LABEL_COUNTIES;
   const label = district != null
-    ? `Caltrans District ${district}: ${shown} ${few ? 'counties' : counties.length - LABEL_COUNTIES === 1 ? 'county' : 'counties'}`
+    ? `Caltrans District ${district}: ${shown} ${counties.length === 1 ? 'County' : few ? 'counties' : counties.length - LABEL_COUNTIES === 1 ? 'county' : 'counties'}`
     : `${shown} ${few || counties.length - LABEL_COUNTIES > 1 ? 'counties' : 'county'}, CA`;
   return { city: null, county: counties.join(', '), state: 'CA', zip: null, lat: null, lng: null, precision: 'region', label };
 }
@@ -286,7 +292,8 @@ export function placeCaleprocure(input: CaleprocureInput): BidLocation {
   if (town) return town;
   if (named.counties.length === 1) return countyLoc(named.counties[0]!);
   if (named.counties.length > 1) return areaLoc(named.counties, null);
-  if (district) return district.counties.length === 1 ? countyLoc(district.counties[0]!) : areaLoc(district.counties, district.district);
+  // A district is always an AREA, even District 12 (Orange County alone): the id says the district, not the site.
+  if (district) return areaLoc(district.counties, district.district);
 
   for (const a of CA_AGENCY_TOWNS) {
     if (!a.re.test((agency ?? '').trim())) continue;

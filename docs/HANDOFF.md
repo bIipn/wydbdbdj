@@ -1,4 +1,4 @@
-# BidSwipe — handoff notes (v1, updated 2026-11-13)
+# BidSwipe — handoff notes (v1, updated 2026-11-14)
 
 Everything learned while building v0, so nobody has to re-research it. The product vision (price
 action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
@@ -16,10 +16,64 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Price + award watch (`MARKET_REFRESH_AT`) | ✅ tested on replays of the real BLS/USAspending captures with labelled synthetic "after" data; one live NV award pull (36 awards) by its builder. Not yet run on a schedule against the live APIs. Award matching works for SAM.gov bids only (solicitation numbers) |
 | Price check (awards, wages, indexes, NV prevailing wage) | ✅ tested; real USAspending pull (NV 266, CA 2078 awards) and real BLS responses (fixtures) seen in the browser. Prevailing-wage rates were typed from the state PDF, not double-checked |
 | Cost engine (`POST /api/estimate`) | ✅ built (src/cost, integer cents), proven by a second implementation (test/cost-oracle) and `npm run simulate:cost`; Pro only (402 otherwise). Screen in web/js/views/cost.js, checked at 390×844 |
-| Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the real captured bids, all checks pass (incl. `sub-silent`), same seed same hash (051f7916d12e0c0e, 2026-11-14), 12 of 12 mutations caught (+1 checker self-test) |
+| Multi-company simulation | ✅ `npm run simulate`: 16 simulated companies on the real captured bids, all checks pass (incl. `sub-silent`), same seed same hash (b03d9321cd4cbde7, 2026-11-14 evening; was 051f7916d12e0c0e: the state-only SAM notice "Forest Service - Solar Batteries Frenchman Work Center" is now capped, so it leaves the seeded held-out pick, and SAM titles lose their "J061--" code prefix), 12 of 12 mutations caught (+1 checker self-test) |
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
+
+**Bids placed honestly, a quiet first load, lists that page — 2026-11-14 (after the eleven new boards).** Not
+deployed. What changed:
+- **Places** (`src/geo/caleprocure-place.ts`, `src/geo/california.ts`): a Cal eProcure card is placed by a
+  corroborated town, one county, several counties, the Caltrans district in a 2660 event id, the department's own
+  place (a CSU campus, a prison), else it stays unplaced. One county, several counties and a district are an AREA:
+  no point, no miles ever, a capped "maybe" when the nearest seat is within radius + 25 mi. An unplaced card of a
+  statewide board (`src/sources/statewide.ts`) is a capped "could be anywhere in <state>" for a company based
+  there, held at 34 (Browse only) for one based elsewhere. A SAM notice that names only the state is capped too
+  (not in Nevada: the pilot's rules are unchanged). No "? mi" anywhere.
+- **Trade work** (`src/sources/relevance.ts`): purchases, parts, rentals, design, advice, audits, IT, on-call
+  services and sales are dropped at the source; a figurative "conduit" in a description is not electrical work;
+  sub work never lands on a rental or on a trade-package call.
+- **Scan**: a board's first load and any `quiet` scan announce nothing and never reach a digest; at most 10 new
+  match alerts per profile per scan; a bid already alerted is not re-published; a bid with no due date is open only
+  while its board lists it (last seen ≤ 3 days); a group's scan prunes only its own boards' rows (it used to delete
+  every other group's scores).
+- **Screens**: Browse pages through the server (`limit`/`offset`/`total`, "Showing 100 of 787 · Show 100 more");
+  Saved loads `GET /api/saved` itself (a bid saved past the first 300 stays saved); the Where tile prints the
+  server's label and "No distance: site not named" instead of miles.
+
+Measured on a copy of the live test scan (3,898 open bids; NOW 2026-11-14T08:30Z; stored rows re-placed and
+re-filtered by stand-in scripts, since no board is read twice a day). Candidates / fits (with a distance; capped) / sub:
+
+| Simulated profile | 85dd509 | now |
+|---|---|---|
+| Electrician 95675, 60 mi, [CA] | 787 / 47 (12; 0) / 3 | 529 / 21 (9; 12) / 2 |
+| Electrician 95675, 100 mi, [CA, NV] | 860 / 60 (25; 0) / 5 | 602 / 39 (24; 15) / 3 |
+| Plumber 95814, 60 mi, [CA] | 787 / 22 (7; 2) / 2 | 529 / 12 (6; 6) / 2 |
+| Pilot (config/lm-electric.json) | 860 / 39 / 3 | 602 / 11 (5; 4) / 2 |
+
+Read honestly: of the 60-mile electrician's 23 fit + sub rows, about 3 are placed, plain jobs he could bid (Terrell
+Drive Fire Rehab in Sacramento, Club West HVAC Replacement in West Sacramento as a maybe, two VA/USACE sub-work
+jobs to quote), 7 are E-Rate cabling quote requests at schools 29–58 mi away, 3 are Caltrans highway contracts in
+District 3 or 10 (site not named), and 7 are statewide cards whose site the list does not give (fire alarm, an
+electrical-infrastructure IFB, generator maintenance). Volume near River Pines is thin: about 50 placed open bids of
+any trade within 60 mi. At 100 mi he gets 39 fits, 24 of them with a real distance (Vacaville prison fire alarm,
+Napa, Tracy, Alameda, Carson City).
+
+Cal eProcure stored cards after re-placing (190 kept by the trade rules, of 314): 10 town, 35 agency/facility, 19
+one-county areas, 12 several-county areas, 40 Caltrans-district areas, 74 unplaced. Rows kept per board
+(stored → kept): caleprocure 314 → 190, commbuys 727 → 303, opengov 1,186 → 779, oregonbuys 118 → 54, bidbuy 98 →
+35, flmfmp 63 → 25, nycrecord 84 → 70, laramp 47 → 35, sfbids 16 → 14, njstart 4 → 1, usac470 465 → 460.
+
+**The first production load (run it quietly).** The new boards bring about 3,300 bids nobody has seen. Each board's
+first load is quiet by itself (no stored bid of that board before the scan), so the scheduled group scans are safe.
+To be certain, run the first round by hand with the switch, one group at a time:
+`curl -H "Authorization: Bearer $CRON_SECRET" "https://<host>/api/cron/scan?group=<group>&quiet=1"` for every group
+in `src/sources/scan-groups.ts` (or `POST /api/admin/scan?quiet=1` with the admin token on a long-running server),
+then let the daily schedule take over: from the second scan on, new bids alert as usual (at most 10 per company).
+On the host the default group re-scores every open bid for every profile: on local Postgres 16, 50 profiles took
+5.2 s and 360 statements (about 12 s at 20 ms a round trip); at ~1,000 profiles it would be minutes, so batch the
+match upserts or move the re-score into its own cron call before then. The Vercel docs index did not confirm the
+Hobby cron limits or the 300 s default duration: check them in the dashboard (Project Settings → Functions).
 
 **More open bids in reach, 2026-11-14** (a real CA electrician at ZIP 95675 saw one job on the live site). What changed:
 - Federal net (`src/sources/psc.ts`, `samgov-bulk.ts`): a notice is kept when its NAICS OR its Product and Service

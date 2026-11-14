@@ -2,7 +2,7 @@
 
 import { commit } from './actions.js';
 import { $, h } from './dom.js';
-import { dueInfo, estLabel, VERDICT_LABEL } from './format.js';
+import { dueInfo, estLabel, num, VERDICT_LABEL } from './format.js';
 import { bidLink, facts, localPill, overLimitTag, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { openSheet } from './sheet.js';
 
@@ -35,7 +35,8 @@ export function card(item, layer) {
 /** One line in Browse / Saved. Tags: Saved / Opened / Passed, and "Over your limit". */
 export function row(item) {
   const due = dueInfo(item.dueAt);
-  const meta = [item.agency, item.location?.label, item.distanceMi != null ? `${item.distanceMi} mi` : null].filter(Boolean).join(' · ');
+  // Miles only when the server measured them to the job; otherwise the place label alone says where.
+  const meta = [item.agency, item.location?.label, item.distanceMi != null ? `${num(item.distanceMi)}\u00a0mi` : null].filter(Boolean).join(' · ');
   const value = estLabel(item.estValue);
   const swipeTag = item.swipe === 'save' || item.swipe === 'bid' ? h('span', { class: 'tag saved' }, item.swipe === 'bid' ? 'Opened' : 'Saved')
     : item.swipe === 'pass' ? h('span', { class: 'tag passed' }, 'Passed') : null;
@@ -44,11 +45,11 @@ export function row(item) {
   const tags = swipeTag || item.overLimit || local || sub ? h('div', { class: 'tags' },
     sub ? h('span', { class: 'tag sub' }, 'Sub work') : null,
     local ? h('span', { class: 'tag local' }, 'Local job') : null, swipeTag, overLimitTag(item)) : null;
-  return h('button', { class: `row verdict-${item.verdict}`, type: 'button', onclick: () => openSheet(item) },
+  return h('button', { class: `row verdict-${item.verdict}`, type: 'button', 'data-id': item.id, onclick: () => openSheet(item) },
     h('div', { class: 'badge' }, item.score),
     h('div', {},
       h('h4', {}, item.title),
-      h('p', {}, meta),
+      h('p', { class: 'meta' }, meta),
       h('p', {}, h('span', { class: `due${due.urgent ? ' urgent' : ''}` }, due.big), ` · ${due.small}`),
       h('p', { class: `value${value ? '' : ' unknown'}` }, value ? `Est. ${value}` : 'Value not listed'),
       tags,

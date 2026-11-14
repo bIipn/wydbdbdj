@@ -399,6 +399,30 @@ export async function getMyBid(db: Db, jobId: string, accountId: string): Promis
   return rows[0] ? toBid(rows[0]) : null;
 }
 
+/** Rows mapped and grouped by a key (their job), each list in the order the query returned them. */
+function group<R, T>(rows: readonly R[], key: (r: R) => string, map: (r: R) => T): Map<string, T[]> {
+  const out = new Map<string, T[]>();
+  for (const r of rows) {
+    const list = out.get(key(r));
+    if (list) list.push(map(r));
+    else out.set(key(r), [map(r)]);
+  }
+  return out;
+}
+
+/**
+ * Every bid on several jobs in ONE statement, by job id; each job's list in listBids order (lowest first, then
+ * placed first). A job nobody bid on has no entry. This is what keeps "my jobs" at a few statements however
+ * many jobs someone has.
+ */
+export async function bidsForJobs(db: Db, jobIds: readonly string[]): Promise<Map<string, BidRecord[]>> {
+  if (jobIds.length === 0) return new Map();
+  const rows = await db.query<BidRow>(
+    'select * from job_bids where job_id = any($1::text[]) order by job_id, amount_cents, created_at, id', [[...new Set(jobIds)]],
+  );
+  return group(rows, (r) => r.job_id, toBid);
+}
+
 /** Active bids per job, for many jobs at once. */
 export async function activeBidCounts(db: Db, jobIds: readonly string[]): Promise<Map<string, number>> {
   const out = new Map<string, number>();
@@ -481,9 +505,11 @@ export async function listMessages(db: Db, jobId: string): Promise<MessageRecord
 
 // ------------------------------------------------------------------ fees --
 
-export async function listFees(db: Db, jobId: string): Promise<FeeRecord[]> {
-  const rows = await db.query<FeeRow>('select * from job_fees where job_id = $1 order by id', [jobId]);
-  return rows.map(toFee);
+/** The fee rows of several jobs in ONE statement, by job id; each job's list oldest first. No fees = no entry. */
+export async function feesForJobs(db: Db, jobIds: readonly string[]): Promise<Map<string, FeeRecord[]>> {
+  if (jobIds.length === 0) return new Map();
+  const rows = await db.query<FeeRow>('select * from job_fees where job_id = any($1::text[]) order by id', [[...new Set(jobIds)]]);
+  return group(rows, (r) => r.job_id, toFee);
 }
 
 /** An operator waives a fee. Waiving twice keeps the first time. null = no such fee. */
@@ -530,23 +556,6 @@ export async function listReports(db: Db, limit = 200): Promise<ReportRecord[]> 
 }
 
 // -------------------------------------------------------------- accounts --
-
-export interface AccountBasics {
-  id: string;
-  name: string;
-  memberSince: string;
-}
-
-/** Name and join date for the people on a job, for the cards' fallback. Never the email. */
-export async function accountBasics(db: Db, ids: readonly string[]): Promise<Map<string, AccountBasics>> {
-  const out = new Map<string, AccountBasics>();
-  if (ids.length === 0) return out;
-  const rows = await db.query<{ id: string; name: string | null; created_at: Ts }>(
-    'select id, name, created_at from accounts where id = any($1::text[])', [[...new Set(ids)]],
-  );
-  for (const r of rows) out.set(r.id, { id: r.id, name: r.name?.trim() || 'BidSwipe member', memberSince: new Date(r.created_at!).toISOString() });
-  return out;
-}
 
 /** The profile an account owns (alerts hang off profiles), or null. */
 export async function profileIdOf(db: Db, accountId: string): Promise<string | null> {
@@ -607,23 +616,46 @@ export interface StatsRow {
   posted: number; won: number; agreed: number; completed: number; noShows: number; backedOut: number; posterNoShows: number;
 }
 
-export async function statsFor(db: Db, accountId: string): Promise<StatsRow> {
-  const rows = await db.query<Record<keyof StatsRow, Big>>(
-    `select
-       (select count(*) from jobs where poster_id = $1 and removed_at is null) as "posted",
-       (select count(*) from jobs where winner_id = $1 and removed_at is null) as "won",
-       (select count(*) from jobs where winner_id = $1 and status in ('agreed', 'completed') and removed_at is null) as "agreed",
-       (select count(*) from jobs where winner_id = $1 and status = 'completed' and removed_at is null) as "completed",
-       (select count(*) from jobs where winner_id = $1 and outcome = 'bidder_no_show' and removed_at is null) as "noShows",
-       (select count(*) from jobs where winner_id = $1 and outcome = 'bidder_backed_out' and removed_at is null) as "backedOut",
-       (select count(*) from jobs where poster_id = $1 and outcome = 'poster_no_show' and removed_at is null) as "posterNoShows"`,
-    [accountId],
+const NO_STATS: StatsRow = { posted: 0, won: 0, agreed: 0, completed: 0, noShows: 0, backedOut: 0, posterNoShows: 0 };
+
+/**
+ * The marketplace record of several accounts in ONE statement (removed jobs count for nobody). Every id asked
+ * for gets a row: all zeros for an account with no jobs. Each job is read once per side it gives a person
+ * (its poster, its winner), through jobs_poster_idx and jobs_winner_idx, never once per person per figure.
+ */
+export async function statsForAccounts(db: Db, accountIds: readonly string[]): Promise<Map<string, StatsRow>> {
+  const ids = [...new Set(accountIds)];
+  const out = new Map<string, StatsRow>(ids.map((id) => [id, { ...NO_STATS }]));
+  if (ids.length === 0) return out;
+  const rows = await db.query<{ id: string } & Record<keyof StatsRow, Big>>(
+    `select x.id,
+       count(*) filter (where x.side = 'poster') as "posted",
+       count(*) filter (where x.side = 'winner') as "won",
+       count(*) filter (where x.side = 'winner' and x.status in ('agreed', 'completed')) as "agreed",
+       count(*) filter (where x.side = 'winner' and x.status = 'completed') as "completed",
+       count(*) filter (where x.side = 'winner' and x.outcome = 'bidder_no_show') as "noShows",
+       count(*) filter (where x.side = 'winner' and x.outcome = 'bidder_backed_out') as "backedOut",
+       count(*) filter (where x.side = 'poster' and x.outcome = 'poster_no_show') as "posterNoShows"
+     from (
+       select poster_id as id, 'poster' as side, status, outcome from jobs where poster_id = any($1::text[]) and removed_at is null
+       union all
+       select winner_id as id, 'winner' as side, status, outcome from jobs where winner_id = any($1::text[]) and removed_at is null
+     ) x
+     group by x.id`,
+    [ids],
   );
-  const r = rows[0]!;
-  return {
-    posted: Number(r.posted), won: Number(r.won), agreed: Number(r.agreed), completed: Number(r.completed),
-    noShows: Number(r.noShows), backedOut: Number(r.backedOut), posterNoShows: Number(r.posterNoShows),
-  };
+  for (const r of rows) {
+    out.set(r.id, {
+      posted: Number(r.posted), won: Number(r.won), agreed: Number(r.agreed), completed: Number(r.completed),
+      noShows: Number(r.noShows), backedOut: Number(r.backedOut), posterNoShows: Number(r.posterNoShows),
+    });
+  }
+  return out;
+}
+
+/** One account's record: the same statement as for many, so the figures have one definition. */
+export async function statsFor(db: Db, accountId: string): Promise<StatsRow> {
+  return (await statsForAccounts(db, [accountId])).get(accountId)!;
 }
 
 /** One posted a job the other bid on, after the bids were opened (or won). */

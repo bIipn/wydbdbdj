@@ -5,7 +5,7 @@ import { AGENCY_PLACES, COUNTY_SEATS, PLACES, REGIONS, ZIP_PLACES, type Place } 
 import { lookupCity, lookupZip } from './zip.js';
 
 // The formula lives beside the ZIP table (statesWithin needs it too); everyone else keeps importing it from here.
-export { milesBetween } from './zip.js';
+export { EARTH_RADIUS_MI, milesBetween } from './zip.js';
 
 const byName = new Map<string, Place>();
 for (const p of PLACES) {

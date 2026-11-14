@@ -84,19 +84,37 @@ export async function upsertMatch(db: Db, profileId: string, bidId: string, s: S
   await upsertMatches(db, profileId, [{ bidId, score: s }]);
 }
 
-/** Store one profile's scores, MATCH_BATCH rows per statement. A bid id listed twice keeps its last score. */
-export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyArray<{ bidId: string; score: ScoreResult }>): Promise<void> {
-  const unique = [...new Map(scored.map((x) => [x.bidId, x])).values()];
-  for (const batch of chunks(unique, MATCH_BATCH)) {
+/**
+ * The one statement that stores scores, MATCH_BATCH rows at a time. A (profile, bid) pair must not be listed
+ * twice (Postgres refuses to update one row twice in a statement): the two callers below see to that.
+ */
+async function writeMatches(db: Db, rows: ReadonlyArray<{ profileId: string; bidId: string; score: ScoreResult }>): Promise<void> {
+  for (const batch of chunks(rows, MATCH_BATCH)) {
     await db.query(
       `insert into matches (${MATCH_COLS.join(', ')}, scored_at)
        select v.*, now() from (values ${valuesList(batch.length, MATCH_COLS.length, (c) => MATCH_CASTS[c] ?? '')}) as v (${MATCH_COLS.join(', ')})
        on conflict (profile_id, bid_id) do update set
          score = excluded.score, verdict = excluded.verdict, reasons = excluded.reasons,
          distance_mi = excluded.distance_mi, over_limit = excluded.over_limit, tier = excluded.tier, scored_at = excluded.scored_at`,
-      batch.flatMap(({ bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit, s.tier]),
+      batch.flatMap(({ profileId, bidId, score: s }) => [profileId, bidId, s.score, s.verdict, JSON.stringify(s.reasons), s.distanceMi, s.overLimit, s.tier]),
     );
   }
+}
+
+/** Store one profile's scores for many bids (a scan), MATCH_BATCH rows per statement. A bid id listed twice keeps its last score. */
+export async function upsertMatches(db: Db, profileId: string, scored: ReadonlyArray<{ bidId: string; score: ScoreResult }>): Promise<void> {
+  const unique = [...new Map(scored.map((x) => [x.bidId, x])).values()];
+  await writeMatches(db, unique.map(({ bidId, score }) => ({ profileId, bidId, score })));
+}
+
+/**
+ * Store ONE bid's scores for many profiles (a job someone just posted), with the same statement and the same
+ * batches as a scan: a thousand profiles are three statements, not a thousand. A profile listed twice keeps
+ * its last score.
+ */
+export async function upsertMatchesForBid(db: Db, bidId: string, scored: ReadonlyArray<{ profileId: string; score: ScoreResult }>): Promise<void> {
+  const unique = [...new Map(scored.map((x) => [x.profileId, x])).values()];
+  await writeMatches(db, unique.map(({ profileId, score }) => ({ profileId, bidId, score })));
 }
 
 /**
@@ -391,6 +409,68 @@ export async function getProfileByAccount(db: Db, accountId: string): Promise<Pr
 export async function listProfiles(db: Db): Promise<Profile[]> {
   const rows = await db.query<{ id: string; prefs: Profile | string }>('select id, prefs from profiles order by id');
   return rows.map(toProfile);
+}
+
+/**
+ * How far past the candidate limit the query below still returns a profile, in miles. The database and
+ * JavaScript work the same great-circle distance out with different maths libraries, so the last digits can
+ * differ; with this slack the query can never leave out a profile isCandidate() would keep.
+ */
+export const CANDIDATE_QUERY_SLACK_MI = 1;
+
+export interface CandidateProfile {
+  profile: Profile;
+  /** An account owns it (false: a config profile, stored by single mode or a scan). */
+  hasAccount: boolean;
+}
+
+/**
+ * The stored profiles ONE bid at `loc` could matter to, in id order, without opening the others at all: what
+ * makes scoring a newly posted job cost what its neighbourhood costs, not what the whole user base costs.
+ *
+ * The WHERE is isCandidate() (src/score/candidates.ts) written in SQL, with that file's numbers passed in and
+ * never retyped: the bid's state is one of the profile's states; or the bid has a map point no farther from
+ * the profile's base than max(radiusMultiple × radius, radius + minExtraMi, minMi); or the bid has neither a
+ * state nor a point (nobody can say it is out of reach). It reads the small generated columns of `profiles`
+ * (schema.ts: base_lat, base_lng, max_distance_mi, states, does_work), so prefs is only opened for the rows
+ * that come back. It is a PRE-filter: it may return a few profiles too many (CANDIDATE_QUERY_SLACK_MI, or a
+ * profile whose stored settings are not what the rule expects), never one too few, so the caller still asks
+ * isCandidate() about every row and the rule keeps its one home. A profile whose base is not a number can
+ * only come back through its states.
+ *
+ * `accountsThatWork` (a local job, src/scan.ts seesLocalJobs): only profiles an account owns, with at least one
+ * trade or one strong keyword. `exceptProfileId` (the poster's own profile) is left out.
+ */
+export async function candidateProfilesFor(
+  db: Db,
+  loc: Pick<Bid['location'], 'state' | 'lat' | 'lng'>,
+  reach: { earthRadiusMi: number; radiusMultiple: number; minExtraMi: number; minMi: number },
+  opts: { accountsThatWork?: boolean; exceptProfileId?: string | null } = {},
+): Promise<CandidateProfile[]> {
+  const rows = await db.query<{ id: string; prefs: Profile | string; has_account: boolean }>(
+    `select p.id, p.prefs, (p.account_id is not null) as has_account
+     from profiles p
+     where ($1::text is null or p.id <> $1::text)
+       and (not $2::boolean or (p.account_id is not null and p.does_work))
+       and (
+         ($3::text is not null and p.states @> to_jsonb($3::text))
+         or ($4::double precision is not null and $5::double precision is not null
+             and 2 * $6::double precision * asin(sqrt(least(1, greatest(0,
+                   power(sin(radians($4::double precision - p.base_lat) / 2), 2)
+                   + cos(radians(p.base_lat)) * cos(radians($4::double precision))
+                     * power(sin(radians($5::double precision - p.base_lng) / 2), 2)))))
+                 <= greatest(greatest(p.max_distance_mi, 0) * $7::double precision,
+                             greatest(p.max_distance_mi, 0) + $8::double precision, $9::double precision)
+                    + $10::double precision)
+         or ($3::text is null and ($4::double precision is null or $5::double precision is null))
+       )
+     order by p.id`,
+    [
+      opts.exceptProfileId ?? null, opts.accountsThatWork ?? false, loc.state || null, loc.lat ?? null, loc.lng ?? null,
+      reach.earthRadiusMi, reach.radiusMultiple, reach.minExtraMi, reach.minMi, CANDIDATE_QUERY_SLACK_MI,
+    ],
+  );
+  return rows.map((r) => ({ profile: toProfile(r), hasAccount: r.has_account }));
 }
 
 /**

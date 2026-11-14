@@ -1,8 +1,11 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDb, type Db } from '../src/db/db.js';
+import { getBid, saveProfileForAccount, upsertProfile } from '../src/db/repo.js';
 import { DEFAULT_JOB_RULES } from '../src/jobs/config.js';
 import * as jobs from '../src/jobs/service.js';
+import { buildProfile, profileIdFor } from '../src/profile/build.js';
 import { createBus } from '../src/realtime/bus.js';
+import { scoreOneByOne, testProfile } from './helpers.js';
 
 /**
  * The marketplace on a REAL Postgres through node-postgres, where requests truly run at the same time (a pool
@@ -24,6 +27,8 @@ describe.skipIf(!url)('job marketplace on Postgres (TEST_DATABASE_URL)', () => {
     db = await openDb({ url });
     await db.exec('truncate table job_reports, job_fees, job_messages, job_bids, jobs restart identity cascade');
     await db.query(`delete from accounts where id like 'TEST-pg-%'`);
+    await db.query(`delete from profiles where id like 'TEST-pg-%'`);
+    await db.query(`delete from bids where id like 'local:%'`);
     for (const id of ids) await db.query('insert into accounts (id, email, name) values ($1, $2, $3)', [id, `${id}@example.com`, `${id} (simulated)`]);
   }, 60_000);
   afterAll(async () => db?.close());
@@ -72,4 +77,53 @@ describe.skipIf(!url)('job marketplace on Postgres (TEST_DATABASE_URL)', () => {
     expect(row.status).toBe('agreed');
     expect(await db.query(`select 1 from job_fees where job_id = $1 and kind = 'service'`, [job])).toHaveLength(1);
   });
+
+  // The set-based statements (the candidate query over the generated columns, the multi-row score write, the
+  // bids, fees, cards and records of many jobs at once) on the real thing: test/jobs-scale.test.ts counts and
+  // checks them on the embedded database, and the two have different maths libraries and JSON readers.
+  it('a posted job is scored for exactly the profiles the rules give one by one, and "my jobs" reads every job back', async () => {
+    const shop = (id: string, zip: string, radiusMi: number, trades = ['electrical']) => saveProfileForAccount(db, id, buildProfile(profileIdFor(id), {
+      businessName: `${id} (simulated)`, trades, zip, radiusMi, valueRange: { min: 0, max: 50_000 },
+    }));
+    await shop(ids[0]!, '89410', 90); // the poster: never their own job
+    await shop(ids[1]!, '89410', 90);
+    await shop(ids[2]!, '89701', 25);
+    await shop(ids[3]!, '95814', 250, ['plumbing']); // Sacramento: in reach by distance, another trade
+    await shop(ids[4]!, '10001', 25); // New York: out of reach
+    await saveProfileForAccount(db, ids[5]!, buildProfile(profileIdFor(ids[5]!), {
+      intent: 'hire', businessName: `${ids[5]} (simulated)`, trades: [], zip: '89410', radiusMi: 25, valueRange: { min: 0, max: 250_000 },
+    }));
+    await upsertProfile(db, testProfile('TEST-pg-config')); // the pilot's kind of profile: no account
+
+    const job = await post(3);
+    const bid = (await getBid(db, `local:${job}`))!;
+    const want = await scoreOneByOne(db, bid, new Date(T0), profileIdFor(ids[0]!));
+    expect([...want.keys()].sort()).toEqual([ids[1]!, ids[2]!, ids[3]!].map(profileIdFor).sort());
+    const stored = await db.query<{ profile_id: string; score: number; verdict: string; distance_mi: number; tier: string }>(
+      'select profile_id, score, verdict, distance_mi, tier from matches where bid_id = $1', [bid.id],
+    );
+    expect(stored.map((r) => [r.profile_id, r.score, r.verdict, Number(r.distance_mi), r.tier]).sort()).toEqual(
+      [...want].map(([id, { score: s }]) => [id, s.score, s.verdict, s.distanceMi, s.tier]).sort(),
+    );
+
+    // "My jobs" for the poster of every job in this file, and for someone who bid on some: each view is the job page's.
+    expect((await jobs.placeBid(deps(), ids[1]!, job, { amountCents: 45_001, agree: true }, T0 + 1000)).ok).toBe(true);
+    for (const who of [ids[0]!, ids[1]!, ids[2]!]) {
+      const mine = await jobs.myJobs(deps(), who, T0 + 2000);
+      const views = [...mine.posted, ...mine.bidding];
+      expect(views.length, who).toBeGreaterThan(0);
+      for (const view of views) {
+        const page = await jobs.getJobFor(deps(), view.id, who, T0 + 2000);
+        expect(page.ok && page.value.job, `${who} ${view.id}`).toEqual(view);
+      }
+    }
+    const posted = (await jobs.myJobs(deps(), ids[0]!, T0 + 2000)).posted;
+    expect(posted.length).toBeGreaterThanOrEqual(4);
+    expect(posted.find((j) => j.id === job)).toMatchObject({ bidCount: 1, tab: null, my: { role: 'poster' } });
+    // A closed job of this poster: the ranked tab with every bidder's card, and the winner's record counted.
+    const closed = posted.find((j) => j.tab && j.tab.length === 5)!;
+    expect(closed.tab!.map((r) => r.bidder?.name)).toEqual(expect.arrayContaining([`${ids[5]} (simulated)`, `${ids[1]} (simulated)`]));
+    expect(closed.tab![0]!.bidder).toMatchObject({ id: ids[5], stats: { won: 1, noShows: 1, posted: 0 } });
+    expect(closed.poster.stats).toMatchObject({ posted: posted.length });
+  }, 30_000);
 });

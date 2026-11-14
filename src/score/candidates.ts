@@ -21,7 +21,7 @@
  *
  * A settings change (wider radius, new base) re-runs scoreProfile(), which asks again with the new values.
  */
-import { milesBetween } from '../geo/locate.js';
+import { EARTH_RADIUS_MI, milesBetween } from '../geo/locate.js';
 import type { Bid, Profile } from '../types.js';
 
 /** Keep placed bids up to this many times the travel radius… */
@@ -35,6 +35,16 @@ export const CANDIDATE_MIN_EXTRA_MI = 100;
  * out-of-state bids between 125 and 150 mi. Raise it together with that list.
  */
 export const CANDIDATE_MIN_MI = 150;
+
+/**
+ * The numbers of this file's test (and the Earth radius milesBetween measures with) for its SQL form,
+ * candidateProfilesFor() in src/db/repo.ts: that query asks "which stored profiles is this ONE bid a candidate
+ * for?" without reading every profile. It is handed these, so the rule's numbers stay in this file alone, and
+ * its caller (scoreNewBid in src/scan.ts) still runs isCandidate() on what comes back.
+ */
+export const CANDIDATE_REACH = {
+  earthRadiusMi: EARTH_RADIUS_MI, radiusMultiple: CANDIDATE_RADIUS_MULTIPLE, minExtraMi: CANDIDATE_MIN_EXTRA_MI, minMi: CANDIDATE_MIN_MI,
+} as const;
 
 /** How far out a placed bid is still a candidate for this company, in miles. */
 export function candidateLimitMi(profile: Pick<Profile, 'maxDistanceMi'>): number {

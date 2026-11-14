@@ -12,11 +12,15 @@ import type { AuthService } from '../src/auth/index.js';
 import { loadConfig, type AppConfig } from '../src/context.js';
 import { openDb, type Db } from '../src/db/db.js';
 import { SCHEMA_SQL } from '../src/db/schema.js';
+import { listProfiles } from '../src/db/repo.js';
+import { accountProfileIds } from '../src/jobs/repo.js';
 import { loadProfile } from '../src/profiles.js';
-import { finalizeBid } from '../src/scan.js';
+import { finalizeBid, seesLocalJobs } from '../src/scan.js';
+import { isCandidate } from '../src/score/candidates.js';
+import { scoreBid } from '../src/score/score.js';
 import { FIXTURES_CAPTURED_AT, fixtureReaders } from '../src/sources/fixtures.js';
 import { parseQuestJson, QUEST_BOARDS } from '../src/sources/questcdn.js';
-import type { Account, Bid, BidDraft, Profile, Source, SourceContext } from '../src/types.js';
+import type { Account, Bid, BidDraft, Profile, ScoreResult, Source, SourceContext } from '../src/types.js';
 
 /**
  * 2026-11-11: the clock for tests built on SYNTHETIC bids (testBid(), hand-written drafts), whose dates
@@ -117,6 +121,23 @@ export async function seedAccount(db: Db, over: Partial<Account> = {}): Promise<
 /** An AuthService that is "signed in" as whatever `current()` returns (null = signed out). */
 export function fakeAuth(current: Account | null | (() => Account | null)): AuthService {
   return { authenticate: async () => (typeof current === 'function' ? current() : current) };
+}
+
+/**
+ * Who a newly posted bid is scored for, worked out the slow, obvious way: read EVERY stored profile, ask the
+ * rules about each one (isCandidate; for a local job seesLocalJobs; never `exceptProfileId`), score the ones
+ * that pass. This is what scoreNewBid did before it was made set-based, kept as the yardstick its tests
+ * compare the stored scores with. By profile id, in the database's id order.
+ */
+export async function scoreOneByOne(db: Db, bid: Bid, now: Date, exceptProfileId: string | null = null): Promise<Map<string, { profile: Profile; score: ScoreResult }>> {
+  const withAccount = bid.source === 'local' ? await accountProfileIds(db) : null;
+  const out = new Map<string, { profile: Profile; score: ScoreResult }>();
+  for (const profile of await listProfiles(db)) {
+    if (profile.id === exceptProfileId || !isCandidate(profile, bid)) continue;
+    if (withAccount && !seesLocalJobs(profile, withAccount.has(profile.id))) continue;
+    out.set(profile.id, { profile, score: scoreBid(bid, profile, now) });
+  }
+  return out;
 }
 
 let bidSeq = 0;

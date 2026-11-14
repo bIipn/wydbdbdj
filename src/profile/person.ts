@@ -1,6 +1,7 @@
 import type { Db } from '../db/db.js';
-import { cardFacts, getWorkProfile } from '../db/work.js';
-import { jobStats, type JobStats } from '../jobs/stats.js';
+import { cardFactsFor, getWorkProfiles } from '../db/work.js';
+import { jobStatsFor, NO_JOB_STATS, type JobStats } from '../jobs/stats.js';
+import { defaultWorkProfile } from './work.js';
 
 /** One past job or employer on a work profile. */
 export interface Experience {
@@ -60,21 +61,37 @@ export const isDefaultShopName = (name: string): boolean => /^My( .+)? shop$/.te
  * profile, so nothing else stored about the account (email, phone, the address on a job) can slip onto it.
  */
 export async function personCard(db: Db, accountId: string): Promise<PersonCard | null> {
-  const facts = await cardFacts(db, accountId);
-  if (!facts) return null;
-  const [wp, stats] = await Promise.all([getWorkProfile(db, accountId), jobStats(db, accountId)]);
-  return {
-    id: accountId,
-    name: cardName(facts.businessName, facts.accountName),
-    headline: wp.headline,
-    about: wp.about,
-    yearsExperience: wp.yearsExperience,
-    skills: [...wp.skills],
-    license: wp.license ? { state: wp.license.state, number: wp.license.number } : null,
-    insured: wp.insured,
-    experience: wp.experience.map((e) => ({ title: e.title, company: e.company, from: e.from, to: e.to, summary: e.summary })),
-    resumeUrl: wp.resumeUrl,
-    memberSince: facts.createdAt,
-    stats,
-  };
+  return (await personCards(db, [accountId])).get(accountId) ?? null;
+}
+
+/**
+ * The cards of several accounts, by account id, in three statements however many there are (the account
+ * facts, the work profiles, the marketplace records): a job's poster reads a card per bidder, and "my jobs"
+ * does that for every job at once. An id with no account has no entry. The one place a card is put together.
+ */
+export async function personCards(db: Db, accountIds: readonly string[]): Promise<Map<string, PersonCard>> {
+  const ids = [...new Set(accountIds)];
+  const out = new Map<string, PersonCard>();
+  if (ids.length === 0) return out;
+  const [facts, work, stats] = await Promise.all([cardFactsFor(db, ids), getWorkProfiles(db, ids), jobStatsFor(db, ids)]);
+  for (const id of ids) {
+    const f = facts.get(id);
+    if (!f) continue;
+    const wp = work.get(id) ?? defaultWorkProfile();
+    out.set(id, {
+      id,
+      name: cardName(f.businessName, f.accountName),
+      headline: wp.headline,
+      about: wp.about,
+      yearsExperience: wp.yearsExperience,
+      skills: [...wp.skills],
+      license: wp.license ? { state: wp.license.state, number: wp.license.number } : null,
+      insured: wp.insured,
+      experience: wp.experience.map((e) => ({ title: e.title, company: e.company, from: e.from, to: e.to, summary: e.summary })),
+      resumeUrl: wp.resumeUrl,
+      memberSince: f.createdAt,
+      stats: stats.get(id) ?? { ...NO_JOB_STATS },
+    });
+  }
+  return out;
 }

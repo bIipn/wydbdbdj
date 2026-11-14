@@ -37,14 +37,16 @@ const MILES_PER_DEGREE_LAT = 69; // a touch under the true 69.09, so the latitud
 
 let table: Table | null = null;
 
+/** The Earth's mean radius in miles: the one copy, for milesBetween and for the same distance worked out in SQL. */
+export const EARTH_RADIUS_MI = 3958.8;
+
 /** Haversine distance in miles. */
 export function milesBetween(a: LatLng, b: LatLng): number {
-  const R = 3958.8;
   const toRad = (d: number) => (d * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
   const dLng = toRad(b.lng - a.lng);
   const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(h));
+  return 2 * EARTH_RADIUS_MI * Math.asin(Math.sqrt(h));
 }
 
 /**

@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,665 tests in 70 files as of 2026-11-14, ~80s; simulate.test.ts ~25s,
+npm test                   # vitest (~1,668 tests in 70 files as of 2026-11-14, ~80s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -81,7 +81,8 @@ src/auth/index.ts  also "forgot password" (startReset / finishReset: a 1-hour, s
                    tokens.ts is the one token recipe for sessions and links) and confirmOwner (the password again,
                    before a delete); src/notify/email.ts the mailer (Resend) + the reset email, null when no key
 src/routes/account.ts  GET /api/account/deletion (what a delete would end) + DELETE /api/account (password again,
-                   then src/jobs/service.ts deleteAccount → the ONE statement in src/jobs/repo.ts deleteAccount)
+                   then src/jobs/service.ts deleteAccount → the ONE statement in src/jobs/repo.ts deleteAccount);
+                   POST /api/admin/account/delete {email}: the operator's, for someone locked out who asked by email
 src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time match) + one-statement redeem
 src/geo/nearest.ts "Use my location": a point → nearest ZIP (never stored; src/util/log-url.ts keeps it out of logs)
 src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there)

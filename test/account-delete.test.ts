@@ -241,6 +241,46 @@ describe('who may delete, and how it is confirmed', () => {
   });
 });
 
+describe('the operator can delete an account for someone who cannot (POST /api/admin/account/delete)', () => {
+  const admin = (payload: unknown, token: string | null = ADMIN) =>
+    app.inject({ method: 'POST', url: '/api/admin/account/delete', headers: token ? { 'x-admin-token': token } : {}, payload: payload as object });
+
+  it('needs the admin token and an email; then it is the same deletion, with the same endings for the others', async () => {
+    const poster = await join('Poster', ['plumbing']);
+    const locked = await join('Locked out');
+    const job = await post(poster, { title: 'TEST job won by someone locked out (simulated)' });
+    await bid(locked, job, 30_300);
+    await close();
+
+    for (const token of [null, 'TEST-wrong-token']) {
+      const res = await admin({ email: locked.email }, token);
+      expect(res.statusCode).toBe(401);
+      expect(res.json()).toEqual({ error: 'admin_token_required' });
+    }
+    expect((await admin({ email: 'not-an-email' })).statusCode).toBe(400);
+    expect((await admin({ email: 'test.nobody.here@example.com' })).json()).toEqual({ error: 'account_not_found' });
+    expect(await n('select 1 from accounts where id = $1', [locked.account.id])).toBe(1);
+
+    const done = await admin({ email: ` ${locked.email.toUpperCase()} ` });
+    expect(done.statusCode).toBe(200);
+    expect(done.json()).toEqual({ ok: true });
+    expect(await n('select 1 from accounts where id = $1', [locked.account.id])).toBe(0);
+    expect((await call(locked, 'GET', '/api/me')).status).toBe(401);
+    // The poster's job went back to them, exactly as when the winner deletes their own account.
+    expect((await call(poster, 'GET', `/api/jobs/${job}`)).json.job).toMatchObject({ status: 'unfilled', outcome: 'bidder_left', fees: [] });
+    expect((await alertsOf(poster)).at(-1)).toMatchObject({ kind: 'job_closed', data: { jobId: job, outcome: 'bidder_left' } });
+    // A second time: there is no such account any more.
+    expect((await admin({ email: locked.email })).statusCode).toBe(404);
+  });
+
+  it('single mode: 404', async () => {
+    const single = await buildServer({ db, profile: loadProfile('lm-electric') }, { adminToken: ADMIN });
+    const res = await single.inject({ method: 'POST', url: '/api/admin/account/delete', headers: { 'x-admin-token': ADMIN }, payload: { email: 'test.x@example.com' } });
+    expect(res.statusCode).toBe(404);
+    await single.close();
+  });
+});
+
 describe('everything tied to the account goes', () => {
   it('profile, scores, swipes, alerts, cost checks, sessions, devices, work profile, promo and reset rows: all gone; a neighbour keeps theirs', async () => {
     const p = await join('Leaver');

@@ -58,7 +58,9 @@ loser's result, messages, both agreed, job done, service fee "recorded, not coll
   needs a sign-in from the last 10 minutes and types its email instead. The deletion is ONE statement
   (`deleteAccount` in src/jobs/repo.ts): the foreign keys take the profile, sessions, jobs, bids, messages, alerts
   and work profile; the statement also deletes the `local:<jobId>` feed rows of the account's jobs and every alert
-  that points at one (their matches and swipes cascade from `bids`).
+  that points at one (their matches and swipes cascade from `bids`). For someone who is locked out (forgot the
+  password while reset by email is off) and asks by email: `POST /api/admin/account/delete {email}` with the
+  admin token does the same deletion; the privacy page promises it within 30 days.
 - **Decisions** (Ev can flip them; each is one place in that statement):
   - *A fee row is never deleted.* `job_fees.payer_id` is now `on delete set null` and `job_fees.job_id` has no
     foreign key, so a row outlives the payer AND the job. The row keeps who it was: `payer_ref` (the account id,
@@ -85,7 +87,7 @@ loser's result, messages, both agreed, job done, service fee "recorded, not coll
 - web/privacy.html ("Deleting your account": what is deleted, what is kept and why) and web/terms.html say
   exactly this. One new placeholder for Ev in the privacy page: how long the providers keep backups and logs.
 
-Checks (2026-11-14): typecheck, the full test suite (1,660 passed; test/account-delete.test.ts and
+Checks (2026-11-14): typecheck, the full test suite (1,663 passed; test/account-delete.test.ts and
 test/password-reset.test.ts are new) and build pass. `npm run simulate:jobs -- --seed 20261114`: 15 checks,
 same-seed hash, 10 of 10 mutations caught. On a real Postgres 16 (the container's own, `TEST_DATABASE_URL`):
 the 5 Postgres tests pass, including ten deletions of one account at the same moment (one deletes it), and the

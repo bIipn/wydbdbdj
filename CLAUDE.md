@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~1,620 tests in 68 files as of 2026-11-14, ~75s; simulate.test.ts ~25s,
+npm test                   # vitest (~1,630 tests in 68 files as of 2026-11-14, ~85s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
@@ -42,7 +42,7 @@ npm run simulate -- --seed 20261113 --out out/sim   # 16 SIMULATED companies thr
 npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run: invariants, limits, sha256
 npm run simulate:jobs -- --seed 20261114 --out out/sim-jobs  # 38 SIMULATED people through the real marketplace
                            # (post, sealed bids, award, contact window, fees): 15 checks, same-seed hash, 10 mutations
-                           # at real seams; ~8 min for its 11 runs; exit 1 on any miss
+                           # at real seams; ~8 min for its 12 runs; exit 1 on any miss
 ```
 Embedded DB = one process at a time: stop `npm run dev` before `npm run scan`, or hit
 `POST /api/admin/scan` on the running server. Modes (env): `AUTH_MODE=single` (default, the pilot: one
@@ -148,16 +148,17 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   sealed while open (only the bidder sees an amount; the poster sees a count). At closing the lowest wins (tie:
   placed first). After closing the poster and the bidders see the ranked tab; only the poster sees who. The
   poster's street address and phone go only to the winner while the job is awarded/agreed/done. Messages only
-  between poster and winner after the award. "Made contact" = the winner's first in-app message or "We've agreed"
-  tap, or the poster's "They contacted me" or "We've agreed" tap (a phone call alone does not count). Poster
-  no-show only when the winner's first MESSAGE left min(48 h, half the window) to answer and the poster never
-  answered; any other contact without agreement = no_agreement. A one-sided "We've agreed" tells the other side
-  once. Fees: no-show 5% of the winning bid (2% of the
-  bid to the poster, the rest BidSwipe's) when the winner never made contact or backs out; service fee 1% when
-  both confirm; no fee on poster no-show, no agreement, no bids or a cancel. Integer cents, ppm, BigInt, one
-  half-up rounding. **PAYMENTS ARE OFF:** every fee row is 'recorded'; never say or imply a card was charged,
-  and write no code that talks to a payment company. Licence notices (job-words.js) come from
-  docs/MARKETPLACE.md §9; keep them sourced. An open job is mirrored into `bids` as `local:<jobId>`.
+  between poster and winner after the award. "Made contact" (rules.ts `madeContact`) = the winner's first in-app
+  message or "We've agreed" tap, or the poster's "They contacted me" or "We've agreed" tap (a phone call alone
+  does not count). Poster no-show only when the winner's first MESSAGE left `answerWindowMs` = min(48 h, half
+  the window) to answer and the poster never answered; any other contact without agreement = no_agreement. A
+  one-sided "We've agreed" tells the other side once (a job_message alert, retired as read when the job ends).
+  Fees: no-show 5% of the winning bid (2% of the bid to the poster, the rest BidSwipe's) when the winner never
+  made contact or backs out; service fee 1% when both confirm; no fee on poster no-show, no agreement, no bids
+  or a cancel. Integer cents, ppm, BigInt, one half-up rounding. **PAYMENTS ARE OFF:** every fee row is
+  'recorded'; never say or imply a card was charged, and write no code that talks to a payment company. Licence
+  notices (job-words.js) come from docs/MARKETPLACE.md §9; keep them sourced. An open job is mirrored into
+  `bids` as `local:<jobId>`.
 - **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
   are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
   the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
@@ -227,6 +228,8 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   account owns that do work (`seesLocalJobs` in src/scan.ts): never the pilot's config profile, never a
   "Get work done" profile (no trades), never the poster's own.
 - One live repost per job (`jobs_one_repost_idx`): a second "Post again" answers 409.
+- A "Get work done" account (intent 'hire', accounts mode) sees only Jobs + the bell + the profile chip:
+  web/js/shell.js `hiddenFor()` hides Swipe/Browse/Saved/Market and `render()` sends those views to 'jobs'.
 - The onboarding's default business name ("My electrical shop") is shared by everyone who skips the step:
   `cardName()` uses the account name instead, and the bid tab shows "Bidder N".
 - There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the

@@ -94,6 +94,20 @@ export async function markAlertsRead(db: Db, profileId: string, ids: number[] | 
   return rows.length;
 }
 
+/**
+ * A job ended: the "the other side tapped “We’ve agreed”, tap it too" alert of that job (dedupe <jobId>:agreed:<role>)
+ * has nothing left to ask, so it is marked read. A read alert is never pushed (claimWaitingPushes skips it).
+ */
+export async function retireTapAlert(db: Db, profileId: string, jobId: string, role: string, now: Date): Promise<number> {
+  const rows = await db.query(
+    `update alerts set read_at = $4
+     where profile_id = $1 and kind = 'job_message' and dedupe_key = $2 || ':agreed:' || $3 and read_at is null
+     returning id`,
+    [profileId, jobId, role, now.toISOString()],
+  );
+  return rows.length;
+}
+
 /** The newest `limit` alerts after `afterId`, oldest first — what a reconnecting stream missed. */
 export async function alertsAfter(db: Db, profileId: string, afterId: number, limit = 100): Promise<Alert[]> {
   const rows = await db.query<AlertRow>(

@@ -50,7 +50,7 @@ export async function loadUnread() {
 const burst = { alerts: [], items: new Map(), timer: null, shownAt: 0 };
 const KIND_LABEL = {
   match: 'New match', deadline: 'Deadline', award: 'Award posted', price: 'Price move',
-  job_awarded: 'Local job', job_message: 'Message', job_deadline: 'Reminder', job_closed: 'Local job',
+  job_awarded: 'Local job', job_message: 'Message or tap', job_deadline: 'Reminder', job_closed: 'Local job',
 };
 /** The local job an alert is about, or null. */
 const jobOf = (a) => (String(a.kind).startsWith('job_') && typeof a.data?.jobId === 'string' ? a.data.jobId : null);

@@ -119,12 +119,16 @@ Ev's idea: people post a job, others bid on it, and like government contracting 
   changed or withdrawn free until closing. Bids are placed IN the app (unlike public bids, which link out).
 - **Closing:** the lowest bid wins automatically (tie: placed first). The poster and the bidders then see the
   ranked tab, like a public bid opening; only the poster sees who bid.
-- **Contact window:** the winner has 7 days to make contact (a message in the app, or the poster's "They
-  contacted me"). Both tap "We've agreed", and later the poster taps "Job done".
+- **Contact window:** the winner has 7 days to make contact. Contact = the winner's first message in the app,
+  the winner's "We've agreed", the poster's "They contacted me" or the poster's "We've agreed" (a phone call alone
+  does not count, but either side records it with one tap). A one-sided "We've agreed" tells the other side once,
+  so they know to tap it too. Both tap "We've agreed", and later the poster taps "Job done".
 - **Fees (Ev: "5–10%, and a very small fee for us"):** a winner who never makes contact or backs out owes a
   **5% no-show fee**, of which **2% of the bid goes to the poster** whose time was wasted and 3% to BidSwipe; an
-  agreed job carries a **1% service fee**. No fee when the poster is the one who goes quiet, when the sides
-  can't agree, or when nobody bid. Each is a setting with hard limits (no-show 0–10%, service 0–3%).
+  agreed job carries a **1% service fee**. A **poster no-show** (no fee, counted on the poster's record as
+  unanswered) only when the winner's first message left with at least min(48 h, half the contact window) to go
+  and the poster never answered. Every other case where contact was made but the two did not both agree is
+  `no_agreement`: no fee, nothing on anyone's record. No fee either when nobody bid. Each is a setting with hard limits (no-show 0–10%, service 0–3%).
   **Payments are off:** fees are recorded on the person's record and never collected; no payment company is
   connected. Before money moves: docs/MARKETPLACE.md §8 (one paid hour on the after-the-fact card fee; ask
   Apple's App Review about in-app purchase) and docs/APIS.md (Stripe Connect; pay the poster's share as credit).

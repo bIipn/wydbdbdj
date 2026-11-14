@@ -17,7 +17,7 @@ onSignedOut(() => { ui.push = 'checking'; });
 const KIND = {
   match: 'New match', deadline: 'Deadline', award: 'Award', price: 'Price move',
   // local jobs (src/realtime/alerts.ts decideJob): the title says what happened, the tag says it is a local job
-  job_awarded: 'Local job', job_message: 'Message', job_deadline: 'Contact reminder', job_closed: 'Local job',
+  job_awarded: 'Local job', job_message: 'Message or tap', job_deadline: 'Contact reminder', job_closed: 'Local job',
 };
 
 /** Open one bid's detail sheet by id (an alert, a notification tap). */

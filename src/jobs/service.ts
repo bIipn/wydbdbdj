@@ -475,9 +475,13 @@ export async function confirmAgreement(deps: JobsDeps, accountId: string, jobId:
   } else {
     // A one-sided "We've agreed": tell the other side once, so they know to tap it too (the dedupe key
     // <jobId>:agreed:<role> keeps a second tap, or two at once, from telling them again).
+    // The row is read again first: the other side may have tapped in the same instant and completed the agreement
+    // (src/realtime/index.ts onJob checks once more when it builds the alert).
     const tapped = side === 'poster' ? job.posterConfirmedAt : job.bidderConfirmedAt;
     const other = side === 'poster' ? done.winnerId : done.posterId;
-    if (tapped === null && other) {
+    const now2 = await repo.getJob(deps.db, jobId);
+    const otherTapped = side === 'poster' ? now2?.bidderConfirmedAt : now2?.posterConfirmedAt;
+    if (tapped === null && other && now2?.status === 'awarded' && otherTapped == null) {
       await tell(deps, [{ type: 'job', kind: 'job_message', accountId: other, role: side === 'poster' ? 'winner' : 'poster', ...facts(done), tap: 'agreed' }]);
     }
   }

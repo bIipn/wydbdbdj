@@ -34,6 +34,8 @@ let ctx: RouteContext;
 let rt: Realtime;
 let clock = START;
 let current: Account | null = null;
+/** Who each request is from (the x-test-as header), so two calls in flight at once each keep their own account. */
+const byId = new Map<string, Account>();
 
 let poster: Account; // posts the jobs; is an electrician too (must never be shown their own job)
 let sparky: Account; // electrician near the job
@@ -65,7 +67,11 @@ beforeAll(async () => {
   await onboard(nosy, ['roofing']);
   const built = await buildApp({ db }, {
     config: accountsConfig({ adminToken: ADMIN, appUrl: 'https://bidswipe.example.com' }),
-    auth: fakeAuth(() => current), now: () => new Date(clock),
+    auth: { authenticate: async (req) => {
+      const as = req.headers['x-test-as'];
+      return typeof as === 'string' ? (byId.get(as) ?? null) : current;
+    } },
+    now: () => new Date(clock),
   });
   app = built.app;
   ctx = built.ctx;
@@ -80,8 +86,9 @@ afterAll(async () => {
 /** One request as `who` (null = signed out). Returns status, parsed body and the raw text. */
 async function call(who: Account | null, method: 'GET' | 'POST' | 'DELETE', url: string, body?: unknown) {
   current = who;
+  if (who) byId.set(who.id, who);
   const res = await app.inject({
-    method, url, headers: { 'x-bidswipe': '1', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
+    method, url, headers: { 'x-bidswipe': '1', 'x-test-as': who?.id ?? '', ...(body === undefined ? {} : { 'content-type': 'application/json' }) },
     ...(body === undefined ? {} : { payload: JSON.stringify(body) }),
   });
   return { status: res.statusCode, json: res.body ? res.json() : null, text: res.body };
@@ -560,5 +567,28 @@ describe('the contact rule is fair to both sides', () => {
     expect(await tapAlerts(sparky, id)).toHaveLength(0); // the poster's tap completed it
     expect((await alertsOf(sparky)).filter((a) => a.kind === 'job_closed' && a.dedupe_key.startsWith(id)).map((a) => a.title))
       .toEqual(['Agreed: Add a dedicated freezer circuit (TEST)']);
+  });
+
+  it('both sides tapping "We\'ve agreed" at the same moment ends agreed and leaves nobody asked to "tap it too"', async () => {
+    for (const [i, order] of [[0, 'poster first'], [1, 'winner first']] as const) {
+      clock = START + (150 + i * 10) * DAY;
+      const id = await postJob({ title: `Swap a breaker panel, ${order} (TEST)`, closesInDays: 1 });
+      await bid(sparky, id, 66_666);
+      clock += DAY;
+      const taps = i === 0
+        ? [call(poster, 'POST', `/api/jobs/${id}/confirm`), call(sparky, 'POST', `/api/jobs/${id}/confirm`)]
+        : [call(sparky, 'POST', `/api/jobs/${id}/confirm`), call(poster, 'POST', `/api/jobs/${id}/confirm`)];
+      const answers = await Promise.all(taps);
+      expect(answers.map((a) => a.status)).toEqual([200, 200]);
+      expect(answers.map((a) => a.json.job.status)).toContain('agreed');
+      // Nobody who already tapped is asked to tap: an alert decided before the second tap landed is retired
+      // (read, never pushed) the moment the job is agreed.
+      const unread = async (a: Account) => (await db.query<{ n: number | string }>(
+        `select count(*) as n from alerts where profile_id = $1 and dedupe_key like $2 and read_at is null`,
+        [profileOf(a), `${id}:agreed:%`]))[0]!.n;
+      expect(Number(await unread(poster))).toBe(0);
+      expect(Number(await unread(sparky))).toBe(0);
+      expect((await call(poster, 'GET', `/api/jobs/${id}`)).json.job.status).toBe('agreed');
+    }
   });
 });

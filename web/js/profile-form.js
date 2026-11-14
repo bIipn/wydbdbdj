@@ -27,7 +27,7 @@ export const ALERT_KINDS = [
   { id: 'price', label: 'Price moves', help: 'Material price indexes and wages that moved.', feature: 'priceAlerts' },
   // Local jobs people post on BidSwipe (the job marketplace). Each can be switched off like the others.
   { id: 'job_awarded', label: 'Local jobs: lowest bid picked', help: 'You won a job, or a job you posted has its lowest bid.', feature: null },
-  { id: 'job_message', label: 'Local jobs: messages', help: 'The other side of a job wrote to you.', feature: null },
+  { id: 'job_message', label: 'Local jobs: messages', help: 'The other side of a job wrote to you, or tapped “We’ve agreed”.', feature: null },
   { id: 'job_deadline', label: 'Local jobs: contact reminder', help: 'Two days before your time to make contact runs out.', feature: null },
   { id: 'job_closed', label: 'Local jobs: closed or done', help: 'A job you are in ended, was agreed or was finished.', feature: null },
 ];

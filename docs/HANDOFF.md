@@ -41,6 +41,15 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
   maintenance under $1,000, California line adds "part of a bigger job"; terms define "making contact" and give
   the fee ranges; privacy policy covers the marketplace; one live repost per job (unique index); the pilot's
   config profile and "Get work done" profiles are never scored for local jobs; Google Play fees updated.
+- Contact rule made fair (2026-11-14, src/jobs/rules.ts endOfContact): "made contact" = the winner's first message
+  or "We've agreed", or the poster's "They contacted me" or "We've agreed". A poster no-show needs the winner's
+  first MESSAGE sent with at least min(48 h, half the window) left and no answer from the poster; every other
+  contact without agreement is no_agreement (no fee, nothing on a record). A one-sided "We've agreed" alerts the
+  other side once. The 2-days-left reminder uses the same definition. `simulate:jobs --seed 20261114`: 15 checks
+  pass, same-seed hash 21d5d5f4…ebf9c4, 10 of 10 mutations caught (new: late-message-marks-poster → endings).
+  Two taps at the same moment: confirmAgreement reads the row again and the realtime onJob checks the job once
+  more before it stores the "tap it too" alert; any such alert still unread is marked read when the job ends
+  (src/db/alerts.ts retireTapAlert), so nobody who already tapped is left asked to tap.
 
 Checks (2026-11-14): see the commit's run — typecheck, the full test suite and build pass;
 `npm run simulate -- --seed 20261113` (hash unchanged), `npm run simulate:cost -- --companies 2000 --seed 4242`

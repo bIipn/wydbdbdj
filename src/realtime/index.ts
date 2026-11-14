@@ -19,12 +19,12 @@
 import type { RouteContext } from '../context.js';
 import {
   claimWaitingPushes, getAlertTarget, insertAlert, listAlertTargets, profilesWithWaitingPush, recordPushResult,
-  releasePushClaim, savedBidsDueWithin, seriesLabel, subscriptionsForProfile, type AlertTarget,
+  releasePushClaim, retireTapAlert, savedBidsDueWithin, seriesLabel, subscriptionsForProfile, type AlertTarget,
 } from '../db/alerts.js';
 import { getBid } from '../db/repo.js';
 import { env as processEnv } from '../env.js';
 import { loadJobRules } from '../jobs/config.js';
-import { profileIdOf } from '../jobs/repo.js';
+import { getJob, profileIdOf } from '../jobs/repo.js';
 import { remindContact, settleDue, type JobsDeps } from '../jobs/service.js';
 import { PPI_SERIES } from '../market/bls.js';
 import { watchedSeries } from '../market/watch.js';
@@ -176,7 +176,16 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
 
   /** A local job event is about one account: its profile's inbox (an account with no profile yet has no inbox). */
   async function onJob(e: BusEventOf<'job'>): Promise<void> {
+    // "The other side tapped “We’ve agreed”, tap it too": checked again against the row as it is now, so two taps
+    // at the same moment (the second one completing the agreement) never tell someone who already tapped.
+    if (e.tap === 'agreed') {
+      const job = await getJob(db, e.jobId);
+      const theirTap = e.role === 'winner' ? job?.bidderConfirmedAt : job?.posterConfirmedAt;
+      if (!job || job.status !== 'awarded' || theirTap != null) return;
+    }
     const profileId = await profileIdOf(db, e.accountId);
+    // The job ended (agreed, or any other way): a "tap it too" alert still unread asks for nothing now.
+    if (profileId && e.kind === 'job_closed') await retireTapAlert(db, profileId, e.jobId, e.role, ctx.now());
     const target = profileId ? await getAlertTarget(db, profileId) : null;
     const decision = target && decideJob(e, target.profile, planOf(target), ctx.now());
     if (decision && profileId) await store(profileId, decision);

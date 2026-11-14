@@ -373,7 +373,9 @@ function thread(job) {
   const list = ui.messages.length
     ? h('ul', { class: 'msgs' }, ui.messages.map((m) => h('li', { class: `msg ${m.mine ? 'mine' : 'theirs'}` },
       h('p', {}, m.body), h('small', {}, `${m.mine ? 'You' : m.from === 'poster' ? 'Poster' : 'Winner'} · ${fmtMsgTime.format(new Date(m.at))}`))))
-    : h('p', { class: 'job-note faint' }, job.my.role === 'poster' ? 'No messages yet. The winner writes first, or you can.' : 'No messages yet. Say hello and when you could come look: your first message counts as making contact.');
+    : h('p', { class: 'job-note faint' }, job.my.role === 'poster' ? 'No messages yet. The winner writes first, or you can.'
+      : job.status === 'awarded' && !job.award.bidderContactedAt ? 'No messages yet. Say hello and when you could come look: your first message counts as making contact.'
+        : 'No messages yet.');
   let box = null;
   if (canSend) {
     const input = h('textarea', { class: 'input textarea short', rows: 2, maxlength: 1000, placeholder: 'Write a message…', 'aria-label': 'Message', id: 'jobMsg' }, ui.msg);
@@ -402,10 +404,17 @@ function thread(job) {
       }
     });
   }
-  return section('Messages', list, box,
-    canSend ? h('p', { class: 'job-note faint' }, job.my.role === 'poster'
-      ? `Only you two see these. A reply, “They contacted me” or “We’ve agreed” is your answer. If the winner writes with at least ${answerWindowText(job.rules)} left and you never answer, it is recorded on your profile as unanswered.`
-      : 'Only you two see these. Your first message counts as making contact. Agree the price, the scope and a day, then both tap “We’ve agreed”.') : null);
+  // The contact rule is only spelled out while it still matters: the job is awarded and that side has not acted yet.
+  const a = job.award;
+  let hint = 'Only you two see these.';
+  if (job.status === 'awarded' && job.my.role === 'poster' && !a.posterContactedAt) {
+    hint += ` A reply, “They contacted me” or “We’ve agreed” is your answer. If the winner writes with at least ${answerWindowText(job.rules)} left and you never answer, it is recorded on your profile as unanswered.`;
+  } else if (job.status === 'awarded' && job.my.role !== 'poster' && !a.bidderContactedAt) {
+    hint += ' Your first message counts as making contact. Agree the price, the scope and a day, then both tap “We’ve agreed”.';
+  } else if (job.status === 'awarded') {
+    hint += ' Agree the price, the scope and a day, then both tap “We’ve agreed”.';
+  }
+  return section('Messages', list, box, canSend ? h('p', { class: 'job-note faint' }, hint) : null);
 }
 
 /** The buttons the API allows for this person and this state. */
@@ -422,8 +431,14 @@ function actions(job) {
     const confirmedByMe = poster ? a.posterConfirmedAt : a.bidderConfirmedAt;
     if ((poster || winner) && !confirmedByMe) {
       const service = feeCents(a.amountCents, ppmOf(rules.serviceFeePct));
-      out.push(h('button', { class: 'cta', type: 'button', onclick: () => act(() => api.jobAction(job.id, 'confirm'), 'Thanks. When you both tap it, the job is agreed.') }, 'We’ve agreed'),
-        h('p', { class: 'job-note faint' }, `Tap once you’ve settled price, scope and a day, here or by phone. Your tap counts as contact, and the ${poster ? 'winner' : 'poster'} is told to tap it too. When you both have, a ${rules.serviceFeePct}% service fee (${dollars(service)}) is recorded for the winner. ${FEES_OFF.split('. ')[0]}.`));
+      const other = poster ? 'winner' : 'poster';
+      const otherConfirmed = poster ? a.bidderConfirmedAt : a.posterConfirmedAt;
+      const middle = otherConfirmed
+        ? `The ${other} already tapped it, so your tap makes the job agreed, and a ${rules.serviceFeePct}% service fee (${dollars(service)}) is recorded for the winner.`
+        : `Your tap counts as contact, and the ${other} is told to tap it too. When you both have, a ${rules.serviceFeePct}% service fee (${dollars(service)}) is recorded for the winner.`;
+      const toast = otherConfirmed ? 'Agreed. You both tapped it.' : 'Thanks. When you both tap it, the job is agreed.';
+      out.push(h('button', { class: 'cta', type: 'button', onclick: () => act(() => api.jobAction(job.id, 'confirm'), toast) }, 'We’ve agreed'),
+        h('p', { class: 'job-note faint' }, `Tap once you’ve settled price, scope and a day, here or by phone. ${middle} ${FEES_OFF.split('. ')[0]}.`));
     } else if (confirmedByMe) {
       out.push(h('p', { class: 'job-note' }, poster ? 'You tapped “We’ve agreed”. Waiting for the winner.' : 'You tapped “We’ve agreed”. Waiting for the poster.'));
     }

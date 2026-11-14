@@ -116,26 +116,36 @@ Each card says in plain words why it fits: your trade's keywords in the scope, h
 home base, the job size, how many days you have to bid, and the paperwork it asks for (bonding,
 prevailing wage, registrations).
 
-Swipe right to save a bid, left to pass. Or browse the full list, search it and sort it. When a bid is
-worth it, one tap opens the agency's own page: you bid there, directly with the agency. BidSwipe never
-takes your bid and never sees your price.
+Swipe right to save a bid, left to pass. Or browse the full list, search it and sort it. When a public
+bid is worth it, one tap opens the agency's own page: you bid there, directly with the agency. BidSwipe
+never takes a public bid and never sees your price on it.
+
+Local jobs: people and businesses near you can post a job in the app, and contractors place a sealed bid
+on it, right in BidSwipe. Nobody sees another bid's amount while bidding is open. When bidding closes,
+the lowest bid wins, and the winner has 7 days to make contact with the poster. You can post jobs, bid
+on them, or both.
+
+Work profiles: a short card about you or your business (headline, experience, skills, the licence you
+list (BidSwipe does not check it), a résumé link) that posters see when you bid. Your email, phone and address are never on it.
 
 Set it up in a minute: pick your trade, type your ZIP, choose how far you travel and the job sizes you
 want. BidSwipe does the reading.
 
-Alerts: new matches, deadline reminders for the bids you saved, and award results after the fact.
+Alerts: new matches, deadline reminders for the bids you saved, award results after the fact, and news
+on the local jobs you posted or bid on.
 
 BidSwipe Pro adds a cost check for a bid, price and award history from public records, and price-move
 alerts.
 
-Bids are sealed: nobody, including us, sees a competitor's price before the bid opening. Scores are a
+Bids are sealed: on a public bid nobody, including us, sees a competitor's price before the bid
+opening, and on a local job nobody sees another bid's amount before bidding closes. Scores are a
 first pass — always read the bid documents before you price a job.
 ```
 
-**Short description** (keep under 270 characters):
+**Short description** (keep under 270 characters; this one is 207):
 
 ```
-Public bids that fit your trade, one swipe at a time. BidSwipe scores open bids from public agencies for your business, shows why each one fits, and sends you to the agency's own site to bid.
+Public bids that fit your trade, one swipe at a time, each with the reasons it fits. Or post a local job: others place a sealed bid in the app, the lowest bid wins, and the winner has 7 days to make contact.
 ```
 
 **Product features** (up to 20, 200 characters each — no bullets, the Store adds them):
@@ -148,6 +158,9 @@ One tap to the agency's own bid page — you bid directly with the agency
 Alerts for new matches and reminders before saved bids are due
 Award results after the fact, from public records
 Fast setup: pick your trade, enter your ZIP, choose how far you travel
+Post a local job and get sealed bids in the app; the lowest bid wins when bidding closes
+Bid on local jobs near you; the winner has 7 days to make contact with the poster
+Work profiles: headline, experience, skills and licence, without your email, phone or address
 Works on Windows, phones and the web with the same account
 ```
 

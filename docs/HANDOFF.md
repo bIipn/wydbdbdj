@@ -21,7 +21,10 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
 
-**LIVE since 2026-11-14 16:40 UTC: production (bidswipe-tau.vercel.app) runs commit 0ccddd1** (the wider federal
+**LIVE: production (bidswipe-tau.vercel.app) runs commit 01c325c since 2026-11-15 03:00 UTC** (it adds the two
+local readers, civicplus and bidsandtenders, whose first read from the live server is the 13:20 UTC west scan of
+that day; no hand scan was run for them, the western boards had been read ten hours before). Before that, from
+2026-11-14 16:40 UTC, it ran 0ccddd1 (the wider federal
 net, the Sub work tier, the eleven new boards, places, trade-work rules, quiet first load, paging). The schema
 changes (bids.psc, matches.tier, matches.quiet) applied themselves on the first request. First load, run by hand,
 one scan group per call with `?quiet=1`, default last, 16:40–16:54 UTC:

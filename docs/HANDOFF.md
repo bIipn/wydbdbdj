@@ -34,7 +34,14 @@ Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks,
 390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
 had hit its daily limit). Final screenshots were kept outside the repo.
 
-**LIVE: production (bidswipe-tau.vercel.app) runs commit 01c325c since 2026-11-15 03:00 UTC** (it adds the two
+**LIVE: production (bidswipe-tau.vercel.app) runs commit a749e10 since 2026-11-16 17:25 UTC** (the home screen
+redesign: the price pill, Home with Scroll or Swipe, the Messages tab, the bottom tab bar). Checked after the
+deploy: the new shell and its files answer 200, `GET /api/jobs/conversations` answers 401 signed out, the two read-mark
+columns (`jobs.poster_read_msg_id`, `jobs.winner_read_msg_id`) exist in `bidswipe_app`, no runtime error in the
+hour after, the sign-in page and `?demo` draw at 390 px. Not checked live: a signed-in account (none of ours on
+production was used), so the pill with real figures and the Messages tab were seen only on the local copy.
+
+Before that, **production ran commit 01c325c from 2026-11-15 03:00 UTC** (it adds the two
 local readers, civicplus and bidsandtenders, whose first read from the live server is the 13:20 UTC west scan of
 that day; no hand scan was run for them, the western boards had been read ten hours before). Before that, from
 2026-11-14 16:40 UTC, it ran 0ccddd1 (the wider federal

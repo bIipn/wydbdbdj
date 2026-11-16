@@ -64,6 +64,11 @@ export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
 export const ACCESS_CODE_LIMIT = { limit: 50, windowMs: 15 * 60 * 1000 } as const;
 /** A shorter ACCESS_CODE gets a warning at start-up (not a refusal: the pilot's server must keep running). */
 const ACCESS_CODE_MIN = 16;
+/** The start-up line for a short ACCESS_CODE (its length only, never the code), or null. */
+export function accessCodeWarning(code: string | undefined): string | null {
+  if (!code || code.length >= ACCESS_CODE_MIN) return null;
+  return `ACCESS_CODE is ${code.length} characters: use ${ACCESS_CODE_MIN} or more random characters (a short code can be guessed; wrong codes are limited to ${ACCESS_CODE_LIMIT.limit} per address per 15 minutes)`;
+}
 
 /** Does any string in this parsed value contain a NUL? Postgres refuses NUL in text (a 500, audit sec-input-3). */
 const hasNul = (v: unknown, depth = 0): boolean => {
@@ -145,15 +150,15 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
 
   // A NUL in an id, a query value or a JSON body is refused before any route reads it (Postgres would answer 22021).
   app.addHook('preValidation', async (req, reply) => {
+    if (!(req.routeOptions.url ?? '').startsWith('/api/') && !req.url.startsWith('/api/')) return; // the shell answers 404 itself
     if (hasNul(req.params) || hasNul(req.query) || hasNul(req.body)) {
       return reply.code(400).send({ error: 'invalid_input', message: 'Text cannot contain a NUL character.' });
     }
   });
 
   const attempts = createAttemptLimiter(deps.db, opts.now ?? (() => new Date()), (msg) => app.log.info(msg));
-  if (config.accessCode && config.accessCode.length < ACCESS_CODE_MIN) {
-    app.log.warn(`ACCESS_CODE is ${config.accessCode.length} characters: use ${ACCESS_CODE_MIN} or more random characters, a short code can be guessed`);
-  }
+  const weak = accessCodeWarning(config.accessCode);
+  if (weak) app.log.warn(weak);
 
   // Optional shared access code. It gates the whole API in both modes (accounts sign in on top of it).
   app.addHook('onRequest', async (req, reply) => {

@@ -9,7 +9,7 @@ import type { ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import fc from 'fast-check';
 import Fastify, { type FastifyInstance } from 'fastify';
-import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { generateVAPIDKeys, WebPushError } from 'web-push';
 import type { AuthService } from '../src/auth/index.js';
 import { createContext, loadConfig, type AppConfig } from '../src/context.js';
@@ -912,6 +912,17 @@ describe('realtime: from a bus event to the inbox and the phone', () => {
     for (const rt of running.splice(0)) rt.stop();
   });
 
+  it('a device its push service refuses (403) is logged by host and reason, never by endpoint, and skipped from then on', async () => {
+    const e = engine();
+    const { profile, devices } = await member({ devices: 2 });
+    e.push.answers.set(devices[0]!.endpoint, { ok: false, gone: false, status: 403, permanent: true, reason: 'BadJwtToken' });
+    await e.bus.emit(matchEvent(profile.id));
+    await e.rt.flush();
+    expect(e.logs.some((l) => l === 'push: push.example.com refused a device (403 BadJwtToken); it gets nothing until it subscribes again')).toBe(true);
+    for (const l of e.logs) expect(l).not.toContain(devices[0]!.endpoint);
+    expect(await subscriptionsForProfile(db, profile.id)).toEqual([devices[1]]);
+  });
+
   it('a match is stored, announced and pushed once — the same match again does nothing', async () => {
     const { profile, devices } = await member();
     const e = engine();
@@ -1440,6 +1451,26 @@ describe('inbox and push routes (accounts mode)', () => {
     const broken = (await buildApp({ db }, { config: accountsConfig({ vapid: { ...testVapid, subject: 'http://localhost:8787' } }), auth: fakeAuth(null) })).app;
     expect((await broken.inject('/api/push/key')).statusCode).toBe(404);
     await broken.close();
+  });
+
+  it('POST /api/push/subscribe refuses a host that is not a push service with a sentence, and logs the host only', async () => {
+    const logs: string[] = [];
+    const strict = (await buildApp({ db }, { config: accountsConfig({ vapid: testVapid }), auth: headerAuth(new Map([[alice.account.id, alice.account]])), now: () => NOW })).app;
+    vi.spyOn(strict.log, 'info').mockImplementation(((msg: unknown) => { logs.push(String(msg)); }) as typeof strict.log.info);
+    try {
+      const sneaky = { ...device('sneaky'), endpoint: 'https://169.254.169.254.nip.io/latest/meta-data/TEST-secret-path' };
+      const res = await strict.inject({ method: 'POST', url: '/api/push/subscribe', payload: { subscription: sneaky }, headers: as(alice) });
+      expect([res.statusCode, res.json()]).toEqual([400, { error: 'invalid_subscription', message: 'This browser’s push service isn’t supported. Phone alerts work in Chrome, Edge, Firefox and Safari.' }]);
+      expect(logs).toContain('push: refused a device on 169.254.169.254.nip.io: not a known push service');
+      expect(logs.join('\n')).not.toContain('TEST-secret-path');
+      // The production list (no pushHosts given) refuses the tests' own synthetic host too.
+      expect((await strict.inject({ method: 'POST', url: '/api/push/subscribe', payload: { subscription: device('synthetic') }, headers: as(alice) })).statusCode).toBe(400);
+      const apple = { ...device('apple'), endpoint: 'https://web.push.apple.com/TEST-apple-device' };
+      expect((await strict.inject({ method: 'POST', url: '/api/push/subscribe', payload: { subscription: apple }, headers: as(alice) })).statusCode).toBe(200);
+      await deleteSubscription(db, alice.account.id, apple.endpoint);
+    } finally {
+      await strict.close();
+    }
   });
 
   it('POST /api/push/subscribe stores a valid device for the signed-in account', async () => {

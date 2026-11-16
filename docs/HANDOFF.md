@@ -21,7 +21,7 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
 
-**2026-11-16 (evening) — security fixes, iPhone alert fixes, reporting, Store material (committed, NOT deployed).**
+**2026-11-16 (evening) — security fixes, iPhone alert fixes, reporting, Store material (LIVE: see "LIVE" below).**
 *Audited, and how:* three security lenses (authorization, sessions and sign-in limits, client and input) attacked a
 local copy of the app with scripts, each finding re-run by a skeptic; an iPhone audit (alerts and Safari) read
 Apple's and WebKit's pages and walked the screens in Chromium with stubs for `navigator.standalone`, PushManager and
@@ -58,7 +58,10 @@ a real iPhone (docs/IPHONE-ALERTS.md).
 is awarded; the public contact address is on the privacy and terms pages (and the Store support contact), nowhere
 else; the Microsoft Store account and name exist (Package ID `bidswipe.bidswipe`, Publisher
 `CN=6A3385ED-1658-4BBF-A229-10E7AD5417AE`, display name `bidswipe`) and a package was built, but it came from the
-OLD manifest: **it must be rebuilt after this version is deployed** (docs/MICROSOFT-STORE.md, the clicks at its top).
+OLD manifest. **Rebuilt on 2026-11-16 after the deploy** with `node scripts/store-package.mjs` (PWABuilder's
+packaging service, which the owner allowed for Claude's sessions) and sent to the owner; its identity, versions
+(1.0.1.0, classic 1.0.0.0) and start address were read back out of the bundles. What the owner still clicks is at
+the top of docs/MICROSOFT-STORE.md.
 *Checked:* typecheck, the full vitest run, build, the Postgres-only tests on a local Postgres 16 (pg-startup,
 jobs-pg, promo-pg), `npm run simulate` (passes), `npm run simulate:jobs` (all 15 checks, 10 of 10 mutations, same hash
 21d5d5f488b230c2), `npm run demo:snapshot`; the schema run twice over old-schema data on PGlite and Postgres 16 plus
@@ -79,7 +82,19 @@ Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks,
 390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
 had hit its daily limit). Final screenshots were kept outside the repo.
 
-**LIVE: production (bidswipe-tau.vercel.app) runs commit a749e10 since 2026-11-16 17:25 UTC** (the home screen
+**LIVE: production (bidswipe-tau.vercel.app) runs commit cb979c2 since 2026-11-16 21:35 UTC** (the security
+fixes, the iPhone alert fixes, reporting, the new manifest and legal pages; cb979c2 = d5fb63b plus Chrome's
+pre-release push host `jmt17.google.com` on the allowlist, two Store screenshots re-taken and a scan time limit).
+Checked after the deploy: every answer carries the CSP and the other security headers and `/api` answers say
+`no-store`; `/privacy.html`, `/terms.html` (contact address, November 16, 2026), their two style sheets,
+`js/sw-register.js` and the manifest (five shortcuts, four screenshots) answer 200; `GET /api/admin/jobs/reports`
+and `POST /api/push/test` answer 401 signed out; the four new tables, three columns and three indexes exist in
+`bidswipe_app` (2 accounts and 2,829 bid rows untouched, counters and reports empty); no runtime error; in Chromium
+the sign-in page (390 and 1280), `?demo`, the privacy page and the terms page drew with zero CSP violations and the
+service worker registered from its file. Not checked live: a signed-in account (none of ours on production was
+used), so the report forms, the test alert and the limits were seen only on local copies; no real iPhone.
+
+Before that, **production ran commit a749e10 from 2026-11-16 17:25 UTC** (the home screen
 redesign: the price pill, Home with Scroll or Swipe, the Messages tab, the bottom tab bar). Checked after the
 deploy: the new shell and its files answer 200, `GET /api/jobs/conversations` answers 401 signed out, the two read-mark
 columns (`jobs.poster_read_msg_id`, `jobs.winner_read_msg_id`) exist in `bidswipe_app`, no runtime error in the

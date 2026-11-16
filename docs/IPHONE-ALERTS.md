@@ -24,8 +24,8 @@ website into an app in Safari on iPhone") and the fixes that followed it.
 
 ## The owner's test recipe
 
-This is true of the app once this version is deployed (the "Send a test alert" button is new; production at commit
-a749e10 does not have it yet). It was walked in Chromium with the iPhone 14 profile and the audit's stubs, not on an
+This version is live since 2026-11-16 21:35 UTC (commit cb979c2), so the "Send a test alert" button is there. The
+recipe was walked in Chromium with the iPhone 14 profile and the audit's stubs, not on an
 iPhone (see the last section).
 
 1. On your iPhone, open the **Settings** app → **General** → **About** and look at **iOS Version**. It must be **16.4

@@ -39,6 +39,8 @@ npm run scan -- --group=west --no-notify   # one scan group, as its cron call ru
 npm run dev                # http://localhost:8787 (tsx watch)
 npm run market:refresh -- --states=NV,CA   # USAspending awards + BLS wages/indexes (network; --skip-bls etc.)
 npm run demo:snapshot      # rebuild web/demo-data.json + out/bidswipe-demo.html
+node scripts/store-package.mjs       # rebuild the Microsoft Store package from the LIVE manifest → out/store/
+                           # (PWABuilder's service; --version/--classic/--url; a manifest change needs a new package)
 npm run simulate -- --seed 20261113 --out out/sim   # 16 SIMULATED companies through the real server on the
                            # real captured bids (SAM.gov included): checks, same-seed hash, mutations; exit 1 on any miss
 npm run simulate:cost -- --companies 2000 --seed 4242  # seeded cost-engine run: invariants, limits, sha256

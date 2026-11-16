@@ -7,11 +7,14 @@ service) is marked **not checked**. Only you can do the account and submission s
 
 ## What you still have to click
 
-1. **Deploy this version** (the new manifest, privacy page, terms page and the reporting screens) and check that
-   `https://bidswipe-tau.vercel.app/privacy.html` and `/terms.html` show `3verettholt@gmail.com` and the date November 16, 2026.
+1. ~~Deploy this version~~ **Done 2026-11-16** (commit cb979c2). Checked on the live site: `/privacy.html` and
+   `/terms.html` show `3verettholt@gmail.com` and November 16, 2026; the manifest has the five shortcuts.
 2. **Decide the domain** (risk 1 below). If you move to your own domain, do it now: the package bakes in its start address.
-3. **Rebuild the package** (section 3). The package you built on pwabuilder.com came from the OLD manifest; do not
-   upload it. Microsoft: a manifest change needs a new package.
+3. ~~Rebuild the package~~ **Done 2026-11-16** from the live manifest: `BidSwipe-store.zip`, sent to you in the chat
+   (version 1.0.1.0, classic 1.0.0.0, your three identity values, start address `https://bidswipe-tau.vercel.app/`).
+   Upload the two bundles inside it. The package you built earlier on pwabuilder.com came from the OLD manifest: do
+   not upload that one; if it is already in a draft submission, remove it there first. To build it again later:
+   `node scripts/store-package.mjs` (section 3).
 4. **Decide how you read reports** (policy 11.12): nothing alerts you when one arrives; see section 4.
 5. **Make the two reviewer accounts** and finish one example job between them (section 4, Notes for certification).
 6. In Partner Center open BidSwipe → **Start your submission** and fill in: Pricing and availability, Properties,
@@ -26,14 +29,14 @@ service) is marked **not checked**. Only you can do the account and submission s
 |---|---|
 | Developer account and the reserved name "BidSwipe" | **Done by you.** |
 | Product identity | Package ID `bidswipe.bidswipe` · Publisher ID `CN=6A3385ED-1658-4BBF-A229-10E7AD5417AE` · Publisher display name `bidswipe` (none of the three is secret) |
-| The app live on HTTPS | `https://bidswipe-tau.vercel.app` (production runs commit a749e10; this version is **not deployed yet**) |
+| The app live on HTTPS | `https://bidswipe-tau.vercel.app` (production runs commit cb979c2 since 2026-11-16 21:35 UTC: this version) |
 | Accounts mode, poll mode, `CRON_SECRET` | As today: `AUTH_MODE=accounts`; with `VERCEL` set the app polls for alerts about once a minute; `CRON_SECRET` runs the daily jobs |
 | Privacy policy | `web/privacy.html`: contact `3verettholt@gmail.com`, Vercel (hosting) and Supabase (database) named, "Use my location", 18+, deletion by email, reports. Effective November 16, 2026 |
 | Terms and community rules | `web/terms.html`: retitled, contact address, community rules and how to report a job, a conversation or a profile |
-| Reporting (policy 11.12) | Built in this branch, **not deployed**: report a job (job page), a conversation (Messages and the job page), a profile (under the card); operators can remove a message and hide a profile. There is no block or mute |
+| Reporting (policy 11.12) | Live since 2026-11-16: report a job (job page), a conversation (Messages and the job page), a profile (under the card); operators can remove a message and hide a profile. There is no block or mute |
 | Manifest | Updated: description covers public bids and local jobs, shortcuts Home · Search · Saved · Jobs · Alerts, `launch_handler`, four new screenshots |
 | Store screenshots | `docs/store/screenshots/01…08` (1920×1080) with captions in `docs/store/captions.md` |
-| Package | **Must be rebuilt** from the new manifest (section 3) |
+| Package | **Rebuilt 2026-11-16** from the live manifest (`node scripts/store-package.mjs`); its identity, versions and start address were read back out of the bundles |
 | Two reviewer accounts with a finished job | **Not made** (section 4) |
 
 ## 1. The account and the name
@@ -73,10 +76,15 @@ Either way the result is a `.zip` with an **`.msixbundle`** and a **`.classic.ap
    higher version.
 4. **Download package.** The zip also has a test package you can install on your own PC first.
 
-**B. Claude, through PWABuilder's packaging service.** pwabuilder.com itself POSTs this JSON to
-`https://pwabuilder-windows-docker.azurewebsites.net/msix/generatezip` and gets the zip back (read from PWABuilder's
-source, `src/script/utils/environment.ts` and `services/publish/windows-publish.ts`; **not called**: that host is not
-reachable from Claude's sessions today, and you would have to allow it):
+**B. `node scripts/store-package.mjs` (how the 2026-11-16 package was built).** pwabuilder.com itself POSTs this
+JSON to `https://pwabuilder-windows-docker.azurewebsites.net/msix/generatezip` and gets the zip back (read from
+PWABuilder's source, `src/script/utils/environment.ts` and `services/publish/windows-publish.ts`). The script reads
+the live manifest, sends the same JSON and writes `out/store/BidSwipe-store.zip`; `--version`, `--classic` and
+`--url` change the versions and the address. Called on 2026-11-16 (the owner allowed the host for Claude's sessions):
+it answered in 14 seconds with a 7.8 MB zip holding `BidSwipe.msixbundle`, `BidSwipe.classic.appxbundle` and a
+`BidSwipe.sideload.msix` with `install.ps1` for trying it on your own PC. Read back out of the bundles: Name
+`bidswipe.bidswipe`, Publisher `CN=6A3385ED-1658-4BBF-A229-10E7AD5417AE`, display name `bidswipe`, versions
+1.0.1.0 and 1.0.0.0, start address `https://bidswipe-tau.vercel.app/`. The JSON:
 
 ```json
 {
@@ -378,7 +386,7 @@ write `&` as `%26`. The **iOS** build is different: Apple guideline 3.1.1 bars u
 
 ## 8. What is still missing (honest list)
 
-- **Deploy** the reporting, the manifest and the two pages (none of it is live yet).
+- ~~Deploy~~ and ~~the package~~: done 2026-11-16 (the list at the top).
 - **A domain you own** (risk 1).
 - **The account type** (risk 2): check it.
 - **Two reviewer accounts** with a finished job (section 4).
@@ -393,11 +401,12 @@ write `&` as `%26`. The **iOS** build is different: Apple guideline 3.1.1 bars u
 
 - Microsoft Learn pages (policies 7.20, account types, roles, submission API, msstore CLI, screenshots, age ratings):
   read and quoted by the store research pass on 2026-11-16. Not re-opened while writing this page.
-- PWABuilder: its rules and request body were read from its GitHub source on 2026-11-16. pwabuilder.com's report card
-  and the packaging service were **not called**.
+- PWABuilder: its rules and request body were read from its GitHub source on 2026-11-16. The packaging service was
+  called that day and the package's identity read back out of the bundles (section 3). pwabuilder.com's report card
+  was **not opened**, and the package was **not installed** on a Windows PC.
 - The manifest: checked locally on 2026-11-16 (valid JSON; `id`, `start_url`, `scope`, `name`, `short_name` and the
   24 icons unchanged; every icon and screenshot file exists at the size it claims; each shortcut opens a view that
-  `openShortcut` in `web/js/live.js` accepts). The live manifest was not fetched.
+  `openShortcut` in `web/js/live.js` accepts). The live manifest was fetched after the deploy: the same file.
 - The listing counts and captions: counted with Python on 2026-11-16.
 - **Not checked**: Partner Center screens, the IARC questionnaire, the Windows App Certification Kit, an install of a
   package, and the Store wrapper with the app's security headers (`X-Frame-Options: DENY`, COOP and CORP).

@@ -27,7 +27,7 @@ const draft = () => ui.drafts.get(draftKey());
 
 /** Open the cost check for a bid (from its sheet) or for a job that is not listed (bid = null, from Market). */
 export function openCostCheck(bid, back = state.view) {
-  ui.ctx = { bid, back };
+  ui.ctx = { bid, back, scrollY: window.scrollY }; // Back returns to the same place in a long list (Home, Search)
   Object.assign(ui, { result: null, savedAt: null, errors: null, formError: '', saved: null, savedErr: null, hints: {}, scrollTo: null, open: new Set() });
   ui.locked = !allowed();
   if (!ui.locked && !ui.drafts.has(draftKey())) ui.drafts.set(draftKey(), newDraft({ profile: state.me?.profile ?? null, bid }));
@@ -157,7 +157,9 @@ function jump(sec, path) {
 function header(title) {
   const back = () => {
     const bid = ui.ctx?.bid;
+    const y = ui.ctx?.scrollY ?? 0;
     setView(ui.ctx?.back && ui.ctx.back !== 'cost' ? ui.ctx.back : 'home');
+    if (y) window.scrollTo({ top: y });
     if (bid) openSheet(bid);
   };
   return h('header', { class: 'screen-head' },

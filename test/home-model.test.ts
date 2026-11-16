@@ -6,7 +6,7 @@ const modulePath = '../web/js/home-model.js';
 const m = (await import(modulePath)) as {
   TABS: Array<{ view: string; label: string }>;
   VIEW_ALIASES: Record<string, string>;
-  visibleTabs: (o: { live?: boolean; hireOnly?: boolean; jobsOn?: boolean }) => string[];
+  visibleTabs: (o: { hireOnly?: boolean; jobsOn?: boolean; messagesOn?: boolean }) => string[];
   screenTitle: (view: string) => string;
   homeSubtitle: (p: { name?: string; base?: string } | null) => string;
   monogram: (name: string | null | undefined) => string;
@@ -23,21 +23,25 @@ const bid = (over: object = {}) => ({
 });
 
 describe('the tab bar (web/js/home-model.js visibleTabs)', () => {
-  it('names the five tabs in order: Home · Search · Market · Saved · Jobs; Search is the old Browse view', () => {
-    expect(m.TABS.map((t) => t.label)).toEqual(['Home', 'Search', 'Market', 'Saved', 'Jobs']);
+  it('names the five tabs in order: Home · Search · Saved · Jobs · Messages; Search is the old Browse view; Market is no tab', () => {
+    expect(m.TABS.map((t) => t.label)).toEqual(['Home', 'Search', 'Saved', 'Jobs', 'Messages']);
     expect(m.TABS.find((t) => t.label === 'Search')?.view).toBe('browse');
+    expect(m.TABS.map((t) => t.view)).not.toContain('market');
   });
-  it('accounts mode, work or both: all five', () => {
-    expect(m.visibleTabs({ live: true, jobsOn: true })).toEqual(['home', 'browse', 'market', 'saved', 'jobs']);
+  it('accounts mode, a work or both account: all five', () => {
+    expect(m.visibleTabs({ jobsOn: true, messagesOn: true })).toEqual(['home', 'browse', 'saved', 'jobs', 'messages']);
   });
-  it('single mode (the pilot): no Jobs', () => {
-    expect(m.visibleTabs({ live: true, jobsOn: false })).toEqual(['home', 'browse', 'market', 'saved']);
+  it('single mode (the pilot) and the bundled demo: Home · Search · Saved', () => {
+    expect(m.visibleTabs({ jobsOn: false })).toEqual(['home', 'browse', 'saved']);
+    expect(m.visibleTabs({})).toEqual(['home', 'browse', 'saved']);
   });
-  it('the bundled demo: no Market (no server), no Jobs', () => {
-    expect(m.visibleTabs({ live: false })).toEqual(['home', 'browse', 'saved']);
+  it('Messages shows only where local jobs exist and its module said so (a tab nobody registered stays hidden)', () => {
+    expect(m.visibleTabs({ jobsOn: false, messagesOn: true })).toEqual(['home', 'browse', 'saved']);
+    expect(m.visibleTabs({ jobsOn: true, messagesOn: false })).toEqual(['home', 'browse', 'saved', 'jobs']);
   });
-  it('an account here only to get work done: Jobs alone (the shell then hides the bar)', () => {
-    expect(m.visibleTabs({ live: true, hireOnly: true, jobsOn: true })).toEqual(['jobs']);
+  it('an account here only to get work done: Jobs and Messages', () => {
+    expect(m.visibleTabs({ hireOnly: true, jobsOn: true, messagesOn: true })).toEqual(['jobs', 'messages']);
+    expect(m.visibleTabs({ hireOnly: true, jobsOn: true })).toEqual(['jobs']);
   });
   it('the old view name "swipe" opens Home', () => {
     expect(m.VIEW_ALIASES.swipe).toBe('home');
@@ -49,6 +53,10 @@ describe('the header', () => {
     expect(m.screenTitle('home')).toBe('Welcome');
     expect(m.screenTitle('browse')).toBe('Search');
     expect(m.screenTitle('jobs')).toBe('Jobs');
+    expect(m.screenTitle('messages')).toBe('Messages');
+  });
+  it('Market, a screen between the tabs, says Market', () => {
+    expect(m.screenTitle('market')).toBe('Market');
   });
   it('the second line is the business and its town, either may be missing', () => {
     expect(m.homeSubtitle({ name: 'TEST Electric', base: 'Minden, NV' })).toBe('TEST Electric · Minden, NV');
@@ -73,6 +81,9 @@ describe('a match card (placeLine, matchChips)', () => {
     expect(p.text).toBe('Humboldt, Shasta · No distance: site not named');
     expect(p.text).not.toContain('?');
     expect(m.placeLine(bid({ distanceMi: undefined, location: null })).label).toBe('Location not listed');
+    // an area (a district, several counties) says so, in fewer words
+    expect(m.placeLine(bid({ distanceMi: null, location: { label: 'Caltrans District 3: Butte, Colusa', precision: 'region' } })).text)
+      .toBe('Caltrans District 3: Butte, Colusa · Area: no single distance');
   });
   it('chips: time left, value, board, verdict', () => {
     expect(m.matchChips(bid()).map((c) => c.text)).toEqual(['9 days left', '$20K–$40K', 'Example Board', 'Good fit']);

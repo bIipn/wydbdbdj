@@ -26,6 +26,7 @@ import { onAfterRender, registerView, render, setView } from '../shell.js';
 import { state } from '../state.js';
 import { fieldsObject, personCardView, YEAR_BANDS } from '../work-profile.js';
 import { CLOSES_IN } from './job-post.js';
+import { composer, markSeen, messageList, openConversation } from './messages.js';
 
 const fresh = () => ({
   id: null, job: null, messages: [], error: null, loading: false,
@@ -49,6 +50,7 @@ async function load(id = ui.id) {
     ui.job = res.job;
     ui.messages = res.messages;
     ui.error = null;
+    if (res.messages.length && state.view === 'job') markSeen(id, res.messages); // on screen = read (Messages badge, bell)
   } catch (err) {
     if (ui.id !== id) return;
     ui.error = err.status === 404 ? 'This job is gone. It may have been removed.' : err.message || 'Couldn’t load this job.';
@@ -362,48 +364,26 @@ function bidTab(job) {
   );
 }
 
-// Pacific, like every other date in the app (a phone set to another zone still reads the board's time).
-const fmtMsgTime = new Intl.DateTimeFormat('en-US', { timeZone: PT, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
-
-/** The thread between the poster and the winner, with a send box while the job is live. */
+/** The thread between the poster and the winner, with a send box while the job is live. The bubbles and the send
+ * box are the Messages tab's own (views/messages.js), so the two screens can never drift apart. */
 function thread(job) {
   const inThread = job.award && (job.my.role === 'poster' || job.award.isMe) && (job.status !== 'unfilled' || ui.messages.length);
   if (!inThread) return null;
+  state.threadOnScreen = job.id ?? ui.id; // live.js: no toast for a message this thread already shows
   const canSend = job.status === 'awarded' || job.status === 'agreed';
   const list = ui.messages.length
-    ? h('ul', { class: 'msgs' }, ui.messages.map((m) => h('li', { class: `msg ${m.mine ? 'mine' : 'theirs'}` },
-      h('p', {}, m.body), h('small', {}, `${m.mine ? 'You' : m.from === 'poster' ? 'Poster' : 'Winner'} · ${fmtMsgTime.format(new Date(m.at))}`))))
+    ? messageList(ui.messages)
     : h('p', { class: 'job-note faint' }, job.my.role === 'poster' ? 'No messages yet. The winner writes first, or you can.'
       : job.status === 'awarded' && !job.award.bidderContactedAt ? 'No messages yet. Say hello and when you could come look: your first message counts as making contact.'
         : 'No messages yet.');
-  let box = null;
-  if (canSend) {
-    const input = h('textarea', { class: 'input textarea short', rows: 2, maxlength: 1000, placeholder: 'Write a message…', 'aria-label': 'Message', id: 'jobMsg' }, ui.msg);
-    input.addEventListener('input', () => { ui.msg = input.value; });
-    const send = h('button', { class: 'cta msg-send', type: 'submit', disabled: ui.busy }, 'Send');
-    box = h('form', { class: 'msg-box', 'data-field': 'body' }, input, send, h('p', { class: 'field-error', role: 'alert' }));
-    box.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const body = ui.msg.trim();
-      if (!body || ui.busy) return;
-      ui.busy = true;
-      send.disabled = true;
-      try {
-        const { message } = await api.jobAction(job.id, 'messages', { body });
-        ui.messages = [...ui.messages, message];
-        ui.msg = '';
-        ui.busy = false;
-        ui.focus = 'jobMsg';
-        load();
-      } catch (err) {
-        ui.busy = false;
-        send.disabled = false;
-        const f = Array.isArray(err.body?.fields) ? fieldsObject(err.body.fields) : null;
-        showErrors(box, f?.body ? { body: f.body } : { body: err.message || 'That didn’t send. Try again.' });
-        if (err.code === 'closed') load();
-      }
-    });
-  }
+  const box = canSend
+    ? composer(ui, {
+      jobId: job.id, id: 'jobMsg',
+      onSent: (message) => { ui.messages = [...ui.messages, message]; ui.focus = 'jobMsg'; load(); },
+      onClosed: () => load(),
+    })
+    : null;
+  const toMessages = h('button', { class: 'text-btn job-to-messages', type: 'button', onclick: () => openConversation(job.id, 'job') }, 'Open in Messages');
   // The contact rule is only spelled out while it still matters: the job is awarded and that side has not acted yet.
   const a = job.award;
   let hint = 'Only you two see these.';
@@ -414,7 +394,7 @@ function thread(job) {
   } else if (job.status === 'awarded') {
     hint += ' Agree the price, the scope and a day, then both tap “We’ve agreed”.';
   }
-  return section('Messages', list, box, canSend ? h('p', { class: 'job-note faint' }, hint) : null);
+  return section('Messages', list, box, canSend ? h('p', { class: 'job-note faint' }, hint) : null, toMessages);
 }
 
 /** The buttons the API allows for this person and this state. */
@@ -562,6 +542,7 @@ function page(job) {
 }
 
 function renderJob() {
+  state.threadOnScreen = null; // thread() sets it again when this job's messages are on screen
   if (jobs.open.id !== ui.id) { ui = fresh(); ui.id = jobs.open.id; }
   if (ui.el) {
     const a = document.activeElement;

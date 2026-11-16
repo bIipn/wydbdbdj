@@ -14,11 +14,18 @@ out owes a 5% no-show fee (2% of the bid to the poster); an agreed job carries a
 are off: fees are recorded, never collected.** Rules and research: `docs/MARKETPLACE.md`.
 
 **The screens** (phone first; a five-tab bar at the bottom, a row under the header at desk width):
-**Home** (the landing: the market tape across the top, "Welcome" with the bell and the profile button, the
-tasks and preferences cards, then "Matches your preferences" as a scrolling list of cards with Save and Pass
-at the right edge, or, with the Scroll | Swipe switch, the swipe deck) · **Search** (every open bid in reach,
-search, filters, sort, paging) · **Market** (award history, wages, material prices; not in the bundled demo) ·
-**Saved** · **Jobs** (local jobs, accounts mode). An account here only to get work done sees Jobs alone.
+**Home** (the landing: "Welcome" with the bell and the profile button, the tasks and preferences cards, then
+"Matches your preferences" as a scrolling list of cards with Save and Pass at the right edge, or, with the
+Scroll | Swipe switch, the swipe deck) · **Search** (every open bid in reach, search, filters, sort, paging) ·
+**Saved** · **Jobs** (local jobs, accounts mode) · **Messages** (poster and winner of a local job, after the
+award; accounts mode). Single mode and the bundled demo show Home · Search · Saved; an account here only to get
+work done sees Jobs · Messages. Across the top of every tab screen runs the **market tape**: one rounded pill
+showing one monthly figure at a time (a material's price index level and one-month change, or the area wage),
+the next sliding up into its place every 4 seconds (pause button; still with reduced motion). Tapping it opens
+**Market** (award history, wages, material prices; Back, or the phone's own Back, returns to the tab; not in the
+bundled demo). A **conversation** opens from Messages (or a job page, or a "New message" toast) as a full-page chat:
+the other side at the left, you at the right, the composer while the contact rules allow writing, one sentence
+after.
 
 ```
 sources ──► normalize + locate ──► score per contractor ──► Postgres ──► API ──► swipe app (PWA)
@@ -208,6 +215,9 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/jobs/mine`, `GET /api/jobs/:id` | `{posted, bidding}` · `{job, messages}`, shaped for the viewer (hidden fields are `null`/`[]`) |
 | `POST`/`DELETE /api/jobs/:id/bid {amountCents, note?, agree: true}` | place/replace or withdraw a sealed bid while open |
 | `POST /api/jobs/:id/{cancel,repost,messages,contacted,confirm,back-out,complete,report}` | poster/winner actions; repost once per job (409 after) |
+| `GET /api/jobs/conversations` | Messages: `{conversations, unread}`, the viewer's conversations (poster and winner of an awarded job only), newest activity first; `unread` = how many have a message from the other side not yet read |
+| `GET /api/jobs/:id/conversation` | `{conversation, messages}` for one of them; 403 `not_allowed` to anyone else, 404 for a removed job. Reading changes nothing |
+| `POST /api/jobs/:id/read {upTo?}` | opened: read up to message `upTo` (default: all stored) → `{readUpTo, alertsRetired, alertsUnread}`; the read mark never moves back, the bell's "New message" alerts up to it are retired. A body that is not an object, or a bad `upTo`, is 400 |
 | `GET /api/admin/jobs/reports`, `POST /api/admin/jobs/:id/remove`, `POST /api/admin/jobs/fees/:feeId/waive` | operator (`x-admin-token`) |
 | `GET`/`PUT /api/work-profile`, `GET /api/people/:id` | work profile + its card · someone's card, only once you share a job (404 otherwise) |
 

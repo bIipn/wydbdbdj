@@ -27,8 +27,8 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,340 tests in 92 files as of 2026-11-14, ~85s; simulate.test.ts ~25s,
-                           # simulate-jobs.test.ts ~35s; 4 are skipped unless TEST_DATABASE_URL names a throwaway
+npm test                   # vitest (~2,420 tests in 97 files as of 2026-11-16, ~100s; simulate.test.ts ~25s,
+                           # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
@@ -131,14 +131,25 @@ web/               index.html, styles.css, desktop.css (≥900px only), sw.js (r
                    scripts/make-icons.cjs), privacy.html, js/*.js (ES modules, no build). main.js imports every view;
                    promo.js + promo-link.js: the code box and ?promo= links;
                    the chrome: a header (title, bell, round profile button) + a bottom tab bar Home · Search
-                   (view id 'browse') · Market · Saved · Jobs (shell.js; which tabs show, titles and the match
-                   card's place line + chips are pure in home-model.js, test/home-model.test.ts); #tape (tape.js)
-                   sits above the header, outside #view, shown on views registered with { tape: true };
+                   (view id 'browse') · Saved · Jobs · Messages (shell.js; Jobs and Messages only in accounts mode,
+                   shown and badged by their modules via registerTabCount; a 'hire' account: Jobs · Messages; which
+                   tabs show, titles and the match card's place line + chips are pure in home-model.js,
+                   test/home-model.test.ts); Market is NOT a tab: the market tape opens it, and it is a `back: true`
+                   view (no tab lit, a Back to the tab it came from, a reload reopens it); #tape (tape.js) is ONE
+                   rounded pill above the header, outside #view (built once, rebuilt only when the data changes, so a
+                   render or a tab change never restarts it), on every tab screen for an account with Market: one
+                   item at a time (name, index level as Market prints it, 1-month change, month), the next slides up
+                   every 4 s, holds under pointer/touch/focus, pause/play remembered, reduced motion = a "next"
+                   button; "Market prices" + chevron with no figure; the pure part is tape-items.js (its test reads
+                   test/fixtures/api-market-area-95675.json);
                    views/home.js = Home, the landing: tasks + preferences cards (home-extras.js), then the matches
                    as Scroll (list cards, save/pass through actions.js) or Swipe (feed.js swipeView), remembered
                    per device; the old view name 'swipe' is an alias for Home in Swipe mode (registerAlias);
+                   views/messages.js = the Messages tab (the conversations, a badge = how many have something
+                   unread) + the 'conversation' screen (a chat; its bubbles and composer are the ONE copy the job page
+                   uses too); the pure part is messages-model.js (test/messages-model.test.ts);
                    views/ (home, feed = Search + Saved, market, alerts, cost, settings, sign-in, onboarding, gate,
-                   jobs, job-post, job) register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
+                   jobs, job-post, job, messages) register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
                    work-profile.js; terms.html + privacy.html;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
@@ -210,7 +221,13 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   sealed while open (only the bidder sees an amount; the poster sees a count). At closing the lowest wins (tie:
   placed first). After closing the poster and the bidders see the ranked tab; only the poster sees who. The
   poster's street address and phone go only to the winner while the job is awarded/agreed/done. Messages only
-  between poster and winner after the award. "Made contact" (rules.ts `madeContact`) = the winner's first in-app
+  between poster and winner after the award (`view.ts inThread`; everyone else gets 403 on the three Messages
+  routes: `GET /api/jobs/conversations`, `GET /api/jobs/:id/conversation`, `POST /api/jobs/:id/read {upTo}`);
+  writing is gated ONLY by `repo.insertMessage`'s WHERE (`canWriteNow` mirrors it for the screen). The other side
+  is shown as the job page shows it (the PersonCard / the poster's lite card: never e-mail, phone or address).
+  Read state is a mark per side on the job (`poster_read_msg_id`/`winner_read_msg_id`, one UPDATE, `greatest()`,
+  never moves back); reading changes nothing else (it is never contact) and retires the bell's job_message
+  alerts up to that message (not the one-sided "We've agreed" one, which still asks for a tap). "Made contact" (rules.ts `madeContact`) = the winner's first in-app
   message or "We've agreed" tap, or the poster's "They contacted me" or "We've agreed" tap (a phone call alone
   does not count). Poster no-show only when the winner's first MESSAGE left `answerWindowMs` = min(48 h, half
   the window) to answer and the poster never answered; any other contact without agreement = no_agreement. A
@@ -328,6 +345,17 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - The first production scan with new boards must be a first load or run quietly (docs/HANDOFF.md, 2026-11-14).
 - There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the
   account's jobs (they are not cascaded) and decide what happens to its fee rows (job_fees.payer_id cascades).
+
+- Home and the chrome (2026-11-16): the tab bar is LAST in index.html (the keyboard reaches it last, where a phone
+  shows it); desktop.css draws it under the header with CSS `order`. `.app` has `overflow-x: clip`: a swiped card
+  flying off to the right widened the page and a phone reset the scroll to the top. On a tab screen the toast sits at
+  the bottom above the tab bar (at the top it covered the price tape and the header). live.js shows no toast for a
+  new message the screen already shows (the Messages list, or `state.threadOnScreen`: the open conversation or job
+  page); a message toast's View opens the conversation. Opening Market adds one history entry (shell.js), so the
+  phone's Back returns to the tab.
+- The client marks a conversation read from the messages on screen (messages-model.js `mustMarkRead`: the server's
+  own `unread` with them, else the other side's newest id above what this device marked), never from the cached
+  list, which can be older than the screen (a reply that came in while the list loaded stayed unread for good).
 
 ## How Ev likes to work
 - Just build and keep going — don't pace work out in days.

@@ -70,7 +70,8 @@ export const isLocalJob = (item) => item?.source === 'local' || String(item?.id 
 export function placeLine(item) {
   const label = item?.location?.label || 'Location not listed';
   const miles = item?.distanceMi != null && Number.isFinite(Number(item.distanceMi)) ? `${num(Math.round(Number(item.distanceMi)))} mi` : null;
-  const note = miles ? null : 'No distance: site not named';
+  // An AREA (several counties, a Caltrans district: precision 'region') has no one site to measure to.
+  const note = miles ? null : item?.location?.precision === 'region' ? 'Area: no single distance' : 'No distance: site not named';
   return { miles, label, note, text: miles ? `${miles} · ${label}` : `${label} · ${note}` };
 }
 

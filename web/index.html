@@ -48,7 +48,12 @@
       </div>
     </header>
 
-    <!-- The tab bar: fixed at the bottom of a phone, a row under the header at desk width (desktop.css). -->
+
+    <main class="view" id="view" aria-live="polite"></main>
+    <p class="footnote" id="footnote"></p>
+
+    <!-- The tab bar: fixed at the bottom of a phone, a row under the header at desk width (desktop.css, by CSS order).
+         It comes LAST in the page so the keyboard reaches it last, where a phone shows it. -->
     <nav class="tabbar" id="tabbar" aria-label="Main">
       <button type="button" class="tab" data-view="home">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></svg>
@@ -72,9 +77,6 @@
         <span class="tab-label">Messages</span><span class="count"></span>
       </button>
     </nav>
-
-    <main class="view" id="view" aria-live="polite"></main>
-    <p class="footnote" id="footnote"></p>
   </div>
 
   <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>

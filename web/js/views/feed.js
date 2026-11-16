@@ -97,8 +97,9 @@ export function swipeView(items = deck(), next = nextUp(items[0]?.id)) {
     if (depth === 0) attachSwipe(el, item);
   });
   const current = items[0];
-  return h('div', { class: `swipe-view${next ? ' has-next' : ''}` },
-    next,
+  // Next up sits under the buttons here: it comes and goes as the server's pick changes after a swipe, and above
+  // the stack it moved the cards under the finger (about 90 px).
+  return h('div', { class: 'swipe-view' },
     stack,
     h('div', { class: 'actions' },
       h('button', { class: 'round pass', type: 'button', 'aria-label': 'Pass', onclick: () => fling(current, 'pass') }, icon(ICONS.pass)),
@@ -112,6 +113,7 @@ export function swipeView(items = deck(), next = nextUp(items[0]?.id)) {
       h('button', { class: 'round save', type: 'button', 'aria-label': 'Save', onclick: () => fling(current, 'save') }, icon(ICONS.save)),
     ),
     h('p', { class: 'hint' }, 'Swipe right to save · left to pass'),
+    next,
   );
 }
 
@@ -376,9 +378,9 @@ function renderSaved() {
   const list = savedList();
   if (!list.length) {
     return h('div', { class: 'empty' },
-      h('div', { class: 'big' }, '★'),
+      h('div', { class: 'big big-icon' }, icon(ICONS.save)),
       h('h3', {}, 'No saved bids yet'),
-      h('p', {}, 'Swipe right on anything worth a closer look. Saved bids are sorted by deadline.'),
+      h('p', {}, 'Tap the bookmark on a match on Home (or swipe it right) to keep it here. Saved bids are sorted by deadline.'),
     );
   }
   return h('div', { class: 'list' }, list.map(row));

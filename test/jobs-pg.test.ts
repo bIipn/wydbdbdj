@@ -72,4 +72,42 @@ describe.skipIf(!url)('job marketplace on Postgres (TEST_DATABASE_URL)', () => {
     expect(row.status).toBe('agreed');
     expect(await db.query(`select 1 from job_fees where job_id = $1 and kind = 'service'`, [job])).toHaveLength(1);
   });
+
+  it('Messages on Postgres: the list, read marks that only move up, and the bell alerts retired once', async () => {
+    const job = await post(1);
+    await jobs.placeBid(deps(), ids[3]!, job, { amountCents: 22_222, agree: true }, T0 + 1000);
+    await jobs.placeBid(deps(), ids[4]!, job, { amountCents: 44_444, agree: true }, T0 + 2000);
+    await jobs.settleDue(deps(), T0 + DAY);
+    // the poster's profile, so the bell's alerts have somewhere to live (alerts are per profile)
+    await db.query(`delete from profiles where id = 'TEST-pg-profile-0'`);
+    await db.query(`insert into profiles (id, name, prefs, account_id) values ('TEST-pg-profile-0', 'TEST pg (simulated)', '{}'::jsonb, $1)`, [ids[0]]);
+    const sent: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const r = await jobs.sendMessage(deps(), ids[3]!, job, { body: `TEST message ${i} (simulated)` }, T0 + DAY + 10_000 + i);
+      if (!r.ok) throw new Error(JSON.stringify(r.refusal));
+      sent.push(r.value.id);
+      await db.query(
+        `insert into alerts (profile_id, kind, dedupe_key, title, body) values ('TEST-pg-profile-0', 'job_message', $1, 'TEST', 'TEST')`,
+        [`${job}:${r.value.id}`],
+      );
+    }
+    await db.query(`insert into alerts (profile_id, kind, dedupe_key, title, body) values ('TEST-pg-profile-0', 'job_message', $1, 'TEST', 'TEST')`, [`${job}:agreed:winner`]);
+
+    const before = await jobs.conversations(deps(), ids[0]!, T0 + DAY + 20_000);
+    expect(before.conversations.find((c) => c.jobId === job)).toMatchObject({ unread: true, messageCount: 3, role: 'poster' });
+    expect((await jobs.conversations(deps(), ids[4]!, T0 + DAY + 20_000)).conversations.some((c) => c.jobId === job)).toBe(false);
+
+    // ten opens at once, some up to the first message only: the mark ends at the newest, each alert retired once
+    const results = await Promise.all(Array.from({ length: 10 }, (_, i) =>
+      jobs.readConversation(deps(), ids[0]!, job, i % 2 ? { upTo: sent[0] } : {}, T0 + DAY + 30_000)));
+    expect(results.every((r) => r.ok)).toBe(true);
+    const retired = results.reduce((n, r) => n + (r.ok ? r.value.alertsRetired : 0), 0);
+    expect(retired).toBe(3);
+    const mark = (await db.query<{ poster_read_msg_id: string }>('select poster_read_msg_id from jobs where id = $1', [job]))[0]!;
+    expect(Number(mark.poster_read_msg_id)).toBe(sent[2]);
+    // the one-sided "We've agreed" alert still asks for its tap
+    expect(await db.query(`select 1 from alerts where profile_id = 'TEST-pg-profile-0' and dedupe_key = $1 and read_at is null`, [`${job}:agreed:winner`])).toHaveLength(1);
+    expect((await jobs.conversations(deps(), ids[0]!, T0 + DAY + 40_000)).conversations.find((c) => c.jobId === job)).toMatchObject({ unread: false });
+    await db.query(`delete from profiles where id = 'TEST-pg-profile-0'`);
+  });
 });

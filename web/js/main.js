@@ -12,7 +12,7 @@ import { enterApp, onEnteredApp, signedOut, startDemo } from './session.js';
 import { setView, showMessage } from './shell.js';
 import { fling } from './actions.js';
 import { closeSheet, openSheet, sheetOpen } from './sheet.js';
-import { deck, state } from './state.js';
+import { deck, intent, state } from './state.js';
 import './live.js';
 // Reads ?promo=CODE at load (before boot) and applies it once the app is entered: src/auth/promo.ts.
 import './promo.js';
@@ -23,6 +23,7 @@ import { homeMode } from './views/home.js';
 import './views/job.js';
 import './views/job-post.js';
 import './views/jobs.js';
+import './views/messages.js';
 import { jobsOn, openJob } from './jobs-data.js';
 import { showGate } from './views/gate.js';
 import './views/market.js';
@@ -65,7 +66,8 @@ function openLinked() {
   history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
   if (!state.me || state.me.needsOnboarding) return;
   if (job && jobsOn()) openJob(job, 'jobs');
-  else if (bid) openBidById(bid);
+  // Someone here only to get work done has no bid screens: a public bid's link would open a 0-score card.
+  else if (bid && !(state.auth === 'accounts' && intent() === 'hire')) openBidById(bid);
 }
 // After every way in (boot, sign-in, the end of onboarding): a link opened while signed out still lands.
 onEnteredApp(openLinked);

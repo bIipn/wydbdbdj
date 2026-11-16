@@ -48,6 +48,7 @@ export const state = {
   next: null,
   /** The alert inbox: unread count, and the list once the inbox has been opened. */
   unread: 0,
+  threadOnScreen: null, // the local job whose message thread is on screen (conversation or job page)
   alerts: null,
   /** Live stream status: 'off' | 'connecting' | 'live' | 'retrying'. */
   live: 'off',

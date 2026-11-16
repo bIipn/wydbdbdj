@@ -124,7 +124,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   app.post('/api/jobs/:id/read', async (req: IdReq, reply) => {
     const me = await begin(req, reply);
     if (!me || !allowed('read', me.account, reply)) return reply;
-    return answer(reply, await jobs.readConversation(deps, me.account.id, req.params.id, me.now), (v) => v);
+    return answer(reply, await jobs.readConversation(deps, me.account.id, req.params.id, req.body, me.now), (v) => v);
   });
 
   app.get('/api/jobs/:id', async (req: IdReq, reply) => {

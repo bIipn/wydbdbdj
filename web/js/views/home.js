@@ -86,8 +86,9 @@ function matchCard(item, list) {
           h('p', { class: `mc-place${place.miles ? '' : ' no-dist'}` }, icon(ICONS.pin),
             place.miles ? h('span', { class: 'mc-miles' }, place.miles) : null,
             place.miles ? ' · ' : null,
-            h('span', {}, place.label),
-            place.note ? h('span', { class: 'mc-note' }, ` · ${place.note}`) : null),
+            h('span', {}, place.label)),
+          // Why there are no miles, on its own line: a long area label is cut at two lines, this never is.
+          place.note ? h('p', { class: 'mc-note' }, place.note) : null,
         ),
       ),
       h('ul', { class: 'mc-chips', 'aria-label': 'About this bid' },
@@ -108,12 +109,25 @@ function matchCard(item, list) {
   return el;
 }
 
+const MODES = ['scroll', 'swipe'];
+const pickMode = (id) => { if (ui.mode !== id) { setHomeMode(id); ui.toMatches = true; render(); } };
+
+/** A radio group as a keyboard expects it: one Tab stop (the checked option), the arrow keys move the choice. */
 function modeSwitch() {
   const opt = (id, label) => h('button', {
     class: `mode-opt${ui.mode === id ? ' is-on' : ''}`, type: 'button', role: 'radio', 'aria-checked': String(ui.mode === id),
-    onclick: () => { if (ui.mode !== id) { setHomeMode(id); ui.toMatches = true; render(); } },
+    tabindex: ui.mode === id ? '0' : '-1',
+    onclick: () => pickMode(id),
   }, label);
-  return h('div', { class: 'mode-switch', role: 'radiogroup', 'aria-label': 'Show matches as' }, opt('scroll', 'Scroll'), opt('swipe', 'Swipe'));
+  const group = h('div', { class: 'mode-switch', role: 'radiogroup', 'aria-label': 'Show matches as' }, opt('scroll', 'Scroll'), opt('swipe', 'Swipe'));
+  group.addEventListener('keydown', (e) => {
+    const step = { ArrowLeft: -1, ArrowUp: -1, ArrowRight: 1, ArrowDown: 1 }[e.key];
+    if (!step) return;
+    e.preventDefault();
+    e.stopPropagation(); // main.js must not take the arrow as a swipe
+    pickMode(MODES[(MODES.indexOf(ui.mode) + step + MODES.length) % MODES.length]);
+  });
+  return group;
 }
 
 function scrollList(items, next) {
@@ -176,6 +190,15 @@ onAfterRender((view) => {
   if (!want || ui.mode !== 'scroll') return;
   const card = [...document.querySelectorAll('.mcard')].find((c) => c.dataset.id === want.id);
   card?.querySelector(`.${want.cls}`)?.focus({ preventScroll: true });
+});
+
+// Undo (the toast's button, gone with the toast): focus goes back to the card that returned, never to the page.
+window.addEventListener('bidswipe:undone', (e) => {
+  if (state.view !== 'home') return;
+  const target = ui.mode === 'swipe'
+    ? document.querySelector('.swipe-view .round.save')
+    : [...document.querySelectorAll('.mcard')].find((c) => c.dataset.id === e.detail?.id)?.querySelector('.mc-open');
+  target?.focus({ preventScroll: true });
 });
 
 registerView('home', { chrome: 'tabs', render: renderHome });

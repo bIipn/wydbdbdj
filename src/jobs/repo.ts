@@ -525,23 +525,25 @@ export async function conversationsFor(db: Db, accountId: string): Promise<Conve
 }
 
 /**
- * The poster or the winner opened the conversation: their read mark moves up to the newest message (never back).
- * ONE statement; the reader's side is decided in it. Returns the newest message id it read up to (0 = none), or
- * null when this account is not in the job's thread (or the job is gone).
+ * The poster or the winner opened the conversation: their read mark moves up to the newest message they had on
+ * screen (`upTo`, the newest message id the client drew; null = the newest stored), never back, so a message that
+ * arrived after the screen was drawn stays unread. ONE statement; the reader's side is decided in it. Returns the
+ * message id it read up to (0 = none), or null when this account is not in the job's thread (or the job is gone).
  */
-export async function markConversationRead(db: Db, jobId: string, accountId: string): Promise<number | null> {
-  const rows = await db.query<{ max_id: Big }>(
+export async function markConversationRead(db: Db, jobId: string, accountId: string, upTo: number | null = null): Promise<number | null> {
+  // Answers the viewer's read mark as STORED (greatest() never moves it back), not the cut-off asked for.
+  const rows = await db.query<{ read_id: Big }>(
     `update jobs set
        poster_read_msg_id = case when jobs.poster_id = $2 then greatest(coalesce(jobs.poster_read_msg_id, 0), m.max_id) else jobs.poster_read_msg_id end,
        winner_read_msg_id = case when jobs.winner_id = $2 and jobs.poster_id <> $2
                                  then greatest(coalesce(jobs.winner_read_msg_id, 0), m.max_id) else jobs.winner_read_msg_id end
-     from (select coalesce(max(id), 0)::bigint as max_id from job_messages where job_id = $1) m
+     from (select coalesce(max(id), 0)::bigint as max_id from job_messages where job_id = $1 and ($3::bigint is null or id <= $3::bigint)) m
      where jobs.id = $1 and jobs.removed_at is null and jobs.award_cents is not null and jobs.winner_id is not null
        and (jobs.poster_id = $2 or jobs.winner_id = $2)
-     returning m.max_id`,
-    [jobId, accountId],
+     returning case when jobs.poster_id = $2 then jobs.poster_read_msg_id else jobs.winner_read_msg_id end as read_id`,
+    [jobId, accountId, upTo],
   );
-  return rows[0] ? n(rows[0].max_id) ?? 0 : null;
+  return rows[0] ? n(rows[0].read_id) ?? 0 : null;
 }
 
 // ------------------------------------------------------------------ fees --

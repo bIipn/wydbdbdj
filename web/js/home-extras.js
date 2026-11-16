@@ -1,4 +1,4 @@
-// Home's two cards above the matches: "You have N tasks to complete" and "Your preferences". The home view calls
+// Home's two cards above the matches: "Finish setting up N" and "Your preferences". The home view calls
 // both on every render; null = draw nothing. What a task is and which chips show is decided by the pure modules
 // home-tasks.js and home-prefs.js; this file gathers what the app knows (some of it loaded once, in the
 // background: the phone-alert state of this device, the work profile, the trade names) and draws the cards.
@@ -79,7 +79,7 @@ function arrowButton(svg, label, onclick, disabled) {
   return h('button', { type: 'button', class: 'hx-arrow', 'aria-label': label, disabled, onclick }, icon(svg));
 }
 
-/** The "You have N tasks to complete" card, or null when there is nothing true and doable to ask for. */
+/** The "Finish setting up N" card, or null when there is nothing true and doable to ask for. */
 export function tasksCard() {
   gather();
   const tasks = homeTasks({
@@ -110,7 +110,9 @@ export function tasksCard() {
     type: 'button', class: 'hx-tasks-head', 'aria-expanded': String(!collapsed), 'aria-controls': 'hxTaskBody',
     onclick: () => { store.set(COLLAPSE_KEY, collapsed ? '0' : '1'); render(); requestAnimationFrame(() => document.querySelector('.hx-tasks-head')?.focus()); },
   },
-  h('span', { class: 'hx-tasks-title' }, 'You have ', h('span', { class: 'hx-count' }, String(n)), ` task${n === 1 ? '' : 's'} to complete`),
+  // Our own words, not the layout reference's: what is left of setting this account up.
+  h('span', { class: 'hx-tasks-title' }, 'Finish setting up ', h('span', { class: 'hx-count' }, String(n)),
+    h('span', { class: 'sr-only' }, ` thing${n === 1 ? '' : 's'} left`)),
   CHEVRON(!collapsed));
 
   if (collapsed) return h('section', { class: 'hx-tasks is-collapsed', 'aria-label': 'Tasks' }, head);

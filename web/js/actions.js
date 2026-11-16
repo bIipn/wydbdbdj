@@ -13,6 +13,8 @@ export async function setSwipe(item, action, message) {
   showToast(message, async () => {
     item.swipe = before;
     render();
+    // The Undo button is gone with its toast: the screen that drew the card puts keyboard focus back on it.
+    window.dispatchEvent(new CustomEvent('bidswipe:undone', { detail: { id: item.id } }));
     try { before ? await api.swipe(item.id, before) : await api.undo(item.id); swiped(); } catch { showToast('Couldn’t undo — check your connection'); }
   });
   try {

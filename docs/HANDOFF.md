@@ -21,6 +21,19 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
 
+**2026-11-16 — Home screen redesign + Messages (committed, NOT deployed).** At the owner's request (a jobs
+app's home screen as a layout reference only, then two amendments): Home is now the landing screen, top to
+bottom a market price pill (one monthly BLS figure at a time: a material's index level and 1-month change, or the
+area median wage, exactly as Market prints them; the next slides up every 4 s; tap = Market), the header
+(Welcome, business · town, bell, profile), a tasks card, a preferences card, then "Matches your preferences" as a
+Scroll list (save/pass at the card's edge, same code and Undo as a swipe) or the Swipe deck. Bottom tabs: Home ·
+Search · Saved · Jobs · Messages (Jobs/Messages in accounts mode only; Market is reached from the pill, with
+Back). Messages: the poster and the winner of a local job, after the award, nobody else (three new routes, read
+marks per side on `jobs`, 403 for anyone else). Checked: typecheck, the full vitest run, build, the two
+Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks, 10 of 10 mutations, same hash as before: 21d5d5f488b230c2), screens at
+390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
+had hit its daily limit). Final screenshots were kept outside the repo.
+
 **LIVE: production (bidswipe-tau.vercel.app) runs commit 01c325c since 2026-11-15 03:00 UTC** (it adds the two
 local readers, civicplus and bidsandtenders, whose first read from the live server is the 13:20 UTC west scan of
 that day; no hand scan was run for them, the western boards had been read ten hours before). Before that, from

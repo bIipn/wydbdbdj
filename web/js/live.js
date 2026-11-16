@@ -16,6 +16,7 @@ import { loadFeed, onEnteredApp, onSignedOut } from './session.js';
 import { openSheet } from './sheet.js';
 import { openAlerts } from './views/alerts.js';
 import { openJob } from './jobs-data.js';
+import { openConversation } from './views/messages.js';
 import { render, setView } from './shell.js';
 
 // The stream names each event after the alert's kind (src/realtime/stream.ts); the job_* kinds are the local jobs.
@@ -50,21 +51,31 @@ export async function loadUnread() {
 const burst = { alerts: [], items: new Map(), timer: null, shownAt: 0 };
 const KIND_LABEL = {
   match: 'New match', deadline: 'Deadline', award: 'Award posted', price: 'Price move',
-  job_awarded: 'Local job', job_message: 'Message or tap', job_deadline: 'Reminder', job_closed: 'Local job',
+  job_awarded: 'Local job', job_message: '', // its title already says it ("New message · …") job_deadline: 'Reminder', job_closed: 'Local job',
 };
 /** The local job an alert is about, or null. */
 const jobOf = (a) => (String(a.kind).startsWith('job_') && typeof a.data?.jobId === 'string' ? a.data.jobId : null);
+/**
+ * A new message the screen already shows needs no toast (it would cover the conversation's Back): the Messages
+ * list (its row and badge update) or the very thread on screen (state.threadOnScreen, set by messages.js and
+ * the job page). The bell still counts it until the thread marks it read.
+ */
+const onScreen = (a) => a.kind === 'job_message'
+  && (state.view === 'messages' || (['conversation', 'job'].includes(state.view) && state.threadOnScreen === jobOf(a)));
 
 function toastBurst() {
-  const alerts = burst.alerts.splice(0);
+  const alerts = burst.alerts.splice(0).filter((a) => !onScreen(a));
   burst.timer = null;
-  if (!alerts.length) return;
+  if (!alerts.length) { burst.items.clear(); return; }
   burst.shownAt = Date.now();
   if (alerts.length === 1) {
     const [a] = alerts;
     const item = a.bidId ? burst.items.get(a.bidId) : null;
     const job = jobOf(a);
-    showToast(`${KIND_LABEL[a.kind] ?? 'Alert'}: ${a.title}`, item ? () => openSheet(item) : job ? () => openJob(job) : openAlerts, item || job ? 'View' : 'Open', 8000);
+    // A message opens its conversation; any other job alert opens the job page.
+    const go = item ? () => openSheet(item) : job && a.kind === 'job_message' ? () => openConversation(job) : job ? () => openJob(job) : openAlerts;
+    const label = KIND_LABEL[a.kind] ?? 'Alert';
+    showToast(label ? `${label}: ${a.title}` : a.title, go, item || job ? 'View' : 'Open', 8000);
   } else {
     const matches = alerts.filter((a) => a.kind === 'match').length;
     showToast(matches === alerts.length ? `${matches} new bids fit you` : `${alerts.length} new alerts`, openAlerts, 'See them', 8000);
@@ -307,7 +318,8 @@ function openShortcut() {
   if (!view) return;
   params.delete('view');
   history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
-  if (view === 'browse' || view === 'saved') setView(view);
+  // 'swipe' is an alias (views/home.js): Home in Swipe mode.
+  if (view === 'browse' || view === 'saved' || view === 'swipe' || view === 'home') setView(view);
   else if (view === 'alerts') openAlerts();
 }
 

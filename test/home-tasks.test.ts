@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-// Home's "tasks to complete" (web/js/home-tasks.js) and "Your preferences" chips (web/js/home-prefs.js).
+// Home's "Finish setting up" tasks (web/js/home-tasks.js) and "Your preferences" chips (web/js/home-prefs.js).
 // Everything here is synthetic (TEST names, example profiles): it checks the rules, not real accounts.
 // web/js is plain JavaScript with no type declarations; computed paths keep tsc from asking for them.
 type Task = { id: string; title: string; text: string; actions: Array<{ label: string; go: { to: string; field?: string } }> };

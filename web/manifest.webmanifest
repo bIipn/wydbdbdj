@@ -49,8 +49,8 @@
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Browse all bids",
-      "short_name": "Browse",
+      "name": "Search all bids",
+      "short_name": "Search",
       "description": "Every open bid that fits, as a list you can search and sort",
       "url": "./?view=browse",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]

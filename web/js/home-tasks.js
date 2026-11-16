@@ -1,4 +1,4 @@
-// Home's "tasks to complete": which ones this account really has. Pure: facts in, tasks out
+// Home's "Finish setting up" tasks: which ones this account really has. Pure: facts in, tasks out
 // (test/home-tasks.test.ts); home-extras.js gathers the facts and draws the card.
 //
 // A task exists only when it is TRUE for this account and DOABLE in the app right now, and its button goes to the

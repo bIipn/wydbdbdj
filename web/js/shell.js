@@ -60,8 +60,21 @@ export function forgetScreen() { pendingRestore = null; session.clear(); }
 
 /** Where a Back screen returns: the tab it came from, else Home (Jobs for an account here only to hire). */
 const backTarget = () => (lastTab && views.has(lastTab) && !hiddenFor(lastTab) ? lastTab : hireOnly() && views.has('jobs') ? 'jobs' : 'home');
+/**
+ * The phone's (or the browser's) own Back on a screen between the tabs (Market): opening one adds ONE history
+ * entry, and Back, either one, takes it off and returns to the tab. Without it the system Back left the app.
+ */
+let historyEntry = false;
+window.addEventListener('popstate', () => {
+  if (!historyEntry) return;
+  historyEntry = false;
+  if (views.get(state.view)?.back) setView(backTarget());
+});
 /** Back from a screen between the tabs (the header's Back button). */
-export const goBack = () => setView(backTarget());
+export function goBack() {
+  if (historyEntry && views.get(state.view)?.back) { history.back(); return; } // popstate above does the rest
+  setView(backTarget());
+}
 document.getElementById('screenBack')?.addEventListener('click', () => goBack());
 
 /** An old view name: `open()` runs when something asks for it (e.g. sets Home's mode) and returns the real view. */
@@ -113,7 +126,12 @@ export function render() {
       back.setAttribute('aria-label', label);
       back.title = label;
     }
-    $('#screenSub').textContent = sub;
+    // Two parts, so a long business name gives way with an ellipsis and the base town stays on screen.
+    const name = home ? state.profile?.name : '';
+    const base = home ? state.profile?.base : '';
+    $('#screenSub').replaceChildren(...(name && base
+      ? [h('span', { class: 'sub-name' }, name), h('span', { class: 'sub-base' }, `\u00a0· ${base}`)]
+      : sub ? [h('span', { class: 'sub-name' }, sub)] : []));
     $('#screenSub').hidden = !sub;
     // The round profile button: Settings where Settings exists (accounts mode, live); elsewhere it only shows whose
     // feed this is (the pilot's config profile, the demo), as the old chip did.
@@ -132,8 +150,8 @@ export function render() {
       else t.removeAttribute('aria-current');
     });
     paintTabCounts();
-    // Which tabs show (home-model.js visibleTabs): Market needs the API (the bundled demo has no market data), Jobs
-    // needs accounts mode (jobs-data.js says), and an account here only to hire sees Jobs alone.
+    // Which tabs show (home-model.js visibleTabs): Jobs and Messages need accounts mode (their modules say so through
+    // registerTabCount), and an account here only to hire sees those two alone. Market is no tab: the tape opens it.
     const counts = new Map([...tabCounts].map(([name, fn]) => [name, fn()]));
     const shownTabs = new Set(visibleTabs({
       hireOnly: hireOnly() && views.has('jobs'), jobsOn: !!counts.get('jobs')?.show, messagesOn: !!counts.get('messages')?.show,
@@ -219,6 +237,9 @@ export function paintTabCounts() {
 }
 
 export function setView(name) {
+  if (views.get(name)?.back && !historyEntry) {
+    try { history.pushState(history.state, ''); historyEntry = true; } catch { /* no history (a sandboxed frame): the in-app Back still works */ }
+  }
   state.view = name;
   render();
   window.scrollTo({ top: 0 });

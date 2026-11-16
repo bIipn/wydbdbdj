@@ -22,6 +22,14 @@
   .app[data-chrome='tabs'] { max-width: 1120px; padding-left: 40px; padding-right: 40px; }
   .app[data-chrome='tabs']:not([data-tabs='0']) { padding-bottom: 28px; }
 
+  /* The tab bar is last in the page (index.html: the keyboard reaches it last on a phone); here it is drawn under
+     the header. */
+  .app > .tape { order: 0; }
+  .app > .topbar { order: 1; }
+  .app > .tabbar { order: 2; }
+  .app > .view { order: 3; }
+  .app > .footnote { order: 4; }
+
   /* The header: a bigger title; the tab bar: a row of labelled tabs under it, the active one lit. */
   .topbar { padding: 4px 0 18px; }
   .screen-title { font-size: 32px; }
@@ -38,6 +46,11 @@
   .tab.is-active { background: var(--card-2); box-shadow: inset 0 0 0 1px var(--line-2); }
   .tab.is-active::before { top: auto; bottom: -19px; width: 40px; margin-left: -20px; height: 3px; border-radius: 3px 3px 0 0; }
   .tab .count { position: static; margin-left: 2px; }
+
+  /* The price pill: in the header row, between the title and the bell and profile buttons (on a phone it is a row
+     of its own above the header). 33px = the page's top padding + half the header's extra height. */
+  .tape-prelim { display: inline; }
+  .tape { margin: 0 0 10px; }
 
   /* The reading views keep a comfortable line length in the middle of the wider page. */
   .app[data-chrome='tabs']:not([data-view='home']) .view { width: 100%; max-width: 760px; margin: 0 auto; }
@@ -77,6 +90,7 @@
   .sheet .desc { max-height: 40vh; }
 
   .toast { top: 22px; }
+  .app[data-chrome='tabs']:not([data-tabs='0']) ~ .toast { top: auto; bottom: 28px; }
 }
 
 @keyframes desk-pop {
@@ -108,4 +122,17 @@
 
 @media (min-width: 900px) and (prefers-reduced-motion: reduce) {
   .sheet { animation: none; }
+}
+
+/* Wide enough for the title, the pill and the buttons on one row: the price pill joins the header row (on a phone
+   and a narrow window it is a row of its own above the header). 33px = the page's top padding + half the
+   header's extra height over the pill's. */
+@media (min-width: 1100px) {
+  .app[data-chrome='tabs'] { position: relative; }
+  .app[data-chrome='tabs'] > .tape {
+    position: absolute; z-index: 2; top: 33px; right: 160px; width: min(500px, calc(100% - 660px)); margin: 0;
+  }
+  /* In the header row the pill is narrow again: the short names (the full ones are on Market and in its label). */
+  .app[data-chrome='tabs'] > .tape .tape-name .tape-full { display: none; }
+  .app[data-chrome='tabs'] > .tape .tape-name .tape-short { display: inline; }
 }

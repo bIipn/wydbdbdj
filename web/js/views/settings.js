@@ -15,8 +15,8 @@ import {
   paperworkSection, setAsidesSection, tradesSection, whereSection,
 } from '../profile-form.js';
 import { promoRow } from '../promo.js';
-import { applyMe, homeView, loadFeed, onSignedOut, signOut } from '../session.js';
-import { onAfterRender, registerView, render, setView } from '../shell.js';
+import { applyMe, loadFeed, onSignedOut, signOut } from '../session.js';
+import { goBack, onAfterRender, registerView, render, setView } from '../shell.js';
 import { features, intent, PRIME_TRADE, state } from '../state.js';
 import { fieldsObject, workBodyFrom, workDraftFrom, workProfileSection } from '../work-profile.js';
 
@@ -99,6 +99,8 @@ onAfterRender((view) => {
   // After setView's own scroll to the top, which runs once this render is done.
   setTimeout(() => {
     el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // The keyboard lands there too (a task's button pointed at this field), not back at the top of the page.
+    el.querySelector('input, select, textarea, button, [tabindex]:not([tabindex="-1"])')?.focus({ preventScroll: true });
     el.classList.add('is-pointed');
     setTimeout(() => el.classList.remove('is-pointed'), 1800);
   }, 0);
@@ -123,7 +125,7 @@ function leave() {
   ui.work = null;
   ui.workInitial = null;
   ui.card = null;
-  setView(homeView());
+  goBack(); // the tab the profile button was pressed on (Home when that is not known)
 }
 
 function back() {
@@ -256,7 +258,7 @@ function renderSettings() {
 
   return h('div', { class: 'screen settings' },
     h('header', { class: 'screen-head' },
-      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Back to bids', onclick: back }, icon(ICONS.back)),
+      h('button', { type: 'button', class: 'icon-btn', 'aria-label': 'Back', onclick: back }, icon(ICONS.back)),
       h('h1', {}, 'Settings'),
       h('span', { class: 'icon-btn ghost', 'aria-hidden': 'true' }),
     ),

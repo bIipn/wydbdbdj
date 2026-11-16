@@ -500,12 +500,22 @@ export async function conversationFor(
  * those messages are retired with it, so nothing is counted as new twice. Answers the bell's new unread count.
  */
 export async function readConversation(
-  deps: JobsDeps, accountId: string, jobId: string, now: number,
+  deps: JobsDeps, accountId: string, jobId: string, body: unknown, now: number,
 ): Promise<Result<{ readUpTo: number; alertsRetired: number; alertsUnread: number | null }>> {
   const job = await repo.getJob(deps.db, jobId);
   if (!job) return notFound();
   if (!inThread(job, accountId)) return notAllowed('Messages are only between the poster and the winner, after the award.');
-  const upTo = await repo.markConversationRead(deps.db, jobId, accountId);
+  // upTo: the newest message id the screen showed (optional). Anything else is a bad request, not a guess.
+  // A body that is there but is not a plain object (an array, a bare string) is a bad request too: it must
+  // never read as "no upTo", which would mark every stored message read.
+  if (body != null && (typeof body !== 'object' || Array.isArray(body))) {
+    return invalid([{ path: 'upTo', message: 'Send {"upTo": <message id>} or nothing.' }]);
+  }
+  const raw = body == null ? undefined : record(body).upTo;
+  if (raw !== undefined && raw !== null && !(Number.isSafeInteger(raw) && (raw as number) >= 0)) {
+    return invalid([{ path: 'upTo', message: 'upTo must be a message id (a whole number).' }]);
+  }
+  const upTo = await repo.markConversationRead(deps.db, jobId, accountId, typeof raw === 'number' ? raw : null);
   if (upTo === null) return notFound();
   const profileId = await repo.profileIdOf(deps.db, accountId);
   const retired = profileId ? await retireMessageAlerts(deps.db, profileId, jobId, upTo, new Date(now)) : 0;

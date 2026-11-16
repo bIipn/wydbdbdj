@@ -34,6 +34,7 @@ body {
     radial-gradient(900px 500px at 100% 100%, rgba(34, 197, 94, 0.05), transparent 60%),
     var(--bg);
   background-repeat: no-repeat; /* a long page must not tile the glow (a seam every screen height) */
+  background-attachment: fixed; /* nor cut it off at the first screen height (a hard-edged block on a long Home) */
   background-color: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -49,6 +50,9 @@ a { color: inherit; }
   padding: calc(env(safe-area-inset-top) + 10px) 16px calc(env(safe-area-inset-bottom) + 18px);
   display: flex;
   flex-direction: column;
+  /* A card flying off to the right (a save) must not widen the page: a phone then reset the scroll to the top.
+     clip, not hidden: no scroll box, so the sticky and fixed parts inside work as before. */
+  overflow-x: clip;
 }
 
 /* ---------------------------------------------------------------- top bar */
@@ -58,11 +62,21 @@ a { color: inherit; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; }
 .bolt { width: 22px; height: 22px; flex: none; fill: var(--volt); filter: drop-shadow(0 0 10px rgba(255, 212, 59, 0.45)); }
 .titles { min-width: 0; }
+/* Back from a screen between the tabs (Market) to the tab it came from (shell.js shows it there only). */
+.top-back {
+  flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; cursor: pointer;
+  border-radius: 50%; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.04); color: var(--text);
+}
+.top-back:hover { background: rgba(255, 255, 255, 0.08); }
+.top-back:active { background: rgba(255, 255, 255, 0.1); }
+.top-back:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
 .screen-title { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; }
 .screen-sub {
-  margin: 3px 0 0; font-size: 13px; line-height: 1.3; color: var(--muted);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; min-width: 0; margin: 3px 0 0; font-size: 13px; line-height: 1.3; color: var(--muted); white-space: nowrap;
 }
+.screen-sub[hidden] { display: none; }
+.sub-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sub-base { flex: none; }
 .top-actions { display: flex; align-items: center; gap: 6px; flex: none; }
 .avatar {
   position: relative; flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0;
@@ -88,7 +102,7 @@ a { color: inherit; }
 .tab {
   position: relative; flex: 1 1 0; min-width: 0; min-height: 60px; display: flex; flex-direction: column; align-items: center;
   justify-content: center; gap: 3px; padding: 8px 2px 7px; border: 0; background: transparent; cursor: pointer;
-  color: var(--faint); font-size: 11.5px; font-weight: 650; letter-spacing: 0.01em; transition: color 0.15s;
+  color: var(--muted); font-size: 11.5px; font-weight: 650; letter-spacing: 0.01em; transition: color 0.15s;
 }
 .tab svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .tab-label { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -111,7 +125,7 @@ a { color: inherit; }
 .app[data-chrome='tabs']:not([data-tabs='0']) { padding-bottom: calc(env(safe-area-inset-bottom) + 84px); }
 
 .view { flex: 1; display: flex; flex-direction: column; }
-.footnote { margin: 18px 4px 0; font-size: 11.5px; line-height: 1.45; color: var(--faint); text-align: center; }
+.footnote { margin: 18px 4px 0; font-size: 11.5px; line-height: 1.45; color: var(--muted); text-align: center; }
 
 /* ------------------------------------------------------------------- deck */
 .deck { position: relative; height: min(68vh, 600px); min-height: 470px; }
@@ -122,6 +136,8 @@ a { color: inherit; }
   padding: 18px 18px 16px; overflow: hidden; user-select: none; touch-action: pan-y;
   transform-origin: 50% 90%; will-change: transform;
 }
+.card > * { flex-shrink: 0; }
+.card > .reasons { flex: 1 1 auto; min-height: 42px; }
 .card.is-top { cursor: grab; }
 .card.is-top:active { cursor: grabbing; }
 .card.behind-1, .card.behind-2 { pointer-events: none; }
@@ -303,6 +319,12 @@ a { color: inherit; }
   display: flex; align-items: center; gap: 14px; padding: 11px 14px 11px 16px; border-radius: 14px;
   background: #f8fafc; color: #0f172a; font-size: 14px; font-weight: 600; box-shadow: var(--shadow);
 }
+/* On a tab screen the toast sits at the bottom, just above the tab bar: at the top it covered the price tape and
+   the header (a conversation's Back too). Full-page screens keep it at the top (a composer is at their bottom). */
+.app[data-chrome='tabs']:not([data-tabs='0']) ~ .toast {
+  top: auto; bottom: calc(env(safe-area-inset-bottom) + 74px); animation-name: toast-rise;
+}
+@keyframes toast-rise { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
 .toast button { flex: none; white-space: nowrap; border: 0; background: #0f172a; color: #fff; border-radius: 9px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
 
 /* ------------------------------------------------------------ access gate */
@@ -324,6 +346,16 @@ a { color: inherit; }
   .deck { min-height: 430px; }
   .card h2 { font-size: 19px; -webkit-line-clamp: 2; }
 }
+/* A short phone (360x740): the card keeps its title, facts, two reasons and the button; the footer line goes. */
+@media (max-height: 780px) {
+  .card h2 { margin-top: 10px; -webkit-line-clamp: 2; }
+  .card .agency { margin-bottom: 10px; }
+  .card .facts { margin-bottom: 10px; }
+  .card .card-foot > span { visibility: hidden; }
+  .card .card-foot { margin-top: 6px; }
+}
+/* A pill's text is cut with an ellipsis, never sliced (a flex box ignores text-overflow, a block does not). */
+.pills > .pill:not(:has(svg)) { display: block; }
 
 /* --------------------------------------------------------- chrome per view */
 .app[data-chrome='screen'] .topbar,
@@ -451,8 +483,9 @@ a { color: inherit; }
 
 /* -------------------------------------------------------------- onboarding */
 .step-head { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 12px; padding: 4px 0 18px; }
+/* One back/close button across the app: a 44 px circle, like the header's Back, the bell and the profile. */
 .icon-btn {
-  width: 42px; height: 42px; border-radius: 12px; display: grid; place-items: center; cursor: pointer;
+  flex: none; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
   border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); color: var(--text);
 }
 .icon-btn.ghost { border-color: transparent; background: none; cursor: default; }
@@ -561,7 +594,7 @@ a { color: inherit; }
 }
 .next:active { background: rgba(255, 212, 59, 0.1); }
 .next-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
-.next-label { font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--volt); }
+.next-label { font-size: 12.5px; font-weight: 800; color: var(--volt); }
 .next-label::before { content: '⚡ '; }
 .next-verdict { font-size: 11.5px; font-weight: 750; color: var(--verdict); }
 .next-title { display: block; font-size: 15px; line-height: 1.3; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -571,13 +604,8 @@ a { color: inherit; }
 .next-why li::before { content: '✓ '; color: var(--great); font-weight: 800; }
 .next-why li + li::before { content: '  ✓ '; white-space: pre; }
 .swipe-view { display: flex; flex-direction: column; flex: 1; }
-/* With "Next up" above the deck, the deck gives up the height it takes, so the buttons and the hint stay on
-   screen (390x844: next ~92px, deck ~500px, buttons and hint below, nothing under the fold). */
-.swipe-view.has-next .next { margin-bottom: 10px; padding: 10px 13px 11px; }
-.swipe-view.has-next .next-why { -webkit-line-clamp: 1; }
-.swipe-view.has-next .deck { height: clamp(430px, calc(100svh - 342px), 560px); min-height: 0; }
-.swipe-view.has-next .actions { margin-top: 12px; }
-.swipe-view.has-next .hint { margin-top: 9px; }
+/* "Next up" sits under the buttons (feed.js swipeView): when it comes or goes, the stack does not move. */
+.swipe-view > .next { margin: 16px 0 0; }
 
 /* -------------------------------------------------------------- browse */
 .browse-head { display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px; }
@@ -625,7 +653,7 @@ a { color: inherit; }
 }
 .list-divider:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .more-bar { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 18px 0 6px; text-align: center; }
-.more-count { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--faint); font-variant-numeric: tabular-nums; }
+.more-count { margin: 0; font-size: 12.5px; font-weight: 650; color: var(--muted); font-variant-numeric: tabular-nums; }
 .cta.more-btn { width: 100%; max-width: 320px; margin-top: 0; }
 .more-error { margin: 0; font-size: 12.5px; color: #fda4af; }
 
@@ -976,6 +1004,7 @@ a { color: inherit; }
 
 .input.textarea { resize: vertical; min-height: 104px; line-height: 1.45; }
 .input.textarea.short { min-height: 64px; }
+.msg-box .input.textarea { resize: none; } /* no drag grip beside the round Send button */
 .wp-intro { margin: -4px 0 14px; }
 .wp-label-row { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; width: 100%; }
 .wp-count { font-size: 11.5px; font-weight: 600; color: var(--faint); font-variant-numeric: tabular-nums; }
@@ -1267,7 +1296,7 @@ button.pmini:active { background: var(--card-2); }
 /* Scroll | Swipe: two 44 px segments. */
 .mode-switch { display: inline-flex; padding: 2px; border-radius: 999px; border: 1px solid var(--line-2); background: var(--bg-2); }
 .mode-opt {
-  min-width: 70px; min-height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
+  min-width: 70px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; cursor: pointer;
   color: var(--muted); font-size: 14px; font-weight: 700;
 }
 .mode-opt.is-on { background: var(--text); color: var(--bg); }
@@ -1276,8 +1305,7 @@ button.pmini:active { background: var(--card-2); }
 .home.mode-swipe .swipe-view { flex: none; }
 /* Scrolled to the matches (home.js does it when Swipe is picked), the stack, its buttons and the hint fit above the
    tab bar at 390x844: the heading (~80px) + Next up (~92px) + buttons and hint (~110px) + the bar (~64px). */
-.home.mode-swipe .deck { height: clamp(400px, calc(100svh - 300px), 600px); min-height: 0; }
-.home.mode-swipe .swipe-view.has-next .deck { height: clamp(400px, calc(100svh - 392px), 560px); }
+.home.mode-swipe .deck { height: clamp(468px, calc(100svh - 300px), 600px); min-height: 0; }
 
 /* One match card: the title over two lines, the fit ring beside the agency and the place, grey chips, and at
    the right edge Save (a bookmark) and Pass (thumbs down). The title's button covers the card (opens details). */
@@ -1303,10 +1331,13 @@ button.pmini:active { background: var(--card-2); }
   margin: 0; font-size: 14px; line-height: 1.3; font-weight: 600; color: var(--text);
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere;
 }
-.mc-place { margin: 3px 0 0; font-size: 13px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere; }
+.mc-place {
+  margin: 3px 0 0; font-size: 13px; line-height: 1.35; color: var(--muted); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; /* a long area: 2 lines, the sheet has it all */
+}
 .mc-place svg { width: 14px; height: 14px; margin: 0 4px -2px 0; color: var(--faint); }
 .mc-miles { color: var(--text); font-weight: 650; }
-.mc-note { color: var(--faint); }
+.mc-note { margin: 2px 0 0 18px; font-size: 12.5px; line-height: 1.35; color: var(--muted); }
 .mring { position: relative; width: 40px; height: 40px; }
 .mring svg { width: 40px; height: 40px; transform: rotate(-90deg); }
 .mring .track { stroke: rgba(255, 255, 255, 0.08); }
@@ -1338,62 +1369,69 @@ button.pmini:active { background: var(--card-2); }
 /* ====================================================================== market tape + home extras
    Styles for web/js/tape.js and web/js/home-extras.js ONLY. Keep this block LAST in the file. */
 
-/* -- the market tape: one quiet line of monthly price figures above the header (outside #view: never restarts). */
+/* -- the market tape: ONE rounded pill above the header (outside #view: never restarts), one item at a time; the
+   next slides up from below into the place of the one on show (web/js/tape.js). Tapping it opens Market. */
 .tape {
-  --tape-h: 36px;
-  position: relative; display: flex; align-items: stretch; height: var(--tape-h); flex: none;
-  margin: -4px -16px 8px; /* the full width of the app column, edge to edge on a phone */
-  background: #07090d; border-block: 1px solid var(--line); overflow: hidden;
-  font-size: 12.5px; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap;
+  position: relative; display: flex; align-items: center; height: 46px; flex: none; margin: 0 0 6px; padding: 0 3px 0 0;
+  border: 1px solid var(--line-2); border-radius: 999px; background: var(--card); color: var(--text);
+  font-size: 14px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; transition: border-color 0.15s;
 }
-.tape-go { position: relative; flex: 1 1 auto; min-width: 0; display: flex; align-items: center; cursor: pointer; color: var(--text); outline: none; }
-.tape-go:focus-visible::after { content: ''; position: absolute; inset: 0; z-index: 2; pointer-events: none; box-shadow: inset 0 0 0 2px rgba(255, 212, 59, 0.7); }
-.tape-label {
-  flex: none; align-self: stretch; display: flex; align-items: center; padding: 0 10px 0 16px;
-  color: var(--volt); font-size: 12px; font-weight: 700; letter-spacing: -0.005em; background: #07090d;
-  border-right: 1px solid var(--line-2); position: relative; z-index: 1;
+.tape:hover { border-color: rgba(255, 255, 255, 0.2); }
+.tape-go {
+  position: relative; flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 9px;
+  padding: 0 4px 0 8px; border-radius: 999px; cursor: pointer; color: inherit; outline: none;
 }
-.tape-window {
-  flex: 1 1 auto; min-width: 0; overflow: hidden; align-self: stretch; display: flex; align-items: center;
-  mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
-  -webkit-mask-image: linear-gradient(90deg, transparent 0, #000 18px, #000 calc(100% - 18px), transparent 100%);
+.tape-go:focus-visible { outline: 2px solid var(--volt); outline-offset: -2px; }
+.tape-icon {
+  flex: none; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+  background: rgba(255, 212, 59, 0.12); color: var(--volt);
 }
-.tape-track { display: flex; width: max-content; animation: tape-scroll var(--tape-dur, 60s) linear infinite; will-change: transform; }
-.tape-run { display: flex; flex: none; }
-.tape-item { display: inline-flex; align-items: baseline; gap: 6px; padding: 0 18px 0 14px; border-left: 1px solid var(--line); }
-.tape-name { font-weight: 650; color: var(--text); }
-.tape-detail { color: var(--muted); }
-.tape-chg { font-weight: 750; color: var(--faint); }
-.tape-mark { display: inline-block; margin-right: 3px; font-size: 9px; transform: translateY(-1px); }
-.tape-item.dir-up .tape-chg { color: #fca5a5; } /* the Market screen's colours (.pc-chg): a rising price is a cost */
-.tape-item.dir-down .tape-chg { color: #86efac; }
-.tape-item.is-wage .tape-chg { color: var(--text); font-weight: 700; }
-.tape-month { color: var(--faint); font-size: 11.5px; }
-@keyframes tape-scroll { to { transform: translateX(-50%); } }
-.tape:hover .tape-track, .tape:focus-within .tape-track, .tape.is-touched .tape-track, .tape.is-paused .tape-track { animation-play-state: paused; }
+.tape-window { position: relative; flex: 1 1 auto; min-width: 0; height: 30px; overflow: hidden; } /* clips inside the pill's edge */
+.tape-row {
+  position: absolute; inset: 0; display: flex; align-items: center; gap: 7px; min-width: 0;
+  transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.45s ease;
+}
+.tape-row.is-in { transform: translateY(100%); transition: none; } /* the next comes up from below the line */
+.tape-row.is-out { transform: translateY(-100%); opacity: 0.25; } /* the one on show moves up and out */
+.tape-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 650; color: var(--text); }
+.tape-fig { flex: none; font-size: 13.5px; font-weight: 700; color: var(--text); }
+.tape-chg { flex: none; font-size: 13.5px; font-weight: 750; color: var(--muted); } /* flat: muted, 6.7:1 (faint was 3.3:1) */
+.tape-idx { flex: none; margin-right: -3px; color: var(--muted); font-size: 11.5px; font-weight: 600; }
+/* Two names and two months are drawn; the short ones show on a narrow pill (under 560 px). */
+.tape-short { display: none; }
+.tape-mark { display: inline-block; margin-right: 1px; font-size: 8px; transform: translateY(-1.5px); }
+.tape-row.dir-up .tape-chg { color: #fca5a5; } /* the Market screen's colours (.pc-chg): a rising price is a cost */
+.tape-row.dir-down .tape-chg { color: #86efac; }
+.tape-note { flex: none; color: var(--muted); font-size: 12.5px; }
+.tape-month { flex: none; color: var(--muted); font-size: 11.5px; }
+.tape-prelim { display: none; } /* the spoken label and Market say "preliminary"; a phone line has no room for it */
+.tape-still { flex: 1 1 auto; min-width: 0; font-weight: 650; color: var(--text); }
+.tape-chev { flex: none; display: grid; place-items: center; width: 36px; color: var(--muted); }
 .tape-toggle {
-  flex: none; position: relative; width: 44px; border: 0; border-left: 1px solid var(--line-2); padding: 0;
-  display: grid; place-items: center; background: #07090d; color: var(--muted); cursor: pointer;
+  flex: none; width: 36px; height: 40px; border: 0; border-radius: 50%; padding: 0; position: relative;
+  display: grid; place-items: center; background: transparent; color: var(--muted); cursor: pointer;
 }
-.tape-toggle::before { content: ''; position: absolute; inset: -4px 0; } /* a 44 px tall target on a 36 px strip */
-.tape-toggle:hover { color: var(--text); }
-.tape-toggle:focus-visible { outline: none; box-shadow: inset 0 0 0 2px rgba(255, 212, 59, 0.6); color: var(--text); }
-.tape-toggle[aria-pressed='true'] { color: var(--volt); }
-@media (prefers-reduced-motion: reduce) {
-  /* Still: a strip to scroll by hand, one copy of the items, no play button. */
-  .tape-track { animation: none; transform: none; }
-  .tape-run + .tape-run { display: none; }
-  .tape-window { overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; mask-image: none; -webkit-mask-image: none; }
-  .tape-window::-webkit-scrollbar { display: none; }
-  .tape-toggle { display: none; }
+.tape-toggle::before { content: ''; position: absolute; inset: -3px -4px; } /* a 44 px target inside a 46 px pill */
+.tape-toggle:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+.tape-toggle:focus-visible { outline: 2px solid var(--volt); outline-offset: 0; color: var(--text); }
+.tape-toggle.is-play { color: var(--volt); }
+@media (prefers-reduced-motion: reduce) { .tape-row { transition: none; } .tape { transition: none; } }
+@media (max-width: 400px) {
+  .tape-go { gap: 7px; padding-left: 6px; }
+  .tape-icon { width: 24px; height: 24px; }
+  .tape-row { gap: 5px; }
+  .tape-toggle { width: 32px; }
+  .tape-toggle::before { inset: -3px -6px; } /* still a 44 px target */
+  .tape-mark { display: none; } /* the sign and the colour still say which way */
+  .tape-month { font-size: 11px; }
 }
-@media (max-width: 380px) { .tape-label { padding: 0 8px 0 12px; } .tape-item { padding: 0 14px 0 10px; } }
-@media (min-width: 900px) {
-  .tape { margin: 0 0 10px; border: 1px solid var(--line); border-radius: 12px; }
-  .tape-label { padding-left: 14px; }
-}
+/* The narrowest phones: the icon alone says "index" (its label and the spoken label say it in words). */
+@media (max-width: 370px) { .tape { font-size: 13.5px; } .tape-fig, .tape-chg { font-size: 13px; } .tape-idx { display: none; } }
+@media (max-width: 559px) { .tape-full { display: none; } .tape-short { display: inline; } }
+@media (min-width: 560px) { .tape-prelim { display: inline; } }
+/* At desk width the pill sits IN the header row, between the title and the bell (desktop.css places it). */
 
-/* -- "You have N tasks to complete": one task at a time, a pager under it. */
+/* -- "Finish setting up N": one task at a time, a pager under it. */
 .hx-tasks { margin: 2px 0 14px; }
 .hx-tasks-head {
   display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 2px; border: 0; background: none;
@@ -1426,7 +1464,7 @@ button.pmini:active { background: var(--card-2); }
   width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: 12px; background: none;
   color: var(--text); cursor: pointer;
 }
-.hx-arrow:hover { background: rgba(255, 255, 255, 0.05); }
+@media (hover: hover) { .hx-arrow:hover { background: rgba(255, 255, 255, 0.05); } } /* a tap leaves no grey square */
 .hx-tasks-head:focus-visible, .hx-btn:focus-visible, .hx-arrow:focus-visible, .hx-chip:focus-visible, .hx-add:focus-visible {
   outline: 2px solid rgba(255, 212, 59, 0.6); outline-offset: 2px;
 }
@@ -1454,3 +1492,90 @@ button.hx-chip:hover { border-color: rgba(255, 212, 59, 0.45); }
 
 /* ====================================================================== messages
    Styles for the Messages tab (web/js/views/messages.js) ONLY. Everything from here to the end of the file. */
+/* The list: one rounded panel, a row per conversation, hairlines between. */
+.mx-list { list-style: none; margin: 0; padding: 0; border-radius: var(--radius); border: 1px solid var(--line); background: var(--card); overflow: hidden; }
+.mx-list > li + li { border-top: 1px solid var(--line); }
+.mx-row {
+  display: grid; grid-template-columns: 46px minmax(0, 1fr); gap: 12px; align-items: center; width: 100%; min-height: 76px;
+  padding: 12px 14px; border: 0; background: none; color: var(--text); font: inherit; text-align: left; cursor: pointer;
+}
+.mx-row:focus-visible { outline: 2px solid var(--volt); outline-offset: -3px; border-radius: 16px; }
+.mx-row.is-unread { background: linear-gradient(90deg, rgba(255, 212, 59, 0.06), transparent 70%); }
+.mx-avatar {
+  width: 46px; height: 46px; border-radius: 50%; display: grid; place-items: center; flex: none;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.02em; color: var(--text);
+  background: var(--card-2); border: 1px solid var(--line-2);
+}
+.mx-row.is-unread .mx-avatar { border-color: rgba(255, 212, 59, 0.55); }
+.mx-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.mx-line1, .mx-job, .mx-line3 { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.mx-name { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 650; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-row.is-unread .mx-name { font-weight: 800; }
+.mx-time { flex: none; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.mx-row.is-unread .mx-time { color: var(--volt); font-weight: 700; }
+.mx-role {
+  flex: none; padding: 1px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; color: var(--muted);
+  border: 1px solid var(--line-2);
+}
+.mx-role.winner { color: var(--great); border-color: color-mix(in srgb, var(--great) 40%, transparent); }
+.mx-title { min-width: 0; font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-preview { flex: 1; min-width: 0; font-size: 14px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-preview.is-none { font-style: italic; color: var(--muted); }
+.mx-row.is-unread .mx-preview { color: var(--text); }
+.mx-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--volt); box-shadow: 0 0 10px rgba(255, 212, 59, 0.55); }
+.mx-skeleton { height: 76px; background: linear-gradient(90deg, var(--card), var(--card-2), var(--card)); background-size: 200% 100%; animation: shimmer 1.2s linear infinite; }
+.mx-empty { margin: auto 0; padding: 40px 18px; text-align: center; }
+.mx-empty-mark {
+  display: inline-grid; place-items: center; width: 64px; height: 64px; border-radius: 50%; margin-bottom: 12px;
+  color: var(--volt); background: rgba(255, 212, 59, 0.08); border: 1px solid rgba(255, 212, 59, 0.25);
+}
+.mx-empty h3 { margin: 0 0 6px; font-size: 18px; }
+.mx-empty p { margin: 0 auto 16px; max-width: 34ch; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.mx-empty .cta { display: inline-flex; align-items: center; justify-content: center; width: auto; padding: 0 22px; min-height: 44px; }
+
+/* One conversation: a full page, the header and the send box pinned, the bubbles in between. */
+.mx-convo { display: flex; flex-direction: column; min-height: calc(100dvh - 40px); }
+.mx-convo { --mx-bleed: 16px; }
+/* Pinned bars run the full width of the column (the app's side padding), frosted so the bubbles scroll under them. */
+.mx-head, .mx-foot {
+  margin-left: calc(var(--mx-bleed) * -1); margin-right: calc(var(--mx-bleed) * -1);
+  padding-left: var(--mx-bleed); padding-right: var(--mx-bleed);
+  background: rgba(10, 13, 18, 0.86); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+.mx-head {
+  position: sticky; top: 0; z-index: 5; grid-template-columns: 44px minmax(0, 1fr) 44px;
+  margin-top: calc(-10px - env(safe-area-inset-top)); padding-top: calc(12px + env(safe-area-inset-top)); padding-bottom: 6px;
+  margin-bottom: 12px; border-bottom: 1px solid var(--line);
+}
+.mx-head .icon-btn { width: 44px; height: 44px; }
+.mx-head .mx-avatar { width: 44px; height: 44px; font-size: 14px; }
+.mx-head-text { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+.mx-head-text h1 { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-head-job {
+  display: flex; align-items: center; gap: 6px; max-width: 100%; min-height: 44px; padding: 0 10px; margin-top: 0;
+  border: 0; border-radius: 10px; background: none; color: var(--muted); font: inherit; font-size: 12.5px; cursor: pointer;
+}
+.mx-head-job:focus-visible { outline: 2px solid var(--volt); outline-offset: -2px; }
+.mx-head-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mx-head-open { flex: none; color: var(--volt); font-weight: 700; }
+.mx-who { margin: 0 auto 14px; max-width: 40ch; text-align: center; font-size: 12px; line-height: 1.45; color: var(--muted); }
+.mx-thread { flex: 1; }
+.mx-thread .msgs { margin-bottom: 16px; }
+.mx-thread-empty { margin: 24px auto; max-width: 36ch; text-align: center; font-size: 14px; line-height: 1.5; color: var(--muted); }
+.mx-foot {
+  position: sticky; bottom: 0; z-index: 5; padding-top: 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom));
+  margin-bottom: calc(-18px - env(safe-area-inset-bottom)); border-top: 1px solid var(--line);
+}
+.mx-foot .msg-box .input { min-height: 48px; }
+.mx-foot .cta.msg-send { min-height: 48px; }
+.mx-closed {
+  margin: 0; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line-2); background: var(--card);
+  font-size: 13.5px; line-height: 1.45; color: var(--muted); text-align: center;
+}
+.text-btn.job-to-messages { display: inline-flex; align-items: center; min-height: 44px; color: var(--volt); }
+@media (prefers-reduced-motion: reduce) { .mx-skeleton { animation: none; } }
+@media (min-width: 900px) {
+  .mx-convo { --mx-bleed: 24px; min-height: calc(100dvh - 60px); }
+  .mx-row:hover { background: rgba(255, 255, 255, 0.03); }
+  .mx-head-job:hover { color: var(--text); }
+}

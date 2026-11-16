@@ -126,6 +126,10 @@ export const api = {
   placeJobBid: (id, body) => req(`api/jobs/${encodeURIComponent(id)}/bid`, { method: 'POST', body }),
   withdrawJobBid: (id) => req(`api/jobs/${encodeURIComponent(id)}/bid`, { method: 'DELETE' }),
   jobAction: (id, action, body) => req(`api/jobs/${encodeURIComponent(id)}/${action}`, { method: 'POST', body }),
+  // Messages: the poster and the winner of a job, after the award. upTo = the newest message id the screen showed.
+  conversations: () => req('api/jobs/conversations', { quiet: true }),
+  conversation: (id) => req(`api/jobs/${encodeURIComponent(id)}/conversation`),
+  readConversation: (id, upTo) => req(`api/jobs/${encodeURIComponent(id)}/read`, { method: 'POST', body: { upTo }, quiet: true }),
 
   // cost check (premium: 402 premium_required on plans without the estimator)
   estimate: (body) => req('api/estimate', { method: 'POST', body }),

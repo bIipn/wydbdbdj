@@ -6,3 +6,4 @@ data/
 out/
 .claude/settings.local.json
 .vercel/
+__pycache__/

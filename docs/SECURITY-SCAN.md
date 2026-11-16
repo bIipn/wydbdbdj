@@ -1,13 +1,21 @@
 # Security scan (HawkScan)
 
-**Status (2026-11-16): the first run on GitHub was started on commit f540e84; its result was not in when this was
-written.** No HawkScan result is recorded here yet, and none of the fixes below has been through a scan. The first
-run will also show what still needs fixing in the setup (the hawk CLI's answers, the login check). Until a run has
-finished and been read, no result says the app is secure.
+**Status (2026-11-16): the second run finished on the fixed code with 0 High, 0 Medium and 2 Low findings**
+(one check, two paths). A third run was asked for the same day, only to show route by route that the scanner was
+signed in (see "Runs" below): until it is read, "clean" means "no finding", not yet "every signed-in route was
+attacked".
+
+## Runs
+
+| Run | Commit | What happened |
+|---|---|---|
+| 1 · 2026-11-16 17:54 UTC | f540e84 (before the fixes) | Cut off by the job's 60-minute limit with nothing to read: the progress was silenced and the artifact host is not reachable from Claude's sessions. Probably the cost-check crash below, which froze the server on a fuzzed end date (not confirmed) |
+| 2 · 2026-11-16 21:35 UTC | cb979c2 (the fixes; the build that is live) | Finished by itself in 61 minutes. **High 0 · Medium 0 · Low 2.** The one check: "Information Leak - Email Address" on `/privacy.html` and `/terms.html`. That is the public contact address the owner put there on purpose: **by design, nothing to fix.** The server answered 28,777 requests: no 5xx at all, none slower than 5 seconds, health 200 at the end, 514 answers were 429 (the new limits at work) |
+| 3 · 2026-11-16 | same app code | Asked for because 13,533 of run 2's answers were 401 and the log could not say which routes they were. 14 of the 64 API paths (admin and cron) answer 401 on purpose, since the scan has neither token, but that alone was not shown to explain the number. This run prints the scan user's session over time and a table of route by status (`scripts/hawkscan-report.py`) |
 
 ## What runs
 
-`.github/workflows/hawkscan.yml` (GitHub Actions, about 15 to 40 minutes):
+`.github/workflows/hawkscan.yml` (GitHub Actions, about an hour; the scan ends itself after 80 minutes at most):
 
 1. builds the app, loads the captured bids into a throwaway database, and starts `node dist/server.js` in
    accounts mode (`DEMO_MODE=1`, so the Pro routes are scanned too) on port 8787;
@@ -28,7 +36,9 @@ Either change `.github/hawkscan-run` (any edit, e.g. the date) and push to `main
 
 ## Results
 
-- The run's **Summary** and its log: each finding with severity, check name, count and path.
+- The run's **Summary** and its log: each finding with severity, check name and path, then what the server saw:
+  the answers by status, the scan user's session over time, and a table of route by status
+  (`scripts/hawkscan-report.py`; it prints no cookie, password or request body).
 - The **hawkscan-results** artifact: the full JSON and the server log.
 - The StackHawk app (link in the summary), application `bidswipe`, environment `Development`.
 

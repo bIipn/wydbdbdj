@@ -1,1 +1,1 @@
-Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-16, second run (after the security fixes).
+Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-16, third run (same app code as the second; prints route by status).

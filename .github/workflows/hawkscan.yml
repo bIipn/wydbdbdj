@@ -202,40 +202,7 @@ jobs:
           set +e
           hawk op scan get --app "$APP_ID" --detail full --format json > hawkscan-results.json 2> hawkscan-results.err
           echo "hawk op scan get: exit $?"; head -c 400 hawkscan-results.err; echo
-          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
-          import json, sys
-          text = open("hawkscan-results.json", errors="replace").read()
-          start = min([i for i in (text.find("{"), text.find("[")) if i >= 0] or [-1])
-          if start < 0:
-              print("No JSON from the platform for this scan."); sys.exit(0)
-          try:
-              data, _ = json.JSONDecoder().raw_decode(text[start:])
-          except Exception as e:
-              print(f"Could not read the platform's answer ({e})."); print(text[:1500]); sys.exit(0)
-          # The shape is the platform's: print what it is, then every object that looks like a finding.
-          def shape(x, depth=0):
-              if isinstance(x, dict): return {k: (shape(v, depth + 1) if depth < 2 else type(v).__name__) for k, v in list(x.items())[:30]}
-              if isinstance(x, list): return [shape(x[0], depth + 1)] if x else []
-              return type(x).__name__
-          print("shape:", json.dumps(shape(data))[:1800])
-          rows = []
-          def walk(x, trail=""):
-              if isinstance(x, dict):
-                  sev = x.get("severity") or x.get("criticality") or x.get("risk")
-                  name = x.get("pluginName") or x.get("name") or x.get("alertName") or x.get("title")
-                  if sev and name:
-                      where = " ".join(str(x.get(k)) for k in ("requestMethod", "method", "path", "uri", "url", "status", "state") if x.get(k))
-                      rows.append(f"{sev} | {name} | {x.get('pluginId', x.get('cweId', ''))} | {x.get('count', x.get('uriCount', ''))} | {where}")
-                  for k, v in x.items(): walk(v, trail + "/" + k)
-              elif isinstance(x, list):
-                  for v in x: walk(v, trail)
-          walk(data)
-          seen = []
-          for r in rows:
-              if r not in seen: seen.append(r)
-          print(f"\n{len(seen)} finding rows (severity | check | id | count | where)")
-          for r in seen[:400]: print(r)
-          PY
+          python3 scripts/hawkscan-report.py findings hawkscan-results.json | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: What the server saw
         if: always() && steps.gate.outputs.run == 'true'
@@ -243,27 +210,9 @@ jobs:
           log="$RUNNER_TEMP/server.log"
           echo "health now: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$APP_HOST/api/health")"
           echo "lines: $(wc -l < "$log")"
-          python3 - "$log" <<'PY'
-          import collections, json, sys
-          codes = collections.Counter(); slow = []; errs = []; first = last = None
-          for line in open(sys.argv[1], errors="replace"):
-              try: d = json.loads(line)
-              except Exception:
-                  if line.strip(): errs.append(line.strip()[:300])
-                  continue
-              t = d.get("time"); first = first or t; last = t or last
-              res = d.get("res") or {}
-              if "statusCode" in res:
-                  codes[res["statusCode"]] += 1
-                  ms = d.get("responseTime") or 0
-                  if ms > 5000: slow.append((round(ms), d.get("reqId")))
-              if d.get("level", 0) >= 50: errs.append(str(d.get("msg") or (d.get("err") or {}).get("message"))[:300])
-          print("answers by status:", dict(sorted(codes.items())))
-          if first and last: print(f"log covers {round((last - first) / 60000)} minutes")
-          print(f"answers slower than 5 s: {len(slow)}", slow[:10])
-          print(f"error lines: {len(errs)}")
-          for e in collections.Counter(errs).most_common(15): print("  ", e[1], "x", e[0])
-          PY
+          # Status totals, the scan user's session over time, and route by status: was the scanner signed in, and
+          # did its requests reach the handlers? (The artifact holds the same log, but not every reader can open it.)
+          python3 scripts/hawkscan-report.py server "$log"
           echo "--- last lines of the server log (session cookies hidden)"
           tail -n 25 "$log" | sed -E 's/(bs_session=)[A-Za-z0-9_-]+/\1[hidden]/g' | cut -c1-600
 

@@ -125,7 +125,8 @@ async function openCard(card) {
  */
 function personMini(card, { role, canOpen = true, fallbackName = null } = {}) {
   // A shared default name ("My electrical shop") tells nobody who this is: say what they are to this job instead.
-  const name = fallbackName && isDefaultShopName(card.name) ? fallbackName : card.name;
+  // A card BidSwipe hid is named "BidSwipe member" on purpose (src/profile/person.ts HIDDEN_NAME): keep it.
+  const name = fallbackName && !card.hidden && isDefaultShopName(card.name) ? fallbackName : card.name;
   const years = bandLabel(card.yearsExperience);
   const facts = [years ? `${years} years` : null, card.insured === 'yes' ? 'Insured' : card.insured === 'no' ? 'Not insured' : null].filter(Boolean);
   const body = h('div', { class: 'pmini-text' },
@@ -503,7 +504,7 @@ function reportBox(job) {
   input.addEventListener('input', () => { ui.reportText = input.value; });
   const form = h('form', { class: 'stack', novalidate: true },
     h('div', { class: 'field', 'data-field': 'reason' }, h('label', { class: 'field-label', for: 'jobReport' }, 'Report this job'), input,
-      h('p', { class: 'field-help' }, 'A person at BidSwipe reads every report. The poster isn’t told who sent it.'), h('p', { class: 'field-error', role: 'alert' })),
+      h('p', { class: 'field-help' }, 'Reports go to BidSwipe. The poster isn’t told who sent it.'), h('p', { class: 'field-error', role: 'alert' })),
     formError(),
     h('div', { class: 'job-buttons two' },
       h('button', { class: 'cta', type: 'submit' }, 'Send report'),

@@ -254,7 +254,8 @@ function resultCount(list) {
   const whole = !state.browseCut && (total == null || list.length >= total);
   const over = whole ? list.filter((i) => i.overLimit).length : 0;
   if (over) parts.push(`${num(over)} over your limit`);
-  return parts.join(' · ');
+  // A no-break space BEFORE each dot: a line may end on "·" but never start with one (review rs-4).
+  return parts.join('\u00a0· ');
 }
 
 /**

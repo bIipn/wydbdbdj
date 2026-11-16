@@ -131,7 +131,9 @@ self.addEventListener('notificationclick', (event) => {
     const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const app = open.find((c) => c.url.startsWith(self.registration.scope));
     if (app) {
-      await app.focus();
+      // A refused focus() (no user activation) must not stop the app from opening the job or bid; openWindow here
+      // would start a second copy of an app that is already open (audit sw-focus-1).
+      try { await app.focus(); } catch { /* carry on */ }
       app.postMessage(jobId ? { type: 'open-job', jobId } : { type: 'open-bid', bidId });
       return;
     }

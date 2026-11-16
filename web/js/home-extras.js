@@ -12,7 +12,7 @@ import { homeTasks } from './home-tasks.js';
 import { prefsChips } from './home-prefs.js';
 import { jobsOn } from './jobs-data.js';
 import { loadTrades } from './profile-form.js';
-import { currentSubscription, pushKey, pushSupport } from './push.js';
+import { devicePush, standalone } from './push.js';
 import { onFeedLoaded, onSignedOut } from './session.js';
 import { render, setView } from './shell.js';
 import { features, intent, isLive, state } from './state.js';
@@ -36,16 +36,6 @@ onFeedLoaded(() => Object.assign(bg, { work: null, workAsked: false, push: null,
 const redraw = () => { if (state.view === 'home') render(); };
 const accountId = () => state.me?.account?.id ?? null;
 
-/** The same answer the alert inbox's push panel reaches (views/alerts.js checkPush), without asking for anything. */
-async function devicePush() {
-  if (pushSupport() !== 'ok') return pushSupport();
-  const key = await pushKey();
-  if (!key.ok) return key.reason === 'not_configured' ? 'not_configured' : 'error';
-  if (!features()?.instantPush) return 'locked';
-  if (await currentSubscription()) return 'on';
-  return Notification.permission === 'denied' ? 'denied' : 'off';
-}
-
 /** Ask, once per account, for what the cards need that /api/me does not carry. */
 function gather() {
   const id = accountId();
@@ -53,7 +43,8 @@ function gather() {
   if (bg.account !== id) { reset(); bg.account = id; }
   if (!bg.pushAsked) {
     bg.pushAsked = true;
-    devicePush().then((s) => { if (bg.account === id) { bg.push = s; redraw(); } }).catch(() => {});
+    // The same answer the alert inbox's push panel reaches (push.js devicePush), without asking for anything.
+    devicePush(!!features()?.instantPush).then(({ state: s }) => { if (bg.account === id) { bg.push = s; redraw(); } }).catch(() => {});
   }
   if (!bg.workAsked && jobsOn() && intent() !== 'hire') {
     bg.workAsked = true;
@@ -89,6 +80,7 @@ export function tasksCard() {
     profile: state.me?.profile ?? null,
     features: features(),
     push: bg.push,
+    standalone: standalone(),
     jobsOn: jobsOn(),
     workProfile: bg.work,
   });

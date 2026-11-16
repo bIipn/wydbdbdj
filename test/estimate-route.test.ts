@@ -9,6 +9,7 @@ import { saveProfileForAccount, upsertBids } from '../src/db/repo.js';
 import { featuresFor } from '../src/plans.js';
 import { profileIdFor } from '../src/profile/build.js';
 import { loadProfile } from '../src/profiles.js';
+import { ESTIMATE_LIMIT } from '../src/routes/estimate.js';
 import { buildApp, buildServer } from '../src/server.js';
 import type { Account } from '../src/types.js';
 import { accountsConfig, fakeAuth, memoryDb, NOW, seedAccount, testBid, testProfile } from './helpers.js';
@@ -203,6 +204,16 @@ describe('accounts mode', () => {
     expect((await app.inject('/api/estimates')).json().items).toEqual([]);
   });
 
+
+  it(`${ESTIMATE_LIMIT.limit} cost checks a minute per profile, then 429 with a sentence; another profile is not affected (review rs-6)`, async () => {
+    who = other;
+    for (let i = 0; i < ESTIMATE_LIMIT.limit; i++) expect((await post({ job: 'TEST-not-a-job' })).statusCode).not.toBe(429);
+    const blocked = await post(I1);
+    expect(blocked.statusCode).toBe(429);
+    expect(blocked.json()).toEqual({ error: 'too_many_attempts', message: 'That’s a lot of cost checks in one minute. Wait a minute, then try again.' });
+    who = pro;
+    expect((await post(I1)).statusCode).toBe(200);
+  });
 });
 
 describe('single mode (the pilot): plan pilot has the cost engine', () => {

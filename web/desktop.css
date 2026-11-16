@@ -118,6 +118,9 @@
 /* The arrow keys (main.js) only matter at a desk: a keyboard and a wide screen. */
 @media (min-width: 900px) and (hover: hover) and (pointer: fine) {
   .swipe-view .hint::after { content: ' · or use the ← → keys'; }
+  /* The Search sort pill keeps its small desk look: the 16px in styles.css is for iOS, which zooms into any field
+     under 16px when it is tapped (audit ios-zoom-1). Only with a mouse or trackpad, so an iPad is never cut to 13px. */
+  .sort-select { font-size: 13px; padding: 6px 28px 6px 12px; }
 }
 
 @media (min-width: 900px) and (prefers-reduced-motion: reduce) {

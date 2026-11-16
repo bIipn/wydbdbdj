@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
+import { createAttemptLimiter } from '../auth/ratelimit.js';
 import type { RouteContext } from '../context.js';
 import { estimate, estimateErrorBody, fromQuickForm, type BidFacts, type EstimateRequest } from '../cost/estimate.js';
 import { listEstimates, saveEstimate } from '../db/estimates.js';
@@ -27,14 +28,25 @@ function bidFacts(b: Bid): BidFacts {
   return { id: b.id, estValue: b.estValue, flags: b.flags, dueDate, state: b.location.state, locationLabel: b.location.label };
 }
 
+/**
+ * Cost checks per profile per minute (counters in the database, so every serverless instance shares them). One check
+ * of a long job takes about 0.2 s of the server's only thread; 30 at once held /api/health for 3 s (review rs-6).
+ * A person pricing a bid by hand never gets near it.
+ */
+export const ESTIMATE_LIMIT = { limit: 30, windowMs: 60 * 1000 } as const;
+const PRICED_TOO_OFTEN = 'That’s a lot of cost checks in one minute. Wait a minute, then try again.';
+
 /** The cost check: run an estimate (POST /api/estimate) and list saved ones (GET /api/estimates?bidId=). */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
   const { db } = ctx;
+  const attempts = createAttemptLimiter(db, ctx.now, ctx.log);
 
   app.post('/api/estimate', async (req, reply) => {
     const id = await ctx.requireProfile(req, reply);
     if (!id) return reply;
     if (!premiumGate(id.plan, reply)) return reply;
+    const counted = await attempts.count([{ key: `estimate:${id.profile.id}`, ...ESTIMATE_LIMIT }]);
+    if (!counted.ok) return reply.code(429).header('retry-after', counted.retryAfterSec).send({ error: 'too_many_attempts', message: PRICED_TOO_OFTEN });
 
     const body = req.body;
     if (!body || typeof body !== 'object' || Array.isArray(body)) return bad(reply, 'body', 'send a JSON object');

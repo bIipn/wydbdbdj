@@ -231,7 +231,7 @@ alter table market_series_meta add column if not exists note text;
 -- Sign-in, sign-up, promo, access-code and profile-save attempt counters (src/auth/ratelimit.ts
 -- createAttemptLimiter): in the database so every serverless instance shares them. One row per key
 -- ("login:pair:<email>|<ip>", "login:ip:<ip>", …), a fixed window that ends at expires_at. Expired rows are
--- swept by the counting statement itself.
+-- deleted a few at a time after each count, and in bulk by the cron tick (GET /api/cron/tick).
 create table if not exists auth_attempts (
   key         text primary key,
   count       integer not null,

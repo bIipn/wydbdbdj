@@ -1,4 +1,4 @@
-# BidSwipe — handoff notes (v1, updated 2026-11-14)
+# BidSwipe — handoff notes (v1, updated 2026-11-16)
 
 Everything learned while building v0, so nobody has to re-research it. The product vision (price
 action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
@@ -20,6 +20,51 @@ action, spend limit, alerts, Pro bot, codes) lives in `docs/PRODUCT.md`.
 | Postgres schema + repo | ✅ PGlite tested; Supabase path written, not yet run against Supabase |
 | Deploy (PM2/Caddy) | 📄 configs written, not deployed |
 | Local jobs marketplace + work profiles | ✅ built 2026-11-14 (accounts mode): post, sealed bids, lowest wins, 7-day contact window, fees recorded (payments off), work profiles, "What brings you here?". Tested (API, rules, Postgres concurrency, `npm run simulate:jobs`), checked end to end in Chromium on the built server. **Not deployed** |
+
+**2026-11-16 (evening) — security fixes, iPhone alert fixes, reporting, Store material (committed, NOT deployed).**
+*Audited, and how:* three security lenses (authorization, sessions and sign-in limits, client and input) attacked a
+local copy of the app with scripts, each finding re-run by a skeptic; an iPhone audit (alerts and Safari) read
+Apple's and WebKit's pages and walked the screens in Chromium with stubs for `navigator.standalone`, PushManager and
+Notification (no WebKit, no iPhone here); a Microsoft Store research pass read the Store policies (7.20) and
+PWABuilder's source; four builders fixed what was found; three reviewers then attacked the result (security on
+PGlite and on a real Postgres 16 through the Vercel code path, the screens against the previous build, the Store
+text and the marketplace rules); the finisher reproduced and fixed their findings.
+*Fixed:* the cost check refuses a job over 3650 days (an end date of 9999-12-31 crashed the server) and allows 30
+checks a minute; sign-in limits live in the database (`auth_attempts`) and count FIRST in one atomic statement (the
+review found 300 simultaneous wrong passwords all answered 401 against a limit of 10), a stranger can no longer lock
+the owner out (no e-mail-wide block of the right password; a known address skips the address-wide rule; sign-up
+remembers the address), a 429 says the time really left; ACCESS_CODE: 50 wrong codes per address, a weak code still
+boots with a warning; promo-code use limits hold under a burst on Postgres (a gate row); security headers on every
+answer (a strict CSP: the inline script and the legal pages' styles moved to files; X-Frame-Options, nosniff,
+COOP/CORP, no-store on /api); push subscriptions only on known push services; a NUL in input answers 400 instead of
+a Postgres 500, and a 5xx says only "internal" (Fastify's own 4xx keep their shape); a "Get work done" account
+cannot bid; VAPID tokens reused per push origin, refused devices skipped, dead ones pruned. iPhone: the Safari-tab
+steps (Share under •••, Open as Web App), the installed-app and blocked states, subscribe straight from the tap,
+Settings' "Phone alerts on this device" row, the app-icon badge, the status-bar band, 16 px fields (no zoom), the
+`-webkit-` prefixes, and a **Send a test alert** button (`POST /api/push/test`, 3 per 10 minutes); sign-out drops
+the device on the server and in the browser at the same time, even when the network hangs. Reporting: a
+conversation (poster or winner) and a profile card can be reported; operators can remove one message and hide a
+card (`content_reports`, `profile_hides`, `job_messages.removed_at`); a hidden card shows "BidSwipe member", never
+the person's own words. Store: the manifest (description, shortcuts Home · Search · Saved · Jobs · Alerts,
+launch_handler, four new screenshots), the privacy and terms pages, docs/MICROSOFT-STORE.md and the 8 Store images
+(docs/store/).
+*Accepted, not fixed:* see docs/SECURITY-SCAN.md "Accepted for now" (sign-up says whether an address is
+registered; no state/PKCE for social sign-in yet, which must come before any provider is turned on; a right
+ACCESS_CODE only reads the counter; 3 tries per new address while an e-mail is under attack); no block or mute
+between poster and winner; nothing alerts the owner when a report arrives (the copy now says only that reports go
+to BidSwipe); the badge is not set by a background push; ios-legal-1, ios-oauth-1, ios-launch-1, ios-tag-1 wait for
+a real iPhone (docs/IPHONE-ALERTS.md).
+*The owner's decisions today:* the price pill keeps its colours (a rising price is red); no messaging before a job
+is awarded; the public contact address is on the privacy and terms pages (and the Store support contact), nowhere
+else; the Microsoft Store account and name exist (Package ID `bidswipe.bidswipe`, Publisher
+`CN=6A3385ED-1658-4BBF-A229-10E7AD5417AE`, display name `bidswipe`) and a package was built, but it came from the
+OLD manifest: **it must be rebuilt after this version is deployed** (docs/MICROSOFT-STORE.md, the clicks at its top).
+*Checked:* typecheck, the full vitest run, build, the Postgres-only tests on a local Postgres 16 (pg-startup,
+jobs-pg, promo-pg), `npm run simulate` (passes), `npm run simulate:jobs` (all 15 checks, 10 of 10 mutations, same hash
+21d5d5f488b230c2), `npm run demo:snapshot`; the schema run twice over old-schema data on PGlite and Postgres 16 plus
+six simultaneous cold starts; the whole app walked in Chromium with the real headers (zero CSP violations) at 390,
+360 and 1280 px. The first HawkScan run on GitHub was started on commit f540e84; its result was not in when this was
+written (docs/SECURITY-SCAN.md).
 
 **2026-11-16 — Home screen redesign + Messages (committed, NOT deployed).** At the owner's request (a jobs
 app's home screen as a layout reference only, then two amendments): Home is now the landing screen, top to

@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { RouteContext } from '../context.js';
 import { getGroup, SCAN_GROUPS } from '../sources/groups.js';
 import { quietFlag, safeEqual } from './shared.js';
+import { createAttemptLimiter } from '../auth/ratelimit.js';
 
 /**
  * The daily jobs as plain GET routes, for hosts that cannot keep a timer alive.
@@ -62,6 +63,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (!ctx.realtime) return reply.code(501).send({ error: 'realtime not started' });
     await ctx.realtime.tick();
     await ctx.realtime.flush();
+    // Sign-in counters whose window is over are deleted here too, not only by later counting (review rs-6).
+    if (ctx.db) await createAttemptLimiter(ctx.db, ctx.now, ctx.log).sweep(1000);
     return { ok: true };
   });
 }

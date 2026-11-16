@@ -238,12 +238,12 @@ export const REPORT_REASONS = {
 };
 export const REPORT_NOTE_MAX = 500;
 /** The reporter's confirmation, as the server words it. Nothing about how fast: that promise is the owner's. */
-export const REPORT_THANKS = 'Thanks. We read every report.';
+export const REPORT_THANKS = 'Thanks. Your report was sent to BidSwipe.';
 /** Under the form: the reported side is never told. */
-export const REPORT_PRIVATE = 'A person at BidSwipe reads it. The other person isn’t told that you reported them.';
+export const REPORT_PRIVATE = 'It goes to BidSwipe. The other person isn’t told that you reported them.';
 /** Where an operator removed a message (src/jobs/repo.ts MESSAGE_REMOVED). */
 export const MESSAGE_REMOVED = 'Message removed by BidSwipe';
 /** On a card an operator hid, for everyone else. */
 export const PROFILE_HIDDEN = 'Profile hidden by BidSwipe';
 /** To the card's owner, over their own preview. The contact address lives only on the Terms page. */
-export const PROFILE_HIDDEN_OWNER = 'BidSwipe has hidden your profile from other people: they see only your name and your job record. You can still edit it. If you think this is a mistake, write to us at the address on the Terms page.';
+export const PROFILE_HIDDEN_OWNER = 'BidSwipe has hidden your profile from other people: they see “BidSwipe member” and your job record, not your name. You can still edit it. If you think this is a mistake, write to us at the address on the Terms page.';

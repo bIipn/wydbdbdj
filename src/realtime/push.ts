@@ -314,3 +314,27 @@ export function createWebPushSender(vapid: Vapid, now: () => number = Date.now):
     }
   };
 }
+
+// ------------------------------------------------------------- test push --
+// Added for POST /api/push/test (src/routes/realtime.ts, the fix-ios stage): appended here, nothing above changed.
+
+export const TEST_PUSH_TITLE = 'Test alert from BidSwipe';
+
+/**
+ * The "Send a test alert" notification. The same payload shape the service worker reads for a real alert (no bid,
+ * no job: a tap opens the app), a short life (a test that arrives an hour late proves nothing) and high urgency, so
+ * it is delivered the way a new match or a message is. One topic per account: a second test replaces an undelivered
+ * first one at the push service.
+ */
+export function testPushMessage(appUrl: string, owner: string, now: Date): PushMessage {
+  const tag = `test:${now.getTime()}`;
+  const payload: PushPayload = {
+    title: TEST_PUSH_TITLE,
+    body: 'Phone alerts reach this device. New bids that fit you and news on your jobs arrive like this.',
+    tag, kind: 'summary', url: `${appUrl}/`, bidId: null, alertIds: [],
+  };
+  return {
+    payload: encode(payload), ttl: 15 * 60, urgency: 'high',
+    topic: createHash('sha256').update(`test:${owner}`).digest('base64url').slice(0, 32),
+  };
+}

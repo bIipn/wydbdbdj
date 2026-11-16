@@ -642,7 +642,7 @@ export async function insertProfileReport(
 ): Promise<boolean> {
   const rows = await db.query(
     `insert into content_reports (kind, subject_id, reporter_id, reason, note, created_at)
-     select 'profile', a.id, $2, $3, $4, $5 from accounts a where a.id = $1 and a.id <> $2
+     select 'profile', a.id, $2, $3, $4, $5 from accounts a where a.id = $1 and a.id <> $2 and ${dealtWithSql('$1', '$2')}
      on conflict do nothing
      returning id`,
     [subjectId, reporterId, reason, note, iso(now)],
@@ -835,16 +835,17 @@ export async function statsFor(db: Db, accountId: string): Promise<StatsRow> {
 }
 
 /** One posted a job the other bid on, after the bids were opened (or won). */
-export async function dealtWith(db: Db, a: string, b: string): Promise<boolean> {
-  const rows = await db.query(
-    `select 1 from jobs j
+/** The "dealt with each other on a job" rule as SQL over two account parameters: ONE copy, used by the read below and
+ *  inside insertProfileReport's WHERE (the right to report is decided in the writing statement, review rs-9). */
+const dealtWithSql = (a: string, b: string): string =>
+  `exists (select 1 from jobs j
      where j.removed_at is null and j.status not in ('open', 'cancelled')
-       and ((j.poster_id = $1 and (j.winner_id = $2 or exists (select 1 from job_bids x where x.job_id = j.id and x.bidder_id = $2
+       and ((j.poster_id = ${a} and (j.winner_id = ${b} or exists (select 1 from job_bids x where x.job_id = j.id and x.bidder_id = ${b}
                                                                  and x.status in ('won', 'lost', 'defaulted'))))
-         or (j.poster_id = $2 and (j.winner_id = $1 or exists (select 1 from job_bids x where x.job_id = j.id and x.bidder_id = $1
-                                                                 and x.status in ('won', 'lost', 'defaulted')))))
-     limit 1`,
-    [a, b],
-  );
-  return rows.length > 0;
+         or (j.poster_id = ${b} and (j.winner_id = ${a} or exists (select 1 from job_bids x where x.job_id = j.id and x.bidder_id = ${a}
+                                                                 and x.status in ('won', 'lost', 'defaulted'))))))`;
+
+export async function dealtWith(db: Db, a: string, b: string): Promise<boolean> {
+  const rows = await db.query(`select ${dealtWithSql('$1', '$2')} as yes`, [a, b]);
+  return rows[0]?.yes === true;
 }

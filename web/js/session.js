@@ -2,6 +2,7 @@
 
 import { api, demoSwipes } from './api.js';
 import { defaultFilters } from './filters.js';
+import { releaseDevice } from './push.js';
 import { setView } from './shell.js';
 import { forgetBrowse, intent, mergeItems, state } from './state.js';
 
@@ -94,8 +95,13 @@ export function startDemo(data) {
   setView('home');
 }
 
-/** The Sign out button: end the session on the server, then the sign-in screen. */
+/**
+ * The Sign out button: this device stops getting the account's phone alerts (while the session is still valid, at
+ * most push.js SIGN_OUT_PUSH_MS: a bad network never holds Sign out), then the session ends on the server, then the
+ * sign-in screen. The next account to sign in on this device turns alerts on for itself.
+ */
 export async function signOut() {
+  await releaseDevice();
   try { await api.logOut(); } catch { /* the cookie is cleared or already gone; sign-in is next either way */ }
   signedOut();
   setView('signin');

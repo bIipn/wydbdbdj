@@ -15,9 +15,9 @@ import { mergeItems, state } from './state.js';
 import { loadFeed, onEnteredApp, onSignedOut } from './session.js';
 import { openSheet } from './sheet.js';
 import { openAlerts } from './views/alerts.js';
-import { openJob } from './jobs-data.js';
+import { jobsOn, openJob } from './jobs-data.js';
 import { openConversation } from './views/messages.js';
-import { render, setView } from './shell.js';
+import { onAfterRender, render, setView } from './shell.js';
 
 // The stream names each event after the alert's kind (src/realtime/stream.ts); the job_* kinds are the local jobs.
 const ALERT_KINDS = ['match', 'deadline', 'award', 'price', 'job_awarded', 'job_message', 'job_deadline', 'job_closed'];
@@ -310,7 +310,7 @@ export function stopLive() {
 
 /**
  * App shortcuts (manifest.webmanifest "shortcuts": right-click the taskbar / Start icon on Windows, long-press
- * on Android) open ./?view=swipe|browse|alerts. Read once, when the app is entered, then dropped from the address.
+ * on Android) open ./?view=home|browse|saved|jobs|alerts (and the old swipe). Read once, when the app is entered, then dropped from the address.
  */
 function openShortcut() {
   const params = new URLSearchParams(location.search);
@@ -320,9 +320,32 @@ function openShortcut() {
   history.replaceState(null, '', location.pathname + (params.size ? `?${params}` : '') + location.hash);
   // 'swipe' is an alias (views/home.js): Home in Swipe mode.
   if (view === 'browse' || view === 'saved' || view === 'swipe' || view === 'home') setView(view);
+  // Jobs exists in accounts mode only; elsewhere (the pilot, the demo) the shortcut lands on Home (review rs-2).
+  else if (view === 'jobs') setView(jobsOn() ? 'jobs' : 'home');
   else if (view === 'alerts') openAlerts();
 }
 
+// ------------------------------------------------------- app icon badge ---
+
+/**
+ * The unread count on the app's icon (the Badging API: an installed app on iPhone/iPad from iOS 16.4, Windows,
+ * ChromeOS, macOS): the bell's own number, set after every render so every path that changes it (the stream, a
+ * poll, reading in the inbox, a conversation) keeps the two in step. Feature-detected: where the API is missing
+ * nothing happens, and a refusal (a browser tab, no permission) is ignored. Signed out: cleared.
+ */
+let badgeShown = null;
+function syncBadge() {
+  const n = state.mode === 'live' && state.me ? Math.max(0, Math.floor(Number(state.unread) || 0)) : 0;
+  if (n === badgeShown) return;
+  badgeShown = n;
+  try {
+    const done = n > 0 ? navigator.setAppBadge?.(n) : navigator.clearAppBadge?.();
+    done?.catch?.(() => {});
+  } catch { /* no badge here */ }
+}
+
+onAfterRender(syncBadge);
 onEnteredApp(startLive);
 onEnteredApp(openShortcut);
 onSignedOut(stopLive);
+onSignedOut(() => { badgeShown = null; state.unread = 0; syncBadge(); });

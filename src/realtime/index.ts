@@ -33,7 +33,7 @@ import {
   DEADLINE_LOOKAHEAD_HOURS, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, pushDecision, type AlertDecision,
 } from './alerts.js';
 import type { BusEventOf } from './bus.js';
-import { createWebPushSender, pushMessage, toPushResult, usableVapid, type PushResult, type PushSender } from './push.js';
+import { createWebPushSender, pushMessage, testPushMessage, toPushResult, usableVapid, type PushResult, type PushSender } from './push.js';
 
 export const TICK_MS = 15 * 60_000;
 /** Alerts for one profile that land within this window share one notification. */
@@ -295,4 +295,44 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
  */
 export function startRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): () => void {
   return createRealtime(ctx, opts).stop;
+}
+
+// ------------------------------------------------------------- test push --
+// Added for POST /api/push/test (src/routes/realtime.ts, the fix-ios stage): appended here, nothing above changed.
+
+export interface TestPushOutcome {
+  /** Devices of this profile's owner that were sent to (the same list a real alert goes to). */
+  tried: number;
+  /** How many of them the push services accepted. */
+  accepted: number;
+}
+
+/**
+ * "Send a test alert": one notification to the caller's own devices, through what deliver() uses for a real alert —
+ * subscriptionsForProfile (so a device refused for good is skipped the same way), the same PushSender, and
+ * recordPushResult (a 404/410 removes the device, a 400/403/413 marks it refused). The caller (the route) has already
+ * checked the gate deliver() checks (pushDecision: the plan's instantPush, alerts not switched off, no quiet hours).
+ * Stores no alert: a test is not news and never enters the inbox.
+ */
+export async function sendTestPush(ctx: RouteContext, profileId: string, owner: string, sender: PushSender): Promise<TestPushOutcome> {
+  const now = ctx.now();
+  const devices = await subscriptionsForProfile(ctx.db, profileId);
+  const push = testPushMessage(ctx.config.appUrl, owner, now);
+  const results = await Promise.all(devices.map(async (device) => {
+    let result: PushResult;
+    try {
+      result = await sender(device, push);
+    } catch (err) {
+      result = toPushResult(err);
+    }
+    const outcome = result.ok ? 'ok' : result.gone ? 'gone' : result.permanent ? 'refused' : 'failed';
+    await recordPushResult(ctx.db, device.endpoint, outcome, now, result.ok ? null : result.status);
+    if (!result.ok && result.permanent) {
+      ctx.log(`push: ${serviceHost(device.endpoint)} refused a device (${result.status}${result.reason ? ` ${result.reason}` : ''}); it gets nothing until it subscribes again`);
+    }
+    return result;
+  }));
+  const accepted = results.filter((r) => r.ok).length;
+  ctx.log(`push: test alert for ${profileId}, ${accepted} of ${devices.length} device(s) accepted`);
+  return { tried: devices.length, accepted };
 }

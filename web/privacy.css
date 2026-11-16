@@ -20,7 +20,6 @@
 .doc a { color: var(--volt); text-underline-offset: 3px; }
 .doc .summary { background: var(--card); border: 1px solid var(--line-2); border-radius: 16px; padding: 14px 16px; margin: 0 0 8px; }
 .doc .summary li { margin: 3px 0; }
-.doc .todo { background: rgba(251, 146, 60, 0.12); border: 1px dashed var(--over); color: #fed7aa; border-radius: 8px; padding: 1px 6px; font-weight: 700; }
 .doc table { width: 100%; border-collapse: collapse; font-size: 14px; margin: 8px 0; }
 .doc th, .doc td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--line); }
 .doc th { color: var(--muted); font-weight: 650; font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.04em; }

@@ -610,9 +610,10 @@ export const CONVERSATION_REPORT_REASONS = ['abusive', 'spam', 'off_platform', '
 /** Why someone reports a card. */
 export const PROFILE_REPORT_REASONS = ['misleading', 'offensive', 'spam', 'other'] as const;
 export const REPORT_NOTE_MAX = 500;
-/** The reporter's confirmation. Honest: a person reads every report; no promise of how fast (the owner's to make). */
-export const REPORT_THANKS = 'Thanks. We read every report.';
-export const REPORT_ALREADY = 'You already reported this. Thanks. We read every report.';
+/** The reporter's confirmation. Honest: the report is stored for BidSwipe; no promise of who reads it or how fast
+ *  (that is the owner's to make, review rs-3). */
+export const REPORT_THANKS = 'Thanks. Your report was sent to BidSwipe.';
+export const REPORT_ALREADY = 'You already reported this. It was sent to BidSwipe.';
 const THREAD_ONLY = 'Messages are only between the poster and the winner, after the award.';
 
 export interface ReportAnswer {

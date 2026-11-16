@@ -204,10 +204,11 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/trades`, `GET /api/geo/zip/:zip`, `GET /api/geo/nearest-zip?lat=&lng=`, `GET`/`PUT /api/profile` | onboarding / settings (the location point is used once, never stored or logged) |
 | `POST /api/promo/redeem {code}` | accounts mode, `PROMO_CODES` set: 200 `{plan, features}` · 400 `invalid_code` · 403 `not_available` (no codes, demo mode, iOS build) · 429 after 5 tries in 10 min |
 | `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox (`lastScan` tells a polling app to reload its feed), live events (SSE; 404 `stream_off` in poll mode) |
-| `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts |
+| `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts; a subscription whose endpoint is not on a known push service (FCM, Mozilla, Apple, Windows) is 400 `invalid_subscription` |
+| `POST /api/push/test` | the bell's **Send a test alert** button: one "Test alert from BidSwipe" to this account's devices through the real sender → `{ok, tried, accepted}` (never an endpoint; nothing goes to the inbox). 402 without Pro, 409 `push_off` / `quiet_hours`, 429 after 3 in 10 minutes, 404 with no VAPID keys |
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
-| `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature |
+| `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature; a job over 3650 days is 400; 30 checks a minute per profile, then 429 |
 | `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`). `POST /api/admin/scan?quiet=1` (or body `{"quiet": true}`) stores and scores but announces nothing: no 'match' alert, no push, and those bids never enter a digest |
 | `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it); `scan?group=…&quiet=1` is a quiet scan; `tick` also settles local jobs and sends the "2 days left to make contact" reminders |
 | `GET /api/jobs/rules` | local jobs (accounts mode; 404 in single mode): fee rates, contact days, limits, `paymentsOn: false`. No sign-in needed |
@@ -218,8 +219,11 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/jobs/conversations` | Messages: `{conversations, unread}`, the viewer's conversations (poster and winner of an awarded job only), newest activity first; `unread` = how many have a message from the other side not yet read |
 | `GET /api/jobs/:id/conversation` | `{conversation, messages}` for one of them; 403 `not_allowed` to anyone else, 404 for a removed job. Reading changes nothing |
 | `POST /api/jobs/:id/read {upTo?}` | opened: read up to message `upTo` (default: all stored) → `{readUpTo, alertsRetired, alertsUnread}`; the read mark never moves back, the bell's "New message" alerts up to it are retired. A body that is not an object, or a bad `upTo`, is 400 |
-| `GET /api/admin/jobs/reports`, `POST /api/admin/jobs/:id/remove`, `POST /api/admin/jobs/fees/:feeId/waive` | operator (`x-admin-token`) |
+| `POST /api/jobs/:id/conversation/report {reason, note?}` | report a conversation (its poster or winner only; anyone else gets the thread routes' 403) → `{ok, already, message}`; the other side is never told |
 | `GET`/`PUT /api/work-profile`, `GET /api/people/:id` | work profile + its card · someone's card, only once you share a job (404 otherwise) |
+| `POST /api/people/:id/report {reason, note?}` | report a card (only someone allowed to see it; else the people route's 404) |
+| `GET /api/admin/jobs/reports`, `POST /api/admin/jobs/:id/remove`, `POST /api/admin/jobs/fees/:feeId/waive` | operator (`x-admin-token`): the reports list also carries `conversationReports` (with the thread) and `profileReports` (with the card) |
+| `POST /api/admin/jobs/messages/:messageId/remove`, `POST /api/admin/people/:id/{hide,unhide}`, `POST /api/admin/reports/:reportId/resolve` | operator: remove one message (the row stays; both sides see "Message removed by BidSwipe"), hide a card (others see "BidSwipe member" and the job record), close a report |
 
 Jobs errors: 400 `{error:'invalid_input', fields:[{path,message}]}`, 403 `not_allowed`, 404 `not_found`, 409
 `closed`, 429 `too_many_attempts`. Settlement is lazy and idempotent: every jobs route, `GET /api/alerts` and
@@ -234,7 +238,17 @@ deck). `npm run scan -- --quiet` is the same switch from the command line. A bid
 while its board still lists it (`last_seen_at` within 3 days).
 
 Every POST/PUT/PATCH/DELETE must send `x-bidswipe: 1` (CSRF guard). If `ACCESS_CODE` is set (single
-mode), the app asks for it once and sends it as `x-access-code`.
+mode), the app asks for it once and sends it as `x-access-code`; 50 wrong codes per address in 15 minutes answer
+429 for any code.
+
+**Security headers.** One `onSend` hook in `src/server.ts` (SECURITY_HEADERS) puts these on every answer, the app
+shell and its files included: a Content-Security-Policy (`default-src 'self'`, `script-src 'self'`, `style-src
+'self'`, `img-src 'self' data:`, `object-src 'none'`, `base-uri 'none'`, `frame-ancestors 'none'` …), X-Frame-Options
+DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP and CORP same-origin, and `Cache-Control: no-store` on /api
+answers that set none. So `web/index.html`, `privacy.html` and `terms.html` carry no inline script, no `<style>`,
+no `style=` and no `on…=` attribute (`test/security-headers.test.ts`), and the JS sets styles through the CSSOM only.
+Sign-in, sign-up, promo, access-code, profile-save, cost-check and test-alert limits are counters in the database
+(`auth_attempts`), counted before the slow part in one atomic statement, so every serverless instance shares them.
 
 ## Honest limits
 
@@ -250,10 +264,12 @@ mode), the app asks for it once and sends it as `x-access-code`.
   time zone is read as Pacific unless a sibling notice gives the offset, and the card says to check.
   Captured API responses are in `test/fixtures/samgov-*.json` and the bulk sample beside them;
   `npm run simulate` uses them, `--fixtures` mode and the demo do not yet.
-- Sign-in and promo rate limits live in memory per process; on serverless each instance counts on its own.
+- The jobs routes' speed bumps (posting, bidding, messages, reports) live in memory per process; on serverless each
+  instance counts on its own. The sign-in, promo and other limits above are in the database.
 - None of the 111 bids captured so far lists an estimated value, so spend limits and the value filter
   never bite on real data (the simulation reports those checks as "not exercised").
-- Phone push has never been delivered end to end. Alerts are as fresh as the last scan (once a day by
+- Phone push has never been delivered end to end to a real phone (only to a local mock of a push service). The bell's
+  **Send a test alert** button is how to check it on a device: `docs/IPHONE-ALERTS.md` has the owner's iPhone recipe. Alerts are as fresh as the last scan (once a day by
   default): "live" means the moment a scan finds a bid, not the moment a board posts it.
 - Bids are sealed: nobody sees a competitor's price before the opening. Award alerts are results after the fact,
   and they only match SAM.gov bids (the only source with a solicitation number).

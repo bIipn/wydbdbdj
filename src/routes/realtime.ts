@@ -9,7 +9,10 @@ import { env } from '../env.js';
 import { loadJobRules } from '../jobs/config.js';
 import { settleDue, type JobsDeps } from '../jobs/service.js';
 import { featuresFor } from '../plans.js';
-import { checkSubscription, usableVapid } from '../realtime/push.js';
+import { createAttemptLimiter } from '../auth/ratelimit.js';
+import { pushDecision } from '../realtime/alerts.js';
+import { sendTestPush } from '../realtime/index.js';
+import { checkSubscription, createWebPushSender, usableVapid, type PushSender } from '../realtime/push.js';
 import { createStreamHub, MAX_STREAMS_PER_ACCOUNT, MAX_STREAMS_SINGLE, REPLAY_LIMIT } from '../realtime/stream.js';
 
 export interface RealtimeRouteOptions {
@@ -21,7 +24,13 @@ export interface RealtimeRouteOptions {
   mode?: RealtimeMode;
   /** How often a polling client asks GET /api/alerts (default 60 s). */
   pollMs?: number;
+  /** POST /api/push/test's sender. Default: web push with the configured VAPID keys, as for a real alert. */
+  pushSender?: PushSender;
 }
+
+/** "Send a test alert": per account (or the pilot's one owner), counted in the database so every instance agrees. */
+export const PUSH_TEST_LIMIT = { limit: 3, windowMs: 10 * 60 * 1000 } as const;
+const TESTED_TOO_OFTEN = 'You can send 3 test alerts every 10 minutes. Wait a few minutes, then try again.';
 
 /**
  * How the app hears about new alerts.
@@ -73,7 +82,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext, opts: Re
   const mode = opts.mode ?? realtimeMode();
   if (mode === 'poll') registerPollMode(app, opts.pollMs ?? pollInterval());
   else registerStream(app, ctx, opts);
-  registerPushAndInbox(app, ctx);
+  registerPushAndInbox(app, ctx, opts.pushSender);
 }
 
 /**
@@ -134,8 +143,10 @@ function registerStream(app: FastifyInstance, ctx: RouteContext, opts: RealtimeR
 }
 
 /** Web push subscriptions and the alert inbox: the same in both modes (poll mode reads the inbox). */
-function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext): void {
+function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext, testSender?: PushSender): void {
   const { db } = ctx;
+  const attempts = createAttemptLimiter(db, ctx.now, ctx.log);
+  let webPush: PushSender | null = null;
 
   // -------------------------------------------------------------- push --
 
@@ -178,6 +189,35 @@ function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext): void {
     if (typeof endpoint !== 'string' || endpoint === '') return reply.code(400).send({ error: 'invalid_endpoint', message: 'Send { endpoint }.' });
     await deleteSubscription(db, who.owner, endpoint);
     return { ok: true };
+  });
+
+  /**
+   * "Send a test alert" (the bell, when this device is on): one notification titled "Test alert from BidSwipe" to the
+   * caller's OWN devices, through the sender and the bookkeeping a real alert uses (src/realtime/index.ts
+   * sendTestPush). Gated exactly like a real phone alert (pushDecision: the plan, the alerts switch, quiet hours),
+   * then at most PUSH_TEST_LIMIT per account. Answers how many devices were tried and accepted, never an endpoint.
+   */
+  app.post('/api/push/test', async (req, reply) => {
+    const vapid = usableVapid(ctx.config, ctx.log);
+    if (!vapid) return pushNotConfigured(reply);
+    const id = await ctx.requireProfile(req, reply);
+    if (!id) return reply;
+    const gate = pushDecision(id.profile.alerts, id.plan, ctx.now());
+    if (!featuresFor(id.plan).instantPush) {
+      return reply.code(402).send({ error: 'premium_required', message: 'Instant phone alerts are part of BidSwipe Pro.' });
+    }
+    if (gate === 'off') {
+      return reply.code(409).send({ error: 'push_off', message: 'Phone alerts are switched off in Settings → Alerts. Turn them on there, then send the test.' });
+    }
+    if (gate === 'hold') {
+      return reply.code(409).send({ error: 'quiet_hours', message: 'It’s your quiet hours (Settings → Alerts), so phone alerts wait until they end. Send the test after that.' });
+    }
+    const owner = id.account?.id ?? singleOwnerId(id.profile.id);
+    const counted = await attempts.count([{ key: `push:test:${owner}`, ...PUSH_TEST_LIMIT }]);
+    if (!counted.ok) return reply.code(429).header('retry-after', counted.retryAfterSec).send({ error: 'too_many_attempts', message: TESTED_TOO_OFTEN });
+    const sender = testSender ?? (webPush ??= createWebPushSender(vapid));
+    const { tried, accepted } = await sendTestPush(ctx, id.profile.id, owner, sender);
+    return { ok: true, tried, accepted };
   });
 
   // ------------------------------------------------------------- inbox --

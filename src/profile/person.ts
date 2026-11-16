@@ -58,6 +58,9 @@ export function cardName(businessName: string | null, accountName: string | null
  * web/js/profile-form.js defaultBusinessName). Every electrician who skipped the step has the same one, so on a
  * card it would leave the poster unable to tell bidders apart: the account's own name is used instead.
  */
+/** The name on a card BidSwipe has hidden: none of the person's own words, not even their name. */
+export const HIDDEN_NAME = 'BidSwipe member';
+
 export const isDefaultShopName = (name: string): boolean => /^My( .+)? shop$/.test(name);
 
 /**
@@ -69,9 +72,10 @@ export async function personCard(db: Db, accountId: string, opts: { forOperator?
   const facts = await cardFacts(db, accountId);
   if (!facts) return null;
   if (facts.hidden && !opts.forOperator) {
-    // Hidden by BidSwipe: the work profile is not even read, so none of its text can reach another person.
+    // Hidden by BidSwipe: the work profile is not even read, so none of its text can reach another person. The name
+    // is user-written too (a business or account name an operator cannot edit), so it goes as well (review rs-4).
     return {
-      id: accountId, name: cardName(facts.businessName, facts.accountName), headline: null, about: null, yearsExperience: null, skills: [],
+      id: accountId, name: HIDDEN_NAME, headline: null, about: null, yearsExperience: null, skills: [],
       license: null, insured: 'unsure', experience: [], resumeUrl: null, memberSince: facts.createdAt, stats: await jobStats(db, accountId), hidden: true,
     };
   }

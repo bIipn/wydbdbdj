@@ -222,7 +222,7 @@ What people write is user-generated content: job posts, messages between a poste
   abusive or threatening · spam or a scam · asks to pay or meet outside what the job needs · something else. Profile: false or
   misleading · offensive or abusive · spam or a scam · something else.
 - One open report per reporter and target (`content_reports`, two partial unique indexes). A second answers 200 with
-  `already: true` and the same thanks. The answer is "Thanks. We read every report." and nothing about how fast.
+  `already: true` and the same thanks. The answer is "Thanks. Your report was sent to BidSwipe." and nothing about how fast.
 - A report tells the reported side nothing, is not contact, and changes nothing on the job. All reports share the job
   report's limit of 10 per hour per account. The rows are shown only to operators (`GET /api/admin/jobs/reports`:
   `reports`, `conversationReports` with the thread, `profileReports` with the card's text even when hidden).

@@ -67,7 +67,7 @@ a { color: inherit; }
   flex: none; width: 44px; height: 44px; display: grid; place-items: center; padding: 0; cursor: pointer;
   border-radius: 50%; border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.04); color: var(--text);
 }
-.top-back:hover { background: rgba(255, 255, 255, 0.08); }
+@media (hover: hover) { .top-back:hover { background: rgba(255, 255, 255, 0.08); } } /* iOS keeps :hover after a tap */
 .top-back:active { background: rgba(255, 255, 255, 0.1); }
 .top-back:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
 .screen-title { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 800; letter-spacing: -0.03em; }
@@ -392,7 +392,7 @@ a { color: inherit; }
 .or::before, .or::after { content: ''; flex: 1; height: 1px; background: var(--line-2); }
 .fine { margin: 16px 8px 0; text-align: center; color: var(--faint); font-size: 12px; line-height: 1.5; }
 .fine-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
-.fine-link:hover { color: var(--text); }
+@media (hover: hover) { .fine-link:hover { color: var(--text); } }
 .promo-waiting { margin: 12px 0 0; padding: 10px 12px; border-radius: 10px; background: rgba(34, 197, 94, 0.1); color: var(--great); font-size: 13px; line-height: 1.4; }
 .demo-flag {
   display: table; margin: 10px auto 0; padding: 4px 10px; border-radius: 999px; font-weight: 700; font-size: 11.5px;
@@ -630,7 +630,8 @@ a { color: inherit; }
 .result-count { font-size: 13px; font-weight: 650; color: var(--muted); }
 .sort { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--faint); font-weight: 600; }
 .sort-select {
-  appearance: none; -webkit-appearance: none; font: inherit; font-size: 13px; font-weight: 650; color: var(--text); cursor: pointer;
+  /* 16px: iOS zooms the page into any field under 16px when it is tapped (audit ios-zoom-1); desktop.css keeps 13px */
+  appearance: none; -webkit-appearance: none; font: inherit; font-size: 16px; font-weight: 650; color: var(--text); cursor: pointer;
   background: rgba(255, 255, 255, 0.03) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a1b2' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 12px;
   border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 28px 6px 12px; color-scheme: dark;
 }
@@ -1229,7 +1230,7 @@ button.pmini:active { background: var(--card-2); }
   flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
   background: transparent; color: var(--muted);
 }
-.sub-note-x:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); }
+@media (hover: hover) { .sub-note-x:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); } }
 .sub-intro { border-style: solid; border-color: color-mix(in srgb, var(--sub) 28%, transparent); background: color-mix(in srgb, var(--sub) 6%, transparent); }
 
 /* Browse's three-way filter: Fits · Sub work · Everything, equal segments, each with its count. */
@@ -1376,7 +1377,7 @@ button.pmini:active { background: var(--card-2); }
   border: 1px solid var(--line-2); border-radius: 999px; background: var(--card); color: var(--text);
   font-size: 14px; line-height: 1.2; font-variant-numeric: tabular-nums; white-space: nowrap; transition: border-color 0.15s;
 }
-.tape:hover { border-color: rgba(255, 255, 255, 0.2); }
+@media (hover: hover) { .tape:hover { border-color: rgba(255, 255, 255, 0.2); } }
 .tape-go {
   position: relative; flex: 1 1 auto; min-width: 0; align-self: stretch; display: flex; align-items: center; gap: 9px;
   padding: 0 4px 0 8px; border-radius: 999px; cursor: pointer; color: inherit; outline: none;
@@ -1412,7 +1413,7 @@ button.pmini:active { background: var(--card-2); }
   display: grid; place-items: center; background: transparent; color: var(--muted); cursor: pointer;
 }
 .tape-toggle::before { content: ''; position: absolute; inset: -3px -4px; } /* a 44 px target inside a 46 px pill */
-.tape-toggle:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); }
+@media (hover: hover) { .tape-toggle:hover { color: var(--text); background: rgba(255, 255, 255, 0.05); } }
 .tape-toggle:focus-visible { outline: 2px solid var(--volt); outline-offset: 0; color: var(--text); }
 .tape-toggle.is-play { color: var(--volt); }
 @media (prefers-reduced-motion: reduce) { .tape-row { transition: none; } .tape { transition: none; } }
@@ -1478,7 +1479,7 @@ button.pmini:active { background: var(--card-2); }
   border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.04); color: var(--text);
   font: inherit; font-size: 13.5px; font-weight: 600; text-align: left; overflow-wrap: anywhere; cursor: pointer;
 }
-button.hx-chip:hover { border-color: rgba(255, 212, 59, 0.45); }
+@media (hover: hover) { button.hx-chip:hover { border-color: rgba(255, 212, 59, 0.45); } }
 .hx-chip.is-plain { cursor: default; }
 .hx-chip.is-trade { border-color: rgba(255, 212, 59, 0.35); }
 .hx-add {
@@ -1620,3 +1621,71 @@ button.hx-chip:hover { border-color: rgba(255, 212, 59, 0.45); }
 .report-hidden-mini { color: var(--faint); font-style: italic; }
 .msg.is-removed { background: transparent; border-style: dashed; border-color: var(--line-2); }
 .msg-removed { color: var(--faint); font-style: italic; }
+
+/* ---- iphone ---- */
+/* The iPhone audit (fix-ios stage). Everything here is harmless where it does not apply: a zero inset is a zero band,
+   and a -webkit- line is the same value Chromium already reads unprefixed. */
+
+/* ios-statusbar-1: index.html's black-translucent status bar draws the page UNDER the clock and the Dynamic Island in
+   the installed app. One fixed band the height of the top inset backs them, so scrolled cards never run under the
+   white status text. 0 px tall wherever the inset is 0 (a browser tab, Android, desktop). Above the tab bar (15),
+   below the sheet (20/21) and the toast (30); .app's own top padding keeps the price pill clear of it at scroll 0. */
+.app::before {
+  content: ''; position: fixed; top: 0; left: 0; right: 0; height: env(safe-area-inset-top, 0px); z-index: 16; pointer-events: none;
+  background: rgba(10, 13, 18, 0.94); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+}
+
+/* ios-css-2: iOS does not honour background-attachment: fixed, so the two glows scrolled away with a long page.
+   A fixed layer behind everything draws them instead (body keeps no stacking context of its own, so z-index -1
+   sits above the canvas colour and below the app). Same gradients, same viewport-sized box as before. */
+body { background: var(--bg); }
+body::before {
+  content: ''; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(255, 212, 59, 0.08), transparent 60%),
+    radial-gradient(900px 500px at 100% 100%, rgba(34, 197, 94, 0.05), transparent 60%);
+}
+
+/* ios-css-1: Safari before 18 blurs only with the prefix. */
+.stamp { -webkit-backdrop-filter: blur(2px); }
+.sheet-backdrop { -webkit-backdrop-filter: blur(3px); }
+
+/* ios-select-1: a slow press-and-drag on a card must start a swipe, not a text selection or the long-press callout. */
+.card { -webkit-user-select: none; -webkit-touch-callout: none; }
+
+/* ios-sheet-1 + ios-vh-1: the sheet's own scroll never chains into the page behind; in a Safari tab vh is the
+   viewport with the toolbars hidden, so svh (the smallest one) where it exists keeps the sheet's top on screen. */
+.sheet { overscroll-behavior: contain; max-height: 88vh; max-height: 88svh; }
+.sheet .desc { max-height: 34vh; max-height: 34svh; }
+.deck { height: min(68vh, 600px); height: min(68svh, 600px); }
+
+/* ios-zoom-1: the Search sort pill is 16px now (above); a little less padding keeps it a pill. */
+.sort-select { padding: 4px 26px 4px 10px; }
+
+/* ui-bidi-1: names, titles, headlines and message bodies people typed. A right-to-left override inside one of them
+   stays inside it and cannot reverse the text drawn next to it ("Bidder 2 · 3 h ago"). Nothing is stripped. */
+.pcard-name, .pcard-headline, .pmini-name, .pmini-line, .job-title, .job-row-text h4, .bt-who,
+.mx-name, .mx-title, .mx-head-title, .msg p, .card h2, .sheet h2 { unicode-bidi: isolate; }
+
+/* The bell's phone-alert panel: the iPhone steps, the test button and its result line. */
+.push-panel .pc-fine { margin-top: 8px; }
+.push-steps { margin: 8px 0 0; padding-left: 22px; font-size: 13px; line-height: 1.45; color: var(--text); }
+.push-steps li + li { margin-top: 6px; }
+.push-steps li::marker { color: var(--volt); font-weight: 800; }
+.push-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+.push-actions .cta { margin-top: 0; padding-left: 10px; padding-right: 10px; }
+.push-test-line { margin: 10px 0 0; font-size: 13px; line-height: 1.45; color: var(--text); }
+
+/* Settings → Alerts: this device's phone-alert state and a way to the bell's panel. */
+.field.push-row { flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.push-row-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.push-row-label { font-size: 13px; color: var(--muted); }
+.push-row-state { font-size: 15px; }
+.push-row-state.is-on { color: var(--great); }
+.push-row-state.is-denied { color: var(--over); }
+.cta.ghost.push-row-open { width: auto; flex: none; margin-top: 0; padding: 10px 16px; }
+
+/* ---- finish ---- */
+/* While a conversation's Report form is open, the pinned composer steps aside: two Send buttons on screen, and the
+   form's bottom under the composer, read as one form (review rs-3). Closing the form brings the composer back. */
+.mx-convo:has(.mx-report .report-form) .mx-foot { display: none; }

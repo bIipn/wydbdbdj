@@ -15,18 +15,21 @@ import {
   paperworkSection, setAsidesSection, tradesSection, whereSection,
 } from '../profile-form.js';
 import { promoRow } from '../promo.js';
+import { devicePush, standalone } from '../push.js';
 import { applyMe, loadFeed, onSignedOut, signOut } from '../session.js';
 import { goBack, onAfterRender, registerView, render, setView } from '../shell.js';
 import { features, intent, PRIME_TRADE, state } from '../state.js';
+import { openAlerts } from './alerts.js';
 import { fieldsObject, workBodyFrom, workDraftFrom, workProfileSection } from '../work-profile.js';
 
 // work: the work-profile draft and the saved card (GET /api/work-profile), loaded when Settings opens.
-const ui = { draft: null, initial: null, trades: null, setAsides: null, busy: false, confirm: false, work: null, workInitial: null, card: null, workLoading: false };
-onSignedOut(() => { Object.assign(ui, { draft: null, initial: null, confirm: false, work: null, workInitial: null, card: null }); });
+const ui = { draft: null, initial: null, trades: null, setAsides: null, busy: false, confirm: false, work: null, workInitial: null, card: null, workLoading: false, push: null };
+onSignedOut(() => { Object.assign(ui, { draft: null, initial: null, confirm: false, work: null, workInitial: null, card: null, push: null }); });
 
 const PLAN_TEXT = {
   free: 'Daily digest and in-app alerts. Pro adds instant phone alerts, award history, the cost check and your own cost settings.',
-  pro: 'Instant phone alerts, award history, the cost check and cost settings are on.',
+  // Phone alerts are per device (the bell turns them on), so the plan line never says they are on here.
+  pro: 'Instant phone alerts, award history, the cost check and cost settings are part of your plan. Phone alerts are turned on for each device from the bell.',
   pilot: 'Every feature is on for the pilot.',
 };
 
@@ -40,6 +43,33 @@ function startEditing() {
   ui.draft = draftFromSummary(state.me.profile, intent());
   ui.initial = snapshot();
   ui.confirm = false;
+  ui.push = null; // this device's phone-alert state, read again on each visit (pushRow)
+}
+
+/** How the row names this device's phone-alert state (push.js devicePush). Absent = no row. */
+const PUSH_WORD = {
+  on: 'On', off: 'Off', denied: 'Blocked', unsupported: 'Not in this browser', old_ios: 'Needs iOS 16.4 or later',
+  insecure: 'Needs https', error: 'Couldn’t check', ios_tab: 'Needs the Home Screen',
+};
+
+/**
+ * "Phone alerts on this device": what the bell's panel would say, in one word, and a button there (the switch, the
+ * steps and the test live in one place). Only for a plan with instant push, and only once the state is known.
+ */
+function pushRow() {
+  if (!features()?.instantPush) return null;
+  if (ui.push === null) {
+    ui.push = 'checking';
+    devicePush(true).then(({ state: s }) => { ui.push = s; if (state.view === 'settings') render(); }).catch(() => { ui.push = 'error'; });
+  }
+  const shown = ui.push === 'unsupported' && standalone() === false ? 'ios_tab' : ui.push;
+  const word = PUSH_WORD[shown];
+  if (!word) return null;
+  // "Set up" only where there is something to set up; a state the bell can only explain gets "Details" (review rs-6).
+  const action = shown === 'on' ? 'Manage' : ['off', 'denied', 'ios_tab'].includes(shown) ? 'Set up' : 'Details';
+  return h('div', { class: 'field push-row' },
+    h('div', { class: 'push-row-text' }, h('span', { class: 'push-row-label' }, 'Phone alerts on this device'), h('strong', { class: `push-row-state is-${ui.push}` }, word)),
+    h('button', { type: 'button', class: 'cta ghost push-row-open', onclick: () => { ui.push = null; openAlerts({ back: 'settings' }); } }, action));
 }
 
 /** The saved work profile and card, once per visit to Settings. A failure leaves the section saying so. */
@@ -250,7 +280,7 @@ function renderSettings() {
     hire ? null : section('Set-aside certifications', setAsidesSection(d, ui.setAsides)),
     section('Your work profile', h('p', { class: 'field-help wp-intro' }, 'What people you deal with on a job see about you. Everything here is optional.'), workBody),
     work ? section('How others see you', work.preview, h('p', { class: 'field-help' }, 'Shown only to people you deal with on a job. Never your email, phone or address.')) : null,
-    section('Alerts', alertsSection(d, hire ? { kinds: true, kindIds: HIRE_KINDS, minScore: false, timeZone: true, features: f } : { kinds: true, timeZone: true, features: f })),
+    section('Alerts', pushRow(), alertsSection(d, hire ? { kinds: true, kindIds: HIRE_KINDS, minScore: false, timeZone: true, features: f } : { kinds: true, timeZone: true, features: f })),
     formError(),
     h('div', { class: 'save-bar' }, saveBtn),
   );

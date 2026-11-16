@@ -208,6 +208,14 @@ describe('POST /api/promo/redeem', () => {
     expect((await redeem(app, cookie, 'A&Btest')).statusCode).toBe(200);
   });
 
+  it('a burst of simultaneous wrong codes is held to 5: each try is counted before the code is looked at (review rs-1)', async () => {
+    const { app } = await server('A&Btest:pro');
+    const cookie = await signUp(app);
+    const burst = await Promise.all(Array.from({ length: 30 }, (_, i) => redeem(app, cookie, `TEST-WRONG-${i}`)));
+    expect(burst.filter((r) => r.statusCode === 400)).toHaveLength(5);
+    expect(burst.filter((r) => r.statusCode === 429)).toHaveLength(25);
+  });
+
   it('also limits per address: a new account from the same address does not get 5 more', async () => {
     const { app } = await server('A&Btest:pro');
     const a = await signUp(app);

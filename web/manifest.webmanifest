@@ -2,7 +2,7 @@
   "id": "/",
   "name": "BidSwipe",
   "short_name": "BidSwipe",
-  "description": "Open public bids that fit your trade and service area, scored for your business with the reasons why. Swipe to save or pass, then bid on the agency's own site.",
+  "description": "Open public bids that fit your trade, scored with the reasons why: you bid on the agency's own site. And local jobs, where people post work and others place a sealed bid in the app; the lowest bid wins.",
   "lang": "en-US",
   "dir": "ltr",
   "start_url": "./",
@@ -14,6 +14,7 @@
   "theme_color": "#0a0d12",
   "categories": ["business", "productivity"],
   "prefer_related_applications": false,
+  "launch_handler": { "client_mode": ["navigate-existing", "auto"] },
   "icons": [
     { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
     { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
@@ -42,31 +43,45 @@
   ],
   "shortcuts": [
     {
-      "name": "Swipe bids",
-      "short_name": "Swipe",
-      "description": "The next bid that fits you, one at a time",
-      "url": "./?view=swipe",
+      "name": "Home",
+      "short_name": "Home",
+      "description": "Your best matching bids, as a list or one at a time",
+      "url": "./?view=home",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
-      "name": "Search all bids",
+      "name": "Search",
       "short_name": "Search",
-      "description": "Every open bid that fits, as a list you can search and sort",
+      "description": "Every open bid that fits, with filters and sorting",
       "url": "./?view=browse",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Saved",
+      "short_name": "Saved",
+      "description": "The bids you saved",
+      "url": "./?view=saved",
+      "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "Jobs",
+      "short_name": "Jobs",
+      "description": "Local jobs: post one, or bid on one near you",
+      "url": "./?view=jobs",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     },
     {
       "name": "Alerts",
       "short_name": "Alerts",
-      "description": "New matches, deadlines and award notices",
+      "description": "New matches, reminders and news on your local jobs",
       "url": "./?view=alerts",
       "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" }]
     }
   ],
   "screenshots": [
-    { "src": "icons/screenshots/narrow-swipe.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Swipe: one bid at a time, with the reasons it fits your business" },
-    { "src": "icons/screenshots/narrow-browse.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Browse: every open bid that fits, best fit first" },
-    { "src": "icons/screenshots/wide-swipe.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "BidSwipe on a desktop: the bid card with why it fits" },
-    { "src": "icons/screenshots/wide-browse.png", "sizes": "1280x800", "type": "image/png", "form_factor": "wide", "label": "BidSwipe on a desktop: the list of open bids" }
+    { "src": "icons/screenshots/narrow-home.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Home: your matching public bids as a list, with a government price index at the top" },
+    { "src": "icons/screenshots/narrow-search.png", "sizes": "780x1688", "type": "image/png", "form_factor": "narrow", "label": "Search: every open public bid that fits, with filters and sorting" },
+    { "src": "icons/screenshots/wide-home.png", "sizes": "1920x1080", "type": "image/png", "form_factor": "wide", "label": "Home on a desktop: matching public bids with the reasons they fit" },
+    { "src": "icons/screenshots/wide-search.png", "sizes": "1920x1080", "type": "image/png", "form_factor": "wide", "label": "Search on a desktop: every open public bid that fits, best fit first" }
   ]
 }

@@ -63,14 +63,44 @@ describe('home tasks', () => {
     expect(t.paperworkOpen(profile({ base: 'Gardnerville, NV', qualifications: { ...ANSWERED, statePublicWorks: 'unsure' } }))).toEqual(['statePublicWorks']);
   });
 
-  it('phone alerts: only when the plan has them AND this device is off (never locked, unsupported, denied or not set up)', () => {
+  it('phone alerts: only when the plan has them AND this device can do something about it', () => {
     expect(ids(facts({ features: { instantPush: true }, push: 'off' }))).toEqual(['push']);
-    for (const push of ['on', 'locked', 'denied', 'unsupported', 'insecure', 'not_configured', 'error', null]) {
-      expect(ids(facts({ features: { instantPush: true }, push }))).toEqual([]);
+    // Nothing to say: on, locked, no keys on the server, an old iOS, a browser without push off iOS, not checked yet.
+    for (const standalone of [undefined, true, false]) {
+      for (const push of ['on', 'locked', 'old_ios', 'insecure', 'not_configured', 'error', null]) {
+        expect(ids(facts({ features: { instantPush: true }, push, standalone })), `${push} ${standalone}`).toEqual([]);
+      }
     }
+    // "unsupported" is a task only in an iPhone/iPad browser tab (navigator.standalone === false): not on Android,
+    // Windows or a desktop browser (undefined), and not in the Home Screen app (true: that is 'old_ios').
+    expect(ids(facts({ features: { instantPush: true }, push: 'unsupported' }))).toEqual([]);
+    expect(ids(facts({ features: { instantPush: true }, push: 'unsupported', standalone: true }))).toEqual([]);
+    expect(ids(facts({ features: { instantPush: true }, push: 'unsupported', standalone: false }))).toEqual(['push']);
     // The Premium rule: a plan without instant push never gets it as a task, whatever the device says.
-    expect(ids(facts({ features: { instantPush: false }, push: 'off' }))).toEqual([]);
+    for (const [push, standalone] of [['off', undefined], ['unsupported', false], ['denied', true], ['denied', undefined]]) {
+      expect(ids(facts({ features: { instantPush: false }, push, standalone }))).toEqual([]);
+    }
     expect(t.homeTasks(facts({ features: { instantPush: true }, push: 'off' }))[0]!.actions[0]!.go).toEqual({ to: 'alerts' });
+  });
+
+  it('phone alerts in a Safari tab on an iPhone: says the Home Screen is needed and goes to the steps', () => {
+    const [task] = t.homeTasks(facts({ features: { instantPush: true }, push: 'unsupported', standalone: false }));
+    expect(task).toEqual({
+      id: 'push', title: 'Get phone alerts on this iPhone',
+      text: 'iPhone and iPad send alerts only from BidSwipe on the Home Screen. Adding it there from Safari takes a minute.',
+      actions: [{ label: 'Show me how', go: { to: 'alerts' } }],
+    });
+  });
+
+  it('phone alerts blocked: says where to unblock them, iOS Settings in the Home Screen app, the browser elsewhere', () => {
+    const ios = t.homeTasks(facts({ features: { instantPush: true }, push: 'denied', standalone: true }))[0]!;
+    expect(ios.title).toBe('Phone alerts are blocked on this device');
+    expect(ios.text).toBe('Open the Settings app → Notifications → BidSwipe and turn on Allow Notifications.');
+    expect(ios.actions).toEqual([{ label: 'Check phone alerts', go: { to: 'alerts' } }]);
+    for (const standalone of [undefined, false]) {
+      const other = t.homeTasks(facts({ features: { instantPush: true }, push: 'denied', standalone }))[0]!;
+      expect(other.text).toBe('Allow notifications for BidSwipe in your browser’s site settings, then come back.');
+    }
   });
 
   it('work profile: only when local jobs are on and it is really empty (not while it loads)', () => {

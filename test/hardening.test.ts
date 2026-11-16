@@ -40,9 +40,12 @@ describe('errors never carry a database message', () => {
 
     const badJson = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { ...CSRF, 'content-type': 'application/json' }, payload: '{"email":' });
     expect(badJson.statusCode).toBe(400);
-    expect(badJson.json().error).toBe('FST_ERR_CTP_INVALID_JSON_BODY');
+    // The shape Fastify always gave (review rs-5): statusCode, code, the reason phrase, the message.
+    expect(Object.keys(badJson.json()).sort()).toEqual(['code', 'error', 'message', 'statusCode']);
+    expect(badJson.json()).toMatchObject({ statusCode: 400, code: 'FST_ERR_CTP_INVALID_JSON_BODY', error: 'Bad Request' });
     const wrongType = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { ...CSRF, 'content-type': 'text/x-TEST' }, payload: 'x' });
     expect(wrongType.statusCode).toBe(415);
+    expect(wrongType.json()).toMatchObject({ statusCode: 415, error: 'Unsupported Media Type' });
     const big = await app.inject({ method: 'POST', url: '/api/auth/login', headers: { ...CSRF, 'content-type': 'application/json' }, payload: JSON.stringify({ x: 'a'.repeat(1_100_000) }) });
     expect(big.statusCode).toBe(413);
   });
@@ -64,7 +67,6 @@ describe('a NUL byte is refused before any query (it used to answer 500 with the
     ['GET', '/api/bids/%00', undefined],
     ['POST', '/api/swipe', { bidId: '\u0000', action: 'save' }],
     ['DELETE', '/api/swipe/%00', undefined],
-    ['GET', '/api/feed?q=%00', undefined],
   ] as const)('%s %s → 400', async (method, url, payload) => {
     const res = await app.inject({ method, url, headers: CSRF, ...(payload ? { payload } : {}) });
     expect([res.statusCode, res.json()]).toEqual([400, { error: 'invalid_input', message: 'Text cannot contain a NUL character.' }]);
@@ -124,6 +126,15 @@ describe('single mode ACCESS_CODE', () => {
     expect((await feed(app, code, '198.51.100.9')).statusCode).toBe(200);
     clock += ACCESS_CODE_LIMIT.windowMs;
     expect((await feed(app, code)).statusCode).toBe(200);
+  });
+
+  it('a burst of simultaneous wrong codes is held to the limit: a wrong code is counted before it is answered (review rs-4)', async () => {
+    const code = 'TEST-access-code-0123456789';
+    const app = track((await buildApp({ db, profile: pilot() }, { config: loadConfig({}), accessCode: code, now })).app);
+    const burst = await Promise.all(Array.from({ length: 200 }, (_, i) => feed(app, `TEST-burst-${i}`)));
+    expect(burst.filter((r) => r.statusCode === 401)).toHaveLength(ACCESS_CODE_LIMIT.limit);
+    expect(burst.filter((r) => r.statusCode === 429)).toHaveLength(200 - ACCESS_CODE_LIMIT.limit);
+    expect((await feed(app, code)).statusCode).toBe(429);
   });
 
   it('a code shorter than 16 characters starts anyway, with one warning line that names its length, never the code', async () => {

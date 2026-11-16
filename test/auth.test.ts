@@ -90,8 +90,8 @@ const setCookie = (res: LightMyRequestResponse): string => String(res.headers['s
 const cookieOf = (res: LightMyRequestResponse): string => setCookie(res).split(';')[0]!;
 const tokenOf = (res: LightMyRequestResponse): string => cookieOf(res).slice('bs_session='.length);
 
-async function signUp(app: FastifyInstance, email = EMAIL, password = PASSWORD) {
-  const res = await post(app, '/api/auth/signup', { email, password, name: 'TEST Owner (simulated)' });
+async function signUp(app: FastifyInstance, email = EMAIL, password = PASSWORD, ip?: string) {
+  const res = await post(app, '/api/auth/signup', { email, password, name: 'TEST Owner (simulated)' }, ip ? { 'x-forwarded-for': ip } : {});
   expect(res.statusCode).toBe(201);
   return { cookie: cookieOf(res), token: tokenOf(res), account: res.json().account as Account };
 }
@@ -496,7 +496,7 @@ describe('rate limit', () => {
     expect((await login(app, ' Test.Owner@EXAMPLE.com', PASSWORD, '192.0.2.10')).statusCode).toBe(200);
     // ...and that success cleared the e-mail-wide counter (the attacker's address keeps its own block).
     const left = await db.query<{ key: string }>(`select key from auth_attempts where key like 'login:%' order by key`);
-    expect(left.map((r) => r.key)).toEqual([`login:ip:203.0.113.66`, `login:known:${EMAIL}|192.0.2.10`, `login:pair:${EMAIL}|203.0.113.66`]);
+    expect(left.map((r) => r.key)).toEqual([`login:ip:203.0.113.66`, `login:known:${EMAIL}|127.0.0.1`, `login:known:${EMAIL}|192.0.2.10`, `login:pair:${EMAIL}|203.0.113.66`]);
     expect((await login(app, EMAIL, PASSWORD, '203.0.113.66')).statusCode).toBe(429);
   });
 
@@ -509,18 +509,52 @@ describe('rate limit', () => {
     }
   });
 
-  it('guesses spread over many addresses run out on the e-mail key, but the owner\'s known address still gets in', async () => {
+  it('guesses spread over many addresses: past the e-mail-wide limit each new address gets 3 tries, and the right password still gets in from anywhere (review rs-2)', async () => {
     const { app } = await server();
-    await signUp(app, EMAIL, PASSWORD);
-    expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200); // the owner's usual address
+    await signUp(app, EMAIL, PASSWORD, '192.0.2.10'); // the owner's usual address (sign-up remembers it)
     for (let i = 0; i < wide.limit; i++) expect((await login(app, EMAIL, `TEST-spread-${i}`, `10.${i >> 8}.${i & 255}.1`)).statusCode).toBe(401);
+    // A fresh address now has the small allowance: 3 wrong guesses, then 429.
+    const { pairUnderAttack } = SIGN_IN_LIMITS;
+    for (let i = 0; i < pairUnderAttack.limit; i++) expect((await login(app, EMAIL, `TEST-spread-x${i}`, '10.200.0.1')).statusCode).toBe(401);
     const fresh = await login(app, EMAIL, 'TEST-spread-last', '10.200.0.1');
     expect(fresh.statusCode).toBe(429);
     expect(fresh.json()).toEqual(TOO_MANY);
-    expect((await login(app, EMAIL, PASSWORD, '10.200.0.2')).statusCode).toBe(429); // an unknown address waits, right password or not
+    // The owner on a brand-new carrier address, with the right password: in (was 429 before review rs-2).
+    expect((await login(app, EMAIL, PASSWORD, '10.200.0.2')).statusCode).toBe(200);
+    // The attack goes on; the owner's sign-up address is known, so it is never held to the small allowance.
+    for (let i = 0; i < wide.limit; i++) await login(app, EMAIL, `TEST-spread-again-${i}`, `10.100.${i & 255}.9`);
     expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200);
     // That caller's own allowance is intact for another email.
     expect((await login(app, 'test.other@example.com', PASSWORD, '10.200.0.1')).statusCode).toBe(401);
+  });
+
+  it('a burst of simultaneous wrong passwords is held to the limit: each attempt is counted before the password is checked (review rs-1)', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD);
+    const burst = await Promise.all(Array.from({ length: 60 }, (_, i) => login(app, EMAIL, `TEST-burst-${i}`, '203.0.113.77')));
+    const tally: Record<number, number> = {};
+    for (const r of burst) tally[r.statusCode] = (tally[r.statusCode] ?? 0) + 1;
+    expect(tally).toEqual({ 401: pair.limit, 429: 60 - pair.limit });
+    // Spread over e-mails from one address: held to the address-wide limit.
+    const wideBurst = await Promise.all(Array.from({ length: perIp.limit + 20 }, (_, i) => login(app, `test.burst${i}@example.com`, PASSWORD, '203.0.113.78')));
+    expect(wideBurst.filter((r) => r.statusCode === 401)).toHaveLength(perIp.limit);
+  });
+
+  it('typos from a shared office address never lock out a person who signs in there (review rs-3)', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD, '198.51.100.1');
+    expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200); // the owner signs in at the office
+    for (let i = 0; i < perIp.limit; i++) await login(app, `test.typo${i}@example.com`, 'TEST-typo', '192.0.2.10');
+    expect((await login(app, 'test.typo-last@example.com', 'TEST-typo', '192.0.2.10')).statusCode).toBe(429);
+    expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200);
+  });
+
+  it('a 429 says how long is really left, from the counter\'s own window', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD);
+    for (let i = 0; i < pair.limit; i++) await login(app, EMAIL, `TEST-wait-${i}`, '203.0.113.90');
+    clock += 5 * 60 * 1000;
+    expect((await login(app, EMAIL, PASSWORD, '203.0.113.90')).headers['retry-after']).toBe('600');
   });
 
   it('one address guessing many e-mails stops after its failure allowance', async () => {

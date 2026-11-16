@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { createAuth, isSignInService, type SignInError, type SignInResult } from '../auth/index.js';
 import { normalizeEmail } from '../auth/input.js';
 import { findCode, isLive, parsePromoCodes } from '../auth/promo.js';
-import { clientIp, createAttemptLimiter, type LimitRule, type Verdict } from '../auth/ratelimit.js';
+import { clientIp, createAttemptLimiter, secondsLeft, type LimitRule, type Verdict } from '../auth/ratelimit.js';
 import { renewedToken, sessionCookie } from '../auth/sessions.js';
 import { OAUTH_PROVIDERS } from '../auth/supabase.js';
 import type { RouteContext } from '../context.js';
@@ -14,21 +14,25 @@ import { requireAdmin } from './shared.js';
 
 const MIN = 60 * 1000;
 /**
- * Sign-in and sign-up limits (src/auth/ratelimit.ts, counters in the database). Only FAILED sign-ins are counted:
- * an office or a mobile carrier's shared address is never locked out by people signing in successfully.
- *   pair   e-mail + address: the hard limit on guessing one account from one place;
- *   email  e-mail alone, much looser: guesses spread over many addresses still run out, but it refuses only
- *          addresses that have not signed in to that e-mail before (known), so a stranger cannot lock the owner
- *          out of the places they sign in from;
- *   ip     the address over every e-mail (credential stuffing from one place);
- *   known  remembered on a successful sign-in, 30 days.
- * A successful sign-in clears that e-mail's pair and email counters. Sign-up counts its failures per address,
- * and every sign-up per address under a loose cap (each one creates an account).
+ * Sign-in and sign-up limits (src/auth/ratelimit.ts, counters in the database). Every attempt is counted BEFORE the
+ * password is checked (one atomic statement, so a burst of simultaneous guesses cannot all slip past a read: review
+ * rs-1), and a successful one gives its count back: in effect only FAILED sign-ins are counted, and an office or a
+ * mobile carrier's shared address is never locked out by people signing in successfully.
+ *   pair         e-mail + address: the hard limit on guessing one account from one place;
+ *   email        e-mail alone: once guesses spread over many addresses pass it, every address that never signed in
+ *                to that e-mail gets the much smaller `pairUnderAttack` allowance instead of `pair`. It never refuses
+ *                anyone by itself, so a stranger cannot lock the owner out of a new address (review rs-2);
+ *   ip           the address over every e-mail (credential stuffing from one place). A known e-mail + address is not
+ *                held to it, so 100 typos in an office never lock out the people who sign in there (review rs-3);
+ *   known        remembered on a successful sign-in or sign-up, 30 days.
+ * A successful sign-in clears that e-mail's pair and email counters. Sign-up counts every sign-up per address under
+ * a loose cap (each one creates an account) and gives back the count of the failed-sign-up rule when it worked.
  */
 export const SIGN_IN_LIMITS = {
   pair: { limit: 10, windowMs: 15 * MIN },
+  pairUnderAttack: { limit: 3, windowMs: 15 * MIN },
   email: { limit: 100, windowMs: 15 * MIN },
-  ip: { limit: 30, windowMs: 15 * MIN },
+  ip: { limit: 100, windowMs: 15 * MIN },
   known: { limit: 1_000_000, windowMs: 30 * 24 * 60 * MIN },
   signupFailed: { limit: 20, windowMs: 15 * MIN },
   signupAll: { limit: 100, windowMs: 60 * MIN },
@@ -100,33 +104,49 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     reply.code(429).header('retry-after', verdict.retryAfterSec).send({ error: 'too_many_attempts', message: TOO_MANY });
 
   /**
-   * May this caller try to sign in to `email` now? Reads the counters (one statement), counts nothing. The e-mail-wide
-   * key refuses only addresses that never signed in to that e-mail: the owner's own places keep working.
+   * Count this sign-in attempt and say whether it may go ahead (count first, review rs-1). The caller gives the
+   * count back with `settle` when the attempt turns out right. A known e-mail + address skips the address-wide rule;
+   * an unknown one gets the small `pairUnderAttack` allowance while the e-mail is over its e-mail-wide limit.
    */
-  const mayTry = async (ip: string, email: string | null): Promise<Verdict> => {
-    const rules = [rule('ip', `login:ip:${ip}`)];
-    if (!email) return attempts.check(rules);
-    const pair = rule('pair', `login:pair:${email}|${ip}`);
-    const wide = rule('email', `login:email:${email}`);
-    const known = `login:known:${email}|${ip}`;
-    const own = await attempts.check([...rules, pair]);
-    if (!own.ok) return own;
-    const counts = await attempts.peek([wide.key, known]);
-    if ((counts.get(wide.key) ?? 0) >= wide.limit && !counts.get(known)) return { ok: false, retryAfterSec: Math.ceil(wide.windowMs / 1000) };
-    return own;
+  const take = async (ip: string, email: string | null): Promise<Verdict & { known: boolean }> => {
+    const ipRule = rule('ip', `login:ip:${ip}`);
+    const knownKey = email ? `login:known:${email}|${ip}` : null;
+    const known = knownKey ? (await attempts.peek([knownKey])).has(knownKey) : false;
+    const pair = email ? rule('pair', `login:pair:${email}|${ip}`) : null;
+    const wide = email ? rule('email', `login:email:${email}`) : null;
+    const rules = [...(known ? [] : [ipRule]), ...(pair && wide ? [pair, wide] : [])];
+    const { counted } = await attempts.count(rules);
+    const at = ctx.now().getTime();
+    const n = (key: string) => counted.get(key)?.count ?? 0;
+    const refused: string[] = [];
+    if (!known && n(ipRule.key) > ipRule.limit) refused.push(ipRule.key);
+    if (pair && wide) {
+      const allowance = !known && n(wide.key) > wide.limit ? SIGN_IN_LIMITS.pairUnderAttack.limit : pair.limit;
+      if (n(pair.key) > allowance) refused.push(pair.key);
+    }
+    return refused.length ? { ok: false, retryAfterSec: secondsLeft(counted, refused, at), known } : { ok: true, retryAfterSec: 1, known };
   };
-  /** After the attempt: a failure is counted; a success clears that e-mail's counters and remembers the address. */
-  const settle = async (ip: string, email: string | null, result: SignInResult): Promise<void> => {
+  /** Remember that this address signs in to this e-mail (30 days): it is then never held to the address-wide rule. */
+  const remember = async (ip: string, email: string): Promise<void> => {
+    await attempts.count([rule('known', `login:known:${email}|${ip}`)]);
+  };
+  /**
+   * After the attempt. A success gives back the address's provisional count, clears that e-mail's counters and
+   * remembers the address. A failure that was not a wrong password (a malformed e-mail, a bad token) keeps only
+   * the address count. A wrong password keeps everything it counted.
+   */
+  const settle = async (ip: string, email: string | null, known: boolean, result: SignInResult): Promise<void> => {
+    const ipKey = `login:ip:${ip}`;
     if (result.ok) {
       const who = normalizeEmail(result.account.email) ?? email;
+      if (!known) await attempts.release([ipKey]);
       if (!who) return;
       await attempts.clear([`login:pair:${who}|${ip}`, `login:email:${who}`]);
-      await attempts.count([rule('known', `login:known:${who}|${ip}`)]);
+      if (who !== email && email) await attempts.clear([`login:pair:${email}|${ip}`, `login:email:${email}`]);
+      await remember(ip, who);
       return;
     }
-    const rules = [rule('ip', `login:ip:${ip}`)];
-    if (email && result.error === 'invalid_credentials') rules.push(rule('pair', `login:pair:${email}|${ip}`), rule('email', `login:email:${email}`));
-    await attempts.count(rules);
+    if (email && result.error !== 'invalid_credentials') await attempts.release([`login:pair:${email}|${ip}`, `login:email:${email}`]);
   };
 
   const answer = async (req: FastifyRequest, reply: FastifyReply, result: SignInResult, status = 200) => {
@@ -166,10 +186,14 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const ip = clientIp(req);
     const failed = rule('signupFailed', `signup:failed:${ip}`);
     const all = rule('signupAll', `signup:all:${ip}`);
-    const verdict = await attempts.check([failed, all]);
+    const verdict = await attempts.count([failed, all]); // counted first (review rs-1); a sign-up that worked gives back `failed`
     if (!verdict.ok) return tooMany(reply, verdict);
     const result = await signIn.signUp(fields(req.body));
-    await attempts.count(result.ok ? [all] : [all, failed]);
+    if (result.ok) {
+      await attempts.release([failed.key]);
+      const who = normalizeEmail(result.account.email);
+      if (who) await remember(ip, who); // the address you signed up from is one you sign in from (review rs-2)
+    }
     return answer(req, reply, result, 201);
   });
 
@@ -177,19 +201,19 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const body = fields(req.body);
     const ip = clientIp(req);
     const email = normalizeEmail(body.email);
-    const verdict = await mayTry(ip, email);
+    const verdict = await take(ip, email);
     if (!verdict.ok) return tooMany(reply, verdict);
     const result = await signIn.logIn(body);
-    await settle(ip, email, result);
+    await settle(ip, email, verdict.known, result);
     return answer(req, reply, result);
   });
 
   app.post('/api/auth/oauth', async (req, reply) => {
     const ip = clientIp(req);
-    const verdict = await mayTry(ip, null);
+    const verdict = await take(ip, null);
     if (!verdict.ok) return tooMany(reply, verdict);
     const result = await signIn.oauth(fields(req.body).accessToken);
-    if (!result.ok) await settle(ip, null, result); // a provider-verified sign-in has no password to guess: nothing to clear
+    await settle(ip, null, false, result); // a success gives the count back and remembers the address
     return answer(req, reply, result);
   });
 
@@ -206,15 +230,15 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
       { key: `promo:ip:${clientIp(req)}`, ...PROMO_LIMITS.ip },
       { key: `promo:account:${account.id}`, ...PROMO_LIMITS.account },
     ];
-    const verdict = await attempts.check(promoRules);
+    // Counted first, in one statement (review rs-1): a burst of guesses cannot all pass a read. A good code gives
+    // the count back below; a refused one keeps it.
+    const verdict = await attempts.count(promoRules);
     if (!verdict.ok) return tooMany(reply, verdict); // even the right code waits: a 200 would say which guess was right
 
     const code = findCode(promoCodes, fields(req.body).code);
     const now = ctx.now();
-    if (!code || !isLive(code, now)) {
-      await attempts.count(promoRules);
-      return reply.code(400).send(INVALID_CODE);
-    }
+    if (!code || !isLive(code, now)) return reply.code(400).send(INVALID_CODE);
+    await attempts.release(promoRules.map((r) => r.key));
     const answer = (plan: typeof account.plan, already: boolean) =>
       ({ plan, features: featuresFor(effectivePlan(config, { ...account, plan })), ...(already ? { already: true } : {}) });
     // Pilot (or Pro granted by hand) is already as much as a code gives: never step it down, never count a use.
@@ -222,7 +246,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
 
     const outcome = await redeemPromo(db, { accountId: account.id, codeKey: code.keyHex, plan: code.plan, maxUses: code.maxUses, now });
     if (outcome === 'used_up') {
-      await attempts.count(promoRules);
+      await attempts.count(promoRules); // a used-up code is a refused code: it counts like a wrong one
       return reply.code(400).send(INVALID_CODE);
     }
     ctx.log(`promo: account ${account.id} ${outcome === 'again' ? 'redeemed a code again' : 'redeemed a code'} → ${code.plan}`);

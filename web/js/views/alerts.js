@@ -5,14 +5,14 @@ import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { fmtDay, clock } from '../format.js';
 import { jobsOn, openJob } from '../jobs-data.js';
-import { currentSubscription, pushKey, pushSupport, turnOffPush, turnOnPush } from '../push.js';
+import { devicePush, sendTestPush, standalone, testResultLine, turnOffPush, turnOnPush } from '../push.js';
 import { homeView, onSignedOut } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { registerView, render, setView } from '../shell.js';
 import { features, intent, mergeItems, state } from '../state.js';
 
-const ui = { back: 'home', loading: false, error: null, push: 'checking', pushNote: '' };
-onSignedOut(() => { ui.push = 'checking'; });
+const ui = { back: 'home', loading: false, error: null, push: 'checking', pushNote: '', testing: false, testLine: '' };
+onSignedOut(() => { Object.assign(ui, { push: 'checking', testing: false, testLine: '' }); });
 
 const KIND = {
   match: 'New match', deadline: 'Deadline', award: 'Award', price: 'Price move',
@@ -67,14 +67,9 @@ async function markRead(ids) {
 // --------------------------------------------------------- push panel ---
 
 async function checkPush() {
-  const support = pushSupport();
-  if (support !== 'ok') return support;
-  const key = await pushKey();
-  if (!key.ok) { ui.pushKey = null; return key.reason === 'not_configured' ? 'not_configured' : 'error'; }
-  ui.pushKey = key.key;
-  if (!features()?.instantPush) return 'locked';
-  if (await currentSubscription()) return 'on';
-  return Notification.permission === 'denied' ? 'denied' : 'off';
+  const { state: s, key } = await devicePush(!!features()?.instantPush);
+  ui.pushKey = key;
+  return s;
 }
 
 async function refreshPush() {
@@ -98,9 +93,21 @@ async function tapTurnOn() {
 
 async function tapTurnOff() {
   ui.push = 'busy';
+  ui.testLine = '';
   render();
   try { await turnOffPush(); ui.push = 'off'; } catch { ui.push = 'error'; }
   render();
+}
+
+/** "Send a test alert": the server pushes one to this account's devices, the same way as a real alert. */
+async function tapTest() {
+  if (ui.testing) return;
+  ui.testing = true;
+  ui.testLine = '';
+  render();
+  ui.testLine = testResultLine(await sendTestPush());
+  ui.testing = false;
+  if (state.view === 'alerts') render();
 }
 
 /**
@@ -141,11 +148,47 @@ const COPY = {
 const PUSH_TEXT = {
   checking: 'Checking this device…',
   busy: 'One moment…',
-  unsupported: 'This browser can’t show phone alerts. On an iPhone, add BidSwipe to your Home Screen first (Share → Add to Home Screen), then turn them on there.',
+  unsupported: 'This browser can’t show phone alerts. They work in Chrome, Edge, Firefox and Safari; on an iPhone or iPad, add BidSwipe to your Home Screen first and open it from there.',
+  // Opened from the Home Screen icon, but this iOS has no web push (before 16.4): adding it again changes nothing.
+  old_ios: 'Phone alerts on an iPhone or iPad need iOS 16.4 or later, and this one is older. Update it in the Settings app → General → Software Update, then open BidSwipe from its icon again.',
   insecure: 'Phone alerts need a secure (https) address.',
   denied: 'Notifications are blocked for this site. Allow them in your browser’s site settings, then come back.',
   error: 'That didn’t work. Try again in a minute.',
 };
+
+/** Installed on an iPhone or iPad (navigator.standalone === true): the switch is in iOS Settings, per app. */
+const IOS_DENIED = 'Notifications are off for BidSwipe. Open the Settings app → Notifications → BidSwipe, turn on Allow Notifications, then come back here.';
+/** WebKit: Home Screen web apps "integrate with Focus". */
+const IOS_FOCUS = 'A Focus on your iPhone can hold these: allow BidSwipe in Settings → Focus if you need them right away.';
+
+/**
+ * A Safari tab on an iPhone or iPad (navigator.standalone === false): the exact steps to the Home Screen app.
+ * Current iOS puts Share under the ••• menu and asks whether the icon opens "as Web App": without that, the icon
+ * opens Safari again and web push can never work there (Apple Support, "Turn a website into an app in Safari").
+ * The Home Screen app does not share Safari's sign-in (WebKit bug 181849).
+ */
+export const IOS_STEPS = [
+  'In Safari, tap Share (on newer iPhones it is in the ••• menu first).',
+  'Scroll down and tap Add to Home Screen. Not in the list? Tap Edit Actions and add it.',
+  'Keep Open as Web App on, then tap Add.',
+  'Open BidSwipe from the new icon, sign in again, then tap the bell and Turn on phone alerts.',
+];
+/** Step 4 where there is no sign-in (single mode, the pilot): at most the access code is asked again (review rs-5). */
+const IOS_LAST_STEP_SINGLE = 'Open BidSwipe from the new icon (enter the access code again if it asks), then tap the bell and Turn on phone alerts.';
+
+function iosSteps() {
+  return [
+    h('p', { class: 'plan-text' }, 'iPhone and iPad show phone alerts only from BidSwipe on the Home Screen:'),
+    h('ol', { class: 'push-steps' }, IOS_STEPS.map((step, i) =>
+      h('li', {}, i === IOS_STEPS.length - 1 && state.auth === 'single' ? IOS_LAST_STEP_SINGLE : step))),
+    h('p', { class: 'pc-fine' }, 'Needs iOS 16.4 or later.'),
+  ];
+}
+
+function pushText(s) {
+  if (s === 'denied' && standalone() === true) return IOS_DENIED;
+  return COPY[audience()][s] ?? PUSH_TEXT[s] ?? '';
+}
 
 function pushPanel() {
   const s = ui.push;
@@ -154,14 +197,21 @@ function pushPanel() {
       : s === 'error' ? h('button', { class: 'cta ghost', type: 'button', onclick: refreshPush }, 'Try again')
         : null;
   const status = s === 'on' ? 'On' : s === 'locked' ? 'Pro' : s === 'off' ? 'Off' : s === 'not_configured' ? 'Not set up' : null;
+  const ios = s === 'unsupported' && standalone() === false;
   return h('section', { class: `panel push-panel push-${s}` },
     h('div', { class: 'push-head' },
       h('h2', { class: 'panel-title' }, 'Phone alerts'),
       status ? h('span', { class: `push-status ${s}` }, s === 'locked' ? icon(ICONS.lock) : null, status) : null,
     ),
-    h('p', { class: 'plan-text' }, COPY[audience()][s] ?? PUSH_TEXT[s] ?? ''),
+    ios ? iosSteps() : h('p', { class: 'plan-text' }, pushText(s)),
+    s === 'on' && standalone() === true ? h('p', { class: 'pc-fine' }, IOS_FOCUS) : null,
     s === 'error' && ui.pushNote ? h('p', { class: 'pc-fine' }, ui.pushNote) : null,
-    button,
+    s === 'on'
+      ? h('div', { class: 'push-actions' },
+        h('button', { class: 'cta ghost push-test', type: 'button', disabled: ui.testing, onclick: tapTest }, ui.testing ? 'Sending…' : 'Send a test alert'),
+        button)
+      : button,
+    s === 'on' && ui.testLine ? h('p', { class: 'push-test-line', role: 'status' }, ui.testLine) : null,
   );
 }
 
@@ -221,11 +271,15 @@ function renderAlerts() {
   );
 }
 
-/** The bell. */
-export function openAlerts() {
-  if (state.view !== 'alerts') ui.back = state.view === 'settings' ? homeView() : state.view;
+/**
+ * The bell. back: 'settings' = Settings' "Phone alerts on this device" row (Back returns there, its edits kept:
+ * setView, not openSettings); anything else returns to the screen it came from.
+ */
+export function openAlerts(opts = {}) {
+  if (state.view !== 'alerts') ui.back = opts.back === 'settings' && state.view === 'settings' ? 'settings' : state.view === 'settings' ? homeView() : state.view;
   state.alerts = null;
   ui.push = 'checking';
+  ui.testLine = '';
   setView('alerts');
   refreshPush();
 }

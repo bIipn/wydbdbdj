@@ -110,6 +110,8 @@ export const api = {
   pushKey: () => req('api/push/key', { quiet: true }),
   pushSubscribe: (subscription) => req('api/push/subscribe', { method: 'POST', body: { subscription } }),
   pushUnsubscribe: (endpoint) => req('api/push/subscribe', { method: 'DELETE', body: { endpoint } }),
+  // one "Test alert from BidSwipe" to this account's own devices: { ok, tried, accepted } (402 / 409 / 429 with a message)
+  pushTest: () => req('api/push/test', { method: 'POST' }),
 
   // price check
   marketArea: (zip) => req(`api/market/area${zip ? `?zip=${encodeURIComponent(zip)}` : ''}`),

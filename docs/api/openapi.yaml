@@ -12,6 +12,13 @@ info:
     /api request from a signed-in browser must carry the header x-bidswipe: 1 (src/auth/guard.ts), or it gets
     403 {"error":"csrf"}. Single mode (the pilot) has no accounts: the sign-in, work-profile and jobs routes
     answer 404 there.
+    Every response carries the security headers of src/server.ts SECURITY_HEADERS (Content-Security-Policy,
+    X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP), and /api answers that set no
+    caching of their own carry Cache-Control: no-store. A NUL character in a path id or a JSON body
+    answers 400 {"error":"invalid_input"}; an unexpected failure answers 500 {"error":"internal"} and nothing else.
+    Fastify's own 4xx (bad JSON, wrong content type, a body over 1 MB) keep Fastify's shape: {"statusCode",
+    "code", "error" (the reason phrase), "message"}.
+    In single mode with ACCESS_CODE set, 50 wrong codes per address in 15 minutes answer 429 for any code.
 servers:
   - url: http://localhost:8787
     description: npm run dev / node dist/server.js (PORT, default 8787)
@@ -137,7 +144,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
     put:
       tags: [profile]
-      summary: Save the onboarding answers (replaces the profile) and score every open bid for it.
+      summary: Save the onboarding answers (replaces the profile) and score every open bid for it. 20 saves per 10 minutes per account (then 429 with a sentence).
       parameters:
         - $ref: '#/components/parameters/Csrf'
       requestBody:
@@ -158,6 +165,7 @@ paths:
         '401': { $ref: '#/components/responses/SignIn' }
         '403': { $ref: '#/components/responses/Csrf' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/auth/config:
     get:
       tags: [auth]
@@ -169,7 +177,7 @@ paths:
   /api/auth/signup:
     post:
       tags: [auth]
-      summary: Create an account and sign in (sets the bs_session cookie). 10 tries per 15 minutes per address and per email.
+      summary: Create an account and sign in (sets the bs_session cookie). Per address, 20 refused sign-ups per 15 minutes and 100 sign-ups an hour (counters in the database).
       security: []
       parameters:
         - $ref: '#/components/parameters/Csrf'
@@ -188,7 +196,13 @@ paths:
   /api/auth/login:
     post:
       tags: [auth]
-      summary: Sign in with e-mail and password (sets the bs_session cookie; ends the session the request came with).
+      summary: >-
+        Sign in with e-mail and password (sets the bs_session cookie; ends the session the request came with). Every
+        attempt is counted in the database BEFORE the password is checked (one atomic statement) and a success gives
+        its count back, so in effect only failures count: 10 per e-mail and address, 100 per address (not for an
+        address that signed in to that e-mail before), and once an e-mail has 100 failures in the window, 3 per
+        address that never signed in to it; all per 15 minutes. A success clears that e-mail's counters and remembers
+        the address for 30 days (a sign-up does the same). The 429's retry-after is the time left in the window.
       security: []
       parameters:
         - $ref: '#/components/parameters/Csrf'
@@ -238,7 +252,7 @@ paths:
   /api/promo/redeem:
     post:
       tags: [auth]
-      summary: Redeem a promo code. 403 not_available when no codes are set, in demo mode or from the iOS build.
+      summary: Redeem a promo code. 403 not_available when no codes are set, in demo mode or from the iOS build. 5 wrong codes per 10 minutes per account and per address, then 429 for any code.
       parameters:
         - $ref: '#/components/parameters/Csrf'
       requestBody:
@@ -394,7 +408,7 @@ paths:
   /api/estimate:
     post:
       tags: [cost]
-      summary: Run the cost check (Pro) and save it. The quick form is shown; the full EstimateRequest is src/cost/estimate.ts.
+      summary: Run the cost check (Pro) and save it. The quick form is shown; the full EstimateRequest is src/cost/estimate.ts. A job longer than 3650 days, or a bid date more than 3650 days from the start, answers 400. 30 checks a minute per profile, then 429 too_many_attempts.
       parameters:
         - $ref: '#/components/parameters/Csrf'
       requestBody:
@@ -422,6 +436,7 @@ paths:
         '402': { $ref: '#/components/responses/Premium' }
         '403': { $ref: '#/components/responses/Csrf' }
         '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/estimates:
     get:
       tags: [cost]
@@ -456,7 +471,10 @@ paths:
   /api/push/subscribe:
     post:
       tags: [realtime]
-      summary: Register this device for web push.
+      summary: >-
+        Register this device for web push. The endpoint must be on a push service (FCM, Mozilla, Apple, Windows;
+        src/realtime/push.ts PUSH_SERVICE_HOSTS), else 400 invalid_subscription. The example's host is not on that
+        list on purpose: the scan sees the 400, and the server never POSTs to a real push service for a made-up device.
       parameters:
         - $ref: '#/components/parameters/Csrf'
       requestBody:
@@ -508,6 +526,26 @@ paths:
         '400': { $ref: '#/components/responses/Bad' }
         '401': { $ref: '#/components/responses/SignIn' }
         '403': { $ref: '#/components/responses/Csrf' }
+  /api/push/test:
+    post:
+      tags: [realtime]
+      summary: >-
+        Send one notification titled "Test alert from BidSwipe" to the caller's own devices only, through the same
+        sender and device list as a real alert (src/realtime/index.ts sendTestPush). Gated like instant phone alerts:
+        402 premium_required without instantPush, 409 push_off (alerts switched off in Settings) or quiet_hours, then at
+        most 3 per account per 10 minutes (429 too_many_attempts). No body. Answers { ok, tried, accepted }: how many
+        devices were tried and how many the push services accepted (never an endpoint). Stores no alert. 404
+        push_not_configured without VAPID keys.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '402': { $ref: '#/components/responses/Premium' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/alerts:
     get:
       tags: [realtime]
@@ -724,7 +762,7 @@ paths:
   /api/jobs/{id}/bid:
     post:
       tags: [jobs]
-      summary: Place or change a sealed bid while the job is open. 30 per 10 minutes.
+      summary: Place or change a sealed bid while the job is open. 30 per 10 minutes. A 'Get work done' account (intent hire) gets 403 not_allowed.
       parameters:
         - $ref: '#/components/parameters/Csrf'
         - $ref: '#/components/parameters/JobId'
@@ -1153,7 +1191,7 @@ paths:
   /api/cron/tick:
     get:
       tags: [cron]
-      summary: Deadline reminders and waiting pushes (Bearer CRON_SECRET).
+      summary: Deadline reminders and waiting pushes, then deletes expired sign-in counters (Bearer CRON_SECRET).
       security:
         - cronSecret: []
       responses:

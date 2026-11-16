@@ -49,9 +49,48 @@ export function workProfileEmpty(wp) {
 export const isDefaultName = (name) => /^My (?:\w[\w\s/&-]* )?shop$/.test(String(name ?? '').trim());
 
 /**
+ * The phone-alert task, or null where it has nothing doable to say (on, not set up on the server, an iOS too old for
+ * web push, a browser without it on another platform). Only for a plan that includes instant push.
+ * The bell's panel (views/alerts.js) carries the full steps; the task says what is wrong and goes there.
+ */
+export function pushTask(push, standalone) {
+  if (push === 'off') {
+    return {
+      id: 'push',
+      title: 'Phone alerts are off on this device',
+      text: 'Turn them on and a new bid that fits reaches this phone when the daily scan finds it.',
+      actions: [{ label: 'Turn on phone alerts', go: { to: 'alerts' } }],
+    };
+  }
+  // A Safari tab on an iPhone or iPad: alerts exist there only in the Home Screen app.
+  if (push === 'unsupported' && standalone === false) {
+    return {
+      id: 'push',
+      title: 'Get phone alerts on this iPhone',
+      text: 'iPhone and iPad send alerts only from BidSwipe on the Home Screen. Adding it there from Safari takes a minute.',
+      actions: [{ label: 'Show me how', go: { to: 'alerts' } }],
+    };
+  }
+  if (push === 'denied') {
+    return {
+      id: 'push',
+      title: 'Phone alerts are blocked on this device',
+      text: standalone === true
+        ? 'Open the Settings app → Notifications → BidSwipe and turn on Allow Notifications.'
+        : 'Allow notifications for BidSwipe in your browser’s site settings, then come back.',
+      actions: [{ label: 'Check phone alerts', go: { to: 'alerts' } }],
+    };
+  }
+  return null;
+}
+
+/**
  * facts: {
  *   live, auth ('single' | 'accounts'), intent ('work' | 'hire' | 'both'), profile (GET /api/me profile summary),
- *   features (the plan's), push ('off' | 'on' | 'locked' | 'denied' | 'unsupported' | 'not_configured' | null = not checked),
+ *   features (the plan's), push ('off' | 'on' | 'locked' | 'denied' | 'unsupported' | 'old_ios' | 'insecure' |
+ *   'not_configured' | 'error' | null = not checked),
+ *   standalone (navigator.standalone as it is: true = the iPhone/iPad Home Screen app, false = an iPhone/iPad browser
+ *   tab, undefined = any other platform; never guessed from the user agent),
  *   jobsOn (local jobs are on), workProfile (GET /api/work-profile's workProfile, null = not loaded)
  * }
  * → [{ id, title, text, actions: [{ label, go: { to: 'settings', field } | { to: 'alerts' } }] }]
@@ -72,14 +111,8 @@ export function homeTasks(f) {
     });
   }
 
-  if (f.features?.instantPush === true && f.push === 'off') {
-    out.push({
-      id: 'push',
-      title: 'Phone alerts are off on this device',
-      text: 'Turn them on and a new bid that fits reaches this phone when the daily scan finds it.',
-      actions: [{ label: 'Turn on phone alerts', go: { to: 'alerts' } }],
-    });
-  }
+  const push = f.features?.instantPush === true ? pushTask(f.push, f.standalone) : null;
+  if (push) out.push(push);
 
   if (f.jobsOn && workProfileEmpty(f.workProfile)) {
     out.push({

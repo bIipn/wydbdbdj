@@ -27,9 +27,9 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,420 tests in 97 files as of 2026-11-16, ~100s; simulate.test.ts ~25s,
-                           # simulate-jobs.test.ts ~35s; 5 are skipped unless TEST_DATABASE_URL names a throwaway
-                           # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts)
+npm test                   # vitest (~2,510 tests in 104 files as of 2026-11-16, ~140s; simulate.test.ts ~25s,
+                           # simulate-jobs.test.ts ~35s; 10 are skipped unless TEST_DATABASE_URL names a throwaway
+                           # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts, test/promo-pg.test.ts)
 npm run build              # tsc → dist/
 npm run scan -- --fixtures # offline: load the real bids captured 2026-11-13 into the local DB
 npm run scan -- --no-notify          # LIVE scan of every source (needs internet)
@@ -109,10 +109,16 @@ src/scan.ts        fetch all sources → finalizeBid → upsert → score per pr
 src/db/            schema.ts (plain Postgres), db.ts (PGlite | pg), repo.ts (all SQL lives here)
 src/server.ts      Fastify API + static web/ + in-process daily scheduler (scheduler.ts); routes in src/routes/
 src/auth/ src/profile/ src/trades/  accounts + sessions · onboarding answers → Profile · trades catalog
+src/auth/ratelimit.ts  createAttemptLimiter: attempt counters in the DATABASE (table auth_attempts), COUNT FIRST in one
+                   atomic upsert, `release` gives a count back (a right password/code); clientIp (Vercel edge headers
+                   only on Vercel); the old in-memory createRateLimiter is the jobs routes' speed bump
 src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time match) + one-statement redeem
 src/geo/nearest.ts "Use my location": a point → nearest ZIP (never stored; src/util/log-url.ts keeps it out of logs)
-src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there)
-src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push
+src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there; tick also sweeps
+                   expired auth_attempts rows)
+src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push; push.ts: PUSH_SERVICE_HOSTS (the
+                   subscribe allowlist), the VAPID header cache per push origin, permanent refusals (400/403/413),
+                   testPushMessage; index.ts sendTestPush (POST /api/push/test, the bell's "Send a test alert")
 src/market/        USAspending awards, BLS wages + material indexes, NV prevailing wage (config/prevailing-wage);
                    watch.ts (pure price/award watch rules) + watcher.ts (runs the refresh, publishes 'price'/'award')
 src/cost/          the cost engine (21 modules, integer cents, BigInt where it multiplies): estimate.ts is the
@@ -150,20 +156,28 @@ web/               index.html, styles.css, desktop.css (≥900px only), sw.js (r
                    uses too); the pure part is messages-model.js (test/messages-model.test.ts);
                    views/ (home, feed = Search + Saved, market, alerts, cost, settings, sign-in, onboarding, gate,
                    jobs, job-post, job, messages) register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
-                   work-profile.js; terms.html + privacy.html;
+                   work-profile.js (reportAction: the one report form for a conversation and a card);
+                   terms.html + privacy.html (styles in privacy.css / terms.css: no inline style anywhere);
+                   js/sw-register.js (registers sw.js on load; was an inline script); push.js: pushSupport (reads
+                   navigator.standalone), devicePush, turnOnPush (subscribe with nothing awaited in the tap),
+                   releaseDevice (sign-out), sendTestPush;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms
 serverless-files.cjs every folder the Vercel function ships (web/ and EACH sub-folder, config/): add a line for
                    a new folder (test/serverless-entry.test.ts)
 docs/              PRODUCT.md (spec) · HANDOFF.md · DATA-SOURCES.md (free data sources, limits, checked) ·
-                   MICROSOFT-STORE.md (Store submission steps)
+                   MICROSOFT-STORE.md (Store submission steps, listing, certification notes) · store/ (the 8
+                   Store screenshots + captions.md) · IPHONE-ALERTS.md (the owner's iPhone test recipe, what was
+                   never tried on a real iPhone) · SECURITY-SCAN.md (HawkScan + the 2026-11-16 audit notes) ·
+                   api/openapi.yaml (every route; test/openapi.test.ts keeps it equal to the server)
 test/fixtures/     REAL responses, raw as the scanner receives them: HTML captured 2026-11-13, QuestCDN JSON
                    2026-11-11, SAM.gov JSON (samgov-*.json) 2026-11-13 04:01 UTC, trimmed; BLS JSON 2026-11-13
 test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log line, loud failures, NGEM paging)
                    · http.test.ts (cookie session) · pipeline / score / server / util · cost/ + cost-oracle/
                    · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
                    · simulate.test.ts · jobs-api / jobs-rules / jobs-score / jobs-reach / jobs-pg /
-                   simulate-jobs / work-profile · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
+                   simulate-jobs / work-profile · reports-api · security-headers / hardening (headers, NUL, error
+                   shape, ACCESS_CODE) · push-test-route / push-signout · promo-pg (Postgres) · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
 ```
 
 ## Rules
@@ -238,6 +252,15 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   'recorded'; never say or imply a card was charged, and write no code that talks to a payment company. Licence
   notices (job-words.js) come from docs/MARKETPLACE.md §9; keep them sourced. An open job is mirrored into
   `bids` as `local:<jobId>`.
+- **Reporting:** a job ("Report this job"), a conversation (its poster or winner only: anyone else gets exactly the
+  thread routes' 403) and a card (only someone `sharesJob` lets see it: anyone else gets the people route's 404) can
+  be reported, with a reason and a note ≤ 500. The right to report is decided INSIDE the INSERT's WHERE
+  (src/jobs/repo.ts); one open report per reporter and target (partial unique indexes), a second answers `already`.
+  A report tells nobody and changes nothing else (no alert, no job state, not contact). Operators (x-admin-token)
+  remove a message (row kept, `removed_at`; EVERY read of job_messages blanks its text in SQL, the bell alert is
+  reworded in the same statement) or hide a card (others see "BidSwipe member", the job record and `hidden: true`,
+  never the person's own words). Copy says reports "go to BidSwipe": never "a person reads every report" unless the
+  owner has set a routine for it (docs/MICROSOFT-STORE.md).
 - **Premium:** the cost check (`POST /api/estimate`), cost settings, award history and the price/award watch
   are Pro. A plan without the feature gets HTTP 402 `premium_required` (or a `locked` shape) and no numbers;
   the client shows what the feature is and that it is part of BidSwipe Pro — nothing else, no code box.
@@ -353,6 +376,25 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   new message the screen already shows (the Messages list, or `state.threadOnScreen`: the open conversation or job
   page); a message toast's View opens the conversation. Opening Market adds one history entry (shell.js), so the
   phone's Back returns to the tab.
+- Security headers (2026-11-16): ONE `onSend` hook in src/server.ts (SECURITY_HEADERS, registered before every route
+  and both file servers) puts the CSP (`script-src 'self'; style-src 'self'`, no hashes, no 'unsafe-inline'),
+  X-Frame-Options DENY, nosniff, Referrer-Policy, Permissions-Policy, COOP, CORP on every answer and `no-store` on
+  /api answers without their own Cache-Control. So: NO inline `<script>`, `<style>`, `style=` or `on…=` in any page
+  (test/security-headers.test.ts), and JS sets styles only through the CSSOM (`el.style.x`), never
+  `setAttribute('style')` or `h({ style })`. The service worker's generated offline page is not under it.
+- Limits that must hold across serverless instances use `createAttemptLimiter` (table `auth_attempts`), and COUNT
+  FIRST: read-then-count let 300 simultaneous wrong passwords through a limit of 10 because the password hash sat
+  between the read and the count. Sign-in: pair 10 · address 100 (not for a known e-mail + address) · e-mail-wide
+  100, past which an unknown address gets 3 (never a block of the right password from a new address) · a success or
+  a sign-up remembers the address 30 days. Fail-open: a broken table logs one line and lets the attempt through.
+- Push subscriptions must be on a known push service host (PUSH_SERVICE_HOSTS in src/realtime/push.ts: exact or a
+  dot-boundary suffix); tests add `push.example.com` through `AppConfig.pushHosts`, which no env variable sets. A new
+  push service (or a Chrome endpoint host we never saw, like jmt17.google.com) is refused until it is added there;
+  the route logs the refused host, never the endpoint.
+- iPhone facts come from `navigator.standalone` (true = Home Screen app, false = a Safari tab, undefined = not iOS),
+  never the user agent. A Safari tab cannot get web push at all; old iOS in the installed app = no PushManager.
+  `pushManager.subscribe` must follow the tap with nothing awaited but requestPermission (the registration is fetched
+  before the tap). Sign-out drops the device on the server and in the browser at the same time, at most 3 s.
 - The client marks a conversation read from the messages on screen (messages-model.js `mustMarkRead`: the server's
   own `unread` with them, else the other side's newest id above what this device marked), never from the cached
   list, which can be older than the screen (a reply that came in while the list loaded stayed unread for good).

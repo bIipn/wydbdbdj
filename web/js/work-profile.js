@@ -404,7 +404,7 @@ export const forgetReports = () => reports.clear();
 
 /**
  * A quiet "Report" link that opens a small form: a reason from a short list, an optional note, Send. The answer is the
- * server's own sentence ("Thanks. We read every report."; a second report of the same thing is a kind "already").
+ * server's own sentence ("Thanks. Your report was sent to BidSwipe."; a second report of the same thing is a kind "already").
  * `kind` 'conversation' (id = the job) or 'profile' (id = the person). Only drawn where the viewer may see the thing;
  * the server checks it again. Repaints itself in place, so typing never waits on the page around it.
  */

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { STATUS_CODES } from 'node:http';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastify';
@@ -143,15 +144,19 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
   // code; anything else is logged and answered with one word. A database error's text never reaches the caller.
   app.setErrorHandler((err: { statusCode?: number; code?: string; message?: string }, req, reply) => {
     const status = typeof err.statusCode === 'number' && err.statusCode >= 400 ? err.statusCode : 500;
-    if (status < 500) return reply.code(status).send({ error: err.code ?? 'bad_request', message: err.message });
+    // Fastify's own 4xx keep the shape they always had (review rs-5): { statusCode, code, error: reason phrase, message }.
+    if (status < 500) {
+      return reply.code(status).send({ statusCode: status, ...(err.code ? { code: err.code } : {}), error: STATUS_CODES[status] ?? 'Bad Request', message: err.message });
+    }
     req.log.error({ err }, 'request failed');
     return reply.code(500).send({ error: 'internal' });
   });
 
-  // A NUL in an id, a query value or a JSON body is refused before any route reads it (Postgres would answer 22021).
+  // A NUL in a path id or a JSON body is refused before any route reads it (Postgres would answer 22021). Query
+  // strings are each route's own business: the feed's search drops control characters on purpose (feed-filters tests).
   app.addHook('preValidation', async (req, reply) => {
     if (!(req.routeOptions.url ?? '').startsWith('/api/') && !req.url.startsWith('/api/')) return; // the shell answers 404 itself
-    if (hasNul(req.params) || hasNul(req.query) || hasNul(req.body)) {
+    if (hasNul(req.params) || hasNul(req.body)) {
       return reply.code(400).send({ error: 'invalid_input', message: 'Text cannot contain a NUL character.' });
     }
   });
@@ -171,17 +176,20 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     if (route === '/api/health' || route.startsWith('/api/admin/') || route.startsWith('/api/cron/')) return;
     // Wrong codes are counted per address (only wrong ones: the client sends the code on every call and poll). A
     // blocked address is refused whatever it sends, the right code included, or a 200 would say which guess was right.
+    // A wrong code is counted FIRST, in one atomic statement, and refused from that count: reading the counter
+    // first let 1000 parallel guesses all pass the read on Postgres (review rs-4). The right code and no code only read it.
     const rule = { key: `access:ip:${clientIp(req)}`, ...ACCESS_CODE_LIMIT };
-    const verdict = await attempts.check([rule]);
-    if (!verdict.ok) {
-      return reply.code(429).header('retry-after', verdict.retryAfterSec)
-        .send({ error: 'too_many_attempts', message: 'Too many wrong access codes. Wait a few minutes, then try again.' });
-    }
+    const blocked = (verdict: { retryAfterSec: number }) => reply.code(429).header('retry-after', verdict.retryAfterSec)
+      .send({ error: 'too_many_attempts', message: 'Too many wrong access codes. Wait a few minutes, then try again.' });
     const given = String(req.headers['x-access-code'] ?? '');
-    if (!safeEqual(given, config.accessCode)) {
-      if (given) await attempts.count([rule]); // no code at all is not a guess (the gate screen before it is typed)
+    if (given && !safeEqual(given, config.accessCode)) {
+      const counted = await attempts.count([rule]);
+      if (!counted.ok) return blocked(counted);
       return reply.code(401).send({ error: 'access_code_required' });
     }
+    const verdict = await attempts.check([rule]);
+    if (!verdict.ok) return blocked(verdict);
+    if (!given) return reply.code(401).send({ error: 'access_code_required' }); // no code at all is not a guess (the gate screen before it is typed)
   });
   registerCsrfGuard(app, config);
 

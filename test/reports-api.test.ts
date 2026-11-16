@@ -20,7 +20,7 @@ import { accountsConfig, memoryDb, seedAccount } from './helpers.js';
 const DAY = 86_400_000;
 const START = Date.parse('2026-11-14T18:00:00Z');
 const ADMIN = 'TEST-admin-token';
-const THANKS = 'Thanks. We read every report.';
+const THANKS = 'Thanks. Your report was sent to BidSwipe.';
 const HEADLINE = 'TEST-HEADLINE-qz7 licensed sparky (simulated)';
 const ABOUT = 'TEST-ABOUT-qz7 twenty years of small jobs (simulated)';
 const SECRET = 'TEST-SECRET-qz7 pay me in gift cards (simulated)';
@@ -162,7 +162,7 @@ describe('report a conversation', () => {
     const alertsBefore = [await alertCount(poster), await alertCount(winner)];
     const w = await reportConvo(winner, jobId, { reason: 'off_platform', note: NOTE });
     expect(w).toMatchObject({ status: 200, json: { ok: true, already: false, message: THANKS } });
-    expect((await reportConvo(winner, jobId, { reason: 'abusive' })).json).toEqual({ ok: true, already: true, message: `You already reported this. ${THANKS}` });
+    expect((await reportConvo(winner, jobId, { reason: 'abusive' })).json).toEqual({ ok: true, already: true, message: 'You already reported this. It was sent to BidSwipe.' });
     expect((await reportConvo(poster, jobId, { reason: 'abusive' })).json).toMatchObject({ ok: true, already: false });
     const rows = await db.query<{ kind: string; job_id: string; reporter_id: string; subject_id: string; reason: string; note: string | null }>(
       'select kind, job_id, reporter_id, subject_id, reason, note from content_reports order by id');
@@ -215,6 +215,17 @@ describe('report a card', () => {
   });
 });
 
+describe('the writing statement decides who may report a card (review rs-9)', () => {
+  it('insertProfileReport itself refuses two people who never dealt with each other, and one\'s own card', async () => {
+    const { insertProfileReport } = await import('../src/jobs/repo.js');
+    expect(await insertProfileReport(db, winner.id, stranger.id, 'spam', null, clock)).toBe(false);
+    expect(await insertProfileReport(db, loser.id, winner.id, 'spam', null, clock)).toBe(false);
+    expect(await insertProfileReport(db, poster.id, poster.id, 'spam', null, clock)).toBe(false);
+    expect(await db.query(`select 1 from content_reports where kind = 'profile' and (reporter_id in ($1, $2) or subject_id = reporter_id)`, [stranger.id, winner.id]))
+      .toHaveLength(0);
+  });
+});
+
 describe('the operators', () => {
   it('every operator route needs the admin token', async () => {
     for (const [method, url] of [['GET', '/api/admin/jobs/reports'], ['POST', '/api/admin/jobs/messages/1/remove'], ['POST', `/api/admin/people/${winner.id}/hide`],
@@ -249,7 +260,7 @@ describe('the operators', () => {
 
     const card = (await call(poster, 'GET', `/api/people/${winner.id}`)).json.card;
     expect(card).toMatchObject({
-      id: winner.id, name: 'TEST Rep Winner (simulated)', hidden: true, headline: null, about: null, yearsExperience: null, skills: [],
+      id: winner.id, name: 'BidSwipe member', hidden: true, headline: null, about: null, yearsExperience: null, skills: [],
       license: null, experience: [], resumeUrl: null,
     });
     expect(card.stats).toBeTruthy();
@@ -257,7 +268,9 @@ describe('the operators', () => {
     expect(job.award.winner).toMatchObject({ hidden: true, headline: null });
     expect(job.tab.find((r: { amountCents: number }) => r.amountCents === 30_001).bidder).toMatchObject({ hidden: true, about: null });
     const conv = (await call(poster, 'GET', '/api/jobs/conversations')).json.conversations[0];
-    expect(conv.other).toMatchObject({ hidden: true, headline: null });
+    expect(conv.other).toMatchObject({ hidden: true, headline: null, name: 'BidSwipe member' });
+    // The person's own name is user-written too: it is on no hidden card (review rs-4).
+    expect(JSON.stringify([card, job, conv])).not.toContain('TEST Rep Winner');
     for (const who of [poster, loser]) {
       const all = await everyAnswer(who, winner);
       expect(all).not.toContain('TEST-HEADLINE-qz7');

@@ -44,5 +44,6 @@ Market: monthly government price indexes for materials and wages for the trades,
   "Example Lighting Co.") and example jobs whose titles start "Example job:". There is no real customer data in
   them, and each caption says "Example job shown". To close the example job, the local server's clock was moved
   forward one day, so those screens read Nov 17.
-- Desktop layout at 1280×720 CSS pixels and device scale 1.5 (03 and 08 at 1536×864 and scale 1.25, so more of
-  the sheet fits). No logos, frames or marketing text were added.
+- Desktop layout at 1280×720 CSS pixels and device scale 1.5 (03 at 1536×864 and scale 1.25, so more of the sheet
+  fits; 01 at 1200×675 and scale 1.6 and 08 at 1600×900 and scale 1.2, re-taken later the same day so no card is cut
+  at an edge). No logos, frames or marketing text were added.

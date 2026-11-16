@@ -389,8 +389,8 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   a sign-up remembers the address 30 days. Fail-open: a broken table logs one line and lets the attempt through.
 - Push subscriptions must be on a known push service host (PUSH_SERVICE_HOSTS in src/realtime/push.ts: exact or a
   dot-boundary suffix); tests add `push.example.com` through `AppConfig.pushHosts`, which no env variable sets. A new
-  push service (or a Chrome endpoint host we never saw, like jmt17.google.com) is refused until it is added there;
-  the route logs the refused host, never the endpoint.
+  push service (or an endpoint host we never saw) is refused until it is added there; the route logs the refused
+  host, never the endpoint. jmt17.google.com is on the list: Chromium's source names it (pre-release Chrome).
 - iPhone facts come from `navigator.standalone` (true = Home Screen app, false = a Safari tab, undefined = not iOS),
   never the user agent. A Safari tab cannot get web push at all; old iOS in the installed app = no PushManager.
   `pushManager.subscribe` must follow the tap with nothing awaited but requestPermission (the registration is fetched

@@ -550,6 +550,9 @@ describe('push: subscriptions, payloads and the web-push request', () => {
     ]) expect(at(bad!), bad).toEqual({ ok: false, reason: 'host', host });
     expect(at('https://169.254.169.254/x')).toEqual({ ok: false, reason: 'host', host: '169.254.169.254' });
     expect(isPushServiceHost('web.push.apple.com.')).toBe(true);
+    expect(isPushServiceHost('jmt17.google.com')).toBe(true); // Chrome's pre-release builds (named in Chromium's source)
+    expect(isPushServiceHost('google.com')).toBe(false); // the one host, not the whole domain
+    expect(isPushServiceHost('evil-jmt17.google.com')).toBe(false);
     expect(isPushServiceHost('push.example.com', TEST_PUSH_HOSTS)).toBe(true); // only when a test hands the list over
   });
 

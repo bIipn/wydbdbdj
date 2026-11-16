@@ -96,8 +96,9 @@ Accepted for now:
   password three times from a new address while their e-mail is being attacked waits out the window.
 - **Someone on the owner's own address guessing the owner's e-mail** uses up that address's 10 tries for it (the
   pair counter is per e-mail and address), so the owner there waits too.
-- **The push allowlist might refuse a real endpoint host** not on the list (Chrome builds have been reported to use
-  `jmt17.google.com`; not confirmed). The subscribe route logs the refused host: check the log after deploy.
+- **The push allowlist might refuse a real endpoint host** not on the list. `jmt17.google.com` was added on
+  2026-11-16: Chromium's source names it as the staging push endpoint (pre-release Chrome builds), so it is a real
+  Google push host. The subscribe route logs any other refused host: check the log after a deploy.
 - **A report notifies nobody.** It is stored and logged (`jobs: a … was reported`); the operator reads them with
   `GET /api/admin/jobs/reports`. The copy says only that reports go to BidSwipe.
 - **The scan's push example** (`docs/api/openapi.yaml`) uses a made-up host, so the scan now sees the 400; the

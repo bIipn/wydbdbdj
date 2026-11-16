@@ -47,6 +47,8 @@ app:
       success: '.*"account".*'
 hawk:
   failureThreshold: medium                      # exit 42 on a Medium or High finding; the workflow reports it and stays green
+  scan:
+    maxDurationMinutes: 80                      # the job allows 120 minutes: the scan ends itself first, so its findings are read back
   spider:
     base: true                                  # also crawls the plain links of the shell (/, /privacy.html, /terms.html)
     ajax: true                                  # the app is client-rendered (web/js builds every screen): references/spa-scanning.md

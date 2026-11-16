@@ -51,6 +51,8 @@ const decodedLength = (value: unknown): number => (typeof value === 'string' && 
  * A host matches an entry exactly or on a dot boundary ("wns2-by3p.notify.windows.com" matches "notify.windows.com").
  *   fcm.googleapis.com                  Chrome, Android, Samsung Internet, Opera
  *   android.googleapis.com              older Chrome endpoints
+ *   jmt17.google.com                    Chrome's pre-release builds: Chromium's source names it as the staging
+ *                                       push endpoint (components/push_messaging/push_messaging_constants.cc)
  *   updates.push.services.mozilla.com   Firefox
  *   push.apple.com                      Safari and the iPhone home-screen app (web.push.apple.com)
  *   notify.windows.com                  Edge (wns2-*.notify.windows.com)
@@ -58,7 +60,8 @@ const decodedLength = (value: unknown): number => (typeof value === 'string' && 
  * added here.
  */
 export const PUSH_SERVICE_HOSTS: readonly string[] = [
-  'fcm.googleapis.com', 'android.googleapis.com', 'updates.push.services.mozilla.com', 'push.apple.com', 'notify.windows.com',
+  'fcm.googleapis.com', 'android.googleapis.com', 'jmt17.google.com', 'updates.push.services.mozilla.com', 'push.apple.com',
+  'notify.windows.com',
 ];
 
 /** Lower-cased, one trailing dot dropped, then an exact or dot-boundary match against the list. */

@@ -19,6 +19,7 @@ import './promo.js';
 import { openAlerts, openBidById } from './views/alerts.js';
 import './views/cost.js';
 import './views/feed.js';
+import { homeMode } from './views/home.js';
 import './views/job.js';
 import './views/job-post.js';
 import './views/jobs.js';
@@ -71,7 +72,8 @@ onEnteredApp(openLinked);
 $('#sheetBackdrop').addEventListener('click', closeSheet);
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') return closeSheet();
-  if (state.view !== 'swipe' || sheetOpen() || e.target.closest?.('input, textarea, select')) return;
+  // The arrow keys swipe the top card: Home in Swipe mode only (in Scroll mode they scroll the page, as anywhere).
+  if (state.view !== 'home' || homeMode() !== 'swipe' || sheetOpen() || e.target.closest?.('input, textarea, select')) return;
   const current = deck()[0];
   if (!current) return;
   if (e.key === 'ArrowRight') fling(current, 'save');

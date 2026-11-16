@@ -253,7 +253,7 @@ function renderResult() {
     h('div', { class: `reach-tiles${withSub ? '' : ' two'}${Math.max(c.fit, c.sub, c.other) >= 1000 ? ' long' : ''}` },
       tile(c.fit, c.fit === 1 ? 'Fit' : 'Fits', 'fit', 'Work in your own trade, scored 35 or more.'),
       withSub ? tile(c.sub, 'Sub work', 'sub', 'A general contractor bids it; you’d quote the bidders.') : null,
-      tile(c.other, 'Other', 'other', 'Open in your reach, scored under 35: a related trade or a weaker match. In Browse.'),
+      tile(c.other, 'Other', 'other', 'Open in your reach, scored under 35: a related trade or a weaker match. In Search.'),
     ),
     tip,
     h('div', { class: 'step-foot' },

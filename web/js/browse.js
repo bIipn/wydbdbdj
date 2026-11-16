@@ -125,7 +125,7 @@ export async function loadNext() {
   } catch {
     state.next = null; // "Next up" is a nicety: the deck works without it
   }
-  if (state.view === 'swipe') render();
+  if (state.view === 'home') render();
 }
 
 /**
@@ -148,7 +148,7 @@ function refreshCounts() {
       }
     } catch { /* the numbers catch up on the next load */ }
     // The finished deck says how many are left: it is the one other screen that shows these numbers.
-    if (state.view === 'swipe' && !document.querySelector('.card')) render();
+    if (state.view === 'home' && !document.querySelector('.card, .mcard')) render();
     else redraw();
   }, 400);
 }

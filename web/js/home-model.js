@@ -1,0 +1,92 @@
+// Pure pieces of the app chrome and the Home view: which tabs an account sees, the screen titles, and what a match
+// card says (its place line and its chips). No DOM and no state here, so test/home-model.test.ts can import it.
+
+import { dueInfo, estLabel, num, shortSource, tierOf, VERDICT_LABEL } from './format.js';
+
+/** The bottom tab bar, left to right. 'browse' is the Search tab (its view id predates the name). */
+export const TABS = [
+  { view: 'home', label: 'Home' },
+  { view: 'browse', label: 'Search' },
+  { view: 'market', label: 'Market' },
+  { view: 'saved', label: 'Saved' },
+  { view: 'jobs', label: 'Jobs' },
+];
+
+/** The views that only make sense for someone who looks for work (bids). An account here only to hire never sees them. */
+export const BID_VIEWS = new Set(['home', 'browse', 'market', 'saved']);
+
+/** Old names a link, a Back button or a module may still use → the view that replaced it. */
+export const VIEW_ALIASES = { swipe: 'home' };
+
+/**
+ * The tabs this person sees, in order.
+ *   live      the API is there (the bundled demo has no market data: no Market tab)
+ *   hireOnly  an account here only to get work done: Jobs alone (when Jobs is on)
+ *   jobsOn    local jobs are on (accounts mode)
+ */
+export function visibleTabs({ live = false, hireOnly = false, jobsOn = false } = {}) {
+  return TABS.map((t) => t.view).filter((v) => {
+    if (v === 'jobs') return jobsOn;
+    if (hireOnly && jobsOn && BID_VIEWS.has(v)) return false;
+    if (v === 'market') return live;
+    return true;
+  });
+}
+
+/** The header's title for a tab screen. Home says hello; the others say where you are. */
+export function screenTitle(view) {
+  if (view === 'home') return 'Welcome';
+  return TABS.find((t) => t.view === view)?.label ?? 'BidSwipe';
+}
+
+/** Home's small second line: "L&M Electric · Minden, NV" (either part may be missing). */
+export const homeSubtitle = (profile) => [profile?.name, profile?.base].filter(Boolean).join(' · ');
+
+/** "LM" for "L&M Electric", "B" for "BidSwipe": letters only, never a made-up logo. */
+export function monogram(name) {
+  const words = String(name ?? '').match(/[A-Za-z0-9]+/g) ?? [];
+  if (!words.length) return '';
+  if (words.length === 1) return words[0][0].toUpperCase();
+  return (words[0][0] + words[1][0]).toUpperCase();
+}
+
+/** A local job posted on BidSwipe (mirrored into the feed as local:<jobId>). */
+export const isLocalJob = (item) => item?.source === 'local' || String(item?.id ?? '').startsWith('local:');
+
+/**
+ * Where the job is, in one line. Miles only when the server measured them to the job itself; otherwise the
+ * server's own label and, in words, why there are no miles (never "? mi").
+ *   { miles: '41 mi' | null, label: 'Sacramento, CA', note: null | 'No distance: site not named', text }
+ */
+export function placeLine(item) {
+  const label = item?.location?.label || 'Location not listed';
+  const miles = item?.distanceMi != null && Number.isFinite(Number(item.distanceMi)) ? `${num(Math.round(Number(item.distanceMi)))} mi` : null;
+  const note = miles ? null : 'No distance: site not named';
+  return { miles, label, note, text: miles ? `${miles} · ${label}` : `${label} · ${note}` };
+}
+
+/**
+ * The grey chips under a match card, in reading order: time left, the job value, where it comes from, the verdict.
+ * kind: 'due' (urgent: under 5 days) · 'value' (unknown: no value listed) · 'board' | 'sub' | 'local' · 'verdict'.
+ */
+export function matchChips(item) {
+  const due = dueInfo(item.dueAt);
+  const value = estLabel(item.estValue);
+  const tier = tierOf(item);
+  const from = tier === 'sub' ? { text: 'Sub work', kind: 'sub' }
+    : isLocalJob(item) ? { text: 'Local job', kind: 'local' }
+      : { text: shortSource(item.sourceName), kind: 'board' };
+  return [
+    { text: due.big === 'Not listed' ? 'Due date not listed' : due.big, kind: 'due', urgent: due.urgent && due.days !== Infinity },
+    { text: value ?? 'Value not listed', kind: 'value', unknown: !value },
+    from,
+    { text: VERDICT_LABEL[item.verdict] ?? String(item.verdict ?? ''), kind: 'verdict' },
+  ].filter((c) => c.text);
+}
+
+/** Home's two ways to look at the matches. Anything else read from the device falls back to the list. */
+export const HOME_MODES = ['scroll', 'swipe'];
+export const homeModeOf = (stored) => (stored === 'swipe' ? 'swipe' : 'scroll');
+
+/** How many match cards Home shows at first, and how many more each "Show more" adds. */
+export const HOME_PAGE = 20;

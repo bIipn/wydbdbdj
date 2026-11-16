@@ -26,7 +26,8 @@ export const state = {
   browseCounts: null,
   note: '',
   lastScan: null,
-  view: 'swipe',
+  /** The screen on show. 'home' (the matches, Scroll or Swipe) is where everyone but a 'hire' account lands. */
+  view: 'home',
   /** Browse: the search and filters, sent to GET /api/feed as query parameters (see filters.js). */
   browse: defaultFilters(),
   /** Browse results: ids in the order the API sorted them (null = not loaded yet), and a load error. */

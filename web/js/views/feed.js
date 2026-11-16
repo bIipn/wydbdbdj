@@ -1,4 +1,5 @@
-// The tabbed feed views: Swipe (with "Next up"), Browse (search + filters through the API), Saved.
+// The tabbed feed views: Search (view id 'browse': search + filters through the API) and Saved; and the pieces
+// Home (views/home.js) draws its matches with: "Next up", the swipe deck and the finished deck.
 
 import { fling, markOpened } from '../actions.js';
 import { canShowMore, loadBrowse, loadMore } from '../browse.js';
@@ -19,7 +20,7 @@ import { openSettingsAt } from './settings.js';
  * "Next up": the API's pick (fit + how soon it is due) with its reasons. Hidden once it is swiped, and while it
  * is the deck's top card anyway (the same bid twice only pushes the swipe buttons off a phone screen).
  */
-function nextUp(topId) {
+export function nextUp(topId) {
   const item = state.next?.item;
   if (!item || item.swipe || item.overLimit || item.id === topId) return null;
   return h('button', { class: `next verdict-${item.verdict}`, type: 'button', onclick: () => openSheet(item), 'aria-label': `Next up: ${item.title}` },
@@ -54,7 +55,7 @@ function scanLine() {
  * sub work the deck leaves out, everything open in Browse, or a wider reach in Settings. Nothing left at
  * all: say so, and when new bids come.
  */
-function deckDone() {
+export function deckDone() {
   const c = feedCounts();
   const total = c.fit + c.sub + c.other;
   const canWiden = state.mode === 'live' && state.auth === 'accounts' && !!state.me?.profile;
@@ -71,19 +72,21 @@ function deckDone() {
   return h('div', { class: 'empty deck-done' },
     h('div', { class: 'big' }, '⚡'),
     h('h3', {}, 'You’re caught up'),
-    h('p', {}, `Nothing left to swipe. ${plural(total, 'more open bid')} ${total === 1 ? 'is' : 'are'} in Browse, not yet swiped.`),
+    h('p', {}, `Nothing left to swipe. ${plural(total, 'more open bid')} ${total === 1 ? 'is' : 'are'} in Search, not yet swiped.`),
     h('div', { class: 'next-steps' },
       subHidden ? h('button', { class: 'cta', type: 'button', onclick: () => browseTier('sub') }, `See ${plural(c.sub, 'sub-work job')}`) : null,
-      h('button', { class: subHidden ? 'cta ghost' : 'cta', type: 'button', onclick: () => browseTier('all') }, `See ${num(total)} more in Browse`),
+      h('button', { class: subHidden ? 'cta ghost' : 'cta', type: 'button', onclick: () => browseTier('all') }, `See ${num(total)} more in Search`),
       widen,
     ),
     h('p', { class: 'deck-done-note' }, scanLine()),
   );
 }
 
-function renderSwipe() {
-  const items = deck();
-  const next = nextUp(items[0]?.id);
+/**
+ * The card stack with its three round buttons and the hint (Home in Swipe mode). `items` = the deck, `next` = the
+ * "Next up" element (or null), drawn above the stack. An empty deck is the finished deck.
+ */
+export function swipeView(items = deck(), next = nextUp(items[0]?.id)) {
   if (items.length === 0) return h('div', { class: 'swipe-view' }, next, deckDone());
   const stack = h('div', { class: 'deck' });
   const top = items.slice(0, 3);
@@ -381,6 +384,5 @@ function renderSaved() {
   return h('div', { class: 'list' }, list.map(row));
 }
 
-registerView('swipe', { chrome: 'tabs', render: renderSwipe });
 registerView('browse', { chrome: 'tabs', render: renderBrowse });
 registerView('saved', { chrome: 'tabs', render: renderSaved });

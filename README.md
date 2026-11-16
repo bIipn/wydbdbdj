@@ -13,6 +13,13 @@ or the poster's "They contacted me"). A winner who never makes contact or backs
 out owes a 5% no-show fee (2% of the bid to the poster); an agreed job carries a 1% service fee. **Payments
 are off: fees are recorded, never collected.** Rules and research: `docs/MARKETPLACE.md`.
 
+**The screens** (phone first; a five-tab bar at the bottom, a row under the header at desk width):
+**Home** (the landing: the market tape across the top, "Welcome" with the bell and the profile button, the
+tasks and preferences cards, then "Matches your preferences" as a scrolling list of cards with Save and Pass
+at the right edge, or, with the Scroll | Swipe switch, the swipe deck) · **Search** (every open bid in reach,
+search, filters, sort, paging) · **Market** (award history, wages, material prices; not in the bundled demo) ·
+**Saved** · **Jobs** (local jobs, accounts mode). An account here only to get work done sees Jobs alone.
+
 ```
 sources ──► normalize + locate ──► score per contractor ──► Postgres ──► API ──► swipe app (PWA)
                                                                      └──► daily email digest

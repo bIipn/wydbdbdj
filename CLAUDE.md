@@ -130,8 +130,15 @@ web/               index.html, styles.css, desktop.css (≥900px only), sw.js (r
                    SHELL_VERSION when the shell list changes), manifest.webmanifest, icons/ (from icon.svg via
                    scripts/make-icons.cjs), privacy.html, js/*.js (ES modules, no build). main.js imports every view;
                    promo.js + promo-link.js: the code box and ?promo= links;
-                   views/ (feed, market, alerts, cost, settings, sign-in, onboarding, gate, jobs, job-post, job)
-                   register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
+                   the chrome: a header (title, bell, round profile button) + a bottom tab bar Home · Search
+                   (view id 'browse') · Market · Saved · Jobs (shell.js; which tabs show, titles and the match
+                   card's place line + chips are pure in home-model.js, test/home-model.test.ts); #tape (tape.js)
+                   sits above the header, outside #view, shown on views registered with { tape: true };
+                   views/home.js = Home, the landing: tasks + preferences cards (home-extras.js), then the matches
+                   as Scroll (list cards, save/pass through actions.js) or Swipe (feed.js swipeView), remembered
+                   per device; the old view name 'swipe' is an alias for Home in Swipe mode (registerAlias);
+                   views/ (home, feed = Search + Saved, market, alerts, cost, settings, sign-in, onboarding, gate,
+                   jobs, job-post, job) register themselves; job-words.js (pure: stage, fee lines, licence lines), jobs-data.js,
                    work-profile.js; terms.html + privacy.html;
                    dom.js h() + safeUrl, state.js features(), money.js (cents only), cost-form.js / cost-result.js.
                    demo:snapshot bundles them: src/cli/snapshot.ts understands only plain import/export forms

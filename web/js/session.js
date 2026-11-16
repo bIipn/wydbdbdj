@@ -44,12 +44,12 @@ export async function loadAuthConfig() {
 
 /**
  * Where someone who is here only to get work done ('hire') lands: the Jobs screen once a module registers it
- * (setHireLanding('jobs')), the deck until then. Everyone else lands on the deck as always.
+ * (setHireLanding('jobs')), Home until then. Everyone else lands on Home (the matches: Scroll or Swipe).
  */
-let hireLanding = 'swipe';
+let hireLanding = 'home';
 export function setHireLanding(view) { hireLanding = view; }
-/** The first screen for this account: the deck, or the hire landing for someone here only to post jobs. */
-export const homeView = () => (intent() === 'hire' ? hireLanding : 'swipe');
+/** The first screen for this account: Home, or the hire landing for someone here only to post jobs. */
+export const homeView = () => (intent() === 'hire' ? hireLanding : 'home');
 
 /** After boot, sign-in or onboarding: onboarding if there is no profile yet, else the feed. */
 export async function enterApp(me) {
@@ -91,7 +91,7 @@ export function startDemo(data) {
   state.note = data.note || '';
   const saved = demoSwipes();
   state.items = data.items.map((i) => ({ ...i, swipe: saved[i.id] ?? null }));
-  setView('swipe');
+  setView('home');
 }
 
 /** The Sign out button: end the session on the server, then the sign-in screen. */

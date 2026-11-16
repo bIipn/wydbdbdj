@@ -260,7 +260,7 @@ export function jobsSection(d) {
       field({ key: 'valueRange.min', label: 'From', control: moneyInput({ text: d.min, placeholder: '10,000', label: 'Smallest job you want', oninput: (v) => (d.min = v) }) }),
       field({ key: 'valueRange.max', label: 'Up to', control: moneyInput({ text: d.max, placeholder: '50,000', label: 'Largest job you want', oninput: (v) => (d.max = v) }) }),
     ),
-    h('p', { class: 'field-help tight' }, 'Bids in this range score higher. You still see the rest in Browse.'),
+    h('p', { class: 'field-help tight' }, 'Bids in this range score higher. You still see the rest in Search.'),
     h('div', { class: 'subhead' }, h('h3', {}, 'Spend limits'), h('span', { class: 'optional' }, 'each optional')),
     limitField(d, 'maxJobSize', 'Largest job you can carry', 'Bigger bids stay out of your deck and get an “Over your limit” tag.'),
     limitField(d, 'maxUpfront', 'Most cash you can front', 'What you can pay out before the first payment comes in.'),
@@ -415,7 +415,7 @@ export function jobSizeChips(d) {
   paint();
   return h('div', { class: 'field', 'data-field': 'valueRange' },
     group,
-    h('p', { class: 'field-help' }, 'Pick one or more. Bids in this range score higher; you still see the rest in Browse.'),
+    h('p', { class: 'field-help' }, 'Pick one or more. Bids in this range score higher; you still see the rest in Search.'),
     h('p', { class: 'field-error', role: 'alert' }));
 }
 

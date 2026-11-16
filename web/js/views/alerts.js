@@ -11,7 +11,7 @@ import { openSheet } from '../sheet.js';
 import { registerView, render, setView } from '../shell.js';
 import { features, intent, mergeItems, state } from '../state.js';
 
-const ui = { back: 'swipe', loading: false, error: null, push: 'checking', pushNote: '' };
+const ui = { back: 'home', loading: false, error: null, push: 'checking', pushNote: '' };
 onSignedOut(() => { ui.push = 'checking'; });
 
 const KIND = {

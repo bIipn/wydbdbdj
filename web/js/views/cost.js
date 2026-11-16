@@ -157,7 +157,7 @@ function jump(sec, path) {
 function header(title) {
   const back = () => {
     const bid = ui.ctx?.bid;
-    setView(ui.ctx?.back && ui.ctx.back !== 'cost' ? ui.ctx.back : 'swipe');
+    setView(ui.ctx?.back && ui.ctx.back !== 'cost' ? ui.ctx.back : 'home');
     if (bid) openSheet(bid);
   };
   return h('header', { class: 'screen-head' },
@@ -271,7 +271,7 @@ registerView('cost', { chrome: 'screen', render: renderCost });
 // The buttons in the bid sheet and on Market (price.js) ask for the screen with this event.
 window.addEventListener('bidswipe:cost', (e) => {
   closeSheet();
-  openCostCheck(e.detail?.bid ?? null, state.view === 'cost' ? 'swipe' : state.view);
+  openCostCheck(e.detail?.bid ?? null, state.view === 'cost' ? 'home' : state.view);
 });
 
 // Scroll after the page is drawn: to the result, to the first error, or to a field a question points at.

@@ -76,7 +76,7 @@ function renderJobs() {
       : 'Need a hand yourself? Post a job and people nearby send sealed bids.'));
     const biddingSide = side('Your bids', bidding, emptyLine(hire
       ? 'You haven’t bid on anything. To bid on other people’s jobs too, pick “Both” in Settings and add your trade.'
-      : 'No bids yet. Local jobs that fit your trade show up in Swipe and Browse with a LOCAL JOB tag. Open one to bid.'));
+      : 'No bids yet. Local jobs that fit your trade show up on Home and in Search with a LOCAL JOB tag. Open one to bid.'));
     body = hire ? [postedSide, biddingSide] : [biddingSide, postedSide];
   }
 

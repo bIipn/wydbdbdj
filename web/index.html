@@ -22,28 +22,50 @@
 </head>
 <body>
   <div class="app" id="app" data-chrome="tabs">
+    <!-- The market tape (web/js/tape.js): outside #view, which is rebuilt on every render (an animation in it would restart). -->
+    <div id="tape" class="tape" hidden></div>
+
     <header class="topbar">
       <div class="brand">
         <svg class="bolt" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.2 2 4.5 13.4h6.1L9.8 22l8.7-11.5h-6.1z" /></svg>
-        <span>BidSwipe</span>
+        <div class="titles">
+          <h1 class="screen-title" id="screenTitle">BidSwipe</h1>
+          <p class="screen-sub" id="screenSub"></p>
+        </div>
       </div>
       <div class="top-actions">
         <button class="bell" id="bell" type="button" aria-label="Alerts" hidden>
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></svg>
           <span class="bell-count" id="bellCount"></span>
         </button>
-        <button class="profile-chip" id="profileChip" type="button" aria-label="Profile">
-          <span id="profileName">Loading…</span><span class="dot">·</span><span id="profileBase"></span>
+        <button class="avatar" id="profileChip" type="button" aria-label="Profile">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7" /></svg>
         </button>
       </div>
     </header>
 
-    <nav class="tabs" role="tablist" aria-label="Views">
-      <button role="tab" class="tab is-active" data-view="swipe" aria-selected="true">Swipe <span class="count" id="countSwipe"></span></button>
-      <button role="tab" class="tab" data-view="browse" aria-selected="false">Browse <span class="count" id="countBrowse"></span></button>
-      <button role="tab" class="tab" data-view="saved" aria-selected="false">Saved <span class="count" id="countSaved"></span></button>
-      <button role="tab" class="tab" data-view="market" id="marketTab" aria-selected="false" hidden>Market</button>
-      <button role="tab" class="tab" data-view="jobs" id="jobsTab" aria-selected="false" hidden>Jobs <span class="count"></span></button>
+    <!-- The tab bar: fixed at the bottom of a phone, a row under the header at desk width (desktop.css). -->
+    <nav class="tabbar" id="tabbar" aria-label="Main">
+      <button type="button" class="tab" data-view="home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10.5 12 4l8 6.5V19a1 1 0 0 1-1 1h-4.5v-5.5h-5V20H5a1 1 0 0 1-1-1z" /></svg>
+        <span class="tab-label">Home</span>
+      </button>
+      <button type="button" class="tab" data-view="browse">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="m20 20-4.2-4.2" /></svg>
+        <span class="tab-label">Search</span>
+      </button>
+      <button type="button" class="tab" data-view="market" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 17.5 9 12l3.5 3.5L20.5 7.5" /><path d="M15 7.5h5.5V13" /></svg>
+        <span class="tab-label">Market</span>
+      </button>
+      <button type="button" class="tab" data-view="saved">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 3.5h11a1 1 0 0 1 1 1v16l-6.5-4.2-6.5 4.2v-16a1 1 0 0 1 1-1z" /></svg>
+        <span class="tab-label">Saved</span><span class="count" id="countSaved"></span>
+      </button>
+      <button type="button" class="tab" data-view="jobs" hidden>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="7.5" width="17" height="12" rx="2" /><path d="M9 7.5V5.5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M3.5 12.5h17" /></svg>
+        <span class="tab-label">Jobs</span><span class="count"></span>
+      </button>
     </nav>
 
     <main class="view" id="view" aria-live="polite"></main>

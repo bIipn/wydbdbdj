@@ -19,7 +19,7 @@ concurrency:
 jobs:
   hawkscan:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 120 # the first run was cut off at 60 with the scan still going
     env:
       HAWK_API_KEY: ${{ secrets.HAWK_API_KEY }}
       APP_HOST: http://127.0.0.1:8787 # IPv4 on purpose: the server listens on 127.0.0.1 only
@@ -79,6 +79,12 @@ jobs:
       - name: Seed the scan user and a local job
         if: steps.gate.outputs.run == 'true'
         run: SEED_BASE_URL="$APP_HOST" node scripts/hawkscan-seed.mjs
+
+      - name: Keep the scan user's throwaway password out of the log
+        if: steps.gate.outputs.run == 'true'
+        # GitHub prints every step's env block; the password is random per run and the server dies with the job,
+        # but it does not belong in a log. From here on it shows as ***.
+        run: echo "::add-mask::$SCAN_PASSWORD"
 
       - name: Install the hawk CLI
         if: steps.gate.outputs.run == 'true'
@@ -167,9 +173,10 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
           export API_KEY="$HAWK_API_KEY"
+          set -o pipefail
           hawk validate config stackhawk.yml
           hawk validate api stackhawk.yml
-          hawk validate auth stackhawk.yml
+          hawk validate auth stackhawk.yml 2>&1 | sed -E 's/(bs_session=)[A-Za-z0-9_-]+/\1[hidden]/g'
 
       - name: Scan
         id: scan
@@ -179,43 +186,86 @@ jobs:
           BRANCH_NAME: ${{ github.ref_name }}
         run: |
           export API_KEY="$HAWK_API_KEY"
-          echo "StackHawk | Scanning $APP_HOST - this takes a while"
+          echo "StackHawk | Scanning $APP_HOST - this takes a while; the scanner's own progress follows"
           set +e
-          hawk --no-color scan --json-output stackhawk.yml > hawkscan-results.json
-          code=$?
+          # No --json-output here: it silences the progress, and a scan that is cut off leaves nothing to read.
+          hawk --no-color scan stackhawk.yml 2>&1 | sed -E 's/(bs_session=)[A-Za-z0-9_-]+/\1[hidden]/g' | tee hawkscan-output.txt
+          code=${PIPESTATUS[0]}
           set -e
           echo "exit=$code" >> "$GITHUB_OUTPUT"
           echo "StackHawk | scan finished with exit code $code"
 
-      - name: Summary of the findings
-        if: always() && steps.gate.outputs.run == 'true' && steps.scan.outputs.exit != ''
+      - name: Findings, path by path
+        if: always() && steps.gate.outputs.run == 'true'
         run: |
+          export API_KEY="$HAWK_API_KEY"
+          set +e
+          hawk op scan get --app "$APP_ID" --detail full --format json > hawkscan-results.json 2> hawkscan-results.err
+          echo "hawk op scan get: exit $?"; head -c 400 hawkscan-results.err; echo
           python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
           import json, sys
+          text = open("hawkscan-results.json", errors="replace").read()
+          start = min([i for i in (text.find("{"), text.find("[")) if i >= 0] or [-1])
+          if start < 0:
+              print("No JSON from the platform for this scan."); sys.exit(0)
           try:
-              data = json.load(open("hawkscan-results.json"))
+              data, _ = json.JSONDecoder().raw_decode(text[start:])
           except Exception as e:
-              print(f"No JSON results to read ({e}). The scan log is in the job output above."); sys.exit(0)
-          scan = data.get("scan") or {}
-          print(f"HawkScan: status {scan.get('status')}, threshold {data.get('thresholdResult')}, {scan.get('duration')} s")
-          print(f"Platform: {scan.get('platformUrl')}")
-          order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
-          findings = sorted(data.get("findings") or [], key=lambda f: (order.get(f.get("severity"), 9), f.get("name", "")))
-          print(f"\n{len(findings)} findings")
-          print("severity | plugin | count | path")
-          for f in findings:
-              paths = f.get("paths") or []
-              first = True
-              for p in paths or [{}]:
-                  where = f"{p.get('method', '')} {p.get('path', '')} [{p.get('status', '')}]".strip()
-                  head = f"{f.get('severity')} | {f.get('name')} ({f.get('cweId', '')}) | {f.get('count')}" if first else "  |  |"
-                  print(f"{head} | {where}")
-                  first = False
-          for e in data.get("errors") or []:
-              print(f"error ({e.get('category')}): {e.get('message')}")
-          for w in data.get("warnings") or []:
-              print(f"warning: {w}")
+              print(f"Could not read the platform's answer ({e})."); print(text[:1500]); sys.exit(0)
+          # The shape is the platform's: print what it is, then every object that looks like a finding.
+          def shape(x, depth=0):
+              if isinstance(x, dict): return {k: (shape(v, depth + 1) if depth < 2 else type(v).__name__) for k, v in list(x.items())[:30]}
+              if isinstance(x, list): return [shape(x[0], depth + 1)] if x else []
+              return type(x).__name__
+          print("shape:", json.dumps(shape(data))[:1800])
+          rows = []
+          def walk(x, trail=""):
+              if isinstance(x, dict):
+                  sev = x.get("severity") or x.get("criticality") or x.get("risk")
+                  name = x.get("pluginName") or x.get("name") or x.get("alertName") or x.get("title")
+                  if sev and name:
+                      where = " ".join(str(x.get(k)) for k in ("requestMethod", "method", "path", "uri", "url", "status", "state") if x.get(k))
+                      rows.append(f"{sev} | {name} | {x.get('pluginId', x.get('cweId', ''))} | {x.get('count', x.get('uriCount', ''))} | {where}")
+                  for k, v in x.items(): walk(v, trail + "/" + k)
+              elif isinstance(x, list):
+                  for v in x: walk(v, trail)
+          walk(data)
+          seen = []
+          for r in rows:
+              if r not in seen: seen.append(r)
+          print(f"\n{len(seen)} finding rows (severity | check | id | count | where)")
+          for r in seen[:400]: print(r)
           PY
+
+      - name: What the server saw
+        if: always() && steps.gate.outputs.run == 'true'
+        run: |
+          log="$RUNNER_TEMP/server.log"
+          echo "health now: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$APP_HOST/api/health")"
+          echo "lines: $(wc -l < "$log")"
+          python3 - "$log" <<'PY'
+          import collections, json, sys
+          codes = collections.Counter(); slow = []; errs = []; first = last = None
+          for line in open(sys.argv[1], errors="replace"):
+              try: d = json.loads(line)
+              except Exception:
+                  if line.strip(): errs.append(line.strip()[:300])
+                  continue
+              t = d.get("time"); first = first or t; last = t or last
+              res = d.get("res") or {}
+              if "statusCode" in res:
+                  codes[res["statusCode"]] += 1
+                  ms = d.get("responseTime") or 0
+                  if ms > 5000: slow.append((round(ms), d.get("reqId")))
+              if d.get("level", 0) >= 50: errs.append(str(d.get("msg") or (d.get("err") or {}).get("message"))[:300])
+          print("answers by status:", dict(sorted(codes.items())))
+          if first and last: print(f"log covers {round((last - first) / 60000)} minutes")
+          print(f"answers slower than 5 s: {len(slow)}", slow[:10])
+          print(f"error lines: {len(errs)}")
+          for e in collections.Counter(errs).most_common(15): print("  ", e[1], "x", e[0])
+          PY
+          echo "--- last lines of the server log (session cookies hidden)"
+          tail -n 25 "$log" | sed -E 's/(bs_session=)[A-Za-z0-9_-]+/\1[hidden]/g' | cut -c1-600
 
       - name: Upload the results and the server log
         if: always() && steps.gate.outputs.run == 'true'
@@ -224,6 +274,7 @@ jobs:
           name: hawkscan-results
           path: |
             hawkscan-results.json
+            hawkscan-output.txt
             ${{ runner.temp }}/server.log
           if-no-files-found: warn
 

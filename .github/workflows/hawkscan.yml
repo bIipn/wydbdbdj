@@ -1,0 +1,237 @@
+name: HawkScan
+
+# A StackHawk HawkScan (DAST) of the running app: docs/SECURITY-SCAN.md.
+# It runs only when asked: by hand (Actions > HawkScan > Run workflow), or by a push to main or claude/** that
+# changes .github/hawkscan-run. Ordinary pushes never start it.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, 'claude/**']
+    paths: ['.github/hawkscan-run']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hawkscan-${{ github.ref }}
+  cancel-in-progress: false # never two scans of one app/environment at once; never cut one off
+
+jobs:
+  hawkscan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      HAWK_API_KEY: ${{ secrets.HAWK_API_KEY }}
+      APP_HOST: http://127.0.0.1:8787 # IPv4 on purpose: the server listens on 127.0.0.1 only
+      APP_ENV: Development
+      HAWK_APP_NAME: bidswipe
+    steps:
+      - name: Check for the StackHawk API key
+        id: gate
+        run: |
+          if [ -z "$HAWK_API_KEY" ]; then
+            echo "::notice title=HawkScan skipped::The repository secret HAWK_API_KEY is not set (Settings > Secrets and variables > Actions); nothing was scanned."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install and build
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          npm ci
+          npm run build
+
+      - name: Load the captured bids into a throwaway database
+        if: steps.gate.outputs.run == 'true'
+        # The embedded database allows one process per folder: this finishes before the server opens it.
+        run: |
+          echo "DATA_DIR=$RUNNER_TEMP/bidswipe-data" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/bidswipe-data"
+          AUTH_MODE=accounts DATA_DIR="$RUNNER_TEMP/bidswipe-data" SOURCES=fixtures npm run scan -- --fixtures --quiet
+
+      - name: Start the server (accounts mode, port 8787)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          # Throwaway web push keys and cron secret for this run only: with them the push routes and the cron routes
+          # exist (answering 200 / 401) instead of 404. No admin token: every /api/admin route answers 401.
+          eval "$(node -e "const k=require('web-push').generateVAPIDKeys();console.log('export VAPID_PUBLIC_KEY='+k.publicKey+' VAPID_PRIVATE_KEY='+k.privateKey)")"
+          export CRON_SECRET="$(openssl rand -hex 24)"
+          # DEMO_MODE=1: every account has every feature, so the Pro routes (cost check, award history) are scanned too.
+          AUTH_MODE=accounts DEMO_MODE=1 PORT=8787 HOST=127.0.0.1 SCAN_DAILY_AT= MARKET_REFRESH_AT= \
+            VAPID_SUBJECT=mailto:scan@example.com APP_URL="$APP_HOST" \
+            nohup node dist/server.js > "$RUNNER_TEMP/server.log" 2>&1 &
+          for i in $(seq 1 60); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' "$APP_HOST/")" = "200" ]; then echo "Server up after ${i}s"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::The server did not answer GET / within 60 s"; tail -50 "$RUNNER_TEMP/server.log"; exit 1
+
+      - name: Seed the scan user and a local job
+        if: steps.gate.outputs.run == 'true'
+        run: SEED_BASE_URL="$APP_HOST" node scripts/hawkscan-seed.mjs
+
+      - name: Install the hawk CLI
+        if: steps.gate.outputs.run == 'true'
+        uses: stackhawk/hawkscan-action@v3.2.0
+        with:
+          apiKey: ${{ secrets.HAWK_API_KEY }}
+          installCLIOnly: true
+          version: 6.6.0
+
+      - name: Find or create the StackHawk application
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          set +e # each hawk answer is checked below; GitHub's default shell would stop at the first non-zero one
+          set -uo pipefail
+          export API_KEY="$HAWK_API_KEY"
+          hawk version
+          # Reads the JSON part of a hawk answer (a "skills out of date" banner may come first) and prints ids.
+          #   pick <mode> [name]: mode orgs = every org id; mode app = the id of the app named <name>
+          pick() {
+            python3 -c '
+          import json, re, sys
+          mode = sys.argv[1]; want = sys.argv[2] if len(sys.argv) > 2 else ""
+          text = sys.stdin.read()
+          start = min([i for i in (text.find("["), text.find("{")) if i >= 0] or [-1])
+          if start < 0: sys.exit(0)
+          data, _ = json.JSONDecoder().raw_decode(text[start:])
+          def items(d):
+              if isinstance(d, list): return d
+              if isinstance(d, dict):
+                  for v in d.values():
+                      if isinstance(v, list): return v
+                  return [d]
+              return []
+          norm = lambda s: str(s).lower().replace("_", "-")
+          for it in items(data):
+              if not isinstance(it, dict): continue
+              ident = next((it[k] for k in ("applicationId", "appId", "organizationId", "orgId", "id") if it.get(k)), None)
+              if not ident: continue
+              if mode == "orgs" or norm(it.get("name", it.get("applicationName", ""))) == norm(want): print(ident)
+          ' "$@"
+          }
+          apps="$(hawk op app list --format json 2>&1)"; rc=$?
+          if echo "$apps" | grep -qi "organization not configured"; then
+            orgs="$(hawk op org list --format json 2>&1)"
+            ids="$(echo "$orgs" | pick orgs)"
+            if [ "$(echo "$ids" | grep -c .)" != "1" ]; then
+              echo "::error::hawk needs an organization and there is not exactly one to pick:"; echo "$orgs"; exit 1
+            fi
+            hawk op org set "$ids"
+            apps="$(hawk op app list --format json 2>&1)"; rc=$?
+          fi
+          if [ $rc -ne 0 ]; then echo "::error::hawk op app list failed:"; echo "$apps"; exit 1; fi
+          app_id="$(echo "$apps" | pick app "$HAWK_APP_NAME" | head -1)"
+          created=false
+          if [ -z "$app_id" ]; then
+            out="$(hawk create app --name "$HAWK_APP_NAME" --env "$APP_ENV" 2>&1)"; echo "$out"
+            app_id="$(echo "$out" | grep -oiE '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}' | head -1)"
+            created=true
+          fi
+          if [ -z "$app_id" ]; then echo "::error::Could not find or create the StackHawk application $HAWK_APP_NAME"; exit 1; fi
+          echo "APP_ID=$app_id" >> "$GITHUB_ENV"
+          echo "StackHawk | application $HAWK_APP_NAME ($app_id), created now: $created"
+          if [ "$created" = false ]; then
+            # A reused app may not have this environment yet (failures here are reported, not fatal).
+            envs="$(hawk op env list --app "$app_id" --format json 2>&1 || true)"
+            echo "$envs" | grep -q "\"$APP_ENV\"" || hawk op env create --app "$app_id" --env "$APP_ENV" --host "$APP_HOST" \
+              || echo "::warning::Could not create environment $APP_ENV; the scan may create it"
+          else
+            # A new app has every tech flag on: keep only the detected stack (Node/Fastify, Postgres). Only on a new
+            # app, so a later choice made on the platform is never overwritten. Not fatal.
+            flags="$(hawk op app tech-flags get --app "$app_id" --format json 2>&1 || true)"
+            want=""
+            for f in Language.JavaScript Language.JavaScript.Node Db.PostgreSQL; do
+              echo "$flags" | grep -q "\"$f\"" && want="$want $f=true"
+            done
+            if [ -n "$want" ]; then
+              hawk op app tech-flags disable-all --app "$app_id" --yes && hawk op app tech-flags set --app "$app_id" $want \
+                || echo "::warning::Could not set the tech flags; the scan runs with the platform's defaults"
+            fi
+          fi
+
+      - name: Validate the configuration, the spec and the login
+        if: steps.gate.outputs.run == 'true'
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          export API_KEY="$HAWK_API_KEY"
+          hawk validate config stackhawk.yml
+          hawk validate api stackhawk.yml
+          hawk validate auth stackhawk.yml
+
+      - name: Scan
+        id: scan
+        if: steps.gate.outputs.run == 'true'
+        env:
+          COMMIT_SHA: ${{ github.sha }}
+          BRANCH_NAME: ${{ github.ref_name }}
+        run: |
+          export API_KEY="$HAWK_API_KEY"
+          echo "StackHawk | Scanning $APP_HOST - this takes a while"
+          set +e
+          hawk --no-color scan --json-output stackhawk.yml > hawkscan-results.json
+          code=$?
+          set -e
+          echo "exit=$code" >> "$GITHUB_OUTPUT"
+          echo "StackHawk | scan finished with exit code $code"
+
+      - name: Summary of the findings
+        if: always() && steps.gate.outputs.run == 'true' && steps.scan.outputs.exit != ''
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_STEP_SUMMARY"
+          import json, sys
+          try:
+              data = json.load(open("hawkscan-results.json"))
+          except Exception as e:
+              print(f"No JSON results to read ({e}). The scan log is in the job output above."); sys.exit(0)
+          scan = data.get("scan") or {}
+          print(f"HawkScan: status {scan.get('status')}, threshold {data.get('thresholdResult')}, {scan.get('duration')} s")
+          print(f"Platform: {scan.get('platformUrl')}")
+          order = {"HIGH": 0, "MEDIUM": 1, "LOW": 2}
+          findings = sorted(data.get("findings") or [], key=lambda f: (order.get(f.get("severity"), 9), f.get("name", "")))
+          print(f"\n{len(findings)} findings")
+          print("severity | plugin | count | path")
+          for f in findings:
+              paths = f.get("paths") or []
+              first = True
+              for p in paths or [{}]:
+                  where = f"{p.get('method', '')} {p.get('path', '')} [{p.get('status', '')}]".strip()
+                  head = f"{f.get('severity')} | {f.get('name')} ({f.get('cweId', '')}) | {f.get('count')}" if first else "  |  |"
+                  print(f"{head} | {where}")
+                  first = False
+          for e in data.get("errors") or []:
+              print(f"error ({e.get('category')}): {e.get('message')}")
+          for w in data.get("warnings") or []:
+              print(f"warning: {w}")
+          PY
+
+      - name: Upload the results and the server log
+        if: always() && steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: hawkscan-results
+          path: |
+            hawkscan-results.json
+            ${{ runner.temp }}/server.log
+          if-no-files-found: warn
+
+      - name: Verdict
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          case "${{ steps.scan.outputs.exit }}" in
+            0) echo "HawkScan passed: nothing at or above the failure threshold." ;;
+            42) echo "::notice title=HawkScan findings::Findings at or above the threshold (see the summary). They will be fixed and the scan asked for again." ;;
+            *) echo "::error::HawkScan could not run (exit ${{ steps.scan.outputs.exit }}): see the scan step and hawkscan-results.json"; exit 1 ;;
+          esac

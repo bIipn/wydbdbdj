@@ -1,0 +1,1138 @@
+openapi: 3.0.3
+# BidSwipe HTTP API, hand-derived from src/server.ts and src/routes/*.ts (2026-11-16).
+# test/openapi.test.ts compares the operations below with the routes the server registers and fails on any
+# difference, both ways. Keep the layout: a path at two spaces under `paths:`, its methods at four.
+# The HawkScan security scan (stackhawk.yml) reads this file; the examples are its inputs, so each one is a
+# request the app accepts. Ids in examples are placeholders: the scan's customVariables put real ones in.
+info:
+  title: BidSwipe API
+  version: 0.1.0
+  description: >-
+    Public bids that fit your trade, and the local-jobs marketplace (accounts mode). Every state-changing
+    /api request from a signed-in browser must carry the header x-bidswipe: 1 (src/auth/guard.ts), or it gets
+    403 {"error":"csrf"}. Single mode (the pilot) has no accounts: the sign-in, work-profile and jobs routes
+    answer 404 there.
+servers:
+  - url: http://localhost:8787
+    description: npm run dev / node dist/server.js (PORT, default 8787)
+tags:
+  - name: shell
+  - name: auth
+  - name: profile
+  - name: feed
+  - name: market
+  - name: cost
+  - name: realtime
+  - name: work
+  - name: jobs
+  - name: admin
+  - name: cron
+security:
+  - session: []
+paths:
+  /:
+    get:
+      tags: [shell]
+      summary: The app shell (index.html). Every other screen is drawn by web/js in the browser.
+      security: []
+      responses:
+        '200': { description: HTML, content: { text/html: { schema: { type: string } } } }
+  /index.html:
+    get:
+      tags: [shell]
+      summary: The app shell by name.
+      security: []
+      responses:
+        '200': { description: HTML, content: { text/html: { schema: { type: string } } } }
+  /privacy.html:
+    get:
+      tags: [shell]
+      summary: Privacy policy page.
+      security: []
+      responses:
+        '200': { description: HTML, content: { text/html: { schema: { type: string } } } }
+  /terms.html:
+    get:
+      tags: [shell]
+      summary: Terms page.
+      security: []
+      responses:
+        '200': { description: HTML, content: { text/html: { schema: { type: string } } } }
+  /manifest.webmanifest:
+    get:
+      tags: [shell]
+      summary: Web app manifest.
+      security: []
+      responses:
+        '200': { description: The manifest, content: { application/manifest+json: { schema: { type: object } } } }
+  /sw.js:
+    get:
+      tags: [shell]
+      summary: The service worker.
+      security: []
+      responses:
+        '200': { description: JavaScript, content: { application/javascript: { schema: { type: string } } } }
+  /api/health:
+    get:
+      tags: [profile]
+      summary: Liveness, database kind and the last scan time. Public.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+  /api/me:
+    get:
+      tags: [profile]
+      summary: Who am I. Accounts mode 401 when signed out; single mode answers the pilot profile.
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+  /api/trades:
+    get:
+      tags: [profile]
+      summary: The trades and set-aside programs the onboarding form picks from. Public.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+  /api/geo/zip/{zip}:
+    get:
+      tags: [profile]
+      summary: A ZIP code's town and point.
+      security: []
+      parameters:
+        - name: zip
+          in: path
+          required: true
+          schema: { type: string, pattern: '^\d{5}$' }
+          example: '95675'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/geo/nearest-zip:
+    get:
+      tags: [profile]
+      summary: '"Use my location": a point to the nearest ZIP. The point is never stored.'
+      security: []
+      parameters:
+        - name: lat
+          in: query
+          required: true
+          schema: { type: number, minimum: -90, maximum: 90 }
+          example: 38.68
+        - name: lng
+          in: query
+          required: true
+          schema: { type: number, minimum: -180, maximum: 180 }
+          example: -120.92
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/profile:
+    get:
+      tags: [profile]
+      summary: The account's saved onboarding answers (accounts mode; 409 in single mode or before onboarding).
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    put:
+      tags: [profile]
+      summary: Save the onboarding answers (replaces the profile) and score every open bid for it.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Answers' }
+            example:
+              intent: work
+              businessName: TEST Foothill Electric (simulated)
+              trades: [electrical]
+              zip: '95675'
+              radiusMi: 100
+              valueRange: { min: 10000, max: 500000 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/auth/config:
+    get:
+      tags: [auth]
+      summary: Sign-in mode and providers (accounts mode; 404 in single mode). Public.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/auth/signup:
+    post:
+      tags: [auth]
+      summary: Create an account and sign in (sets the bs_session cookie). 10 tries per 15 minutes per address and per email.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+            example: { email: scan-signup@example.com, password: TEST-password-123, name: TEST Scan Signup }
+      responses:
+        '201': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/auth/login:
+    post:
+      tags: [auth]
+      summary: Sign in with e-mail and password (sets the bs_session cookie; ends the session the request came with).
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Credentials' }
+            example: { email: scan-user@example.com, password: TEST-password-123 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/auth/oauth:
+    post:
+      tags: [auth]
+      summary: Sign in with a Supabase (Google / Apple / Microsoft) access token. 404 when not configured.
+      security: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                accessToken: { type: string, maxLength: 4096 }
+            example: { accessToken: TEST-not-a-real-token }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/auth/logout:
+    post:
+      tags: [auth]
+      summary: Sign out (clears the cookie). The scan never sends this one (stackhawk.yml excludePaths).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '403': { $ref: '#/components/responses/Csrf' }
+  /api/promo/redeem:
+    post:
+      tags: [auth]
+      summary: Redeem a promo code. 403 not_available when no codes are set, in demo mode or from the iOS build.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code: { type: string, maxLength: 64 }
+            example: { code: TEST-CODE }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/feed:
+    get:
+      tags: [feed]
+      summary: The swipe deck, or Browse with all=1. Paged with limit and offset.
+      parameters:
+        - { name: all, in: query, schema: { type: string, enum: ['0', '1', 'true', 'false'] }, example: '1' }
+        - { name: q, in: query, schema: { type: string, maxLength: 200 }, example: electrical }
+        - { name: minScore, in: query, schema: { type: number, minimum: 0, maximum: 100 }, example: 35 }
+        - { name: limit, in: query, schema: { type: integer, minimum: 0, maximum: 300 }, example: 100 }
+        - { name: offset, in: query, schema: { type: integer, minimum: 0, maximum: 1000000 }, example: 0 }
+        - { name: minValue, in: query, schema: { type: number, minimum: 0 }, example: 10000 }
+        - { name: maxValue, in: query, schema: { type: number, minimum: 0 }, example: 500000 }
+        - { name: hasValue, in: query, schema: { type: string, enum: ['0', '1'] }, example: '0' }
+        - { name: maxDistance, in: query, schema: { type: number, minimum: 0, maximum: 10000 }, example: 150 }
+        - { name: dueWithinDays, in: query, schema: { type: number, minimum: 0, maximum: 3650 }, example: 60 }
+        - { name: source, in: query, description: 'Comma list of board ids, or local', schema: { type: string }, example: 'nevadaepro,questcdn,local' }
+        - { name: verdict, in: query, schema: { type: string }, example: 'great,good,maybe' }
+        - { name: sort, in: query, schema: { type: string, enum: [fit, due, near, new, value] }, example: fit }
+        - { name: overLimit, in: query, schema: { type: string, enum: [exclude, only] }, example: exclude }
+        - { name: tier, in: query, schema: { type: string, enum: [fit, sub, other, all] }, example: all }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/saved:
+    get:
+      tags: [feed]
+      summary: The bids this profile saved.
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/bids/{id}:
+    get:
+      tags: [feed]
+      summary: One bid with this profile's score and reasons.
+      parameters:
+        - $ref: '#/components/parameters/BidIdPath'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/swipe:
+    post:
+      tags: [feed]
+      summary: Save, pass or mark "bid" on a bid.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [bidId, action]
+              properties:
+                bidId: { type: string, maxLength: 200 }
+                action: { type: string, enum: [save, pass, bid] }
+            example: { bidId: 'questcdn:1903611:10385980', action: save }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/swipe/{id}:
+    delete:
+      tags: [feed]
+      summary: Undo a swipe.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/BidIdPath'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+  /api/next:
+    get:
+      tags: [feed]
+      summary: The one bid to look at next.
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/market/area:
+    get:
+      tags: [market]
+      summary: Wages for an area and national material price trends.
+      parameters:
+        - { name: zip, in: query, schema: { type: string, pattern: '^\d{5}$' }, example: '95675' }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/market/awards:
+    get:
+      tags: [market]
+      summary: What similar federal jobs were awarded for (Pro). By bidId, or by naics + zip + radiusMi + months.
+      parameters:
+        - $ref: '#/components/parameters/BidIdQuery'
+        - { name: naics, in: query, description: '1 to 10 six-digit codes, comma separated', schema: { type: string, pattern: '^\d{6}(,\d{6}){0,9}$' }, example: '238210' }
+        - { name: zip, in: query, schema: { type: string, pattern: '^\d{5}$' }, example: '95675' }
+        - { name: radiusMi, in: query, schema: { type: integer, minimum: 1, maximum: 500 }, example: 100 }
+        - { name: months, in: query, schema: { type: integer, minimum: 1, maximum: 120 }, example: 24 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '402': { $ref: '#/components/responses/Premium' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/market/prevailing:
+    get:
+      tags: [market]
+      summary: What to tell a contractor about prevailing wage on one bid.
+      parameters:
+        - name: bidId
+          in: query
+          required: true
+          schema: { type: string, maxLength: 200 }
+          example: 'questcdn:1903611:10385980'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/market/watch:
+    get:
+      tags: [market]
+      summary: What the price and award watch follows for this profile (a locked shape without Pro).
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+  /api/estimate:
+    post:
+      tags: [cost]
+      summary: Run the cost check (Pro) and save it. The quick form is shown; the full EstimateRequest is src/cost/estimate.ts.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bidId: { type: string, maxLength: 200 }
+                laborHours: { type: number }
+                laborRate: { type: number }
+                materials: { type: number }
+                equipment: { type: number }
+                subs: { type: number }
+                burdenPct: { type: number }
+                overheadPct: { type: number }
+                profitPct: { type: number }
+                bondPct: { type: number }
+            example: { laborHours: 40, laborRate: 45, materials: 1200, overheadPct: 15, profitPct: 10 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '402': { $ref: '#/components/responses/Premium' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/estimates:
+    get:
+      tags: [cost]
+      summary: Saved cost checks (Pro), newest first.
+      parameters:
+        - $ref: '#/components/parameters/BidIdQuery'
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200 }, example: 20 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '402': { $ref: '#/components/responses/Premium' }
+  /api/stream:
+    get:
+      tags: [realtime]
+      summary: Server-Sent Events (never ends). 404 stream_off in poll mode. The scan never opens it (excludePaths).
+      parameters:
+        - { name: lastEventId, in: query, schema: { type: string, pattern: '^\d{1,15}$' }, example: '0' }
+      responses:
+        '200': { description: An event stream, content: { text/event-stream: { schema: { type: string } } } }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/push/key:
+    get:
+      tags: [realtime]
+      summary: The web push public key. 404 push_not_configured without VAPID keys.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/push/subscribe:
+    post:
+      tags: [realtime]
+      summary: Register this device for web push.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subscription]
+              properties:
+                subscription:
+                  type: object
+                  properties:
+                    endpoint: { type: string, format: uri, maxLength: 2048 }
+                    keys:
+                      type: object
+                      properties:
+                        p256dh: { type: string }
+                        auth: { type: string }
+            example:
+              subscription:
+                endpoint: https://push.example.com/TEST-scan-device
+                keys:
+                  p256dh: BAABAgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICEiIyQlJicoKSorLC0uLzAxMjM0NTY3ODk6Ozw9Pj8
+                  auth: AAECAwQFBgcICQoLDA0ODw
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [realtime]
+      summary: Forget a device.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [endpoint]
+              properties:
+                endpoint: { type: string, maxLength: 2048 }
+            example: { endpoint: https://push.example.com/TEST-scan-device }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+  /api/alerts:
+    get:
+      tags: [realtime]
+      summary: The alert inbox (also settles due local jobs).
+      parameters:
+        - { name: unread, in: query, schema: { type: string, enum: ['0', '1', 'true', 'false'] }, example: '0' }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1 }, example: 50 }
+        - { name: before, in: query, schema: { type: integer, minimum: 1 }, example: 1000000 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/alerts/read:
+    post:
+      tags: [realtime]
+      summary: Mark alerts read ({ids} at most 500, or {all:true}).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ids: { type: array, maxItems: 500, items: { type: integer, minimum: 1 } }
+                all: { type: boolean }
+            example: { all: true }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+  /api/work-profile:
+    get:
+      tags: [work]
+      summary: The caller's work profile and the card others see (accounts mode; 404 in single mode).
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      tags: [work]
+      summary: Save the work profile; fields left out keep their saved value.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                intent: { type: string, enum: [work, hire, both] }
+                headline: { type: string, nullable: true }
+                about: { type: string, nullable: true }
+                yearsExperience: { type: integer, nullable: true }
+                skills: { type: array, items: { type: string } }
+                insured: { type: string, enum: ['yes', 'no', unsure] }
+                resumeUrl: { type: string, nullable: true }
+            example:
+              headline: TEST Licensed electrician (simulated)
+              about: Service calls, panel swaps and lighting. TEST profile (simulated).
+              yearsExperience: 12
+              skills: [Panel upgrades, Lighting]
+              insured: 'yes'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/people/{id}:
+    get:
+      tags: [work]
+      summary: Another person's card, only for someone the caller has dealt with on a job (else 404).
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 00000000-0000-4000-8000-000000000002
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs/rules:
+    get:
+      tags: [jobs]
+      summary: The marketplace fees and limits. Public.
+      security: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs:
+    post:
+      tags: [jobs]
+      summary: Post a local job (sealed bids, lowest wins at closing). 10 per hour per account.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/NewJob' }
+            example:
+              title: TEST Hang four porch lights (simulated)
+              description: Four exterior fixtures on an existing circuit. TEST job (simulated).
+              trades: [electrical]
+              zip: '95675'
+              address: 9 TEST Lane (simulated)
+              phone: 916-555-0142
+              budgetMaxCents: 90000
+              closesInDays: 3
+      responses:
+        '201': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/mine:
+    get:
+      tags: [jobs]
+      summary: Jobs this account posted and is bidding on.
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs/conversations:
+    get:
+      tags: [jobs]
+      summary: Messages tab, the conversations this account is in.
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs/{id}:
+    get:
+      tags: [jobs]
+      summary: One job as this viewer may see it.
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs/{id}/conversation:
+    get:
+      tags: [jobs]
+      summary: The poster-winner conversation (403 for anyone else).
+      parameters:
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/jobs/{id}/read:
+    post:
+      tags: [jobs]
+      summary: Mark the conversation read up to a message id (optional body).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                upTo: { type: integer, minimum: 1 }
+            example: { upTo: 1 }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/{id}/bid:
+    post:
+      tags: [jobs]
+      summary: Place or change a sealed bid while the job is open. 30 per 10 minutes.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [amountCents, agree]
+              properties:
+                amountCents: { type: integer, minimum: 2000, maximum: 25000000 }
+                agree: { type: boolean, enum: [true] }
+                note: { type: string, maxLength: 500 }
+            example: { amountCents: 42000, agree: true, note: TEST bid (simulated) }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+    delete:
+      tags: [jobs]
+      summary: Withdraw this account's bid while the job is open.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/{id}/cancel:
+    post:
+      tags: [jobs]
+      summary: The poster cancels an open job. Excluded from the scan (it would end the scan user's own job).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/jobs/{id}/repost:
+    post:
+      tags: [jobs]
+      summary: '"Post again": a copy of an ended job (one live repost per job, else 409).'
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [closesInDays]
+              properties:
+                closesInDays: { type: integer, minimum: 1, maximum: 30 }
+            example: { closesInDays: 3 }
+      responses:
+        '201': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/{id}/messages:
+    post:
+      tags: [jobs]
+      summary: Send a message (poster and winner only, after the award). 60 per 10 minutes.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [body]
+              properties:
+                body: { type: string, minLength: 1, maxLength: 2000 }
+            example: { body: TEST message from the security scan (simulated). }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/{id}/contacted:
+    post:
+      tags: [jobs]
+      summary: The poster taps "They contacted me".
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/jobs/{id}/confirm:
+    post:
+      tags: [jobs]
+      summary: '"We have agreed" (poster or winner).'
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/jobs/{id}/back-out:
+    post:
+      tags: [jobs]
+      summary: The winner backs out (records the no-show fee). Excluded from the scan.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/jobs/{id}/complete:
+    post:
+      tags: [jobs]
+      summary: Mark an agreed job done.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/jobs/{id}/report:
+    post:
+      tags: [jobs]
+      summary: Report a job to the operators. 10 per hour.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 1, maxLength: 1000 }
+            example: { reason: TEST report from the security scan (simulated). }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /api/admin/plan:
+    post:
+      tags: [admin]
+      summary: Set an account's plan by hand (x-admin-token; 401 without it).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, plan]
+              properties:
+                email: { type: string, format: email }
+                plan: { type: string, enum: [free, pro, pilot] }
+            example: { email: scan-user@example.com, plan: pro }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/scan:
+    post:
+      tags: [admin]
+      summary: Run a scan now (x-admin-token).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - { name: group, in: query, schema: { type: string, enum: [default, west, east, south, opengov-1, opengov-2, opengov-3, opengov-4, opengov-5] }, example: default }
+        - { name: quiet, in: query, schema: { type: string, enum: ['0', '1', 'true', 'false'] }, example: '1' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quiet: { type: boolean }
+            example: { quiet: true }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '501': { $ref: '#/components/responses/Json' }
+  /api/admin/market/watch:
+    get:
+      tags: [admin]
+      summary: The market watcher's status (x-admin-token).
+      security:
+        - adminToken: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+  /api/admin/market/refresh:
+    post:
+      tags: [admin]
+      summary: Pull fresh market data now (x-admin-token).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                states: { type: array, maxItems: 60, items: { type: string } }
+                naics: { type: array, maxItems: 10, items: { type: string, pattern: '^\d{6}$' } }
+                months: { type: integer, minimum: 1, maximum: 120 }
+                details: { type: integer, minimum: 0, maximum: 200 }
+                awards: { type: boolean }
+                bls: { type: boolean }
+            example: { states: [NV], naics: ['238210'], months: 12, awards: true, bls: false }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /api/admin/jobs/reports:
+    get:
+      tags: [admin]
+      summary: Reported jobs (x-admin-token).
+      security:
+        - adminToken: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/jobs/{id}/remove:
+    post:
+      tags: [admin]
+      summary: Take a job down (x-admin-token).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/jobs/fees/{feeId}/waive:
+    post:
+      tags: [admin]
+      summary: Waive a recorded fee (x-admin-token).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: feeId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^\d{1,15}$' }
+          example: '1'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/cron/scan:
+    get:
+      tags: [cron]
+      summary: The host scheduler's scan call (Bearer CRON_SECRET; 404 when CRON_SECRET is not set).
+      security:
+        - cronSecret: []
+      parameters:
+        - { name: group, in: query, schema: { type: string, enum: [default, west, east, south, opengov-1, opengov-2, opengov-3, opengov-4, opengov-5] }, example: default }
+        - { name: quiet, in: query, schema: { type: string, enum: ['0', '1', 'true', 'false'] }, example: '1' }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/cron/market:
+    get:
+      tags: [cron]
+      summary: The host scheduler's market refresh call (Bearer CRON_SECRET).
+      security:
+        - cronSecret: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/cron/tick:
+    get:
+      tags: [cron]
+      summary: Deadline reminders and waiting pushes (Bearer CRON_SECRET).
+      security:
+        - cronSecret: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: bs_session
+      description: Set by POST /api/auth/login or /api/auth/signup (HttpOnly, 30 days, renewed while in use).
+    adminToken:
+      type: apiKey
+      in: header
+      name: x-admin-token
+    cronSecret:
+      type: http
+      scheme: bearer
+  parameters:
+    Csrf:
+      name: x-bidswipe
+      in: header
+      required: true
+      description: CSRF guard (src/auth/guard.ts). Without it a signed-in state-changing request answers 403 csrf.
+      schema: { type: string, enum: ['1'] }
+      example: '1'
+    JobId:
+      name: id
+      in: path
+      required: true
+      description: A local job id (uuid). The scan replaces the example with the seeded jobs (customVariables).
+      schema: { type: string, format: uuid }
+      example: 00000000-0000-4000-8000-000000000001
+    BidIdPath:
+      name: id
+      in: path
+      required: true
+      description: 'A bid id: <source>:<id on the board>, or local:<job id>.'
+      schema: { type: string, maxLength: 200 }
+      example: 'questcdn:1903611:10385980'
+    BidIdQuery:
+      name: bidId
+      in: query
+      schema: { type: string, maxLength: 200 }
+      example: 'questcdn:1903611:10385980'
+  schemas:
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, maxLength: 254 }
+        password: { type: string, minLength: 8, maxLength: 128 }
+        name: { type: string, maxLength: 80 }
+    Answers:
+      type: object
+      required: [trades, zip, radiusMi]
+      properties:
+        intent: { type: string, enum: [work, hire, both] }
+        businessName: { type: string, maxLength: 120 }
+        trades: { type: array, items: { type: string } }
+        zip: { type: string, pattern: '^\d{5}$' }
+        radiusMi: { type: integer, minimum: 1 }
+        valueRange:
+          type: object
+          properties:
+            min: { type: integer, minimum: 0 }
+            max: { type: integer, minimum: 0 }
+        showSubWork: { type: boolean }
+    NewJob:
+      type: object
+      required: [title, description, trades, zip, budgetMaxCents, closesInDays]
+      properties:
+        title: { type: string, maxLength: 120 }
+        description: { type: string, maxLength: 4000 }
+        trades: { type: array, items: { type: string } }
+        zip: { type: string, pattern: '^\d{5}$' }
+        address: { type: string, maxLength: 200 }
+        phone: { type: string, maxLength: 40 }
+        budgetMaxCents: { type: integer, minimum: 2000, maximum: 25000000 }
+        closesInDays: { type: integer, minimum: 1, maximum: 30 }
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+  responses:
+    Json:
+      description: JSON answer
+      content: { application/json: { schema: { type: object } } }
+    Bad:
+      description: invalid input (the message says what to fix)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    SignIn:
+      description: sign_in_required (or a missing admin token / cron secret)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Premium:
+      description: premium_required (part of BidSwipe Pro)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Csrf:
+      description: csrf (the x-bidswipe header is missing)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Forbidden:
+      description: not_allowed / not_available / csrf
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    NotFound:
+      description: not_found (also every accounts-only route in single mode)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    Conflict:
+      description: closed / onboarding_required / single_profile_mode
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }
+    TooMany:
+      description: too_many_attempts (rate limit; Retry-After says when)
+      content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } }

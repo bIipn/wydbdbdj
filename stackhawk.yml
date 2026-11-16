@@ -1,0 +1,67 @@
+# HawkScan (StackHawk DAST) configuration for BidSwipe. Run by .github/workflows/hawkscan.yml against a server
+# started from dist/ in accounts mode on a throwaway database; see docs/SECURITY-SCAN.md.
+# Keys follow the CLI's own configuration reference (hawk 6.6.0, `hawk config show <section> --text`).
+app:
+  applicationId: ${APP_ID}                      # the StackHawk application "bidswipe"; the workflow finds or creates it
+  env: ${APP_ENV:Development}                   # findings compare scan to scan inside one environment
+  host: ${APP_HOST:http://localhost:8787}       # the CI server (node dist/server.js, PORT 8787); no base path
+  openApiConf:
+    filePath: docs/api/openapi.yaml             # hand-derived spec of all 61 API routes, kept true by test/openapi.test.ts
+    customVariables:                            # real ids from scripts/hawkscan-seed.mjs, so path ids reach the handlers
+      - field: id                               # job routes: the poster's job (the scan user bid on it) and its own job
+        path: ".*/api/(admin/)?jobs/[^/]+.*"
+        values:
+          - ${SCAN_JOB_ID:00000000-0000-4000-8000-000000000001}
+          - ${SCAN_OWN_JOB_ID:00000000-0000-4000-8000-000000000001}
+      - field: id                               # one stored bid, saved by the scan user
+        path: ".*/api/(bids|swipe)/.*"
+        values:
+          - ${SCAN_BID_ID:none}
+      - field: id                               # the other TEST account (404 until a job between them is awarded)
+        path: ".*/api/people/.*"
+        values:
+          - ${SCAN_PERSON_ID:00000000-0000-4000-8000-000000000002}
+      - field: bidId                            # ?bidId= on market/estimates and {bidId} in swipe/estimate bodies
+        values:
+          - ${SCAN_BID_ID:none}
+  excludePaths:                                 # regexes, unanchored so they match a path or a whole URL
+    - ".*/api/auth/logout.*"                    # would end the scan user's session
+    - ".*/api/auth/(login|signup|oauth)$"       # a success replaces the session the request came with (routes/auth.ts answer())
+    - ".*/api/stream.*"                         # Server-Sent Events: the response never ends
+    - ".*/api/jobs/[^/]+/(cancel|back-out)$"    # would end the scan user's own job / its award; DELETE .../bid stays (POST shares the path)
+    - ".*/api/swipe/.+"                         # DELETE only: would undo the scan user's saved bid
+  authentication:
+    usernamePassword:                           # JSON login, POST /api/auth/login {email, password} (accounts mode)
+      type: JSON
+      loginPath: /api/auth/login
+      usernameField: email
+      passwordField: password
+      scanUsername: ${SCAN_USERNAME}            # written to GITHUB_ENV by scripts/hawkscan-seed.mjs (an example.com TEST account)
+      scanPassword: ${SCAN_PASSWORD}            # random per run, never in the repo or the log
+    cookieAuthorization:                        # the login answers Set-Cookie: bs_session=... (HttpOnly, 30 days)
+      cookieNames:
+        - bs_session
+    testPath:                                   # GET /api/me: 401 signed out, 200 signed in (checked against a local server)
+      path: /api/me
+      type: BODY                                # 200 carries {"account":...}; 401 is {"error":"sign_in_required"}
+      success: '.*"account".*'
+hawk:
+  failureThreshold: medium                      # exit 42 on a Medium or High finding; the workflow reports it and stays green
+  spider:
+    base: true                                  # also crawls the plain links of the shell (/, /privacy.html, /terms.html)
+    ajax: true                                  # the app is client-rendered (web/js builds every screen): references/spa-scanning.md
+    ajaxBrowser: CHROME_HEADLESS                # Chrome is preinstalled on GitHub's ubuntu-latest runner
+    maxDurationMinutes: 5                       # cap for the spiders; the spec drives the API coverage
+hawkAddOn:
+  replacer:
+    rules:
+      - matchString: x-bidswipe                 # CSRF guard (src/auth/guard.ts): without it every POST/PUT/DELETE answers 403 csrf
+        replacement: "1"                        # replaceOnly false = add the header when missing; no initiators = every request, login included
+        replaceOnly: false
+tags:                                           # top level: traceability on the StackHawk platform
+  - name: _STACKHAWK_AGENT
+    value: ${HAWK_AGENT:none}
+  - name: _STACKHAWK_GIT_COMMIT_SHA
+    value: ${COMMIT_SHA:none}
+  - name: _STACKHAWK_GIT_BRANCH
+    value: ${BRANCH_NAME:none}

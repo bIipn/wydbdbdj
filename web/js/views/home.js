@@ -178,4 +178,4 @@ onAfterRender((view) => {
   card?.querySelector(`.${want.cls}`)?.focus({ preventScroll: true });
 });
 
-registerView('home', { chrome: 'tabs', tape: true, render: renderHome });
+registerView('home', { chrome: 'tabs', render: renderHome });

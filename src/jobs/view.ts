@@ -173,3 +173,61 @@ export function viewMessages(messages: readonly MessageRecord[], job: Pick<JobRe
 /** May this viewer read (and write) the job's thread? The poster and the winner, once there is a winner. */
 export const inThread = (job: Pick<JobRecord, 'posterId' | 'winnerId' | 'awardCents'>, viewerId: string | null): boolean =>
   viewerId !== null && job.awardCents !== null && job.winnerId !== null && (viewerId === job.posterId || viewerId === job.winnerId);
+
+/**
+ * May a message go in now? The same condition as repo.insertMessage's WHERE (which stays the only gate): the job is
+ * agreed, or awarded and its contact window still open. Here only so a screen can show the composer or a sentence.
+ */
+export const canWriteNow = (job: Pick<JobRecord, 'status' | 'contactDeadline' | 'removedAt'>, now: number): boolean =>
+  job.removedAt === null && (job.status === 'agreed' || (job.status === 'awarded' && job.contactDeadline !== null && job.contactDeadline > now));
+
+/** How much of the last message the Messages list carries. */
+export const PREVIEW_CHARS = 200;
+
+/**
+ * One conversation in the Messages tab, for its poster or its winner. The other side is shown exactly as the job
+ * page shows them to this viewer: the poster sees the winner's card, the winner sees the poster's lite card
+ * (src/jobs/service.ts loadView). Never an email, a phone or an address: the job's private fields are not here.
+ */
+export interface ConversationView {
+  jobId: string;
+  title: string;
+  role: 'poster' | 'winner';
+  status: JobStatus;
+  outcome: JobOutcome | null;
+  contactDeadline: string | null;
+  other: PersonCard | PersonLite;
+  canWrite: boolean;
+  messageCount: number;
+  last: null | { preview: string; at: string; mine: boolean };
+  unread: boolean;
+  /** The last message's time, else the award's: what the list is ordered by. */
+  activityAt: string;
+}
+
+export interface ConversationInput {
+  job: JobRecord;
+  messageCount: number;
+  last: MessageRecord | null;
+  unread: boolean;
+  other: PersonCard | PersonLite;
+}
+
+export function viewConversation(c: ConversationInput, viewerId: string, now: number): ConversationView {
+  const { job } = c;
+  const at = c.last?.createdAt ?? job.awardedAt ?? job.closesAt;
+  return {
+    jobId: job.id,
+    title: job.title,
+    role: viewerId === job.posterId ? 'poster' : 'winner',
+    status: job.status,
+    outcome: job.outcome,
+    contactDeadline: iso(job.contactDeadline),
+    other: c.other,
+    canWrite: canWriteNow(job, now),
+    messageCount: c.messageCount,
+    last: c.last ? { preview: [...c.last.body].slice(0, PREVIEW_CHARS).join(''), at: new Date(c.last.createdAt).toISOString(), mine: c.last.senderId === viewerId } : null,
+    unread: c.unread,
+    activityAt: new Date(at).toISOString(),
+  };
+}

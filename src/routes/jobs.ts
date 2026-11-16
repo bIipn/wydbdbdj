@@ -15,6 +15,8 @@ const LIMITS = {
   bid: { limit: 30, windowMs: 10 * 60_000 },
   message: { limit: 60, windowMs: 10 * 60_000 },
   report: { limit: 10, windowMs: 60 * 60_000 },
+  // opening a conversation (Messages): cheap, but still not something a script may hammer
+  read: { limit: 300, windowMs: 10 * 60_000 },
 } as const;
 
 const STATUS: Record<Refusal['error'], number> = { invalid_input: 400, not_allowed: 403, not_found: 404, closed: 409 };
@@ -29,7 +31,8 @@ const STATUS: Record<Refusal['error'], number> = { invalid_input: 400, not_allow
  */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
   const routes: Array<['get' | 'post' | 'delete', string]> = [
-    ['get', '/api/jobs/rules'], ['post', '/api/jobs'], ['get', '/api/jobs/mine'], ['get', '/api/jobs/:id'],
+    ['get', '/api/jobs/rules'], ['post', '/api/jobs'], ['get', '/api/jobs/mine'], ['get', '/api/jobs/conversations'], ['get', '/api/jobs/:id'],
+    ['get', '/api/jobs/:id/conversation'], ['post', '/api/jobs/:id/read'],
     ['post', '/api/jobs/:id/bid'], ['delete', '/api/jobs/:id/bid'], ['post', '/api/jobs/:id/cancel'], ['post', '/api/jobs/:id/repost'],
     ['post', '/api/jobs/:id/messages'], ['post', '/api/jobs/:id/contacted'], ['post', '/api/jobs/:id/confirm'],
     ['post', '/api/jobs/:id/back-out'], ['post', '/api/jobs/:id/complete'], ['post', '/api/jobs/:id/report'],
@@ -56,6 +59,7 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     bid: createRateLimiter({ ...LIMITS.bid, now: ctx.now }),
     message: createRateLimiter({ ...LIMITS.message, now: ctx.now }),
     report: createRateLimiter({ ...LIMITS.report, now: ctx.now }),
+    read: createRateLimiter({ ...LIMITS.read, now: ctx.now }),
   };
 
   /** settleDue, then the signed-in account (or a 401 sent). Every jobs route starts here. */
@@ -102,6 +106,25 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const me = await begin(req, reply);
     if (!me) return reply;
     return jobs.myJobs(deps, me.account.id, me.now);
+  });
+
+  // Messages: the conversations this account is in (the poster or the winner of a job, after the award).
+  app.get('/api/jobs/conversations', async (req, reply) => {
+    const me = await begin(req, reply);
+    if (!me) return reply;
+    return jobs.conversations(deps, me.account.id, me.now);
+  });
+
+  app.get('/api/jobs/:id/conversation', async (req: IdReq, reply) => {
+    const me = await begin(req, reply);
+    if (!me) return reply;
+    return answer(reply, await jobs.conversationFor(deps, me.account.id, req.params.id, me.now), (v) => v);
+  });
+
+  app.post('/api/jobs/:id/read', async (req: IdReq, reply) => {
+    const me = await begin(req, reply);
+    if (!me || !allowed('read', me.account, reply)) return reply;
+    return answer(reply, await jobs.readConversation(deps, me.account.id, req.params.id, me.now), (v) => v);
   });
 
   app.get('/api/jobs/:id', async (req: IdReq, reply) => {

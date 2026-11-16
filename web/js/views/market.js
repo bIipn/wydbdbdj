@@ -6,8 +6,8 @@ import { api } from '../api.js';
 import { h, icon, ICONS, safeUrl } from '../dom.js';
 import { clock, fmtDay } from '../format.js';
 import { awardsView, blsDisclaimer, block, costCheckButton, failed, loadingLine, materialsView, notLoaded, wageView } from '../price.js';
-import { onFeedLoaded, onSignedOut } from '../session.js';
-import { registerView, render } from '../shell.js';
+import { onEnteredApp, onFeedLoaded, onSignedOut } from '../session.js';
+import { forgetScreen, registerView, render, restoreScreen } from '../shell.js';
 import { features, state } from '../state.js';
 
 const ui = { zip: '', area: null, awards: null, areaErr: null, awardsErr: null, loadedFor: null, zipError: '', watch: null, watchErr: null, watchAsked: false };
@@ -141,4 +141,8 @@ function renderMarket() {
   );
 }
 
-registerView('market', { chrome: 'tabs', render: renderMarket });
+// Market is not a tab: the market tape across the top of every tab screen opens it (tape.js → home-extras.js). It keeps
+// the tab bar with no tab lit, its header has a Back to the tab it came from, and a reload opens it again.
+registerView('market', { chrome: 'tabs', back: true, render: renderMarket });
+onEnteredApp(() => { restoreScreen(); });
+onSignedOut(forgetScreen);

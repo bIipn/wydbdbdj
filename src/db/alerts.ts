@@ -108,6 +108,24 @@ export async function retireTapAlert(db: Db, profileId: string, jobId: string, r
   return rows.length;
 }
 
+/**
+ * A conversation was opened (Messages): its "New message" alerts (dedupe <jobId>:<messageId>) up to the message
+ * the reader saw are marked read, so the bell does not count again what the Messages tab already showed. The
+ * one-sided "We've agreed" alert (<jobId>:agreed:<role>) still asks for a tap and is left alone.
+ */
+export async function retireMessageAlerts(db: Db, profileId: string, jobId: string, upToMessageId: number, now: Date): Promise<number> {
+  const rows = await db.query(
+    `update alerts set read_at = $4
+     where profile_id = $1 and kind = 'job_message' and read_at is null
+       and left(dedupe_key, length($2::text) + 1) = $2::text || ':'
+       and (case when substr(dedupe_key, length($2::text) + 2) ~ '^[0-9]{1,18}$'
+                 then substr(dedupe_key, length($2::text) + 2)::bigint end) <= $3::bigint
+     returning id`,
+    [profileId, jobId, upToMessageId, now.toISOString()],
+  );
+  return rows.length;
+}
+
 /** The newest `limit` alerts after `afterId`, oldest first — what a reconnecting stream missed. */
 export async function alertsAfter(db: Db, profileId: string, afterId: number, limit = 100): Promise<Alert[]> {
   const rows = await db.query<AlertRow>(

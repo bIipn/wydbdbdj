@@ -479,6 +479,71 @@ export async function listMessages(db: Db, jobId: string): Promise<MessageRecord
   return rows.map(toMessage);
 }
 
+// --------------------------------------------------------- conversations --
+
+/** One conversation as stored: the job, its newest message, how many there are, and whether the reader is behind. */
+export interface ConversationRecord {
+  job: JobRecord;
+  messageCount: number;
+  last: MessageRecord | null;
+  /** A message from the other side newer than what this account last opened. */
+  unread: boolean;
+}
+
+interface ConversationRow extends JobRow {
+  msg_count: Big; unread: boolean;
+  last_id: Big; last_sender: string | null; last_body: string | null; last_at: Ts;
+}
+
+/**
+ * The jobs where this account is the poster or the winner, after the award (src/jobs/view.ts inThread, in SQL),
+ * not removed, with the newest message of each. Newest activity first: the last message, else the award.
+ * A losing bidder or anyone else has no row here.
+ */
+export async function conversationsFor(db: Db, accountId: string): Promise<ConversationRecord[]> {
+  const rows = await db.query<ConversationRow>(
+    `select j.*,
+            (select count(*) from job_messages c where c.job_id = j.id) as msg_count,
+            exists (
+              select 1 from job_messages u
+              where u.job_id = j.id and u.sender_id <> $1
+                and u.id > coalesce(case when j.poster_id = $1 then j.poster_read_msg_id else j.winner_read_msg_id end, 0)
+            ) as unread,
+            lm.id as last_id, lm.sender_id as last_sender, lm.body as last_body, lm.created_at as last_at
+     from jobs j
+     left join lateral (select m.id, m.sender_id, m.body, m.created_at from job_messages m where m.job_id = j.id order by m.id desc limit 1) lm on true
+     where j.removed_at is null and j.award_cents is not null and j.winner_id is not null and (j.poster_id = $1 or j.winner_id = $1)
+     order by coalesce(lm.created_at, j.awarded_at) desc, j.id`,
+    [accountId],
+  );
+  return rows.map((r) => ({
+    job: toJob(r),
+    messageCount: n(r.msg_count) ?? 0,
+    unread: r.unread === true,
+    last: r.last_id == null ? null : { id: n(r.last_id)!, jobId: r.id, senderId: r.last_sender!, body: r.last_body ?? '', createdAt: ms(r.last_at)! },
+  }));
+}
+
+/**
+ * The poster or the winner opened the conversation: their read mark moves up to the newest message (never back).
+ * ONE statement; the reader's side is decided in it. Returns the newest message id it read up to (0 = none), or
+ * null when this account is not in the job's thread (or the job is gone).
+ */
+export async function markConversationRead(db: Db, jobId: string, accountId: string): Promise<number | null> {
+  const rows = await db.query<{ max_id: Big }>(
+    `update jobs set
+       poster_read_msg_id = case when jobs.poster_id = $2 then greatest(coalesce(jobs.poster_read_msg_id, 0), m.max_id) else jobs.poster_read_msg_id end,
+       winner_read_msg_id = case when jobs.winner_id = $2 and jobs.poster_id <> $2
+                                 then greatest(coalesce(jobs.winner_read_msg_id, 0), m.max_id) else jobs.winner_read_msg_id end
+     from (select coalesce(max(id), 0)::bigint as max_id from job_messages where job_id = $1) m
+     where jobs.id = $1 and jobs.removed_at is null and jobs.award_cents is not null and jobs.winner_id is not null
+       and (jobs.poster_id = $2 or jobs.winner_id = $2)
+     returning m.max_id`,
+    [jobId, accountId],
+  );
+  return rows[0] ? n(rows[0].max_id) ?? 0 : null;
+}
+
 // ------------------------------------------------------------------ fees --
 
 export async function listFees(db: Db, jobId: string): Promise<FeeRecord[]> {

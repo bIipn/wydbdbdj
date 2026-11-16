@@ -84,3 +84,22 @@ export function tapeSpoken(items) {
 
 /** A fingerprint of what the tape shows: the strip is rebuilt only when this changes (never on a plain re-render). */
 export const tapeKey = (items) => items.map((i) => [i.key, i.change, i.month, i.prelim, i.detail].join('|')).join('\n');
+
+/** The words of the still strip (no figure yet, or none at all): it still names what it opens. */
+export const TAPE_STILL_TEXT = 'Market prices';
+export const TAPE_STILL_SPOKEN = 'Market prices, monthly figures. Opens Market.';
+
+/** The tab screens the tape runs across (shell.js TABS). Never Market itself, never a full-page screen. */
+export const TAPE_VIEWS = new Set(['home', 'browse', 'saved', 'jobs', 'messages']);
+
+/**
+ * What the tape is on this screen: 'scroll' (the items move), 'still' (the fixed label, "Market prices" and a chevron:
+ * no number while loading, after a failed request or with no price data stored) or 'hidden'.
+ *   view       the view the shell is drawing        chrome   its chrome ('tabs' | 'screen')
+ *   hasMarket  this person has a Market (live, not here only to hire; the bundled demo has none)
+ *   items      tapeItems() of the answer in hand ([] when there is none)
+ */
+export function tapeMode({ view, chrome, hasMarket = false, items = [] } = {}) {
+  if (!hasMarket || chrome !== 'tabs' || !TAPE_VIEWS.has(view)) return 'hidden';
+  return Array.isArray(items) && items.length > 0 ? 'scroll' : 'still';
+}

@@ -1,5 +1,8 @@
-// The market tape: the strip of price moves that scrolls across the top of Home (index.html #tape, outside #view so
-// a re-render never restarts it). The shell calls paintTape(show) on every render; show = the view asked for it.
+// The market tape: the strip of price moves across the top of every tab screen (index.html #tape, outside #view so a
+// re-render or a change of tab never restarts it). It is the way into Market (Market is not a tab). The shell calls
+// paintTape({ view, chrome }) on every render; tape-items.js tapeMode() decides: scrolling, still, or hidden.
+// Still = no figure in hand (loading, a failed request, no price data stored): the fixed label, "Market prices" and a
+// chevron, never a number or a placeholder figure; it opens Market all the same.
 //
 // What it says comes from tape-items.js (the Market screen's own figures and rounding, each with its month). It never
 // says "live": a fixed label names it as monthly figures. Tapping it opens Market, where the sources and the BLS
@@ -14,7 +17,7 @@
 import { req } from './api.js';
 import { $, h, icon, store } from './dom.js';
 import { intent, isLive, state } from './state.js';
-import { TAPE_LABEL, tapeItems, tapeKey, tapeSpoken } from './tape-items.js';
+import { TAPE_LABEL, TAPE_STILL_SPOKEN, TAPE_STILL_TEXT, tapeItems, tapeKey, tapeMode, tapeSpoken } from './tape-items.js';
 
 const PAUSE_KEY = 'bidswipe:tape-paused';
 /** Calm and readable: about 40 px a second, whatever the width of the items. */
@@ -26,7 +29,8 @@ const tape = {
   loading: false,
   items: [],
   builtKey: null,
-  show: false,
+  /** The screen the shell is drawing: { view, chrome }. */
+  on: { view: null, chrome: null },
 };
 
 const PAUSE_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1"/><rect x="14" y="5" width="4" height="14" rx="1"/></svg>';
@@ -92,6 +96,20 @@ function toggleButton() {
 }
 
 const openMarket = () => window.dispatchEvent(new CustomEvent('bidswipe:open-market'));
+const goKeys = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMarket(); } };
+
+const STILL_KEY = 'still';
+const CHEVRON_SVG = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>';
+
+/** The still strip: what it is and where it goes, no figure. */
+function buildStill(el) {
+  el.replaceChildren(h('div', { class: 'tape-go is-still', role: 'link', tabindex: '0', 'aria-label': TAPE_STILL_SPOKEN, onclick: openMarket, onkeydown: goKeys },
+    h('span', { class: 'tape-label', 'aria-hidden': 'true' }, TAPE_LABEL),
+    h('span', { class: 'tape-still', 'aria-hidden': 'true' }, h('span', { class: 'tape-still-text' }, TAPE_STILL_TEXT), icon(CHEVRON_SVG))));
+  el.classList.remove('is-paused');
+  el.classList.add('is-still');
+  tape.builtKey = STILL_KEY;
+}
 
 /** Build the strip from tape.items (only when they changed), then size its loop. */
 function build(el) {
@@ -99,12 +117,13 @@ function build(el) {
   const go = h('div', {
     class: 'tape-go', role: 'link', tabindex: '0', 'aria-label': tapeSpoken(items),
     onclick: openMarket,
-    onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openMarket(); } },
+    onkeydown: goKeys,
   },
   h('span', { class: 'tape-label', 'aria-hidden': 'true' }, TAPE_LABEL),
   h('span', { class: 'tape-window', 'aria-hidden': 'true' },
     h('span', { class: 'tape-track' }, run(items, 1), run(items, 1))));
   el.replaceChildren(go, toggleButton());
+  el.classList.remove('is-still');
   el.classList.toggle('is-paused', paused());
   tape.builtKey = tapeKey(items);
   requestAnimationFrame(() => fit(el));
@@ -118,7 +137,7 @@ function fit(el) {
   const win = el.querySelector('.tape-window');
   const track = el.querySelector('.tape-track');
   const first = track?.firstElementChild;
-  if (!win || !first || !first.offsetWidth) return; // hidden: sized when it shows
+  if (!win || !first || !first.offsetWidth || !tape.items.length) return; // hidden or still: sized when it scrolls
   const one = first.offsetWidth / first.childElementCount * tape.items.length; // the width of one set of items
   const times = Math.max(1, Math.ceil(win.clientWidth / one));
   if (times !== first.childElementCount / tape.items.length) track.replaceChildren(run(tape.items, times), run(tape.items, times));
@@ -142,25 +161,34 @@ function holdOnTouch(el) {
   el.addEventListener('pointerleave', off);
 }
 
+/** This person has a Market: the API is there (the bundled demo has none) and they look for work. */
+const hasMarket = () => isLive() && !hireOnly();
+
 function paint() {
   const el = $('#tape');
   if (!el) return;
-  const can = isLive() && !hireOnly();
-  const visible = tape.show && can && tape.items.length > 0 && askKey() === tape.askedFor;
-  if (visible && tape.builtKey !== tapeKey(tape.items)) build(el);
+  // An answer asked for another account or profile is not this one's: still until this one's arrives.
+  const items = askKey() === tape.askedFor ? tape.items : [];
+  const mode = tapeMode({ ...tape.on, hasMarket: hasMarket(), items });
+  if (mode === 'scroll' && tape.builtKey !== tapeKey(items)) build(el);
+  if (mode === 'still' && tape.builtKey !== STILL_KEY) buildStill(el);
   const wasHidden = el.hidden;
-  el.hidden = !visible;
-  if (visible) {
+  el.hidden = mode === 'hidden';
+  el.dataset.mode = mode;
+  if (mode === 'scroll') {
     holdOnTouch(el);
     if (wasHidden) requestAnimationFrame(() => fit(el));
   }
 }
 
-/** Show or hide the tape and keep its content current. Never throws; with nothing honest to show it stays hidden. */
-export function paintTape(show) {
+/**
+ * Show, still or hide the tape for the screen the shell is drawing, and keep its content current. Never throws.
+ * on = { view, chrome } (true/false is read as "Home or nothing", the first round's call).
+ */
+export function paintTape(on) {
   try {
-    tape.show = !!show;
-    if (isLive() && !hireOnly()) load();
+    tape.on = typeof on === 'object' && on ? { view: on.view, chrome: on.chrome } : { view: on ? 'home' : null, chrome: 'tabs' };
+    if (hasMarket()) load();
     paint();
   } catch {
     const el = document.getElementById('tape');

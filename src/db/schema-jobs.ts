@@ -110,4 +110,10 @@ create table if not exists job_reports (
   created_at   timestamptz not null,
   unique (job_id, reporter_id)
 );
+
+-- Messages tab: how far each side of a conversation has read (the id of the newest job_messages row they had on
+-- screen when they opened it). A message from the other side with a larger id is unread for them. Kept on the job
+-- because a conversation exists only between its poster and its winner (src/jobs/view.ts inThread).
+alter table jobs add column if not exists poster_read_msg_id bigint;
+alter table jobs add column if not exists winner_read_msg_id bigint;
 `;

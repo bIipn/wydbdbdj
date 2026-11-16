@@ -3,11 +3,13 @@
 //   registerView('saved', { chrome: 'tabs', render: () => h('div', …) });
 //   setView('saved');
 //
-// chrome 'tabs'   = the header (title, bell, profile) + the bottom tab bar (Home · Search · Market · Saved · Jobs)
-//                  + the footnote around the view. An account here only to get work done sees Jobs alone
-//                  (hireOnly() below): no tab bar then, the header says "Jobs".
+// chrome 'tabs'   = the header (title, bell, profile) + the bottom tab bar (Home · Search · Saved · Jobs · Messages)
+//                  + the footnote around the view. Jobs and Messages exist only where local jobs do (accounts mode);
+//                  an account here only to get work done sees Jobs and Messages alone (hireOnly() below).
+//                  The market tape (web/js/tape.js, #tape above the header) runs across every tab screen.
+// back: true      = a screen between the tabs (Market): the bar stays with no tab lit, the header has a Back to the
+//                  tab it was opened from (Home when that is not known), and a reload opens it again (restoreScreen).
 // chrome 'screen' = the view owns the whole page (sign-in, onboarding, settings, access gate).
-// tape: true      = the market tape (web/js/tape.js, #tape above the header) shows on this view (Home).
 //
 // An old view name (VIEW_ALIASES in home-model.js: 'swipe') still works: registerAlias() says what it opens.
 
@@ -23,8 +25,44 @@ const afterRender = [];
 /** Extra tabs that count something of their own (Jobs): view name → () => { show, count, label }. */
 const tabCounts = new Map();
 
-/** A tab whose button and count belong to another module (index.html has the button, hidden by default). */
+/**
+ * A tab whose button is in index.html (hidden by default) and whose module says whether it shows and what its badge
+ * counts: fn() → { show, count, label }. Jobs (jobs-data.js) and Messages use it; a tab nobody registers stays hidden.
+ */
 export function registerTabCount(view, fn) { tabCounts.set(view, fn); }
+
+// ------------------------------------------------- the screens between tabs (Market): Back, and a reload
+const SCREEN_KEY = 'bidswipe:screen';
+const session = {
+  get() { try { return JSON.parse(sessionStorage.getItem(SCREEN_KEY) ?? 'null'); } catch { return null; } },
+  set(v) { try { sessionStorage.setItem(SCREEN_KEY, JSON.stringify(v)); } catch { /* private mode: no reload memory */ } },
+  clear() { try { sessionStorage.removeItem(SCREEN_KEY); } catch { /* nothing kept */ } },
+};
+/** The tab the person was last on (where a Back screen returns). */
+let lastTab = null;
+/** What this browser tab showed before a reload ({ view, back }), until restoreScreen() takes it or a sign-out drops it. */
+let pendingRestore = session.get();
+
+/**
+ * After the app is entered (session.js onEnteredApp): the screen this browser tab showed before a reload, if it is one
+ * that comes back (a `back: true` view this person may open). Returns true when it opened it.
+ */
+export function restoreScreen() {
+  const p = pendingRestore;
+  pendingRestore = null;
+  if (!p || typeof p.view !== 'string' || !views.get(p.view)?.back || hiddenFor(p.view) || !isLive()) return false;
+  if (typeof p.back === 'string' && views.get(p.back)?.chrome === 'tabs' && !views.get(p.back)?.back) lastTab = p.back;
+  setView(p.view);
+  return true;
+}
+/** A sign-out (or a lost session) forgets the screen a reload would have reopened. */
+export function forgetScreen() { pendingRestore = null; session.clear(); }
+
+/** Where a Back screen returns: the tab it came from, else Home (Jobs for an account here only to hire). */
+const backTarget = () => (lastTab && views.has(lastTab) && !hiddenFor(lastTab) ? lastTab : hireOnly() && views.has('jobs') ? 'jobs' : 'home');
+/** Back from a screen between the tabs (the header's Back button). */
+export const goBack = () => setView(backTarget());
+document.getElementById('screenBack')?.addEventListener('click', () => goBack());
 
 /** An old view name: `open()` runs when something asks for it (e.g. sets Home's mode) and returns the real view. */
 export function registerAlias(name, open) { aliases.set(name, open); }
@@ -66,6 +104,15 @@ export function render() {
     const home = state.view === 'home';
     $('#screenTitle').textContent = screenTitle(state.view);
     const sub = home ? homeSubtitle(state.profile) : '';
+    // A screen between the tabs (Market): Back to the tab it came from.
+    const back = $('#screenBack');
+    back.hidden = !view.back;
+    if (view.back) {
+      const to = backTarget();
+      const label = `Back to ${to === 'home' ? 'Home' : screenTitle(to)}`;
+      back.setAttribute('aria-label', label);
+      back.title = label;
+    }
     $('#screenSub').textContent = sub;
     $('#screenSub').hidden = !sub;
     // The round profile button: Settings where Settings exists (accounts mode, live); elsewhere it only shows whose
@@ -88,14 +135,18 @@ export function render() {
     // Which tabs show (home-model.js visibleTabs): Market needs the API (the bundled demo has no market data), Jobs
     // needs accounts mode (jobs-data.js says), and an account here only to hire sees Jobs alone.
     const counts = new Map([...tabCounts].map(([name, fn]) => [name, fn()]));
-    const shownTabs = new Set(visibleTabs({ live: isLive(), hireOnly: hireOnly() && views.has('jobs'), jobsOn: !!counts.get('jobs')?.show }));
-    $$('.tab').forEach((t) => { t.hidden = !shownTabs.has(t.dataset.view); });
+    const shownTabs = new Set(visibleTabs({
+      hireOnly: hireOnly() && views.has('jobs'), jobsOn: !!counts.get('jobs')?.show, messagesOn: !!counts.get('messages')?.show,
+    }));
+    $$('.tab').forEach((t) => { t.hidden = !shownTabs.has(t.dataset.view) || !views.has(t.dataset.view); });
     for (const [name, c] of counts) {
       const t = $(`.tab[data-view="${name}"]`);
-      $('.count', t).textContent = c.count ? tabNumber(c.count) : '';
-      tabLabel(`.tab[data-view="${name}"]`, c.label);
+      if (!t) continue;
+      const badge = $('.count', t);
+      if (badge) badge.textContent = c?.count ? tabNumber(c.count) : '';
+      if (c?.label) tabLabel(`.tab[data-view="${name}"]`, c.label);
     }
-    // One tab left (Jobs, for 'hire') is no choice at all: no bar, and the header already says "Jobs".
+    // One tab left is no choice at all: no bar, and the header already says where you are.
     const shown = $$('.tab').filter((t) => !t.hidden).length;
     $('#tabbar').hidden = shown < 2;
     app.dataset.tabs = String(shown < 2 ? 0 : shown);
@@ -119,8 +170,14 @@ export function render() {
   bell.setAttribute('aria-label', state.unread ? `Alerts, ${state.unread} unread` : 'Alerts');
   bell.dataset.live = state.live;
 
-  // The tape lives outside #view, so its scroll keeps running across redraws; it only shows where a view asks.
-  try { paintTape(view.chrome === 'tabs' && view.tape === true); } catch { /* the tape is a nicety: never break a screen */ }
+  // The tape lives outside #view, so its scroll keeps running across redraws and tab changes (tape-items.js tapeMode).
+  try { paintTape({ view: state.view, chrome: view.chrome }); } catch { /* the tape is a nicety: never break a screen */ }
+  // Remember the tab (a Back screen returns to it) and, for a reload, the Back screen that is open.
+  if (view.chrome === 'tabs' && !view.back) lastTab = state.view;
+  if (!pendingRestore) {
+    if (view.back) session.set({ view: state.view, back: backTarget() });
+    else session.clear();
+  }
   $('#view').replaceChildren(view.render());
   for (const fn of afterRender) fn(state.view);
 }

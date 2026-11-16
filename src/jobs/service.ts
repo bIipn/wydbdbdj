@@ -25,7 +25,10 @@ import * as repo from './repo.js';
 import type { BidRecord, JobRecord } from './repo.js';
 import { contactDeadlineFor, endOfContact, FEE_OUTCOMES, feeLine, formatUsd, pickWinner, type JobRules } from './rules.js';
 import { jobStats } from './stats.js';
-import { inThread, tradeLabels, viewJob, viewMessages, type JobView, type MessageView, type PersonLite } from './view.js';
+import { countUnread, retireMessageAlerts } from '../db/alerts.js';
+import {
+  inThread, tradeLabels, viewConversation, viewJob, viewMessages, type ConversationView, type JobView, type MessageView, type PersonLite,
+} from './view.js';
 
 export interface JobsDeps {
   db: Db;
@@ -450,6 +453,63 @@ export async function sendMessage(deps: JobsDeps, accountId: string, jobId: stri
     }]);
   }
   return ok(viewMessages([msg], job, accountId)[0]!);
+}
+
+// -------------------------------------------------------- conversations --
+// The Messages tab: the same threads as the job page, listed. Who may read and write them does not change here
+// (view.ts inThread; repo.insertMessage's WHERE is the only gate for writing).
+
+/** The other side as the job page shows them to this viewer: the winner's card for the poster, the poster's lite card for the winner. */
+async function otherSide(db: Db, job: JobRecord, viewerId: string, basics: Map<string, repo.AccountBasics>): Promise<PersonCard | PersonLite> {
+  if (viewerId === job.posterId) return cardFor(db, job.winnerId!, basics);
+  return lite(await cardFor(db, job.posterId, basics));
+}
+
+/**
+ * The viewer's conversations, newest activity first, and how many have something unread. A job whose thread can no
+ * longer be written and never had a message (it ended in silence) is left out: there is nothing to read.
+ */
+export async function conversations(deps: JobsDeps, accountId: string, now: number): Promise<{ conversations: ConversationView[]; unread: number }> {
+  const { db } = deps;
+  const rows = (await repo.conversationsFor(db, accountId)).filter((r) => inThread(r.job, accountId));
+  const basics = await repo.accountBasics(db, rows.flatMap((r) => [r.job.posterId, r.job.winnerId!]));
+  const out: ConversationView[] = [];
+  for (const r of rows) {
+    const v = viewConversation({ ...r, other: await otherSide(db, r.job, accountId, basics) }, accountId, now);
+    if (v.messageCount > 0 || v.canWrite) out.push(v);
+  }
+  return { conversations: out, unread: out.filter((c) => c.unread).length };
+}
+
+/** One conversation and its messages, for its poster or its winner. Reading changes nothing (POST …/read does). */
+export async function conversationFor(
+  deps: JobsDeps, accountId: string, jobId: string, now: number,
+): Promise<Result<{ conversation: ConversationView; messages: MessageView[] }>> {
+  const job = await repo.getJob(deps.db, jobId);
+  if (!job) return notFound();
+  if (!inThread(job, accountId)) return notAllowed('Messages are only between the poster and the winner, after the award.');
+  const one = (await repo.conversationsFor(deps.db, accountId)).find((r) => r.job.id === jobId);
+  if (!one) return notFound();
+  const basics = await repo.accountBasics(deps.db, [job.posterId, job.winnerId!]);
+  const conversation = viewConversation({ ...one, other: await otherSide(deps.db, one.job, accountId, basics) }, accountId, now);
+  return ok({ conversation, messages: viewMessages(await repo.listMessages(deps.db, jobId), one.job, accountId) });
+}
+
+/**
+ * The viewer opened the conversation: it is read up to its newest message, and the bell's "New message" alerts for
+ * those messages are retired with it, so nothing is counted as new twice. Answers the bell's new unread count.
+ */
+export async function readConversation(
+  deps: JobsDeps, accountId: string, jobId: string, now: number,
+): Promise<Result<{ readUpTo: number; alertsRetired: number; alertsUnread: number | null }>> {
+  const job = await repo.getJob(deps.db, jobId);
+  if (!job) return notFound();
+  if (!inThread(job, accountId)) return notAllowed('Messages are only between the poster and the winner, after the award.');
+  const upTo = await repo.markConversationRead(deps.db, jobId, accountId);
+  if (upTo === null) return notFound();
+  const profileId = await repo.profileIdOf(deps.db, accountId);
+  const retired = profileId ? await retireMessageAlerts(deps.db, profileId, jobId, upTo, new Date(now)) : 0;
+  return ok({ readUpTo: upTo, alertsRetired: retired, alertsUnread: profileId ? await countUnread(deps.db, profileId) : null });
 }
 
 export async function markContacted(deps: JobsDeps, accountId: string, jobId: string, now: number): Promise<Result<JobView>> {

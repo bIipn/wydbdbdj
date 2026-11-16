@@ -3,40 +3,49 @@
 
 import { dueInfo, estLabel, num, shortSource, tierOf, VERDICT_LABEL } from './format.js';
 
-/** The bottom tab bar, left to right. 'browse' is the Search tab (its view id predates the name). */
+/**
+ * The bottom tab bar, left to right. 'browse' is the Search tab (its view id predates the name). Market is not a tab:
+ * the market tape across the top of every tab screen opens it (web/js/tape.js), and its Back returns to the tab.
+ */
 export const TABS = [
   { view: 'home', label: 'Home' },
   { view: 'browse', label: 'Search' },
-  { view: 'market', label: 'Market' },
   { view: 'saved', label: 'Saved' },
   { view: 'jobs', label: 'Jobs' },
+  { view: 'messages', label: 'Messages' },
 ];
+
+/** Screens that sit between the tabs (the bar stays, no tab is lit) and have a Back to the tab they were opened from. */
+export const SCREEN_TITLES = { market: 'Market' };
 
 /** The views that only make sense for someone who looks for work (bids). An account here only to hire never sees them. */
 export const BID_VIEWS = new Set(['home', 'browse', 'market', 'saved']);
+
+/** The tabs that exist only where local jobs exist (accounts mode). Their module says so (shell.js registerTabCount). */
+export const JOB_TABS = new Set(['jobs', 'messages']);
 
 /** Old names a link, a Back button or a module may still use → the view that replaced it. */
 export const VIEW_ALIASES = { swipe: 'home' };
 
 /**
  * The tabs this person sees, in order.
- *   live      the API is there (the bundled demo has no market data: no Market tab)
- *   hireOnly  an account here only to get work done: Jobs alone (when Jobs is on)
- *   jobsOn    local jobs are on (accounts mode)
+ *   hireOnly    an account here only to get work done: Jobs and Messages alone (when they are on)
+ *   jobsOn      local jobs are on (accounts mode): the Jobs tab
+ *   messagesOn  the Messages tab's module says it is on (it is only ever on where local jobs are)
+ * Single mode and the bundled demo: Home · Search · Saved. A tab whose module never said "on" stays hidden.
  */
-export function visibleTabs({ live = false, hireOnly = false, jobsOn = false } = {}) {
+export function visibleTabs({ hireOnly = false, jobsOn = false, messagesOn = false } = {}) {
+  const on = { jobs: jobsOn, messages: jobsOn && messagesOn };
   return TABS.map((t) => t.view).filter((v) => {
-    if (v === 'jobs') return jobsOn;
-    if (hireOnly && jobsOn && BID_VIEWS.has(v)) return false;
-    if (v === 'market') return live;
-    return true;
+    if (JOB_TABS.has(v)) return on[v];
+    return !(hireOnly && jobsOn);
   });
 }
 
 /** The header's title for a tab screen. Home says hello; the others say where you are. */
 export function screenTitle(view) {
   if (view === 'home') return 'Welcome';
-  return TABS.find((t) => t.view === view)?.label ?? 'BidSwipe';
+  return TABS.find((t) => t.view === view)?.label ?? SCREEN_TITLES[view] ?? 'BidSwipe';
 }
 
 /** Home's small second line: "L&M Electric · Minden, NV" (either part may be missing). */

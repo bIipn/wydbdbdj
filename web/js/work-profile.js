@@ -5,10 +5,13 @@
 // Chips wherever there is a choice. Typing only for names and free text: the headline, a skill that is not
 // in the list, the licence number, a job's title, company and summary, the link, and "about".
 
+import { api } from './api.js';
 import { h, icon, ICONS, safeUrl } from './dom.js';
-import { field, textInput } from './form.js';
+import { clearErrors, field, formError, showErrors, textInput } from './form.js';
 import { chip } from './profile-form.js';
-import { statsWords } from './job-words.js';
+import {
+  PROFILE_HIDDEN, PROFILE_HIDDEN_OWNER, REPORT_NOTE_MAX, REPORT_PRIVATE, REPORT_REASONS, REPORT_THANKS, statsWords,
+} from './job-words.js';
 
 const LIMITS = { headline: 80, about: 600, skills: 12, skill: 30, experience: 10, summary: 300, title: 80, company: 80 };
 
@@ -287,6 +290,8 @@ function statsLine(s) {
  */
 export function personCardView(card, w = null) {
   const c = w ? { ...card, ...cardFieldsFrom(w) } : card;
+  // Hidden by BidSwipe: the lite card (name, member since, record) and one line, for everyone (the owner's preview too).
+  const hiddenLine = card.hidden && !w ? h('p', { class: 'report-hidden-line' }, icon(ICONS.lock), PROFILE_HIDDEN) : null;
   const band = bandOf(c.yearsExperience);
   const facts = [
     band ? `${band.label} years in the trade` : null,
@@ -299,6 +304,7 @@ export function personCardView(card, w = null) {
       h('div', { class: 'pcard-who' },
         h('strong', { class: 'pcard-name' }, c.name),
         c.headline ? h('span', { class: 'pcard-headline' }, c.headline) : null)),
+    hiddenLine,
     facts.length ? h('p', { class: 'pcard-facts' }, facts.join(' · ')) : null,
     c.license ? h('p', { class: 'pcard-license' }, `${c.license.state} licence ${c.license.number}`, h('small', {}, 'As typed. Not verified by BidSwipe.')) : null,
     c.skills?.length ? h('div', { class: 'pcard-skills' }, c.skills.map((s) => h('span', { class: 'pcard-skill' }, s))) : null,
@@ -347,12 +353,16 @@ function cardFieldsFrom(w) {
 export function workProfileSection(w, { card, trades }) {
   const wrap = h('div', { class: 'stack wp' });
   const preview = h('div', { class: 'pcard-wrap' });
-  const repaintPreview = () => preview.replaceChildren(card ? personCardView(card, w) : h('p', { class: 'field-help' }, 'Loading…'));
+  // Hidden by BidSwipe: the preview is honest (the card as others see it now, not the draft), and the form opens with
+  // one line saying so; the owner keeps editing their own words.
+  const repaintPreview = () => preview.replaceChildren(card ? personCardView(card, card.hidden ? null : w) : h('p', { class: 'field-help' }, 'Loading…'));
   const changed = () => repaintPreview();
-  const repaintAll = () => { wrap.replaceChildren(...build()); repaintPreview(); };
+  const repaintAll = () => { wrap.replaceChildren(...build().filter(Boolean)); repaintPreview(); };
 
   function build() {
     return [
+      card?.hidden ? h('p', { class: 'report-hidden-owner', role: 'note' }, icon(ICONS.lock),
+        h('span', {}, PROFILE_HIDDEN_OWNER, ' ', h('a', { href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Open the Terms'))) : null,
       countedText({ key: 'headline', label: 'Headline', value: w.headline, max: LIMITS.headline, placeholder: 'e.g. Licensed electrician, small jobs welcome', onInput: (v) => { w.headline = v; changed(); } }),
       chipGroup({
         key: 'yearsExperience', label: 'Years in the trade', items: () => YEAR_BANDS,
@@ -378,7 +388,103 @@ export function workProfileSection(w, { card, trades }) {
       h('div', { 'data-field': 'lookingFor' }, errorLine()),
     ];
   }
-  wrap.replaceChildren(...build());
+  wrap.replaceChildren(...build().filter(Boolean));
   repaintPreview();
   return { form: wrap, preview };
+}
+
+// ---------------------------------------------------------------- reports --
+
+/**
+ * Each report form's state on this device, by target ('conversation:<jobId>' / 'profile:<accountId>'), so it survives
+ * the redraws of the page it sits on: { open, reason, note, busy, sent }. Sign-out clears it (forgetReports).
+ */
+const reports = new Map();
+export const forgetReports = () => reports.clear();
+
+/**
+ * A quiet "Report" link that opens a small form: a reason from a short list, an optional note, Send. The answer is the
+ * server's own sentence ("Thanks. We read every report."; a second report of the same thing is a kind "already").
+ * `kind` 'conversation' (id = the job) or 'profile' (id = the person). Only drawn where the viewer may see the thing;
+ * the server checks it again. Repaints itself in place, so typing never waits on the page around it.
+ */
+export function reportAction({ kind, id, label }) {
+  const key = `${kind}:${id}`;
+  const st = reports.get(key) ?? { open: false, reason: null, note: '', busy: false, sent: null };
+  reports.set(key, st);
+  const wrap = h('div', { class: 'report' });
+  const base = `rep-${kind}-${String(id).replace(/[^A-Za-z0-9_-]/g, '')}`;
+
+  const paint = (focus = null) => {
+    if (st.sent) {
+      wrap.replaceChildren(h('p', { class: 'report-done', role: 'status', tabindex: '-1', id: `${base}-done` }, icon(ICONS.check), st.sent));
+    } else if (!st.open) {
+      wrap.replaceChildren(h('button', {
+        class: 'link-btn report-link', type: 'button', id: `${base}-open`, 'aria-expanded': 'false',
+        onclick: () => { st.open = true; paint(`${base}-r0`); },
+      }, label));
+    } else {
+      wrap.replaceChildren(form());
+    }
+    if (focus) document.getElementById(focus)?.focus();
+  };
+
+  const form = () => {
+    const reasons = REPORT_REASONS[kind];
+    const note = h('textarea', {
+      class: 'input textarea short', rows: 2, maxlength: REPORT_NOTE_MAX, id: `${base}-note`,
+      placeholder: 'What happened? (optional)', 'aria-describedby': `${base}-note-help`,
+    }, st.note);
+    note.addEventListener('input', () => { st.note = note.value; });
+    const send = h('button', { class: 'cta', type: 'submit', disabled: st.busy }, st.busy ? 'Sending…' : 'Send report');
+    const el = h('form', { class: 'report-form stack', novalidate: true, 'aria-label': label },
+      h('fieldset', { class: 'field report-reasons', 'data-field': 'reason' },
+        h('legend', { class: 'field-label' }, label),
+        reasons.map((r, i) => h('label', { class: 'report-reason', for: `${base}-r${i}` },
+          h('input', {
+            type: 'radio', name: `${base}-reason`, id: `${base}-r${i}`, value: r.id, checked: st.reason === r.id,
+            onchange: () => { st.reason = r.id; },
+          }),
+          h('span', {}, r.label))),
+        h('p', { class: 'field-error', role: 'alert' })),
+      h('div', { class: 'field', 'data-field': 'note' },
+        h('label', { class: 'field-label', for: `${base}-note` }, 'Anything to add', h('span', { class: 'optional' }, 'optional')),
+        note,
+        h('p', { class: 'field-help', id: `${base}-note-help` }, REPORT_PRIVATE),
+        h('p', { class: 'field-error', role: 'alert' })),
+      formError(),
+      h('div', { class: 'job-buttons two' }, send,
+        h('button', { class: 'cta ghost', type: 'button', onclick: () => { st.open = false; paint(`${base}-open`); } }, 'Never mind')));
+    el.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (st.busy) return;
+      clearErrors(el);
+      if (!st.reason) {
+        showErrors(el, { reason: 'Pick a reason.' });
+        document.getElementById(`${base}-r0`)?.focus();
+        return;
+      }
+      st.busy = true;
+      send.disabled = true;
+      send.textContent = 'Sending…';
+      const body = { reason: st.reason, ...(st.note.trim() ? { note: st.note.trim() } : {}) };
+      try {
+        const res = kind === 'conversation' ? await api.reportConversation(id, body) : await api.reportPerson(id, body);
+        Object.assign(st, { busy: false, open: false, note: '', reason: null, sent: typeof res?.message === 'string' ? res.message : REPORT_THANKS });
+        paint(`${base}-done`);
+      } catch (err) {
+        st.busy = false;
+        send.disabled = false;
+        send.textContent = 'Send report';
+        const f = Array.isArray(err.body?.fields) ? fieldsObject(err.body.fields) : null;
+        showErrors(el, f && Object.keys(f).length ? f : {
+          form: err.code === 'too_many_attempts' ? 'Too many reports in the last hour. Try again later.' : err.message || 'That didn’t send. Try again.',
+        });
+      }
+    });
+    return el;
+  };
+
+  paint();
+  return wrap;
 }

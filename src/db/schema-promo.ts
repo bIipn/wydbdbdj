@@ -14,4 +14,11 @@ create table if not exists promo_redemptions (
   primary key (account_id, code_key)
 );
 create index if not exists promo_redemptions_code_idx on promo_redemptions (code_key);
+-- How many uses each limited code has given (src/db/promo.ts redeemPromo). The row is the gate that keeps a
+-- code inside its use limit when many accounts redeem it at the same instant: the UPDATE … where uses < limit
+-- waits for the row lock and re-reads the newest count, which a count(*) in the same statement cannot do.
+create table if not exists promo_codes (
+  code_key  text primary key,
+  uses      integer not null default 0
+);
 `;

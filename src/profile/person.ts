@@ -28,6 +28,11 @@ export interface PersonCard {
   resumeUrl: string | null;
   memberSince: string;
   stats: JobStats;
+  /**
+   * BidSwipe hid this card after a report (POST /api/admin/people/:id/hide). Then everything the person wrote is
+   * empty (null, [], 'unsure') and only what the lite card shows is left: the name, member since, the job record.
+   */
+  hidden: boolean;
 }
 
 /** Who a card is for when nothing better is known. */
@@ -56,12 +61,20 @@ export function cardName(businessName: string | null, accountName: string | null
 export const isDefaultShopName = (name: string): boolean => /^My( .+)? shop$/.test(name);
 
 /**
- * The card for an account, or null when there is no such account. Built field by field from the work
+ * The card for an account, or null when there is no such account. `forOperator`: the text even when the card is hidden
+ * (the operators' report list only; never an answer to a user). Built field by field from the work
  * profile, so nothing else stored about the account (email, phone, the address on a job) can slip onto it.
  */
-export async function personCard(db: Db, accountId: string): Promise<PersonCard | null> {
+export async function personCard(db: Db, accountId: string, opts: { forOperator?: boolean } = {}): Promise<PersonCard | null> {
   const facts = await cardFacts(db, accountId);
   if (!facts) return null;
+  if (facts.hidden && !opts.forOperator) {
+    // Hidden by BidSwipe: the work profile is not even read, so none of its text can reach another person.
+    return {
+      id: accountId, name: cardName(facts.businessName, facts.accountName), headline: null, about: null, yearsExperience: null, skills: [],
+      license: null, insured: 'unsure', experience: [], resumeUrl: null, memberSince: facts.createdAt, stats: await jobStats(db, accountId), hidden: true,
+    };
+  }
   const [wp, stats] = await Promise.all([getWorkProfile(db, accountId), jobStats(db, accountId)]);
   return {
     id: accountId,
@@ -76,5 +89,6 @@ export async function personCard(db: Db, accountId: string): Promise<PersonCard 
     resumeUrl: wp.resumeUrl,
     memberSince: facts.createdAt,
     stats,
+    hidden: facts.hidden,
   };
 }

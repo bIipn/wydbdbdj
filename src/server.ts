@@ -5,6 +5,7 @@ import Fastify, { type FastifyInstance, type FastifyServerOptions } from 'fastif
 import { buildDeps, scanProfiles, type AppDeps } from './app.js';
 import { registerCsrfGuard } from './auth/guard.js';
 import { createAuth, type AuthService } from './auth/index.js';
+import { clientIp, createAttemptLimiter } from './auth/ratelimit.js';
 import { createContext, loadConfig, type AppConfig, type RouteContext, type ScanRequest } from './context.js';
 import type { Db } from './db/db.js';
 import { env, loadEnv } from './env.js';
@@ -32,6 +33,45 @@ import { DEFAULT_GROUP, FETCH_BUDGET_MS, getGroup, SCAN_GROUPS } from './sources
 import type { Profile } from './types.js';
 
 const WEB_DIR = projectDir('web');
+
+/**
+ * Sent on EVERY response of the app (documents, js/css, sw.js, API JSON, errors, 404s), whichever file server is in
+ * use (@fastify/static here, src/static.ts on Vercel, where the function serves every path). One onSend hook in
+ * buildApp. The SSE stream writes its own headers on reply.raw and is not covered: it needs none of these.
+ *
+ * The policy has no 'unsafe-inline' and no hashes: index.html, privacy.html and terms.html carry no inline script,
+ * inline style or on* attribute (test/security-headers.test.ts fails if one comes back). The JS sets styles only
+ * through the CSSOM (el.style.x), which style-src does not govern, and never writes a style attribute. img-src
+ * needs data: (two select arrows in styles.css). Supabase sign-in is a top-level navigation, not a fetch, so it is
+ * not in connect-src. No upgrade-insecure-requests (it breaks http://127.0.0.1 development). The service worker's
+ * offline page is a Response the worker builds: it carries no policy, so its inline style and button keep working.
+ */
+export const CONTENT_SECURITY_POLICY = [
+  "default-src 'self'", "script-src 'self'", "style-src 'self'", "img-src 'self' data:", "font-src 'self'",
+  "connect-src 'self'", "manifest-src 'self'", "worker-src 'self'", "object-src 'none'", "base-uri 'none'",
+  "form-action 'self'", "frame-ancestors 'none'",
+].join('; ');
+export const SECURITY_HEADERS: Readonly<Record<string, string>> = {
+  'content-security-policy': CONTENT_SECURITY_POLICY,
+  'x-frame-options': 'DENY',
+  'x-content-type-options': 'nosniff',
+  'referrer-policy': 'strict-origin-when-cross-origin',
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(self), payment=(), usb=(), browsing-topics=()',
+  'cross-origin-opener-policy': 'same-origin',
+  'cross-origin-resource-policy': 'same-origin',
+};
+/** Wrong ACCESS_CODE values allowed per caller address in one window (then 429 for ANY code, the right one too). */
+export const ACCESS_CODE_LIMIT = { limit: 50, windowMs: 15 * 60 * 1000 } as const;
+/** A shorter ACCESS_CODE gets a warning at start-up (not a refusal: the pilot's server must keep running). */
+const ACCESS_CODE_MIN = 16;
+
+/** Does any string in this parsed value contain a NUL? Postgres refuses NUL in text (a 500, audit sec-input-3). */
+const hasNul = (v: unknown, depth = 0): boolean => {
+  if (typeof v === 'string') return v.includes('\u0000');
+  if (depth > 20 || v === null || typeof v !== 'object') return false;
+  for (const [k, x] of Object.entries(v)) if (k.includes('\u0000') || hasNul(x, depth + 1)) return true;
+  return false;
+};
 
 export interface ServerOptions {
   /** Shortcuts for config.accessCode / config.adminToken; they win over `config`. */
@@ -86,6 +126,35 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     adminToken: opts.adminToken ?? base.adminToken,
   };
 
+  // Security headers on every response, and no-store on API answers that did not choose their own caching (a
+  // signed-in /api/jobs/:id carries the winner's view of the poster's address; it must not sit in a shared cache).
+  app.addHook('onSend', async (req, reply, payload) => {
+    for (const [name, value] of Object.entries(SECURITY_HEADERS)) if (!reply.hasHeader(name)) reply.header(name, value);
+    if (req.url.startsWith('/api/') && !reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+    return payload;
+  });
+
+  // Errors: Fastify's own 4xx (malformed JSON 400, too large 413, wrong content type 415, …) keep their status and
+  // code; anything else is logged and answered with one word. A database error's text never reaches the caller.
+  app.setErrorHandler((err: { statusCode?: number; code?: string; message?: string }, req, reply) => {
+    const status = typeof err.statusCode === 'number' && err.statusCode >= 400 ? err.statusCode : 500;
+    if (status < 500) return reply.code(status).send({ error: err.code ?? 'bad_request', message: err.message });
+    req.log.error({ err }, 'request failed');
+    return reply.code(500).send({ error: 'internal' });
+  });
+
+  // A NUL in an id, a query value or a JSON body is refused before any route reads it (Postgres would answer 22021).
+  app.addHook('preValidation', async (req, reply) => {
+    if (hasNul(req.params) || hasNul(req.query) || hasNul(req.body)) {
+      return reply.code(400).send({ error: 'invalid_input', message: 'Text cannot contain a NUL character.' });
+    }
+  });
+
+  const attempts = createAttemptLimiter(deps.db, opts.now ?? (() => new Date()), (msg) => app.log.info(msg));
+  if (config.accessCode && config.accessCode.length < ACCESS_CODE_MIN) {
+    app.log.warn(`ACCESS_CODE is ${config.accessCode.length} characters: use ${ACCESS_CODE_MIN} or more random characters, a short code can be guessed`);
+  }
+
   // Optional shared access code. It gates the whole API in both modes (accounts sign in on top of it).
   app.addHook('onRequest', async (req, reply) => {
     if (!config.accessCode) return;
@@ -95,8 +164,19 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
     if (!route.startsWith('/api/') && !req.url.startsWith('/api/')) return; // the app shell and its files
     // health is public; admin and cron routes check their own token
     if (route === '/api/health' || route.startsWith('/api/admin/') || route.startsWith('/api/cron/')) return;
+    // Wrong codes are counted per address (only wrong ones: the client sends the code on every call and poll). A
+    // blocked address is refused whatever it sends, the right code included, or a 200 would say which guess was right.
+    const rule = { key: `access:ip:${clientIp(req)}`, ...ACCESS_CODE_LIMIT };
+    const verdict = await attempts.check([rule]);
+    if (!verdict.ok) {
+      return reply.code(429).header('retry-after', verdict.retryAfterSec)
+        .send({ error: 'too_many_attempts', message: 'Too many wrong access codes. Wait a few minutes, then try again.' });
+    }
     const given = String(req.headers['x-access-code'] ?? '');
-    if (!safeEqual(given, config.accessCode)) return reply.code(401).send({ error: 'access_code_required' });
+    if (!safeEqual(given, config.accessCode)) {
+      if (given) await attempts.count([rule]); // no code at all is not a guess (the gate screen before it is typed)
+      return reply.code(401).send({ error: 'access_code_required' });
+    }
   });
   registerCsrfGuard(app, config);
 

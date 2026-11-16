@@ -217,3 +217,33 @@ export function statsWords(s) {
   if (s.posterNoShows) parts.push(`${s.posterNoShows} unanswered`);
   return parts.length ? parts.join(' · ') : 'New on BidSwipe';
 }
+
+// ------------------------------------------------------------------ reports --
+// What a person may report besides a job: a conversation (its poster or its winner) or someone's card. The ids are the
+// server's (src/jobs/service.ts CONVERSATION_REPORT_REASONS / PROFILE_REPORT_REASONS); these are their words.
+
+export const REPORT_REASONS = {
+  conversation: [
+    { id: 'abusive', label: 'Abusive or threatening' },
+    { id: 'spam', label: 'Spam or a scam' },
+    { id: 'off_platform', label: 'Asks to pay or meet outside what the job needs' },
+    { id: 'other', label: 'Something else' },
+  ],
+  profile: [
+    { id: 'misleading', label: 'False or misleading (a name, a licence, a claim)' },
+    { id: 'offensive', label: 'Offensive or abusive' },
+    { id: 'spam', label: 'Spam or a scam' },
+    { id: 'other', label: 'Something else' },
+  ],
+};
+export const REPORT_NOTE_MAX = 500;
+/** The reporter's confirmation, as the server words it. Nothing about how fast: that promise is the owner's. */
+export const REPORT_THANKS = 'Thanks. We read every report.';
+/** Under the form: the reported side is never told. */
+export const REPORT_PRIVATE = 'A person at BidSwipe reads it. The other person isn’t told that you reported them.';
+/** Where an operator removed a message (src/jobs/repo.ts MESSAGE_REMOVED). */
+export const MESSAGE_REMOVED = 'Message removed by BidSwipe';
+/** On a card an operator hid, for everyone else. */
+export const PROFILE_HIDDEN = 'Profile hidden by BidSwipe';
+/** To the card's owner, over their own preview. The contact address lives only on the Terms page. */
+export const PROFILE_HIDDEN_OWNER = 'BidSwipe has hidden your profile from other people: they see only your name and your job record. You can still edit it. If you think this is a mistake, write to us at the address on the Terms page.';

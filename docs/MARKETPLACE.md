@@ -206,3 +206,30 @@ Source: [NRS 624.031](https://www.leg.state.nv.us/NRS/NRS-624.html) and the
 The "part of a larger or major operation" condition is from 7048(b), as quoted in bill AB-1170 on leginfo [search].
 
 Source: [BPC 7048](https://leginfo.legislature.ca.gov/faces/codes_displaySection.xhtml?lawCode=BPC&sectionNum=7048) [search].
+
+## 10. Reports: jobs, conversations and profiles (Microsoft Store policy 11.12)
+
+What people write is user-generated content: job posts, messages between a poster and a winner, and work profiles
+(the PersonCard). Each can be reported in the app, and an operator can act on each.
+
+| What | Who may report | Where | Operator action |
+|---|---|---|---|
+| A job | anyone signed in but its poster | "Report this job" on the job page; `POST /api/jobs/:id/report` | take the job down: `POST /api/admin/jobs/:id/remove` |
+| A conversation | its poster or its winner (view.ts `inThread`); anyone else gets the thread routes' own 403 | "Report this conversation" on the Messages conversation and under the job page's messages; `POST /api/jobs/:id/conversation/report` | remove one message: `POST /api/admin/jobs/messages/:messageId/remove` |
+| A profile | someone allowed to see the card (`GET /api/people/:id`, stats.ts `sharesJob`), never one's own; anyone else gets that route's 404 | "Report this profile" under the card in its sheet; `POST /api/people/:id/report` | hide / show again: `POST /api/admin/people/:id/hide`, `…/unhide` |
+
+- A conversation or profile report is a reason from a short list plus an optional note (500 characters). Reasons, conversation:
+  abusive or threatening · spam or a scam · asks to pay or meet outside what the job needs · something else. Profile: false or
+  misleading · offensive or abusive · spam or a scam · something else.
+- One open report per reporter and target (`content_reports`, two partial unique indexes). A second answers 200 with
+  `already: true` and the same thanks. The answer is "Thanks. We read every report." and nothing about how fast.
+- A report tells the reported side nothing, is not contact, and changes nothing on the job. All reports share the job
+  report's limit of 10 per hour per account. The rows are shown only to operators (`GET /api/admin/jobs/reports`:
+  `reports`, `conversationReports` with the thread, `profileReports` with the card's text even when hidden).
+  `POST /api/admin/reports/:reportId/resolve` closes one.
+- A removed message: the row stays (its time still counts for made-contact; read marks, stage and fees do not move); its text
+  is blanked in the SQL that reads it, and the bell alert raised for it is reworded in the same statement. Both sides see
+  "Message removed by BidSwipe". There is no restore.
+- A hidden profile (`profile_hides`): others see only the lite card (name, member since, job record) and "Profile hidden by
+  BidSwipe". The owner still edits their own text and sees one line saying it is hidden and to write to the address on the
+  Terms page. Unhide brings it back as written.

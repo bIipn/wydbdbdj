@@ -216,6 +216,16 @@ describe('POST /api/promo/redeem', () => {
     expect((await redeem(app, b, 'A&Btest')).statusCode).toBe(429);
   });
 
+  it('right codes are never counted: six accounts in one office redeem in a row, and the counters are in the database', async () => {
+    const { app } = await server('A&Btest:pro');
+    for (let i = 0; i < 6; i++) expect((await redeem(app, await signUp(app), 'A&Btest')).statusCode).toBe(200);
+    expect(await db.query(`select key from auth_attempts where key like 'promo:%'`)).toEqual([]);
+    const c = await signUp(app);
+    await redeem(app, c, 'TEST-WRONG-1');
+    expect((await db.query<{ key: string; count: number }>(`select key, count from auth_attempts where key like 'promo:%' order by key`))
+      .map((r) => [r.key.replace(/account:.*/, 'account:…'), Number(r.count)])).toEqual([['promo:account:…', 1], ['promo:ip:127.0.0.1', 1]]);
+  });
+
   it('a plan that is already Pro or pilot is never stepped down and uses nothing', async () => {
     const { app } = await server('TEST-PROMO:pro:1');
     const cookie = await signUp(app);

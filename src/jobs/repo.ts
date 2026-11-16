@@ -47,8 +47,11 @@ export interface MessageRecord {
   id: number;
   jobId: string;
   senderId: string;
+  /** '' once an operator removed it: the text never leaves the database again (see MESSAGE_COLS). */
   body: string;
   createdAt: number;
+  /** An operator removed it (removeMessage): both sides see "Message removed by BidSwipe" in its place. */
+  removed: boolean;
 }
 
 export interface FeeRecord extends FeeLine {
@@ -103,8 +106,14 @@ const toBid = (r: BidRow): BidRecord => ({
   createdAt: ms(r.created_at)!, updatedAt: ms(r.updated_at)!,
 });
 
-interface MessageRow { id: Big; job_id: string; sender_id: string; body: string; created_at: Ts }
-const toMessage = (r: MessageRow): MessageRecord => ({ id: n(r.id)!, jobId: r.job_id, senderId: r.sender_id, body: r.body, createdAt: ms(r.created_at)! });
+interface MessageRow { id: Big; job_id: string; sender_id: string; body: string; created_at: Ts; removed_at?: Ts }
+const toMessage = (r: MessageRow): MessageRecord => {
+  const removed = r.removed_at != null;
+  return { id: n(r.id)!, jobId: r.job_id, senderId: r.sender_id, body: removed ? '' : r.body, createdAt: ms(r.created_at)!, removed };
+};
+
+/** A message as read back: a removed one's text is blanked IN the statement, so no caller can ever pass it on. */
+const MESSAGE_COLS = `id, job_id, sender_id, case when removed_at is null then body else '' end as body, created_at, removed_at`;
 
 interface FeeRow {
   id: Big; job_id: string; kind: FeeKind; payer_id: string; basis_cents: Big; rate_ppm: Big; amount_cents: Big; poster_share_ppm: Big;
@@ -475,7 +484,7 @@ export async function insertMessage(db: Db, jobId: string, senderId: string, bod
 }
 
 export async function listMessages(db: Db, jobId: string): Promise<MessageRecord[]> {
-  const rows = await db.query<MessageRow>('select * from job_messages where job_id = $1 order by id', [jobId]);
+  const rows = await db.query<MessageRow>(`select ${MESSAGE_COLS} from job_messages where job_id = $1 order by id`, [jobId]);
   return rows.map(toMessage);
 }
 
@@ -492,7 +501,7 @@ export interface ConversationRecord {
 
 interface ConversationRow extends JobRow {
   msg_count: Big; unread: boolean;
-  last_id: Big; last_sender: string | null; last_body: string | null; last_at: Ts;
+  last_id: Big; last_sender: string | null; last_body: string | null; last_at: Ts; last_removed: boolean | null;
 }
 
 /**
@@ -509,9 +518,11 @@ export async function conversationsFor(db: Db, accountId: string): Promise<Conve
               where u.job_id = j.id and u.sender_id <> $1
                 and u.id > coalesce(case when j.poster_id = $1 then j.poster_read_msg_id else j.winner_read_msg_id end, 0)
             ) as unread,
-            lm.id as last_id, lm.sender_id as last_sender, lm.body as last_body, lm.created_at as last_at
+            lm.id as last_id, lm.sender_id as last_sender, lm.body as last_body, lm.created_at as last_at, lm.removed as last_removed
      from jobs j
-     left join lateral (select m.id, m.sender_id, m.body, m.created_at from job_messages m where m.job_id = j.id order by m.id desc limit 1) lm on true
+     left join lateral (select m.id, m.sender_id, case when m.removed_at is null then m.body else '' end as body, m.created_at,
+                               m.removed_at is not null as removed
+                        from job_messages m where m.job_id = j.id order by m.id desc limit 1) lm on true
      where j.removed_at is null and j.award_cents is not null and j.winner_id is not null and (j.poster_id = $1 or j.winner_id = $1)
      order by coalesce(lm.created_at, j.awarded_at) desc, j.id`,
     [accountId],
@@ -520,7 +531,10 @@ export async function conversationsFor(db: Db, accountId: string): Promise<Conve
     job: toJob(r),
     messageCount: n(r.msg_count) ?? 0,
     unread: r.unread === true,
-    last: r.last_id == null ? null : { id: n(r.last_id)!, jobId: r.id, senderId: r.last_sender!, body: r.last_body ?? '', createdAt: ms(r.last_at)! },
+    last: r.last_id == null ? null : {
+      id: n(r.last_id)!, jobId: r.id, senderId: r.last_sender!, body: r.last_removed ? '' : r.last_body ?? '', createdAt: ms(r.last_at)!,
+      removed: r.last_removed === true,
+    },
   }));
 }
 
@@ -594,6 +608,133 @@ export async function listReports(db: Db, limit = 200): Promise<ReportRecord[]> 
     id: n(r.id)!, jobId: r.job_id, jobTitle: r.title, jobStatus: r.status, jobRemoved: r.removed_at != null, reporterId: r.reporter_id,
     reason: r.reason, createdAt: new Date(r.created_at!).toISOString(),
   }));
+}
+
+// ------------------------------------------------- reports of what people write --
+// A conversation or a person's card (content_reports). Each write is ONE statement; who may report is in it too.
+
+export type ContentReportKind = 'conversation' | 'profile';
+
+/**
+ * Report a job's thread: only its poster or its winner, after the award, on a job not taken down (view.ts inThread,
+ * in SQL); the subject is the other side, decided in the statement. false = nothing written (not in the thread, or
+ * this person already has an open report on it: content_reports_open_conversation_idx).
+ */
+export async function insertConversationReport(
+  db: Db, jobId: string, reporterId: string, reason: string, note: string | null, now: number,
+): Promise<boolean> {
+  const rows = await db.query(
+    `insert into content_reports (kind, job_id, subject_id, reporter_id, reason, note, created_at)
+     select 'conversation', j.id, case when j.poster_id = $2 then j.winner_id else j.poster_id end, $2, $3, $4, $5
+     from jobs j
+     where j.id = $1 and j.removed_at is null and j.award_cents is not null and j.winner_id is not null
+       and (j.poster_id = $2 or j.winner_id = $2)
+     on conflict do nothing
+     returning id`,
+    [jobId, reporterId, reason, note, iso(now)],
+  );
+  return rows.length > 0;
+}
+
+/** Report a person's card (the caller checked they may see it). Never one's own. false = nothing written. */
+export async function insertProfileReport(
+  db: Db, subjectId: string, reporterId: string, reason: string, note: string | null, now: number,
+): Promise<boolean> {
+  const rows = await db.query(
+    `insert into content_reports (kind, subject_id, reporter_id, reason, note, created_at)
+     select 'profile', a.id, $2, $3, $4, $5 from accounts a where a.id = $1 and a.id <> $2
+     on conflict do nothing
+     returning id`,
+    [subjectId, reporterId, reason, note, iso(now)],
+  );
+  return rows.length > 0;
+}
+
+/** Has this person an open report on this target? (`target` = the job id for a conversation, the account id for a card.) */
+export async function hasOpenContentReport(db: Db, kind: ContentReportKind, target: string, reporterId: string): Promise<boolean> {
+  const rows = await db.query(
+    `select 1 from content_reports where kind = $1 and reporter_id = $3 and resolved_at is null
+       and (case when $1 = 'conversation' then job_id else subject_id end) = $2
+     limit 1`,
+    [kind, target, reporterId],
+  );
+  return rows.length > 0;
+}
+
+export interface ContentReportRecord {
+  id: number;
+  kind: ContentReportKind;
+  jobId: string | null;
+  jobTitle: string | null;
+  jobStatus: JobStatus | null;
+  posterId: string | null;
+  subjectId: string;
+  reporterId: string;
+  reason: string;
+  note: string | null;
+  createdAt: string;
+  resolvedAt: string | null;
+}
+
+/** Operators: the newest reports first, open and resolved. */
+export async function listContentReports(db: Db, limit = 200): Promise<ContentReportRecord[]> {
+  const rows = await db.query<{
+    id: Big; kind: ContentReportKind; job_id: string | null; title: string | null; status: JobStatus | null; poster_id: string | null;
+    subject_id: string; reporter_id: string; reason: string; note: string | null; created_at: Ts; resolved_at: Ts;
+  }>(
+    `select r.id, r.kind, r.job_id, j.title, j.status, j.poster_id, r.subject_id, r.reporter_id, r.reason, r.note, r.created_at, r.resolved_at
+     from content_reports r left join jobs j on j.id = r.job_id
+     order by r.id desc limit $1`,
+    [limit],
+  );
+  return rows.map((r) => ({
+    id: n(r.id)!, kind: r.kind, jobId: r.job_id, jobTitle: r.title, jobStatus: r.status, posterId: r.poster_id, subjectId: r.subject_id,
+    reporterId: r.reporter_id, reason: r.reason, note: r.note, createdAt: new Date(r.created_at!).toISOString(), resolvedAt: iso(ms(r.resolved_at)),
+  }));
+}
+
+/** Operators: close a report (it leaves the open list; the reporter may report the same thing again). Twice keeps the first time. */
+export async function resolveContentReport(db: Db, id: number, now: number): Promise<boolean> {
+  const rows = await db.query('update content_reports set resolved_at = coalesce(resolved_at, $2) where id = $1 returning id', [id, iso(now)]);
+  return rows.length > 0;
+}
+
+/** What both sides see where an operator removed a message (and what the bell's alert for it says from then on). */
+export const MESSAGE_REMOVED = 'Message removed by BidSwipe';
+
+/**
+ * Operators: remove one message. ONE statement: the row stays (its time still counts for made-contact, read marks do
+ * not move), removed_at is set, and the bell's "New message" alert raised for it (dedupe <jobId>:<messageId>) has its
+ * text replaced, so the words are in no answer any more, the alerts and a push still waiting to be sent included.
+ * Removing twice keeps the first time. null = no such message.
+ */
+export async function removeMessage(db: Db, messageId: number, now: number): Promise<{ id: number; jobId: string } | null> {
+  const rows = await db.query<{ id: Big; job_id: string }>(
+    `with m as (
+       update job_messages set removed_at = coalesce(removed_at, $2::timestamptz) where id = $1 returning id, job_id
+     ), a as (
+       update alerts set body = $3 where kind = 'job_message' and dedupe_key in (select m.job_id || ':' || m.id from m) returning id
+     )
+     select id, job_id from m`,
+    [messageId, iso(now), MESSAGE_REMOVED],
+  );
+  return rows[0] ? { id: n(rows[0].id)!, jobId: rows[0].job_id } : null;
+}
+
+/**
+ * Operators: hide (true) or show again (false) a person's card. ONE statement, on an account that exists; hiding
+ * twice keeps the first time. Returns when it is hidden since (null = shown), or undefined when there is no such account.
+ */
+export async function setProfileHidden(db: Db, accountId: string, hidden: boolean, now: number): Promise<number | null | undefined> {
+  const rows = await db.query<{ hidden_at: Ts }>(
+    `insert into profile_hides (account_id, hidden_at)
+     select a.id, case when $2::boolean then $3::timestamptz else null end from accounts a where a.id = $1
+     on conflict (account_id) do update
+       set hidden_at = case when $2::boolean then coalesce(profile_hides.hidden_at, excluded.hidden_at) else null end
+     returning hidden_at`,
+    [accountId, hidden, iso(now)],
+  );
+  return rows[0] ? ms(rows[0].hidden_at) : undefined;
 }
 
 // -------------------------------------------------------------- accounts --

@@ -11,24 +11,45 @@ export type RedeemOutcome =
   | 'used_up';
 
 /**
- * Record a redemption and set the account's plan, in one statement:
+ * Record a redemption and set the account's plan:
  *   - a row this account already has for the code → 'again' (no new use counted);
- *   - otherwise the row goes in only while fewer than `maxUses` accounts have one → 'redeemed', else 'used_up'.
- * The plan is set only when a row exists for the account afterwards. On embedded PGlite statements run one at
- * a time, so the count cannot race; on a busy Postgres two last-seat redeems at the same instant could both
- * get in (one use over the limit) — acceptable for a free-Pro code, and cheaper than a lock.
+ *   - otherwise, for a code with a use limit, the gate row in promo_codes is bumped only while uses < maxUses, and
+ *     the redemption goes in only when the gate let it through → 'redeemed', else 'used_up';
+ *   - a code with no limit skips the gate.
+ * The plan is set only when a row exists for the account afterwards.
+ *
+ * Why a gate row: on Postgres (READ COMMITTED, a pool of connections, many instances) a `count(*) < maxUses` check
+ * inside the INSERT reads the statement's snapshot, so N redeems arriving together all saw the same count and up to
+ * the pool size got in (4 accounts on a 1-use code, audit sec-session-4). Taking an advisory lock inside the same
+ * statement does not help either: the snapshot is older than the lock. An UPDATE … where uses < $limit waits for the
+ * row lock and then re-checks its WHERE against the newest row, so exactly maxUses redeems pass.
+ *
+ * Two statements: the gate row is created first (insert … on conflict do nothing; it starts at the uses already
+ * recorded, for codes redeemed before the gate existed), then the gated redemption, in one statement.
  */
 export async function redeemPromo(
   db: Db, r: { accountId: string; codeKey: string; plan: Plan; maxUses: number | null; now: Date },
 ): Promise<RedeemOutcome> {
+  if (r.maxUses !== null) {
+    await db.query(
+      `insert into promo_codes (code_key, uses)
+       select $1, (select count(*) from promo_redemptions where code_key = $1)
+       on conflict (code_key) do nothing`,
+      [r.codeKey],
+    );
+  }
   const rows = await db.query<{ had: boolean; added: boolean }>(
     `with had as (
        select 1 from promo_redemptions where account_id = $1 and code_key = $2
+     ), gate as (
+       update promo_codes set uses = uses + 1
+       where $4::int is not null and code_key = $2 and uses < $4::int and not exists (select 1 from had)
+       returning 1
      ), added as (
        insert into promo_redemptions (account_id, code_key, plan, redeemed_at)
        select $1, $2, $3, $5
        where not exists (select 1 from had)
-         and ($4::int is null or (select count(*) from promo_redemptions where code_key = $2) < $4::int)
+         and ($4::int is null or exists (select 1 from gate))
        on conflict (account_id, code_key) do nothing
        returning 1
      ), upgraded as (

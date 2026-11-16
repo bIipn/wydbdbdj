@@ -78,7 +78,7 @@ export async function memoryDb(): Promise<Db> {
 
 /** Empty every table (much faster than opening a new database for each test). */
 export async function resetDb(db: Db): Promise<void> {
-  await db.exec('truncate table bids, profiles, accounts, scans, awards, market_series, market_series_meta restart identity cascade');
+  await db.exec('truncate table bids, profiles, accounts, scans, awards, market_series, market_series_meta, auth_attempts, promo_codes restart identity cascade');
 }
 
 /** A scan context that never touches the network. */

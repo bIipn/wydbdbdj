@@ -27,7 +27,8 @@ import {
 import { onEnteredApp, onSignedOut } from '../session.js';
 import { onAfterRender, registerTabCount, registerView, render, setView } from '../shell.js';
 import { state } from '../state.js';
-import { fieldsObject } from '../work-profile.js';
+import { MESSAGE_REMOVED } from '../job-words.js';
+import { fieldsObject, forgetReports, reportAction } from '../work-profile.js';
 
 // ------------------------------------------------------------------- shared with the job page --
 
@@ -36,8 +37,9 @@ const fmtMsgTime = new Intl.DateTimeFormat('en-US', { timeZone: PT, month: 'shor
 
 /** The thread's bubbles: the other side at the left, the viewer at the right, each with who and when. */
 export function messageList(messages) {
-  return h('ul', { class: 'msgs' }, messages.map((m) => h('li', { class: `msg ${m.mine ? 'mine' : 'theirs'}`, 'data-id': m.id },
-    h('p', {}, m.body),
+  return h('ul', { class: 'msgs' }, messages.map((m) => h('li', { class: `msg ${m.mine ? 'mine' : 'theirs'}${m.removed ? ' is-removed' : ''}`, 'data-id': m.id },
+    // An operator removed it: the server sends no text, only that it was removed.
+    m.removed ? h('p', { class: 'msg-removed' }, MESSAGE_REMOVED) : h('p', {}, m.body),
     h('small', {}, `${m.mine ? 'You' : m.from === 'poster' ? 'Poster' : 'Winner'} · ${fmtMsgTime.format(new Date(m.at))}`))));
 }
 
@@ -90,7 +92,7 @@ const freshConvo = () => ({
   msg: '', busy: false, drawnNewest: 0, focus: null, loaded: false,
 });
 let convo = freshConvo();
-onSignedOut(() => { Object.assign(box, { list: null, loading: false, error: null }); convo = freshConvo(); });
+onSignedOut(() => { Object.assign(box, { list: null, loading: false, error: null }); convo = freshConvo(); forgetReports(); });
 
 export async function loadConversations() {
   if (!jobsOn() || box.loading) return;
@@ -279,6 +281,9 @@ function renderConvo() {
       h('p', { class: 'mx-who' }, c.role === 'poster' ? 'You posted this job. Only you and the winner see these messages.'
         : 'You won this job. Only you and the poster see these messages.'),
       h('div', { class: 'mx-thread', 'aria-label': 'Messages', role: 'log' }, thread),
+      // Either side may report the conversation; the other side is never told (src/jobs/service.ts reportConversation).
+      // Out of the log (a live region) and above the pinned send box, so it is quiet and always reachable.
+      h('div', { class: 'mx-report' }, reportAction({ kind: 'conversation', id: convo.id, label: 'Report this conversation' })),
       h('div', { class: 'mx-foot' }, foot),
     ];
   }

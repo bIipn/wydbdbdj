@@ -89,6 +89,6 @@
 
   <script type="module" src="js/main.js"></script>
   <!-- The service worker from the first visit (installable app, offline page); push.js reuses the same registration. -->
-  <script data-demo-strip>if ('serviceWorker' in navigator && location.protocol !== 'file:') addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));</script>
+  <script src="js/sw-register.js" data-demo-strip></script>
 </body>
 </html>

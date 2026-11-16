@@ -13,6 +13,7 @@
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/db.js';
 import { upsertBids } from '../db/repo.js';
+import { getWorkProfile } from '../db/work.js';
 import { lookupZip } from '../geo/zip.js';
 import { LOCAL_JOB_FLAG } from '../sources/flags.js';
 import { personCard, type PersonCard } from '../profile/person.js';
@@ -24,7 +25,7 @@ import { publicRules } from './config.js';
 import * as repo from './repo.js';
 import type { BidRecord, JobRecord } from './repo.js';
 import { contactDeadlineFor, endOfContact, FEE_OUTCOMES, feeLine, formatUsd, pickWinner, type JobRules } from './rules.js';
-import { jobStats } from './stats.js';
+import { jobStats, sharesJob } from './stats.js';
 import { countUnread, retireMessageAlerts } from '../db/alerts.js';
 import {
   inThread, tradeLabels, viewConversation, viewJob, viewMessages, type ConversationView, type JobView, type MessageView, type PersonLite,
@@ -281,6 +282,12 @@ export async function placeBid(deps: JobsDeps, accountId: string, jobId: string,
   const job = await repo.getJob(deps.db, jobId);
   if (!job) return notFound();
   if (job.posterId === accountId) return notAllowed("You can't bid on your own job.");
+  // "Get work done" posts only (CLAUDE.md, the Jobs screen hides bidding for it): the server says so too (audit
+  // authz-1). Only intent 'hire' is refused: 'both' bids, and an account with no stored work profile reads as
+  // 'work' (getWorkProfile's default), so accounts from before the marketplace keep bidding.
+  if ((await getWorkProfile(deps.db, accountId)).intent === 'hire') {
+    return notAllowed('To bid, pick “Both” in Settings and add your trade.');
+  }
   if (job.status !== 'open' || now >= job.closesAt) return closed('Bidding on this job has closed.');
 
   const b = record(body);
@@ -590,6 +597,120 @@ export async function reportJob(deps: JobsDeps, accountId: string, jobId: string
   if (errors.length) return invalid(errors);
   const saved = await repo.upsertReport(deps.db, jobId, accountId, reason!, now);
   return saved ? ok({ ok: true }) : notFound();
+}
+
+// ------------------------------------------- reporting what people write --
+// A conversation (one job's thread) and a person's card. Rules (docs/MARKETPLACE.md "Reports"): only someone who may
+// see the thing may report it; nobody else gets a different answer than they get on that thing's own route; a
+// report tells the reported side nothing and changes nothing on the job (it is not contact); one open report per
+// reporter and target, and a second one is a kind "already" (200), not an error.
+
+/** Why someone reports a conversation. The screen's labels are in web/js/job-words.js REPORT_REASONS. */
+export const CONVERSATION_REPORT_REASONS = ['abusive', 'spam', 'off_platform', 'other'] as const;
+/** Why someone reports a card. */
+export const PROFILE_REPORT_REASONS = ['misleading', 'offensive', 'spam', 'other'] as const;
+export const REPORT_NOTE_MAX = 500;
+/** The reporter's confirmation. Honest: a person reads every report; no promise of how fast (the owner's to make). */
+export const REPORT_THANKS = 'Thanks. We read every report.';
+export const REPORT_ALREADY = 'You already reported this. Thanks. We read every report.';
+const THREAD_ONLY = 'Messages are only between the poster and the winner, after the award.';
+
+export interface ReportAnswer {
+  ok: true;
+  /** true = this person already had an open report on it; nothing new was stored. */
+  already: boolean;
+  message: string;
+}
+
+function reportInput(body: unknown, reasons: readonly string[]): Result<{ reason: string; note: string | null }> {
+  const b = record(body);
+  const errors: FieldError[] = [];
+  const reason = typeof b.reason === 'string' && reasons.includes(b.reason) ? b.reason : null;
+  if (!reason) errors.push({ path: 'reason', message: 'Pick a reason from the list.' });
+  const note = text(b.note, 'note', 'the note', { min: 1, max: REPORT_NOTE_MAX }, errors, true);
+  if (errors.length) return invalid(errors);
+  return ok({ reason: reason!, note });
+}
+
+const reported = (already: boolean): Result<ReportAnswer> => ok({ ok: true, already, message: already ? REPORT_ALREADY : REPORT_THANKS });
+
+/** Report a job's thread: its poster or its winner only (view.ts inThread), with the thread routes' own refusals. */
+export async function reportConversation(deps: JobsDeps, accountId: string, jobId: string, body: unknown, now: number): Promise<Result<ReportAnswer>> {
+  const job = await repo.getJob(deps.db, jobId);
+  if (!job) return notFound();
+  if (!inThread(job, accountId)) return notAllowed(THREAD_ONLY);
+  const input = reportInput(body, CONVERSATION_REPORT_REASONS);
+  if (!input.ok) return input;
+  if (await repo.insertConversationReport(deps.db, jobId, accountId, input.value.reason, input.value.note, now)) {
+    deps.log?.(`jobs: a conversation was reported (${input.value.reason})`);
+    return reported(false);
+  }
+  if (await repo.hasOpenContentReport(deps.db, 'conversation', jobId, accountId)) return reported(true);
+  return notFound(); // taken down between the read and the write
+}
+
+/**
+ * Report a person's card: only someone allowed to see it (GET /api/people/:id: they dealt with each other on a job,
+ * src/jobs/stats.ts sharesJob), never one's own. Anyone else gets that route's 404, so a report cannot probe for ids.
+ */
+export async function reportPerson(deps: JobsDeps, accountId: string, personId: string, body: unknown, now: number): Promise<Result<ReportAnswer>> {
+  if (personId === accountId || !(await sharesJob(deps.db, accountId, personId))) return notFound();
+  const input = reportInput(body, PROFILE_REPORT_REASONS);
+  if (!input.ok) return input;
+  if (await repo.insertProfileReport(deps.db, personId, accountId, input.value.reason, input.value.note, now)) {
+    deps.log?.(`jobs: a profile was reported (${input.value.reason})`);
+    return reported(false);
+  }
+  if (await repo.hasOpenContentReport(deps.db, 'profile', personId, accountId)) return reported(true);
+  return notFound();
+}
+
+/** One report as an operator sees it: what was reported, with what they need to judge it. Never shown to a user. */
+export type ContentReportView = Omit<repo.ContentReportRecord, 'posterId'> & {
+  /** conversation: who reported it, on that job. */
+  reporterRole: 'poster' | 'winner' | null;
+  /** conversation: the whole thread (a removed message's text is not here either). */
+  messages: Array<{ id: number; from: 'poster' | 'winner'; senderId: string; body: string; at: string; removed: boolean }> | null;
+  /** profile: the card with its text even when hidden, and whether it is hidden now. */
+  card: PersonCard | null;
+  hidden: boolean | null;
+};
+
+export async function contentReports(deps: JobsDeps): Promise<ContentReportView[]> {
+  const out: ContentReportView[] = [];
+  for (const r of await repo.listContentReports(deps.db)) {
+    const { posterId, ...rest } = r;
+    if (r.kind === 'conversation') {
+      const msgs = r.jobId ? await repo.listMessages(deps.db, r.jobId) : [];
+      out.push({
+        ...rest, reporterRole: posterId === null ? null : r.reporterId === posterId ? 'poster' : 'winner',
+        messages: msgs.map((m) => ({
+          id: m.id, from: m.senderId === posterId ? 'poster' : 'winner', senderId: m.senderId, body: m.removed ? '' : m.body,
+          at: new Date(m.createdAt).toISOString(), removed: m.removed,
+        })),
+        card: null, hidden: null,
+      });
+    } else {
+      const card = await personCard(deps.db, r.subjectId, { forOperator: true });
+      out.push({ ...rest, reporterRole: null, messages: null, card, hidden: card?.hidden ?? null });
+    }
+  }
+  return out;
+}
+
+/** Operator: remove one message (repo.removeMessage). Nothing else about the job moves. */
+export async function removeMessage(deps: JobsDeps, messageId: number, now: number): Promise<boolean> {
+  const done = await repo.removeMessage(deps.db, messageId, now);
+  if (done) deps.log?.(`jobs: message ${done.id} on ${done.jobId} removed by an operator`);
+  return done !== null;
+}
+
+/** Operator: hide or show again a person's card. false = no such account. */
+export async function setPersonHidden(deps: JobsDeps, accountId: string, hidden: boolean, now: number): Promise<{ hidden: boolean; hiddenAt: string | null } | null> {
+  const at = await repo.setProfileHidden(deps.db, accountId, hidden, now);
+  if (at === undefined) return null;
+  deps.log?.(`jobs: a profile was ${hidden ? 'hidden' : 'shown again'} by an operator`);
+  return { hidden: at !== null, hiddenAt: at === null ? null : new Date(at).toISOString() };
 }
 
 /** Operator: take a job down. It leaves every feed and answers 404 to everyone. */

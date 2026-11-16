@@ -116,4 +116,36 @@ create table if not exists job_reports (
 -- because a conversation exists only between its poster and its winner (src/jobs/view.ts inThread).
 alter table jobs add column if not exists poster_read_msg_id bigint;
 alter table jobs add column if not exists winner_read_msg_id bigint;
+
+-- Reports of what people write besides a job (Microsoft Store policy 11.12): a conversation (one job's thread,
+-- reported by its poster or its winner; subject = the other side) or a person's card (subject = its owner). Never
+-- shown to anyone but an operator. One OPEN report per reporter and target (the two partial unique indexes): a
+-- second one changes nothing. An operator closes one with resolved_at; then the same person may report again.
+create table if not exists content_reports (
+  id           bigserial primary key,
+  kind         text not null check (kind in ('conversation', 'profile')),
+  job_id       text references jobs(id) on delete cascade,
+  subject_id   text not null references accounts(id) on delete cascade,
+  reporter_id  text not null references accounts(id) on delete cascade,
+  reason       text not null,
+  note         text,
+  created_at   timestamptz not null,
+  resolved_at  timestamptz,
+  check ((kind = 'conversation') = (job_id is not null))
+);
+create unique index if not exists content_reports_open_conversation_idx on content_reports (job_id, reporter_id)
+  where kind = 'conversation' and resolved_at is null;
+create unique index if not exists content_reports_open_profile_idx on content_reports (subject_id, reporter_id)
+  where kind = 'profile' and resolved_at is null;
+
+-- An operator removed one message: the row stays (made-contact and read marks do not move), its text is never
+-- answered again (src/jobs/repo.ts reads '' in its place); both sides see "Message removed by BidSwipe".
+alter table job_messages add column if not exists removed_at timestamptz;
+
+-- An operator hid a person's card: others see only what the lite card shows (src/profile/person.ts). hidden_at null
+-- = shown again (unhide). The owner still sees and edits their own text.
+create table if not exists profile_hides (
+  account_id  text primary key references accounts(id) on delete cascade,
+  hidden_at   timestamptz
+);
 `;

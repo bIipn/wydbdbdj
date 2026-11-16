@@ -130,6 +130,10 @@ export const api = {
   conversations: () => req('api/jobs/conversations', { quiet: true }),
   conversation: (id) => req(`api/jobs/${encodeURIComponent(id)}/conversation`),
   readConversation: (id, upTo) => req(`api/jobs/${encodeURIComponent(id)}/read`, { method: 'POST', body: { upTo }, quiet: true }),
+  // Reports (only someone who may see the thing): { reason, note? } → { ok, already, message }. A second report of the
+  // same thing answers 200 with already: true. The other side is never told.
+  reportConversation: (id, body) => req(`api/jobs/${encodeURIComponent(id)}/conversation/report`, { method: 'POST', body }),
+  reportPerson: (id, body) => req(`api/people/${encodeURIComponent(id)}/report`, { method: 'POST', body }),
 
   // cost check (premium: 402 premium_required on plans without the estimator)
   estimate: (body) => req('api/estimate', { method: 'POST', body }),

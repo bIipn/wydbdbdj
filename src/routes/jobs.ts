@@ -5,7 +5,7 @@ import { env } from '../env.js';
 import { loadJobRules, publicRules } from '../jobs/config.js';
 import * as jobs from '../jobs/service.js';
 import type { JobsDeps, Refusal, Result } from '../jobs/service.js';
-import { listReports, waiveFee } from '../jobs/repo.js';
+import { listReports, resolveContentReport, waiveFee } from '../jobs/repo.js';
 import type { Account } from '../types.js';
 import { requireAdmin } from './shared.js';
 
@@ -37,6 +37,10 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     ['post', '/api/jobs/:id/messages'], ['post', '/api/jobs/:id/contacted'], ['post', '/api/jobs/:id/confirm'],
     ['post', '/api/jobs/:id/back-out'], ['post', '/api/jobs/:id/complete'], ['post', '/api/jobs/:id/report'],
     ['get', '/api/admin/jobs/reports'], ['post', '/api/admin/jobs/:id/remove'], ['post', '/api/admin/jobs/fees/:feeId/waive'],
+    // reporting what people write (Microsoft Store policy 11.12): a conversation, a person's card; the operators' side
+    ['post', '/api/jobs/:id/conversation/report'], ['post', '/api/people/:id/report'],
+    ['post', '/api/admin/jobs/messages/:messageId/remove'], ['post', '/api/admin/people/:id/hide'], ['post', '/api/admin/people/:id/unhide'],
+    ['post', '/api/admin/reports/:reportId/resolve'],
   ];
   if (ctx.config.authMode !== 'accounts') {
     const absent = async (_req: FastifyRequest, reply: FastifyReply) => reply.code(404).send({ error: 'not_found' });
@@ -193,13 +197,57 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     return answer(reply, await jobs.reportJob(deps, me.account.id, req.params.id, req.body, me.now), (v) => v);
   });
 
+  // Report a conversation (its poster or its winner) or a card (someone allowed to see it). The same hourly limit
+  // as "Report this job", shared with it.
+  app.post('/api/jobs/:id/conversation/report', async (req: IdReq, reply) => {
+    const me = await begin(req, reply);
+    if (!me || !allowed('report', me.account, reply)) return reply;
+    return answer(reply, await jobs.reportConversation(deps, me.account.id, req.params.id, req.body, me.now), (v) => v);
+  });
+
+  app.post('/api/people/:id/report', async (req: IdReq, reply) => {
+    const me = await begin(req, reply);
+    if (!me || !allowed('report', me.account, reply)) return reply;
+    return answer(reply, await jobs.reportPerson(deps, me.account.id, req.params.id, req.body, me.now), (v) => v);
+  });
+
   // ----------------------------------------------------------- operators --
   // x-admin-token, like every /api/admin route (the access-code hook skips that prefix, so each checks its own).
 
   app.get('/api/admin/jobs/reports', async (req, reply) => {
     if (!requireAdmin(ctx, req, reply)) return reply;
     await jobs.settleDue(deps, ctx.now().getTime());
-    return { reports: await listReports(ctx.db) };
+    const content = await jobs.contentReports(deps);
+    return {
+      reports: await listReports(ctx.db),
+      conversationReports: content.filter((r) => r.kind === 'conversation'),
+      profileReports: content.filter((r) => r.kind === 'profile'),
+    };
+  });
+
+  const idNumber = (v: string): number | null => (/^\d{1,15}$/.test(v) ? Number(v) : null);
+
+  // Remove one message: the row stays, both sides see "Message removed by BidSwipe"; nothing else about the job moves.
+  app.post('/api/admin/jobs/messages/:messageId/remove', async (req: FastifyRequest<{ Params: { messageId: string } }>, reply) => {
+    if (!requireAdmin(ctx, req, reply)) return reply;
+    const id = idNumber(req.params.messageId);
+    return id !== null && (await jobs.removeMessage(deps, id, ctx.now().getTime())) ? { ok: true } : reply.code(404).send({ error: 'not_found' });
+  });
+
+  // Hide a person's card (others see the lite card and "Profile hidden by BidSwipe"), or show it again.
+  for (const [action, hidden] of [['hide', true], ['unhide', false]] as const) {
+    app.post(`/api/admin/people/:id/${action}`, async (req: IdReq, reply) => {
+      if (!requireAdmin(ctx, req, reply)) return reply;
+      const done = await jobs.setPersonHidden(deps, req.params.id, hidden, ctx.now().getTime());
+      return done ? { ok: true, ...done } : reply.code(404).send({ error: 'not_found' });
+    });
+  }
+
+  // Close a conversation or profile report (it stays in the list, marked resolved).
+  app.post('/api/admin/reports/:reportId/resolve', async (req: FastifyRequest<{ Params: { reportId: string } }>, reply) => {
+    if (!requireAdmin(ctx, req, reply)) return reply;
+    const id = idNumber(req.params.reportId);
+    return id !== null && (await resolveContentReport(ctx.db, id, ctx.now().getTime())) ? { ok: true } : reply.code(404).send({ error: 'not_found' });
   });
 
   app.post('/api/admin/jobs/:id/remove', async (req: IdReq, reply) => {

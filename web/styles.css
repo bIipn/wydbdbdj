@@ -1579,3 +1579,44 @@ button.hx-chip:hover { border-color: rgba(255, 212, 59, 0.45); }
   .mx-row:hover { background: rgba(255, 255, 255, 0.03); }
   .mx-head-job:hover { color: var(--text); }
 }
+
+/* ---- reports ---- */
+/* Report a conversation or a profile (web/js/work-profile.js reportAction), the hidden-profile and removed-message lines. */
+.report { display: flex; flex-direction: column; align-items: stretch; }
+.report > .report-link { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; }
+.mx-report { display: flex; justify-content: center; margin: 0 0 12px; }
+.mx-report .report { width: 100%; }
+.mx-report .report > .report-link { align-self: center; }
+.job-report-convo, .pcard-report { margin-top: 4px; }
+.report-form {
+  margin-top: 4px; padding: 14px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--card-2);
+}
+.report-reasons { margin: 0; padding: 0; border: 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.report-reasons legend { padding: 0; margin-bottom: 4px; }
+.report-reason {
+  display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 12px; border-radius: 12px;
+  border: 1px solid var(--line-2); background: var(--card); font-size: 14px; line-height: 1.35; cursor: pointer;
+}
+.report-reason input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--volt); }
+.report-reason:has(input:checked) { border-color: rgba(255, 212, 59, 0.55); background: rgba(255, 212, 59, 0.08); }
+.report-reason:has(input:focus-visible) { outline: 2px solid var(--volt); outline-offset: 2px; }
+.report-reasons.has-error .report-reason { border-color: rgba(251, 113, 133, 0.5); }
+.report-done {
+  display: flex; align-items: center; gap: 8px; margin: 0; padding: 10px 12px; border-radius: 12px;
+  border: 1px solid rgba(34, 197, 94, 0.35); background: rgba(34, 197, 94, 0.08); font-size: 13.5px; font-weight: 650; color: var(--text);
+}
+.report-done svg { flex: none; color: var(--great); }
+.report-done:focus { outline: none; }
+.report-done:focus-visible { outline: 2px solid var(--volt); outline-offset: 2px; }
+.report-hidden-line, .report-hidden-owner {
+  display: flex; align-items: flex-start; gap: 8px; margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted);
+}
+.report-hidden-line svg, .report-hidden-owner svg { flex: none; margin-top: 1px; color: var(--faint); }
+.report-hidden-line { padding: 8px 10px; border-radius: 10px; background: rgba(255, 255, 255, 0.04); border: 1px dashed var(--line-2); }
+.report-hidden-owner {
+  margin-bottom: 10px; padding: 10px 12px; border-radius: 12px; border: 1px solid rgba(251, 146, 60, 0.4); background: rgba(251, 146, 60, 0.08); color: var(--text);
+}
+.report-hidden-owner a { color: var(--volt); font-weight: 700; }
+.report-hidden-mini { color: var(--faint); font-style: italic; }
+.msg.is-removed { background: transparent; border-style: dashed; border-color: var(--line-2); }
+.msg-removed { color: var(--faint); font-style: italic; }

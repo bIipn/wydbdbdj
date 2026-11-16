@@ -27,16 +27,19 @@ export async function saveIntent(db: Db, accountId: string, intent: Intent, now:
 }
 
 /**
- * What a card needs from the account itself: its own name, when it joined, and the name on its scoring profile
- * (the business name from onboarding). Never the email. Null when there is no such account.
+ * What a card needs from the account itself: its own name, when it joined, the name on its scoring profile
+ * (the business name from onboarding), and whether an operator hid the card (profile_hides, src/db/schema-jobs.ts).
+ * Never the email. Null when there is no such account.
  */
-export async function cardFacts(db: Db, accountId: string): Promise<{ accountName: string | null; businessName: string | null; createdAt: string } | null> {
-  const rows = await db.query<{ name: string | null; created_at: Date | string; business: string | null }>(
-    `select a.name, a.created_at, p.name as business
-       from accounts a left join profiles p on p.account_id = a.id
+export async function cardFacts(
+  db: Db, accountId: string,
+): Promise<{ accountName: string | null; businessName: string | null; createdAt: string; hidden: boolean } | null> {
+  const rows = await db.query<{ name: string | null; created_at: Date | string; business: string | null; hidden: boolean | null }>(
+    `select a.name, a.created_at, p.name as business, h.hidden_at is not null as hidden
+       from accounts a left join profiles p on p.account_id = a.id left join profile_hides h on h.account_id = a.id
       where a.id = $1`,
     [accountId],
   );
   const r = rows[0];
-  return r ? { accountName: r.name, businessName: r.business, createdAt: new Date(r.created_at).toISOString() } : null;
+  return r ? { accountName: r.name, businessName: r.business, createdAt: new Date(r.created_at).toISOString(), hidden: r.hidden === true } : null;
 }

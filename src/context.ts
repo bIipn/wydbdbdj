@@ -39,6 +39,11 @@ export interface AppConfig {
   marketRefreshAt?: string;
   /** Lets the host's scheduler call GET /api/cron/* (serverless hosts). Absent = those routes answer 404. */
   cronSecret?: string;
+  /**
+   * TESTS ONLY: the push-service hosts a device endpoint may name. loadConfig never sets it (no environment
+   * variable reads it), so a real server always uses PUSH_SERVICE_HOSTS (src/realtime/push.ts).
+   */
+  pushHosts?: readonly string[];
 }
 
 /** `env('NAME')`-style getter or a plain object such as process.env. Blank values count as unset. */

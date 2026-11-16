@@ -70,8 +70,10 @@ export interface MessageView {
   id: number;
   from: 'poster' | 'winner';
   mine: boolean;
+  /** '' when an operator removed it (removed: true): the screen shows "Message removed by BidSwipe" instead. */
   body: string;
   at: string;
+  removed: boolean;
 }
 
 /** Everything view() needs, read beforehand by the service. `cards` holds whoever the viewer may be shown. */
@@ -166,7 +168,8 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
 /** The thread, for the poster or the winner after the award (the service checks who may read it). */
 export function viewMessages(messages: readonly MessageRecord[], job: Pick<JobRecord, 'posterId'>, viewerId: string): MessageView[] {
   return messages.map((m) => ({
-    id: m.id, from: m.senderId === job.posterId ? 'poster' : 'winner', mine: m.senderId === viewerId, body: m.body, at: new Date(m.createdAt).toISOString(),
+    id: m.id, from: m.senderId === job.posterId ? 'poster' : 'winner', mine: m.senderId === viewerId, body: m.removed ? '' : m.body,
+    at: new Date(m.createdAt).toISOString(), removed: m.removed,
   }));
 }
 
@@ -199,7 +202,8 @@ export interface ConversationView {
   other: PersonCard | PersonLite;
   canWrite: boolean;
   messageCount: number;
-  last: null | { preview: string; at: string; mine: boolean };
+  /** preview is '' when an operator removed that message (removed: true). */
+  last: null | { preview: string; at: string; mine: boolean; removed: boolean };
   unread: boolean;
   /** The last message's time, else the award's: what the list is ordered by. */
   activityAt: string;
@@ -226,7 +230,12 @@ export function viewConversation(c: ConversationInput, viewerId: string, now: nu
     other: c.other,
     canWrite: canWriteNow(job, now),
     messageCount: c.messageCount,
-    last: c.last ? { preview: [...c.last.body].slice(0, PREVIEW_CHARS).join(''), at: new Date(c.last.createdAt).toISOString(), mine: c.last.senderId === viewerId } : null,
+    last: c.last
+      ? {
+        preview: c.last.removed ? '' : [...c.last.body].slice(0, PREVIEW_CHARS).join(''), at: new Date(c.last.createdAt).toISOString(),
+        mine: c.last.senderId === viewerId, removed: c.last.removed,
+      }
+      : null,
     unread: c.unread,
     activityAt: new Date(at).toISOString(),
   };

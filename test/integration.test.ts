@@ -19,7 +19,8 @@ import { buildProfile, type OnboardingAnswers } from '../src/profile/build.js';
 import { loadProfile } from '../src/profiles.js';
 import { createBus, type Bus, type BusEvent } from '../src/realtime/bus.js';
 import { createRealtime, type Realtime } from '../src/realtime/index.js';
-import type { PushMessage, PushPayload } from '../src/realtime/push.js';
+import { PUSH_SERVICE_HOSTS, type PushMessage, type PushPayload } from '../src/realtime/push.js';
+import { SIGN_IN_LIMITS } from '../src/routes/auth.js';
 import { finalizeBid, runScan, type ScanReport } from '../src/scan.js';
 import { scoreBid } from '../src/score/score.js';
 import { buildApp, buildServer } from '../src/server.js';
@@ -242,13 +243,14 @@ describe('SOURCES', () => {
 // ------------------------------------------------------------ trusted proxy --
 
 describe('trustProxy (TRUST_PROXY)', () => {
-  /** Eleven wrong sign-ins, each from a different caller behind one proxy at 10.0.0.5. */
+  /** One more wrong sign-in than an address may fail (SIGN_IN_LIMITS.ip), each from a different caller behind one proxy at 10.0.0.5. */
+  const N = SIGN_IN_LIMITS.ip.limit + 1;
   async function elevenCallers(trustProxy?: string): Promise<number[]> {
     await resetDb(db);
     const config = accountsConfig();
     const app = track(await buildServer({ db }, { config, now, auth: createAuth(db, config, { now, cost: COST }), trustProxy }));
     const codes: number[] = [];
-    for (let i = 1; i <= 11; i++) {
+    for (let i = 1; i <= N; i++) {
       const res = await app.inject({
         method: 'POST', url: '/api/auth/login', remoteAddress: '10.0.0.5',
         headers: { ...CSRF, 'x-forwarded-for': `203.0.113.${i}` },
@@ -260,15 +262,15 @@ describe('trustProxy (TRUST_PROXY)', () => {
   }
 
   it('without it, callers behind a proxy on another machine share one sign-in allowance', async () => {
-    expect(await elevenCallers()).toEqual([...Array(10).fill(401), 429]);
+    expect(await elevenCallers()).toEqual([...Array(N - 1).fill(401), 429]);
   });
 
   it('with the proxy\'s range trusted, each caller has their own', async () => {
-    expect(await elevenCallers('10.0.0.0/8')).toEqual(Array(11).fill(401));
+    expect(await elevenCallers('10.0.0.0/8')).toEqual(Array(N).fill(401));
   });
 
   it('a proxy that is not on the list is still not believed', async () => {
-    expect(await elevenCallers('192.168.0.0/16')).toEqual([...Array(10).fill(401), 429]);
+    expect(await elevenCallers('192.168.0.0/16')).toEqual([...Array(N - 1).fill(401), 429]);
   });
 });
 
@@ -315,7 +317,8 @@ describe('accounts mode, end to end', () => {
     await markSourcesKnown(db, ['samgov']);
     bus = createBus();
     for (const type of ['match', 'scan', 'alert'] as const) bus.on(type, (e) => void events.push(e.type));
-    const config = accountsConfig({ demoMode: true, adminToken: 'TEST-admin', vapid: testVapid });
+    // pushHosts: the test-only push host (push.example.com) beside the real services; a real server never takes this.
+    const config = accountsConfig({ demoMode: true, adminToken: 'TEST-admin', vapid: testVapid, pushHosts: [...PUSH_SERVICE_HOSTS, 'push.example.com'] });
     const extraSource: Source = { id: 'samgov', name: 'TEST source', homepage: '', fetch: async () => extra };
     scan = () => runScan({ db, sources: [...fixtureSources(), extraSource], profiles: scanProfiles({ db, profile: null }), ctx: scanCtx(CAPTURED), bus });
     const built = await buildApp({ db }, { config, bus, auth: createAuth(db, config, { now, cost: COST }), scan, now });

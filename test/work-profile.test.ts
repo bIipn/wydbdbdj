@@ -281,7 +281,7 @@ describe('work profile routes', () => {
     await put({ headline: 'TEST (simulated)' });
     const card = (await personCard(db, who.id))!;
     expect(Object.keys(card).sort()).toEqual([
-      'about', 'experience', 'headline', 'id', 'insured', 'license', 'memberSince', 'name', 'resumeUrl', 'skills', 'stats', 'yearsExperience',
+      'about', 'experience', 'headline', 'hidden', 'id', 'insured', 'license', 'memberSince', 'name', 'resumeUrl', 'skills', 'stats', 'yearsExperience',
     ]);
     expect(JSON.stringify(card)).not.toContain('example.com');
     expect(await personCard(db, 'TEST-no-such-account')).toBeNull();

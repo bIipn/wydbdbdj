@@ -110,4 +110,57 @@ describe.skipIf(!url)('job marketplace on Postgres (TEST_DATABASE_URL)', () => {
     expect((await jobs.conversations(deps(), ids[0]!, T0 + DAY + 40_000)).conversations.find((c) => c.jobId === job)).toMatchObject({ unread: false });
     await db.query(`delete from profiles where id = 'TEST-pg-profile-0'`);
   });
+
+  it('reports on Postgres: twenty at once leave one open report per reporter and target; each answer is kind', async () => {
+    const job = await post(1);
+    await jobs.placeBid(deps(), ids[5]!, job, { amountCents: 21_000, agree: true }, T0 + 1000);
+    await jobs.placeBid(deps(), ids[6]!, job, { amountCents: 31_000, agree: true }, T0 + 2000);
+    await jobs.settleDue(deps(), T0 + DAY);
+    const before = (await db.query('select * from jobs where id = $1', [job]))[0];
+
+    const convo = await Promise.all(Array.from({ length: 20 }, () =>
+      jobs.reportConversation(deps(), ids[5]!, job, { reason: 'spam', note: 'TEST (simulated)' }, T0 + DAY + 1000)));
+    expect(convo.every((r) => r.ok)).toBe(true);
+    expect(convo.filter((r) => r.ok && !r.value.already)).toHaveLength(1);
+    const card = await Promise.all(Array.from({ length: 20 }, () =>
+      jobs.reportPerson(deps(), ids[0]!, ids[5]!, { reason: 'misleading' }, T0 + DAY + 1000)));
+    expect(card.filter((r) => r.ok && !r.value.already)).toHaveLength(1);
+    expect(await db.query('select 1 from content_reports where job_id = $1', [job])).toHaveLength(1);
+    expect(await db.query(`select 1 from content_reports where kind = 'profile' and subject_id = $1 and reporter_id = $2`, [ids[5], ids[0]])).toHaveLength(1);
+    // the losing bidder is not in the thread: refused, and nothing stored
+    const lost = await jobs.reportConversation(deps(), ids[6]!, job, { reason: 'spam' }, T0 + DAY + 1000);
+    expect(lost.ok ? null : lost.refusal.error).toBe('not_allowed');
+    // reporting moved nothing on the job
+    expect((await db.query('select * from jobs where id = $1', [job]))[0]).toEqual(before);
+  });
+
+  it('operators on Postgres: ten removals of one message at once, ten hides at once; each one statement, nothing else moves', async () => {
+    const job = await post(1);
+    await jobs.placeBid(deps(), ids[7]!, job, { amountCents: 25_000, agree: true }, T0 + 1000);
+    await jobs.settleDue(deps(), T0 + DAY);
+    const sent = await jobs.sendMessage(deps(), ids[7]!, job, { body: 'TEST-PG-SECRET (simulated)' }, T0 + DAY + 1000);
+    if (!sent.ok) throw new Error(JSON.stringify(sent.refusal));
+    await db.query(`delete from profiles where id = 'TEST-pg-profile-r'`);
+    await db.query(`insert into profiles (id, name, prefs, account_id) values ('TEST-pg-profile-r', 'TEST pg (simulated)', '{}'::jsonb, $1)`, [ids[0]]);
+    await db.query(`insert into alerts (profile_id, kind, dedupe_key, title, body) values ('TEST-pg-profile-r', 'job_message', $1, 'TEST', 'TEST-PG-SECRET (simulated)')`,
+      [`${job}:${sent.value.id}`]);
+    const before = (await db.query('select * from jobs where id = $1', [job]))[0];
+
+    const removed = await Promise.all(Array.from({ length: 10 }, (_, i) => jobs.removeMessage(deps(), sent.value.id, T0 + DAY + 2000 + i)));
+    expect(removed.every(Boolean)).toBe(true);
+    const row = (await db.query<{ removed_at: Date; body: string }>('select removed_at, body from job_messages where id = $1', [sent.value.id]))[0]!;
+    expect(new Date(row.removed_at).getTime()).toBeGreaterThanOrEqual(T0 + DAY + 2000);
+    const list = await jobs.conversationFor(deps(), ids[0]!, job, T0 + DAY + 3000);
+    expect(list.ok && list.value.messages[0]).toMatchObject({ removed: true, body: '' });
+    expect(JSON.stringify(list)).not.toContain('TEST-PG-SECRET');
+    expect((await db.query<{ body: string }>(`select body from alerts where profile_id = 'TEST-pg-profile-r'`))[0]!.body).toBe('Message removed by BidSwipe');
+    expect((await db.query('select * from jobs where id = $1', [job]))[0]).toEqual(before);
+
+    const hides = await Promise.all(Array.from({ length: 10 }, (_, i) => jobs.setPersonHidden(deps(), ids[7]!, i % 2 === 0, T0 + DAY + 4000 + i)));
+    expect(hides.every((h) => h !== null)).toBe(true);
+    expect(await db.query('select 1 from profile_hides where account_id = $1', [ids[7]])).toHaveLength(1);
+    expect((await jobs.setPersonHidden(deps(), ids[7]!, true, T0 + DAY + 5000))?.hidden).toBe(true);
+    expect((await jobs.setPersonHidden(deps(), 'TEST-pg-nobody', true, T0 + DAY + 5000))).toBeNull();
+    await db.query(`delete from profiles where id = 'TEST-pg-profile-r'`);
+  });
 });

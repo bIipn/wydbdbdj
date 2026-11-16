@@ -190,7 +190,8 @@ export const MAX_DEVICES = 10;
 export async function saveSubscription(db: Db, accountId: string, sub: StoredSubscription, now: Date): Promise<void> {
   await db.query(
     `insert into push_subscriptions (endpoint, account_id, keys, created_at) values ($1, $2, $3::jsonb, $4)
-     on conflict (endpoint) do update set account_id = excluded.account_id, keys = excluded.keys, fail_count = 0`,
+     on conflict (endpoint) do update set account_id = excluded.account_id, keys = excluded.keys, fail_count = 0,
+       failed_status = null, last_fail_at = null`,
     [sub.endpoint, accountId, JSON.stringify(sub.keys), now.toISOString()],
   );
   await db.query(
@@ -232,27 +233,57 @@ export async function ensureSingleOwner(db: Db, profile: Pick<Profile, 'id' | 'n
   return id;
 }
 
-/** Every device that should buzz for a profile: its account's, or the single-mode owner's. */
+/**
+ * Every device that should buzz for a profile: its account's, or the single-mode owner's. A device whose push
+ * service refused a request outright (failed_status, see recordPushResult) is left out until it re-subscribes.
+ */
 export async function subscriptionsForProfile(db: Db, profileId: string): Promise<StoredSubscription[]> {
   const rows = await db.query<SubscriptionRow>(
     `select endpoint, keys from push_subscriptions
      where account_id = coalesce((select account_id from profiles where id = $1), $2)
+       and failed_status is null
      order by created_at, endpoint`,
     [profileId, singleOwnerId(profileId)],
   );
   return rows.map(toSubscription);
 }
 
-export type PushOutcome = 'ok' | 'failed' | 'gone';
+export type PushOutcome = 'ok' | 'failed' | 'gone' | 'refused';
+
+/** A device that keeps failing this many times in a row, with no success for PRUNE_SILENT_MS, is deleted. */
+export const PRUNE_AFTER_FAILURES = 20;
+export const PRUNE_SILENT_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
- * Note how a send to one device went. 'gone' = the push service answered 404 or 410: the
- * subscription is dead for good, so it is deleted.
+ * Note how a send to one device went (one statement each).
+ *   gone     the push service answered 404 or 410: the subscription is dead for good, so it is deleted.
+ *   refused  it answered 400, 403 or 413 (a rotated VAPID key, a malformed request): sending again cannot work, so
+ *            the status is kept and the device gets nothing until the browser subscribes again (saveSubscription
+ *            clears it). Before this, those were retried every tick for a day and never pruned (audit push-prune-1).
+ *   failed   anything else (429, 5xx, no answer): counted; after PRUNE_AFTER_FAILURES in a row with no success for
+ *            a week the device is deleted.
  */
-export async function recordPushResult(db: Db, endpoint: string, outcome: PushOutcome, now: Date): Promise<void> {
+export async function recordPushResult(db: Db, endpoint: string, outcome: PushOutcome, now: Date, status: number | null = null): Promise<void> {
   if (outcome === 'gone') await db.query('delete from push_subscriptions where endpoint = $1', [endpoint]);
-  else if (outcome === 'ok') await db.query('update push_subscriptions set last_ok_at = $2, fail_count = 0 where endpoint = $1', [endpoint, now.toISOString()]);
-  else await db.query('update push_subscriptions set fail_count = fail_count + 1 where endpoint = $1', [endpoint]);
+  else if (outcome === 'ok') {
+    await db.query('update push_subscriptions set last_ok_at = $2, fail_count = 0, failed_status = null where endpoint = $1', [endpoint, now.toISOString()]);
+  } else if (outcome === 'refused') {
+    await db.query(
+      'update push_subscriptions set fail_count = fail_count + 1, last_fail_at = $2, failed_status = $3 where endpoint = $1',
+      [endpoint, now.toISOString(), status ?? 400],
+    );
+  } else {
+    await db.query(
+      `with pruned as (
+         delete from push_subscriptions
+         where endpoint = $1 and fail_count + 1 >= $3 and coalesce(last_ok_at, created_at) < $4
+         returning 1
+       )
+       update push_subscriptions set fail_count = fail_count + 1, last_fail_at = $2
+       where endpoint = $1 and not exists (select 1 from pruned)`,
+      [endpoint, now.toISOString(), PRUNE_AFTER_FAILURES, new Date(now.getTime() - PRUNE_SILENT_MS).toISOString()],
+    );
+  }
 }
 
 // ------------------------------------------------------------ targets --

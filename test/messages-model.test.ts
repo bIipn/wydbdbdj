@@ -51,6 +51,9 @@ describe('the list', () => {
     expect(m.previewLine(conv())).toBe('No messages yet');
     expect(m.previewLine(conv({ last: { preview: 'See you\n  Thursday', at: '', mine: false } }))).toBe('See you Thursday');
     expect(m.previewLine(conv({ last: { preview: 'On my way', at: '', mine: true } }))).toBe('You: On my way');
+    // an operator removed the last message: the server sends no text, the line says so
+    expect(m.previewLine(conv({ last: { preview: '', at: '', mine: false, removed: true } }))).toBe('Message removed by BidSwipe');
+    expect(m.previewLine(conv({ last: { preview: '', at: '', mine: true, removed: true } }))).toBe('Message removed by BidSwipe');
   });
 
   it('the other side by name only, with a plain fallback', () => {

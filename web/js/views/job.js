@@ -16,7 +16,8 @@ import { PT } from '../format.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { clearErrors, formError, moneyInput, showErrors } from '../form.js';
 import {
-  answerWindowText, dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, iWon, licenceLine, parseCents, ppmOf, stage, statsWords, timeLeft, whenLong,
+  answerWindowText, dayOnly, dollars, endedWords, FEES_OFF, feeCents, feeLines, feeWords, iWon, licenceLine, parseCents, ppmOf, PROFILE_HIDDEN, stage, statsWords,
+  timeLeft, whenLong,
 } from '../job-words.js';
 import { jobs, loadMine, openJob } from '../jobs-data.js';
 import { chip } from '../profile-form.js';
@@ -24,7 +25,7 @@ import { onSignedOut } from '../session.js';
 import { showInSheet } from '../sheet.js';
 import { onAfterRender, registerView, render, setView } from '../shell.js';
 import { state } from '../state.js';
-import { fieldsObject, personCardView, YEAR_BANDS } from '../work-profile.js';
+import { fieldsObject, personCardView, reportAction, YEAR_BANDS } from '../work-profile.js';
 import { CLOSES_IN } from './job-post.js';
 import { composer, markSeen, messageList, openConversation } from './messages.js';
 
@@ -98,12 +99,21 @@ const bandLabel = (years) => (years == null ? null : [...YEAR_BANDS].reverse().f
 const initials = (name) => (name ?? '').split(/\s+/).filter((p) => /^[\p{L}\p{N}]/u.test(p)).slice(0, 2).map((p) => p[0].toUpperCase()).join('') || '?';
 const fmtMonth = new Intl.DateTimeFormat('en-US', { timeZone: PT, month: 'short', year: 'numeric' });
 
-/** The full card in the sheet. A lite card (name and record only) is fetched in full when the API allows it. */
+/**
+ * The full card in the sheet, with a quiet "Report this profile" under it (only full cards come here: the viewer may
+ * see this person's card, GET /api/people/:id, which is also who may report it). A lite card (name and record only)
+ * is fetched in full when the API allows it.
+ */
+const cardSheet = (card) => showInSheet([
+  h('h2', { id: 'cardTitle', class: 'sr-only' }, card.name), personCardView(card),
+  h('div', { class: 'pcard-report' }, reportAction({ kind: 'profile', id: card.id, label: 'Report this profile' })),
+], 'cardTitle');
+
 async function openCard(card) {
-  if ('headline' in card) return showInSheet([h('h2', { id: 'cardTitle', class: 'sr-only' }, card.name), personCardView(card)], 'cardTitle');
+  if ('headline' in card) return cardSheet(card);
   try {
     const { card: full } = await api.person(card.id);
-    showInSheet([h('h2', { id: 'cardTitle', class: 'sr-only' }, full.name), personCardView(full)], 'cardTitle');
+    cardSheet(full);
   } catch {
     showToast('Their full card opens once bidding has closed.');
   }
@@ -121,6 +131,7 @@ function personMini(card, { role, canOpen = true, fallbackName = null } = {}) {
   const body = h('div', { class: 'pmini-text' },
     role ? h('span', { class: 'pmini-role' }, role) : null,
     h('strong', { class: 'pmini-name' }, name),
+    card.hidden ? h('span', { class: 'pmini-line report-hidden-mini' }, PROFILE_HIDDEN) : null,
     card.headline ? h('span', { class: 'pmini-line' }, card.headline) : null,
     facts.length ? h('span', { class: 'pmini-line' }, facts.join(' · ')) : null,
     card.license ? h('span', { class: 'pmini-line' }, `${card.license.state} licence ${card.license.number} · as typed, not verified`) : null,
@@ -394,7 +405,9 @@ function thread(job) {
   } else if (job.status === 'awarded') {
     hint += ' Agree the price, the scope and a day, then both tap “We’ve agreed”.';
   }
-  return section('Messages', list, box, canSend ? h('p', { class: 'job-note faint' }, hint) : null, toMessages);
+  return section('Messages', list, box, canSend ? h('p', { class: 'job-note faint' }, hint) : null, toMessages,
+    // Either side may report the thread; the other side is never told. The same form as the Messages tab's.
+    h('div', { class: 'job-report-convo' }, reportAction({ kind: 'conversation', id: job.id, label: 'Report this conversation' })));
 }
 
 /** The buttons the API allows for this person and this state. */

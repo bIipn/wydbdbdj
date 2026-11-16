@@ -594,6 +594,37 @@ paths:
         '200': { $ref: '#/components/responses/Json' }
         '401': { $ref: '#/components/responses/SignIn' }
         '404': { $ref: '#/components/responses/NotFound' }
+  /api/people/{id}/report:
+    post:
+      tags: [work]
+      summary: >-
+        Report another person's card to the operators: only someone allowed to see it (GET /api/people/{id}), never
+        one's own; anyone else gets that route's 404. Shares the 10 per hour of "Report this job". One open report per
+        person and card: a second answers 200 with already true. The card's owner is told nothing.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 00000000-0000-4000-8000-000000000002
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [misleading, offensive, spam, other] }
+                note: { type: string, maxLength: 500 }
+            example: { reason: misleading, note: TEST report from the security scan (simulated). }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/jobs/rules:
     get:
       tags: [jobs]
@@ -869,6 +900,34 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '429': { $ref: '#/components/responses/TooMany' }
+  /api/jobs/{id}/conversation/report:
+    post:
+      tags: [jobs]
+      summary: >-
+        Report a job's conversation to the operators: its poster or its winner only, after the award (403 for anyone
+        else, like the thread routes). Shares the 10 per hour of "Report this job". One open report per person and
+        conversation: a second answers 200 with already true. Tells the other side nothing; changes nothing on the job.
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - $ref: '#/components/parameters/JobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, enum: [abusive, spam, off_platform, other] }
+                note: { type: string, maxLength: 500 }
+            example: { reason: spam, note: TEST report from the security scan (simulated). }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/admin/plan:
     post:
       tags: [admin]
@@ -956,7 +1015,9 @@ paths:
   /api/admin/jobs/reports:
     get:
       tags: [admin]
-      summary: Reported jobs (x-admin-token).
+      summary: >-
+        Reports (x-admin-token): reports (jobs), conversationReports (each with the thread's messages) and profileReports
+        (each with the card's text, even when hidden, and whether it is hidden).
       security:
         - adminToken: []
       responses:
@@ -985,6 +1046,78 @@ paths:
       parameters:
         - $ref: '#/components/parameters/Csrf'
         - name: feeId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^\d{1,15}$' }
+          example: '1'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/jobs/messages/{messageId}/remove:
+    post:
+      tags: [admin]
+      summary: >-
+        Remove one message (x-admin-token). The row stays; both sides see "Message removed by BidSwipe"; its text leaves
+        every answer and its bell alert. The job's stage, made-contact, fees and read marks do not move.
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: messageId
+          in: path
+          required: true
+          schema: { type: string, pattern: '^\d{1,15}$' }
+          example: '1'
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/people/{id}/hide:
+    post:
+      tags: [admin]
+      summary: >-
+        Hide a person's card (x-admin-token): others see only the name, member since and job record, and "Profile hidden
+        by BidSwipe". The owner still sees and edits their text.
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 00000000-0000-4000-8000-000000000002
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/people/{id}/unhide:
+    post:
+      tags: [admin]
+      summary: Show a hidden card again (x-admin-token).
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+          example: 00000000-0000-4000-8000-000000000002
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /api/admin/reports/{reportId}/resolve:
+    post:
+      tags: [admin]
+      summary: Close a conversation or profile report (x-admin-token). It stays listed, with resolvedAt.
+      security:
+        - adminToken: []
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+        - name: reportId
           in: path
           required: true
           schema: { type: string, pattern: '^\d{1,15}$' }

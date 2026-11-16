@@ -340,6 +340,8 @@ export interface PricePointOut { readonly price: number; readonly markupOnCost: 
 const DEC_RE = /^(\d+)(?:\.(\d+))?$/;
 /** 100,000.00 hours: the engine's per-bucket guard (types.ts MAX_BUCKET_HOURS), checked here as a field error. */
 const MAX_CLASS_HOURS_C = 10_000_000;
+/** Longest job (start to end) and farthest bid date the estimator takes, in days: the cash grid has one period per day. */
+const MAX_SPAN_DAYS = 3650;
 
 class Reader {
   readonly errors: FieldError[] = [];
@@ -539,7 +541,14 @@ export function estimate(req: EstimateRequest, opts: EstimateOptions = {}): Esti
   if (!end) need('job.endDate', 'the end date sets the duration (bond surcharge, cash timeline)');
   if (start && end && compareDates(end, start) < 0) r.err('job.endDate', 'is before the start date');
   if (bidDate && start && compareDates(start, bidDate) < 0) r.err('job.startDate', 'is before the bid date');
-  const workDays = start && end && compareDates(end, start) >= 0 ? dayNumber(end) - dayNumber(start) + 1 : null;
+  let workDays = start && end && compareDates(end, start) >= 0 ? dayNumber(end) - dayNumber(start) + 1 : null;
+  // Every work day is one period of the cash grid and of each stress case: an end date centuries away pinned the
+  // thread and ran the process out of memory (audit sec-input-1). 3650 days, like every other day field (r.days).
+  if (workDays !== null && workDays > MAX_SPAN_DAYS) {
+    r.err('job.endDate', `the job can last at most ${MAX_SPAN_DAYS} days (10 years)`);
+    workDays = null;
+  }
+  if (bidDate && start && Math.abs(dayNumber(start) - dayNumber(bidDate)) > MAX_SPAN_DAYS) r.err('job.bidDate', `must be within ${MAX_SPAN_DAYS} days of the start date`);
   const regime = state && pw ? regimeFor(state, pw) : null;
   const taxYear = start ? Number(start.slice(0, 4)) : null;
   const supported: SupportedState | null = state === 'NV' || state === 'CA' ? state : null;

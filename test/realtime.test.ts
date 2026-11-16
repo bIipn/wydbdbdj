@@ -15,7 +15,7 @@ import type { AuthService } from '../src/auth/index.js';
 import { createContext, loadConfig, type AppConfig } from '../src/context.js';
 import {
   alertsAfter, claimWaitingPushes, countUnread, deleteSubscription, ensureSingleOwner, getAlertTarget, insertAlert,
-  latestAlertId, listAlerts, listSubscriptions, markAlertsRead, MAX_DEVICES, profilesWithWaitingPush, recordPushResult,
+  latestAlertId, listAlerts, listSubscriptions, markAlertsRead, MAX_DEVICES, profilesWithWaitingPush, PRUNE_AFTER_FAILURES, recordPushResult,
   releasePushClaim, savedBidsDueWithin, saveSubscription, singleOwnerId, subscriptionsForProfile,
   type NewAlert, type SavedDeadline, type StoredSubscription,
 } from '../src/db/alerts.js';
@@ -29,7 +29,8 @@ import {
 import { createBus, type Bus, type BusEventOf } from '../src/realtime/bus.js';
 import { createRealtime, startRealtime, type Realtime } from '../src/realtime/index.js';
 import {
-  buildPushRequest, createWebPushSender, MAX_PAYLOAD_BYTES, parseSubscription, pushMessage, toPushResult, usableVapid,
+  buildPushRequest, checkSubscription, createVapidCache, createWebPushSender, isPushServiceHost, MAX_PAYLOAD_BYTES, parseSubscription,
+  PUSH_SERVICE_HOSTS, pushMessage, toPushResult, usableVapid, VAPID_REUSE_MS,
   type PushMessage, type PushPayload, type PushResult, type PushSender,
 } from '../src/realtime/push.js';
 import { createStreamHub, sseFrame } from '../src/realtime/stream.js';
@@ -58,6 +59,12 @@ const fit = (over: Partial<ScoreResult> = {}): ScoreResult => ({
 const matchEvent = (profileId: string, over: Partial<BusEventOf<'match'>> = {}): BusEventOf<'match'> => ({
   type: 'match', profileId, bid: testBid(), score: fit(), isNewBid: true, ...over,
 });
+
+/**
+ * The push hosts these tests accept: the real services plus push.example.com, the synthetic host every test device
+ * uses (AppConfig.pushHosts / parseSubscription's second argument; a real server never takes another list).
+ */
+const TEST_PUSH_HOSTS = [...PUSH_SERVICE_HOSTS, 'push.example.com'];
 
 /** A browser subscription with real-looking keys (a fresh P-256 point and a 16-byte secret). */
 function device(name: string | number): StoredSubscription {
@@ -393,7 +400,7 @@ describe('push: subscriptions, payloads and the web-push request', () => {
   const good = device('parse');
 
   it('accepts what a browser gives us and keeps only the endpoint and the two keys', () => {
-    expect(parseSubscription({ ...good, expirationTime: null, extra: 'TEST-ignored' })).toEqual(good);
+    expect(parseSubscription({ ...good, expirationTime: null, extra: 'TEST-ignored' }, TEST_PUSH_HOSTS)).toEqual(good);
   });
 
   it.each<[string, unknown]>([
@@ -415,7 +422,7 @@ describe('push: subscriptions, payloads and the web-push request', () => {
     ['an auth secret that is too short', { ...good, keys: { ...good.keys, auth: randomBytes(8).toString('base64url') } }],
     ['keys that are not strings', { ...good, keys: { p256dh: 65, auth: 16 } }],
   ])('rejects %s', (_name, input) => {
-    expect(parseSubscription(input)).toBeNull();
+    expect(parseSubscription(input, TEST_PUSH_HOSTS)).toBeNull();
   });
 
   it('one alert becomes one notification: its own title and body, a tag, a TTL and an urgency', () => {
@@ -443,11 +450,22 @@ describe('push: subscriptions, payloads and the web-push request', () => {
     const message = pushMessage(alerts, 'https://app.example.com');
     expect(JSON.parse(message.payload)).toEqual({
       title: '5 new bids fit',
-      body: 'Great fit (81) · TEST place 1\nGreat fit (82) · TEST place 2\nGreat fit (83) · TEST place 3\n+2 more',
+      body: 'Great fit (81) · TEST place 1 — TEST job (synthetic)\nGreat fit (82) · TEST place 2 — TEST job (synthetic)\nGreat fit (83) · TEST place 3 — TEST job (synthetic)\n+2 more',
       tag: 'summary:5', kind: 'summary', url: 'https://app.example.com/', bidId: null, alertIds: [1, 2, 3, 4, 5],
     });
     const mixed = pushMessage([alertRow({ id: 1 }), alertRow({ id: 2, kind: 'deadline', title: 'Due today at 2:00 PM' })], 'https://app.example.com');
-    expect(JSON.parse(mixed.payload)).toMatchObject({ title: '2 new alerts', body: 'Great fit (82) · Carson City, NV\nDue today at 2:00 PM' });
+    expect(JSON.parse(mixed.payload)).toMatchObject({ title: '2 new alerts', body: 'Great fit (82) · Carson City, NV — TEST job (synthetic)\nDue today at 2:00 PM — TEST job (synthetic)' });
+    // Two deadlines on one day never read the same line twice: each names its bid (audit notif-summary-1), clipped.
+    const due = (id: number, title: string) => alertRow({ id, kind: 'deadline', dedupeKey: `deadline:${id}`, title: 'Due in 2 days · Wed 2:00 PM', body: `${title} — Gardnerville, NV` });
+    const two = JSON.parse(pushMessage([due(1, 'TEST AUGMENTATION OF ELECTRICAL SERVICE AT THE NORTH WELL HOUSE AND PUMP STATION (synthetic)'), due(2, 'TEST Fire alarm panel (synthetic)')], 'https://app.example.com').payload) as PushPayload;
+    const [l1, l2] = two.body.split('\n');
+    expect(l1).not.toBe(l2);
+    expect(l1).toMatch(/^Due in 2 days · Wed 2:00 PM — TEST AUGMENTATION OF ELECTRICAL SERVICE.*…$/);
+    expect([...l1!].length).toBe(80);
+    expect(l2).toBe('Due in 2 days · Wed 2:00 PM — TEST Fire alarm panel (synthetic)');
+    // A kind whose title already names the job keeps its title alone.
+    const jobs = JSON.parse(pushMessage([alertRow({ id: 1, kind: 'job_closed', title: 'Agreed: TEST barn (simulated)', body: 'You both confirmed.' }), alertRow({ id: 2, kind: 'job_closed', title: 'No bids: TEST shed (simulated)', body: 'x' })], 'https://app.example.com').payload) as PushPayload;
+    expect(jobs.body).toBe('Agreed: TEST barn (simulated)\nNo bids: TEST shed (simulated)');
     // The shortest TTL and the highest urgency of what is inside.
     expect(mixed).toMatchObject({ ttl: 4 * 3600, urgency: 'high' });
   });
@@ -507,10 +525,53 @@ describe('push: subscriptions, payloads and the web-push request', () => {
     ['404 Not Found', new WebPushError('Received unexpected response code', 404, {}, '', 'https://push.example.com/x'), { ok: false, gone: true, status: 404 }],
     ['500 from the push service', new WebPushError('Received unexpected response code', 500, {}, '', 'https://push.example.com/x'), { ok: false, gone: false, status: 500 }],
     ['429 Too Many Requests', new WebPushError('Received unexpected response code', 429, {}, '', 'https://push.example.com/x'), { ok: false, gone: false, status: 429 }],
+    ['403 from Apple, with its reason', new WebPushError('Received unexpected response code', 403, {}, '{"reason":"BadJwtToken"}', 'https://web.push.apple.com/x'), { ok: false, gone: false, status: 403, permanent: true, reason: 'BadJwtToken' }],
+    ['400 Bad Request', new WebPushError('Received unexpected response code', 400, {}, 'not json', 'https://push.example.com/x'), { ok: false, gone: false, status: 400, permanent: true }],
+    ['413 payload too large', new WebPushError('Received unexpected response code', 413, {}, '', 'https://push.example.com/x'), { ok: false, gone: false, status: 413, permanent: true }],
     ['a network error', new Error('Socket timeout'), { ok: false, gone: false, status: null }],
     ['something that is not an error', 'TEST-oops', { ok: false, gone: false, status: null }],
   ])('a failed send (%s) maps to what to do about it', (_name, err, result) => {
     expect(toPushResult(err)).toEqual(result);
+  });
+
+  it('only real push services are accepted: exact host or a dot-boundary suffix, lower-cased, one trailing dot dropped (audit sec-input-2)', () => {
+    const at = (endpoint: string) => checkSubscription({ ...device('host'), endpoint });
+    for (const ok of [
+      'https://fcm.googleapis.com/fcm/send/TEST-1', 'https://android.googleapis.com/gcm/send/TEST-1',
+      'https://updates.push.services.mozilla.com/wpush/v2/TEST-1', 'https://web.push.apple.com/TEST-1',
+      'https://wns2-by3p.notify.windows.com/w/?token=TEST-1', 'https://FCM.GoogleAPIs.com./fcm/send/TEST-1',
+    ]) expect(at(ok).ok, ok).toBe(true);
+    for (const [bad, host] of [
+      ['https://127.0.0.1.nip.io/x', '127.0.0.1.nip.io'], ['https://169.254.169.254.nip.io/latest/meta-data', '169.254.169.254.nip.io'],
+      ['https://localtest.me/x', 'localtest.me'], ['https://localhost./x', 'localhost.'], ['https://foo.localhost./x', 'foo.localhost.'],
+      ['https://kubernetes.default.svc/x', 'kubernetes.default.svc'], ['https://attacker.example.com/x', 'attacker.example.com'],
+      ['https://evilpush.apple.com/x', 'evilpush.apple.com'], ['https://fcm.googleapis.com.example.com/x', 'fcm.googleapis.com.example.com'],
+      ['https://fcm.googleapis.com../x', 'fcm.googleapis.com..'], ['https://push.example.com/send/TEST', 'push.example.com'],
+    ]) expect(at(bad!), bad).toEqual({ ok: false, reason: 'host', host });
+    expect(at('https://169.254.169.254/x')).toEqual({ ok: false, reason: 'host', host: '169.254.169.254' });
+    expect(isPushServiceHost('web.push.apple.com.')).toBe(true);
+    expect(isPushServiceHost('push.example.com', TEST_PUSH_HOSTS)).toBe(true); // only when a test hands the list over
+  });
+
+  it('one VAPID token per push-service origin, reused for 2 hours (Apple: at most one new token an hour), never across origins (audit ios-jwt-1)', () => {
+    let t = NOW.getTime();
+    const cache = createVapidCache(testVapid, () => t);
+    const apple = cache.authorization('https://web.push.apple.com/TEST-a');
+    expect(cache.authorization('https://web.push.apple.com/TEST-b')).toBe(apple);
+    const fcm = cache.authorization('https://fcm.googleapis.com/fcm/send/TEST-c');
+    expect(fcm).not.toBe(apple);
+    const claims = (h: string) => JSON.parse(Buffer.from(h.match(/t=([^.]+)\.([^.]+)\./)![2]!, 'base64url').toString()) as { aud: string; exp: number };
+    expect(claims(apple)).toMatchObject({ aud: 'https://web.push.apple.com', exp: Math.floor(t / 1000) + 12 * 3600 });
+    expect(claims(fcm).aud).toBe('https://fcm.googleapis.com');
+    t += VAPID_REUSE_MS - 1000;
+    expect(cache.authorization('https://web.push.apple.com/TEST-a')).toBe(apple);
+    t += 1000;
+    const next = cache.authorization('https://web.push.apple.com/TEST-a');
+    expect(next).not.toBe(apple);
+    expect(claims(next).exp).toBe(Math.floor(t / 1000) + 12 * 3600);
+    // The request carries the cached header as it is: web-push signs nothing itself.
+    const target = { ...device('cached'), endpoint: 'https://web.push.apple.com/TEST-a' };
+    expect(buildPushRequest(testVapid, target, pushMessage([alertRow()], 'https://app.example.com'), cache).headers.Authorization).toBe(next);
   });
 
   it('the real sender reports a failed send instead of throwing', async () => {
@@ -759,6 +820,27 @@ describe('push_subscriptions table', () => {
     expect(await listSubscriptions(db, alice.id)).toEqual([phone]);
   });
 
+  it('a permanent refusal (400, 403, 413) stops sends to that device until it subscribes again; 20 failures and a silent week delete it (audit push-prune-1)', async () => {
+    const { account, profile } = await member({ devices: 0 });
+    const [phone, ipad] = [device('refused-phone'), device('refused-ipad')];
+    await saveSubscription(db, account.id, phone, NOW);
+    await saveSubscription(db, account.id, ipad, NOW);
+    await recordPushResult(db, phone.endpoint, 'refused', NOW, 403);
+    expect(await subscriptionsForProfile(db, profile.id)).toEqual([ipad]);
+    expect((await db.query<{ failed_status: number }>('select failed_status from push_subscriptions where endpoint = $1', [phone.endpoint]))[0]!.failed_status).toBe(403);
+    await saveSubscription(db, account.id, phone, NOW); // the browser subscribed again (new keys or a fixed server key)
+    expect(await subscriptionsForProfile(db, profile.id)).toEqual([ipad, phone]); // created together: by endpoint
+
+    // Passing failures: 19 in a row keep it; the 20th deletes it only when nothing got through for a week.
+    for (let i = 0; i < PRUNE_AFTER_FAILURES - 1; i++) await recordPushResult(db, ipad.endpoint, 'failed', NOW, 503);
+    const later = new Date(NOW.getTime() + 8 * 86_400_000);
+    await recordPushResult(db, phone.endpoint, 'ok', NOW);
+    for (let i = 0; i < PRUNE_AFTER_FAILURES; i++) await recordPushResult(db, phone.endpoint, 'failed', NOW, 503);
+    expect(await listSubscriptions(db, account.id)).toEqual([ipad, phone]); // the phone was fine today: kept
+    await recordPushResult(db, ipad.endpoint, 'failed', later, 503);
+    expect(await listSubscriptions(db, account.id)).toEqual([phone]);
+  });
+
   it('finds a profile\'s devices through its account, or through the single-mode owner', async () => {
     const { account, profile, devices } = await member({ devices: 2 });
     expect(await subscriptionsForProfile(db, profile.id)).toEqual(devices);
@@ -931,7 +1013,7 @@ describe('realtime: from a bus event to the inbox and the phone', () => {
     expect(e.push.sent).toHaveLength(1);
     expect(e.push.sent[0]).toMatchObject({
       endpoint: devices[0]!.endpoint,
-      payload: { title: '2 new bids fit', kind: 'summary', bidId: null, alertIds: [oldest.id, newest.id], body: `${oldest.title}\n${newest.title}` },
+      payload: { title: '2 new bids fit', kind: 'summary', bidId: null, alertIds: [oldest.id, newest.id], body: [oldest, newest].map((a) => `${a.title} — ${a.body.split(' — ')[0]}`).join('\n') },
     });
     const after = await listAlerts(db, profile.id);
     expect(after.map((a) => a.pushedAt)).toEqual([clock.toISOString(), null, clock.toISOString()]);
@@ -1114,7 +1196,7 @@ describe('realtime: from a bus event to the inbox and the phone', () => {
   it('single mode (the pilot): a device registered through the API gets the push, with no sign-in', async () => {
     const pilot = testProfile('test-pilot');
     await upsertProfile(db, pilot); // the scan does this before it scores
-    const config: AppConfig = { ...loadConfig({}), vapid: testVapid };
+    const config: AppConfig = { ...loadConfig({}), vapid: testVapid, pushHosts: TEST_PUSH_HOSTS };
     const e = engine({ config, profile: pilot });
     const app = Fastify();
     await realtimeRoutes(app, e.ctx);
@@ -1342,7 +1424,7 @@ describe('inbox and push routes (accounts mode)', () => {
     newcomer = await seedAccount(db); // signed up, not onboarded
     for (const a of [alice.account, bob.account, newcomer]) accounts.set(a.id, a);
     const auth = headerAuth(accounts);
-    app = (await buildApp({ db }, { config: accountsConfig({ vapid: testVapid }), auth, now: () => NOW })).app;
+    app = (await buildApp({ db }, { config: accountsConfig({ vapid: testVapid, pushHosts: TEST_PUSH_HOSTS }), auth, now: () => NOW })).app;
     plain = (await buildApp({ db }, { config: accountsConfig(), auth, now: () => NOW })).app; // no VAPID keys
   });
   afterAll(async () => {

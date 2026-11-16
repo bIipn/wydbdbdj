@@ -3,6 +3,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { RouteContext } from '../src/context.js';
 import type { Db } from '../src/db/db.js';
 import { saveProfileForAccount } from '../src/db/repo.js';
+import { saveIntent } from '../src/db/work.js';
 import { loadJobRules } from '../src/jobs/config.js';
 import { getJob as getJobRow, insertJob } from '../src/jobs/repo.js';
 import { settleDue, type JobsDeps } from '../src/jobs/service.js';
@@ -262,6 +263,21 @@ describe('the life of a job', () => {
     const noAgree = await call(nosy, 'POST', `/api/jobs/${id}/bid`, { amountCents: 50_000 });
     expect(noAgree.json).toEqual({ error: 'invalid_input', fields: [{ path: 'agree', message: 'Tick the box to agree to the rules before you bid.' }] });
     expect(await call(nosy, 'GET', '/api/jobs/no-such-job')).toMatchObject({ status: 404, json: { error: 'not_found' } });
+  });
+
+  it("a 'Get work done' account posts only: its bid is refused with the Jobs screen's sentence; 'both' and no stored intent still bid (audit authz-1)", async () => {
+    const hirer = await seedAccount(db, { name: 'TEST Hirer (simulated)' });
+    const both = await seedAccount(db, { name: 'TEST Both (simulated)' });
+    const fresh = await seedAccount(db, { name: 'TEST No Profile Yet (simulated)' });
+    await saveIntent(db, hirer.id, 'hire', new Date(clock));
+    await saveIntent(db, both.id, 'both', new Date(clock));
+    const other = await postJob({ title: 'Swap a breaker panel cover (TEST)' });
+    expect(await bid(hirer, other, 55_000)).toMatchObject({ status: 403, json: { error: 'not_allowed', message: 'To bid, pick “Both” in Settings and add your trade.' } });
+    expect((await call(hirer, 'GET', `/api/jobs/${other}`)).json.job.bidCount).toBe(0); // nothing was stored
+    expect((await bid(both, other, 90_000)).status).toBe(200);
+    expect((await bid(fresh, other, 91_000)).status).toBe(200);
+    expect((await call(poster, 'GET', `/api/jobs/${other}`)).json.job.bidCount).toBe(2);
+    expect((await call(poster, 'POST', `/api/jobs/${other}/cancel`)).status).toBe(200);
   });
 
   it('two bids at once from one account leave one bid; withdrawing and bidding again works while open', async () => {

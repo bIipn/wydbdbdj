@@ -61,6 +61,14 @@ export interface Realtime {
 }
 
 const message = (err: unknown): string => (err instanceof Error ? err.message : String(err));
+/** The push service's host of an endpoint, for a log line (the endpoint itself is a capability and is never logged). */
+const serviceHost = (endpoint: string): string => {
+  try {
+    return new URL(endpoint).host;
+  } catch {
+    return 'an unknown push service';
+  }
+};
 
 export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): Realtime {
   const { db, bus, config } = ctx;
@@ -101,11 +109,20 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
       } catch (err) {
         result = toPushResult(err); // a sender that throws must not lose the claim
       }
-      await recordPushResult(db, device.endpoint, result.ok ? 'ok' : result.gone ? 'gone' : 'failed', now);
+      const outcome = result.ok ? 'ok' : result.gone ? 'gone' : result.permanent ? 'refused' : 'failed';
+      await recordPushResult(db, device.endpoint, outcome, now, result.ok ? null : result.status);
+      if (!result.ok && result.permanent) {
+        // The push service's host and its own reason, never the endpoint (a capability URL).
+        ctx.log(`push: ${serviceHost(device.endpoint)} refused a device (${result.status}${result.reason ? ` ${result.reason}` : ''}); it gets nothing until it subscribes again`);
+      }
       return result;
     }));
     const accepted = results.filter((r) => r.ok).length;
     // Nothing reached a phone: hand the alerts back so the next tick tries again.
+    // Known gap (audit push-retry-1, documented on purpose): the claim is per profile, not per device. When one device
+    // accepts and another fails for a passing reason (429, 5xx, no answer), the failed one never gets this message: a
+    // second device suppresses the retry. Phones keep the in-app inbox, which always has it. A per-device retry needs
+    // its own table; not worth it at pilot scale.
     if (accepted === 0) await releasePushClaim(db, alerts.map((a) => a.id));
     const gone = results.filter((r) => !r.ok && r.gone).length;
     ctx.log(`push: ${alerts.length} alert(s) for ${profileId}, ${accepted} of ${devices.length} device(s) accepted${gone ? `, ${gone} expired and removed` : ''}`);

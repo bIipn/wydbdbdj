@@ -113,6 +113,22 @@ describe('accounts mode', () => {
     expect(body.savedAt).toBe(NOW.toISOString());
   });
 
+  it('a job longer than 3650 days is refused before the engine runs (audit sec-input-1: 9999-12-31 ran the server out of memory)', async () => {
+    who = pro;
+    const started = Date.now();
+    for (const endDate of ['9999-12-31', '2036-11-28' /* day 3651 */]) {
+      const res = await post({ ...I1, job: { ...I1.job, endDate } });
+      expect(res.statusCode, endDate).toBe(400);
+      expect(res.json().fields).toContainEqual({ path: 'job.endDate', message: 'the job can last at most 3650 days (10 years)' });
+    }
+    const farBid = await post({ ...I1, job: { ...I1.job, bidDate: '0001-01-01' } });
+    expect(farBid.statusCode).toBe(400);
+    expect(farBid.json().fields.map((f: { path: string }) => f.path)).toContain('job.bidDate');
+    expect(Date.now() - started).toBeLessThan(2000);
+    // Day 3650 itself is a real (if long) job: still answered.
+    expect((await post({ ...I1, job: { ...I1.job, endDate: '2036-11-27' } })).statusCode).toBe(200);
+  });
+
   it('bad input: 400 invalid_input with field-level messages (never 500)', async () => {
     who = pro;
     const wage = structuredClone(I1);

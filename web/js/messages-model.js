@@ -2,7 +2,7 @@
 // A conversation is the thread between a local job's poster and its winning bidder, after the award
 // (src/jobs/view.ts inThread). The server sends each one as GET /api/jobs/conversations describes:
 //   { jobId, title, role: 'poster' | 'winner', status, outcome, contactDeadline, other: { id, name, … },
-//     canWrite, messageCount, last: null | { preview, at, mine }, unread, activityAt }
+//     canWrite, messageCount, last: null | { preview, at, mine, removed }, unread, activityAt }
 
 import { PT } from './format.js';
 
@@ -26,6 +26,8 @@ export const otherName = (c) => (typeof c?.other?.name === 'string' && c.other.n
 /** The list's one line: the last message on one line, "You: " in front of the viewer's own; or that none was sent. */
 export function previewLine(c) {
   if (!c?.last) return 'No messages yet';
+  // An operator removed it: the server sends no text (src/jobs/repo.ts MESSAGE_REMOVED).
+  if (c.last.removed) return 'Message removed by BidSwipe';
   const text = String(c.last.preview ?? '').replace(/\s+/g, ' ').trim();
   return `${c.last.mine ? 'You: ' : ''}${text}`;
 }

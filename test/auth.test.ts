@@ -4,7 +4,7 @@
  * pair generated in this file standing in for a Supabase project's signing key.
  */
 import { createHash } from 'node:crypto';
-import Fastify, { type FastifyInstance, type LightMyRequestResponse } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest, type LightMyRequestResponse } from 'fastify';
 import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT, type CryptoKey } from 'jose';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAuth, type AuthOptions, type SignInService } from '../src/auth/index.js';
@@ -12,13 +12,13 @@ import { cleanName, normalizeEmail } from '../src/auth/input.js';
 import {
   DEFAULT_COST, hashPassword, isAcceptablePassword, needsRehash, verifyPassword, type ScryptCost,
 } from '../src/auth/password.js';
-import { createRateLimiter } from '../src/auth/ratelimit.js';
+import { clientIp, createRateLimiter } from '../src/auth/ratelimit.js';
 import { verifySupabaseToken } from '../src/auth/supabase.js';
 import { createContext, type AppConfig } from '../src/context.js';
 import type { Db } from '../src/db/db.js';
 import { loadProfile } from '../src/profiles.js';
 import { createBus } from '../src/realtime/bus.js';
-import { register as authRoutes } from '../src/routes/auth.js';
+import { register as authRoutes, SIGN_IN_LIMITS } from '../src/routes/auth.js';
 import { buildApp, buildServer } from '../src/server.js';
 import type { Account } from '../src/types.js';
 import { accountsConfig, memoryDb, NOW, resetDb } from './helpers.js';
@@ -463,20 +463,21 @@ describe('rate limit', () => {
   const login = (app: FastifyInstance, email: string, password: string, ip?: string) =>
     post(app, '/api/auth/login', { email, password }, ip ? { 'x-forwarded-for': ip } : {});
 
-  it('allows 10 attempts per caller in 15 minutes, then 429 until the window ends — right password or not', async () => {
+  const TOO_MANY = { error: 'too_many_attempts', message: 'Too many tries. Wait a few minutes, then try again.' };
+  const { pair, ip: perIp, email: wide } = SIGN_IN_LIMITS;
+
+  it('10 wrong passwords for one e-mail from one address, then 429 until the window ends — right password or not', async () => {
     const { app } = await server();
-    await signUp(app, EMAIL, PASSWORD); // attempt 1 from this address
-    for (let i = 0; i < 9; i++) expect((await login(app, `test.guess${i}@example.com`, 'TEST-wrong-guess')).statusCode).toBe(401);
+    await signUp(app, EMAIL, PASSWORD);
+    for (let i = 0; i < pair.limit; i++) expect((await login(app, EMAIL, `TEST-wrong-guess-${i}`)).statusCode).toBe(401);
     vi.clearAllMocks();
 
     const blocked = await login(app, EMAIL, PASSWORD);
     expect(blocked.statusCode).toBe(429);
-    expect(blocked.json()).toEqual({ error: 'too_many_attempts' });
+    expect(blocked.json()).toEqual(TOO_MANY);
     expect(blocked.headers['retry-after']).toBe('900');
     expect(blocked.headers['set-cookie']).toBeUndefined();
-    expect((await post(app, '/api/auth/signup', { email: 'test.new@example.com', password: PASSWORD })).statusCode).toBe(429);
     expect(vi.mocked(verifyPassword)).not.toHaveBeenCalled(); // a blocked attempt costs us nothing
-    expect(vi.mocked(hashPassword)).not.toHaveBeenCalled();
 
     // Somebody else, somewhere else, is not affected.
     expect((await login(app, 'test.other@example.com', PASSWORD, '198.51.100.7')).statusCode).toBe(401);
@@ -487,31 +488,106 @@ describe('rate limit', () => {
     expect((await login(app, EMAIL, PASSWORD)).statusCode).toBe(200);
   });
 
-  it('also counts per email, so guesses spread over many addresses still run out', async () => {
+  it('a stranger cannot lock the owner out: 10 failures from address A, the right password from address B answers 200 (audit sec-session-1)', async () => {
     const { app } = await server();
     await signUp(app, EMAIL, PASSWORD);
-    for (let i = 0; i < 9; i++) expect((await login(app, EMAIL, `TEST-guess-number-${i}`, `198.51.100.${i + 1}`)).statusCode).toBe(401);
-    const eleventh = await login(app, ' Test.Owner@EXAMPLE.com', PASSWORD, '198.51.100.99');
-    expect(eleventh.statusCode).toBe(429);
-    expect(eleventh.json()).toEqual({ error: 'too_many_attempts' });
-    // That caller's own allowance is intact for another email.
-    expect((await login(app, 'test.other@example.com', PASSWORD, '198.51.100.99')).statusCode).toBe(401);
+    for (let i = 0; i < pair.limit + 2; i++) await login(app, EMAIL, `TEST-attacker-${i}`, '203.0.113.66');
+    expect((await login(app, EMAIL, 'TEST-attacker-x', '203.0.113.66')).statusCode).toBe(429);
+    expect((await login(app, ' Test.Owner@EXAMPLE.com', PASSWORD, '192.0.2.10')).statusCode).toBe(200);
+    // ...and that success cleared the e-mail-wide counter (the attacker's address keeps its own block).
+    const left = await db.query<{ key: string }>(`select key from auth_attempts where key like 'login:%' order by key`);
+    expect(left.map((r) => r.key)).toEqual([`login:ip:203.0.113.66`, `login:known:${EMAIL}|192.0.2.10`, `login:pair:${EMAIL}|203.0.113.66`]);
+    expect((await login(app, EMAIL, PASSWORD, '203.0.113.66')).statusCode).toBe(429);
   });
 
-  it('believes X-Forwarded-For only from a proxy on this machine', async () => {
+  it('successful sign-ins are never counted: 40 people signing in from one office address all get in (audit missed item)', async () => {
     const { app } = await server();
-    const direct = (i: number) => app.inject({
+    for (let i = 0; i < 40; i++) {
+      const email = `test.crew${i}@example.com`;
+      expect((await post(app, '/api/auth/signup', { email, password: PASSWORD }, { 'x-forwarded-for': `198.51.100.${i}` })).statusCode).toBe(201);
+      expect((await login(app, email, PASSWORD, '192.0.2.77')).statusCode, `sign-in ${i}`).toBe(200);
+    }
+  });
+
+  it('guesses spread over many addresses run out on the e-mail key, but the owner\'s known address still gets in', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD);
+    expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200); // the owner's usual address
+    for (let i = 0; i < wide.limit; i++) expect((await login(app, EMAIL, `TEST-spread-${i}`, `10.${i >> 8}.${i & 255}.1`)).statusCode).toBe(401);
+    const fresh = await login(app, EMAIL, 'TEST-spread-last', '10.200.0.1');
+    expect(fresh.statusCode).toBe(429);
+    expect(fresh.json()).toEqual(TOO_MANY);
+    expect((await login(app, EMAIL, PASSWORD, '10.200.0.2')).statusCode).toBe(429); // an unknown address waits, right password or not
+    expect((await login(app, EMAIL, PASSWORD, '192.0.2.10')).statusCode).toBe(200);
+    // That caller's own allowance is intact for another email.
+    expect((await login(app, 'test.other@example.com', PASSWORD, '10.200.0.1')).statusCode).toBe(401);
+  });
+
+  it('one address guessing many e-mails stops after its failure allowance', async () => {
+    const { app } = await server();
+    for (let i = 0; i < perIp.limit; i++) expect((await login(app, `test.stuff${i}@example.com`, PASSWORD, '203.0.113.5')).statusCode).toBe(401);
+    expect((await login(app, 'test.stuff-last@example.com', PASSWORD, '203.0.113.5')).statusCode).toBe(429);
+    expect((await post(app, '/api/auth/oauth', { accessToken: 'x' }, { 'x-forwarded-for': '203.0.113.5' })).statusCode).toBe(429);
+  });
+
+  it('sign-up: 20 refused sign-ups per address, and 100 sign-ups an hour per address at most', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD);
+    const { signupFailed, signupAll } = SIGN_IN_LIMITS;
+    for (let i = 0; i < signupFailed.limit; i++) expect((await post(app, '/api/auth/signup', { email: EMAIL, password: PASSWORD }, { 'x-forwarded-for': '203.0.113.8' })).statusCode).toBe(409);
+    expect((await post(app, '/api/auth/signup', { email: 'test.fresh@example.com', password: PASSWORD }, { 'x-forwarded-for': '203.0.113.8' })).json()).toEqual(TOO_MANY);
+    // A duplicate sign-up for the owner's address never touched the owner's sign-in counters.
+    expect((await login(app, EMAIL, PASSWORD, '203.0.113.8')).statusCode).toBe(200);
+    for (let i = 0; i < signupAll.limit; i++) expect((await post(app, '/api/auth/signup', { email: `test.bulk${i}@example.com`, password: PASSWORD }, { 'x-forwarded-for': '198.51.100.200' })).statusCode).toBe(201);
+    expect((await post(app, '/api/auth/signup', { email: 'test.bulk-last@example.com', password: PASSWORD }, { 'x-forwarded-for': '198.51.100.200' })).statusCode).toBe(429);
+  });
+
+  it('the counters live in the database: a second server instance on the same database sees them', async () => {
+    const first = (await server()).app;
+    const second = (await server()).app;
+    await signUp(first, EMAIL, PASSWORD);
+    for (let i = 0; i < pair.limit; i++) await login(first, EMAIL, `TEST-wrong-${i}`, '203.0.113.20');
+    expect((await login(second, EMAIL, PASSWORD, '203.0.113.20')).statusCode).toBe(429);
+  });
+
+  it('a broken counter table logs one line and lets the attempt through', async () => {
+    const { app } = await server();
+    await signUp(app, EMAIL, PASSWORD);
+    const logs: string[] = [];
+    vi.spyOn(app.log, 'info').mockImplementation(((msg: unknown) => { logs.push(String(msg)); }) as typeof app.log.info);
+    await db.exec('alter table auth_attempts rename to auth_attempts_away');
+    try {
+      expect((await login(app, EMAIL, PASSWORD, '203.0.113.30')).statusCode).toBe(200);
+    } finally {
+      await db.exec('alter table auth_attempts_away rename to auth_attempts');
+    }
+    expect(logs.some((l) => /^rate limit: the check failed .*the attempt goes through$/.test(l))).toBe(true);
+  });
+
+  it('believes X-Forwarded-For only from a proxy on this machine, and the Vercel edge headers only on Vercel', async () => {
+    const { app } = await server();
+    const direct = (i: number, extra: Record<string, string> = {}) => app.inject({
       method: 'POST', url: '/api/auth/login', remoteAddress: '203.0.113.9',
-      headers: { 'x-bidswipe': '1', 'x-forwarded-for': `198.51.100.${i}` }, payload: { email: `test.spoof${i}@example.com`, password: PASSWORD },
+      headers: { 'x-bidswipe': '1', 'x-forwarded-for': `198.51.100.${i}`, ...extra }, payload: { email: `test.spoof${i}@example.com`, password: PASSWORD },
     });
-    for (let i = 0; i < 10; i++) expect((await direct(i)).statusCode).toBe(401);
-    expect((await direct(10)).statusCode).toBe(429); // a made-up header did not buy a fresh allowance
+    for (let i = 0; i < perIp.limit; i++) expect((await direct(i)).statusCode).toBe(401);
+    expect((await direct(99)).statusCode).toBe(429); // a made-up header did not buy a fresh allowance
+    expect((await direct(98, { 'x-real-ip': '192.0.2.200', 'x-vercel-forwarded-for': '192.0.2.201' })).statusCode).toBe(429); // not on Vercel
     // Through the local proxy the last hop is the caller; earlier hops are whatever the caller claimed.
     const viaProxy = (i: number, hops: string) =>
       post(app, '/api/auth/login', { email: `test.proxied${i}@example.com`, password: PASSWORD }, { 'x-forwarded-for': hops });
-    for (let i = 0; i < 10; i++) expect((await viaProxy(i, `10.0.0.${i}, 192.0.2.44`)).statusCode).toBe(401);
-    expect((await viaProxy(10, '10.9.9.9, 192.0.2.44')).statusCode).toBe(429);
-    expect((await viaProxy(11, '192.0.2.44, 192.0.2.45')).statusCode).toBe(401); // a different last hop is a different caller
+    for (let i = 0; i < perIp.limit; i++) expect((await viaProxy(i, `10.0.0.${i}, 192.0.2.44`)).statusCode).toBe(401);
+    expect((await viaProxy(90, '10.9.9.9, 192.0.2.44')).statusCode).toBe(429);
+    expect((await viaProxy(91, '192.0.2.44, 192.0.2.45')).statusCode).toBe(401); // a different last hop is a different caller
+  });
+
+  it('clientIp: on Vercel the edge\'s x-real-ip (then x-vercel-forwarded-for) is the caller; off Vercel they are ignored', () => {
+    const req = (headers: Record<string, string>, ip = '127.0.0.1') => ({ ip, headers }) as unknown as FastifyRequest;
+    expect(clientIp(req({ 'x-real-ip': '192.0.2.1', 'x-forwarded-for': '10.0.0.1' }), true)).toBe('192.0.2.1');
+    expect(clientIp(req({ 'x-vercel-forwarded-for': '192.0.2.2, 10.0.0.9' }, '169.254.1.1'), true)).toBe('192.0.2.2');
+    expect(clientIp(req({}, '169.254.1.1'), true)).toBe('169.254.1.1');
+    expect(clientIp(req({ 'x-real-ip': '192.0.2.1', 'x-forwarded-for': '10.0.0.1, 192.0.2.9' }), false)).toBe('192.0.2.9');
+    expect(clientIp(req({ 'x-real-ip': '192.0.2.1' }, '203.0.113.4'), false)).toBe('203.0.113.4');
   });
 
   it('the limiter forgets finished windows and never tracks more keys than it is told to', () => {
@@ -745,10 +821,10 @@ describe('sign in with a Supabase token', () => {
   it('counts token attempts against the caller like any other sign-in', async () => {
     const app = await oauthServer();
     const expired = await accessToken({}, { expiresInSec: -1 });
-    for (let i = 0; i < 10; i++) expect((await oauth(app, expired)).statusCode).toBe(401);
+    for (let i = 0; i < SIGN_IN_LIMITS.ip.limit; i++) expect((await oauth(app, expired)).statusCode).toBe(401);
     const blocked = await oauth(app, await accessToken());
     expect(blocked.statusCode).toBe(429);
-    expect(blocked.json()).toEqual({ error: 'too_many_attempts' });
+    expect(blocked.json()).toEqual({ error: 'too_many_attempts', message: 'Too many tries. Wait a few minutes, then try again.' });
     expect(await count('accounts')).toBe(0);
   });
 

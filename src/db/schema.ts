@@ -227,6 +227,23 @@ alter table market_series add column if not exists preliminary boolean not null 
 -- 'ok', or why the last refresh got nothing for the series: 'not_found' | 'no_data' (+ the publisher's message).
 alter table market_series_meta add column if not exists status text not null default 'ok';
 alter table market_series_meta add column if not exists note text;
+
+-- Sign-in, sign-up, promo, access-code and profile-save attempt counters (src/auth/ratelimit.ts
+-- createAttemptLimiter): in the database so every serverless instance shares them. One row per key
+-- ("login:pair:<email>|<ip>", "login:ip:<ip>", …), a fixed window that ends at expires_at. Expired rows are
+-- swept by the counting statement itself.
+create table if not exists auth_attempts (
+  key         text primary key,
+  count       integer not null,
+  expires_at  timestamptz not null
+);
+create index if not exists auth_attempts_expires_idx on auth_attempts (expires_at);
+
+-- Push devices: when the push service last refused one, and how (src/realtime/push.ts). A device whose
+-- service answers a permanent refusal (400, 403, 413) is not sent to again until it re-subscribes; one
+-- that keeps failing for a week is deleted (src/db/alerts.ts recordPushResult).
+alter table push_subscriptions add column if not exists last_fail_at timestamptz;
+alter table push_subscriptions add column if not exists failed_status integer;
 ${PROMO_SCHEMA_SQL}
 ${WORK_SCHEMA_SQL}
 ${JOBS_SCHEMA_SQL}

@@ -9,7 +9,7 @@ import { env } from '../env.js';
 import { loadJobRules } from '../jobs/config.js';
 import { settleDue, type JobsDeps } from '../jobs/service.js';
 import { featuresFor } from '../plans.js';
-import { parseSubscription, usableVapid } from '../realtime/push.js';
+import { checkSubscription, usableVapid } from '../realtime/push.js';
 import { createStreamHub, MAX_STREAMS_PER_ACCOUNT, MAX_STREAMS_SINGLE, REPLAY_LIMIT } from '../realtime/stream.js';
 
 export interface RealtimeRouteOptions {
@@ -156,13 +156,17 @@ function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext): void {
   // Needs an account, not a profile: a device can be registered before onboarding is finished.
   app.post('/api/push/subscribe', async (req, reply) => {
     if (!usableVapid(ctx.config, ctx.log)) return pushNotConfigured(reply);
-    const subscription = parseSubscription((req.body as { subscription?: unknown } | null | undefined)?.subscription);
-    const who = await deviceOwner(req, subscription !== null);
+    const checked = checkSubscription((req.body as { subscription?: unknown } | null | undefined)?.subscription, ctx.config.pushHosts);
+    const who = await deviceOwner(req, checked.ok);
     if (!who) return signInRequired(reply);
-    if (!subscription) {
+    if (!checked.ok && checked.reason === 'host') {
+      ctx.log(`push: refused a device on ${checked.host}: not a known push service`); // the host only, never the endpoint
+      return reply.code(400).send({ error: 'invalid_subscription', message: 'This browser’s push service isn’t supported. Phone alerts work in Chrome, Edge, Firefox and Safari.' });
+    }
+    if (!checked.ok) {
       return reply.code(400).send({ error: 'invalid_subscription', message: 'Send { subscription } as the browser gives it: an https endpoint and its p256dh and auth keys.' });
     }
-    await saveSubscription(db, who.owner, subscription, ctx.now());
+    await saveSubscription(db, who.owner, checked.subscription, ctx.now());
     // Stored on every plan; instantPush says whether this plan actually buzzes the phone.
     return { ok: true, instantPush: who.instantPush };
   });

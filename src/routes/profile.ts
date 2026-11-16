@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { createAttemptLimiter } from '../auth/ratelimit.js';
 import type { RouteContext } from '../context.js';
 import { getFeedCounts, lastScan, saveProfileForAccount } from '../db/repo.js';
 import { getWorkProfile, saveIntent } from '../db/work.js';
@@ -19,6 +20,13 @@ const legacyMe = (p: Profile) => ({
 /** Only these fields ever leave the server, whatever else an account object may carry. */
 const publicAccount = ({ id, email, name, plan, createdAt }: Account): Account => ({ id, email, name, plan, createdAt });
 
+/**
+ * Profile saves per account in one window (audit sec-input-4: each save re-scores every open bid). The client saves
+ * only on an explicit submit, so 20 per 10 minutes is generous. Keyed on the account, never the address.
+ */
+export const PROFILE_SAVE_LIMIT = { limit: 20, windowMs: 10 * 60 * 1000 } as const;
+const SAVED_TOO_OFTEN = 'You’ve saved your settings a lot in the last few minutes. Wait a few minutes, then save again.';
+
 const hasValues = (o: object | undefined): boolean => Object.values(o ?? {}).some((v) => v != null);
 
 /** The profile as this plan may see it: saved cost settings stay on the server until the plan includes them. */
@@ -30,6 +38,7 @@ function summaryFor(profile: Profile, features: Features): ProfileSummary {
 /** Who am I, health, and onboarding (trades, ZIP lookup, saving the profile). */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
   const { db, config } = ctx;
+  const attempts = createAttemptLimiter(db, ctx.now, ctx.log);
 
   app.get('/api/health', async (req) => ({
     ok: true,
@@ -107,6 +116,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     }
     const id = await ctx.identify(req);
     if (!id.account) return reply.code(401).send({ error: 'sign_in_required' });
+    const saves = await attempts.count([{ key: `profile:save:${id.account.id}`, ...PROFILE_SAVE_LIMIT }]);
+    if (!saves.ok) return reply.code(429).header('retry-after', saves.retryAfterSec).send({ error: 'too_many_attempts', message: SAVED_TOO_OFTEN });
     // A form that does not say why the person is here keeps the stored answer: a 'hire' account's later
     // saves (an older client, a script) must not suddenly need trades. No stored answer = 'work', as before.
     const storedIntent = (await getWorkProfile(db, id.account.id)).intent;

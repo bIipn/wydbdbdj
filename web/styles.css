@@ -1249,3 +1249,6 @@ button.pmini:active { background: var(--card-2); }
 .reach-tip { margin-bottom: 16px; }
 .reach-tip p { margin: 0 0 12px; font-size: 13.5px; line-height: 1.45; color: var(--muted); }
 .reach .step-foot .cta { width: 100%; }
+
+/* ====================================================================== market tape + home extras
+   Styles for web/js/tape.js and web/js/home-extras.js ONLY. Keep this block LAST in the file. */

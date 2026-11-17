@@ -243,6 +243,7 @@ jobs:
             hawkscan-results.json
             hawkscan-output.txt
             ${{ runner.temp }}/server.log
+            ${{ runner.temp }}/guard.log
           if-no-files-found: warn
 
       - name: Verdict

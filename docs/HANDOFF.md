@@ -66,8 +66,11 @@ the top of docs/MICROSOFT-STORE.md.
 jobs-pg, promo-pg), `npm run simulate` (passes), `npm run simulate:jobs` (all 15 checks, 10 of 10 mutations, same hash
 21d5d5f488b230c2), `npm run demo:snapshot`; the schema run twice over old-schema data on PGlite and Postgres 16 plus
 six simultaneous cold starts; the whole app walked in Chromium with the real headers (zero CSP violations) at 390,
-360 and 1280 px. The first HawkScan run on GitHub was started on commit f540e84; its result was not in when this was
-written (docs/SECURITY-SCAN.md).
+360 and 1280 px. HawkScan (docs/SECURITY-SCAN.md, "Runs"): run 1 was cut off; runs 2 and 3 on the live build found
+nothing at High or Medium (one Low: the contact address on the legal pages, by design) and the server took ~29,000
+hostile requests each with no 5xx, **but run 3's route table showed the scanner had signed itself out within five
+minutes, so neither run attacked the signed-in routes with a session**. A scan guard (`scripts/hawkscan-guard.mjs`)
+now stands between the scanner and the app in the scan job; run 4 was asked for on 2026-11-17.
 
 **2026-11-16 — Home screen redesign + Messages (committed, NOT deployed).** At the owner's request (a jobs
 app's home screen as a layout reference only, then two amendments): Home is now the landing screen, top to

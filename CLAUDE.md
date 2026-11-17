@@ -393,6 +393,12 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   dot-boundary suffix); tests add `push.example.com` through `AppConfig.pushHosts`, which no env variable sets. A new
   push service (or an endpoint host we never saw) is refused until it is added there; the route logs the refused
   host, never the endpoint. jmt17.google.com is on the list: Chromium's source names it (pre-release Chrome).
+- HawkScan (2026-11-17): a run's severity counts mean nothing until its "What the server saw" step shows the scan
+  user stayed signed in (`GET /api/me` 200 all the way, most signed-in requests reaching a handler). Runs 2 and 3
+  looked clean and were hollow: `excludePaths` did not keep the scanner off the logout route. The scan job puts
+  `scripts/hawkscan-guard.mjs` between the scanner (:8788) and the app (:8787); it answers logout, sign-up, oauth,
+  every sign-in but the scan user's own and the calls that would end the seeded job by itself. It is scaffolding
+  for that job, never part of the app. `scripts/hawkscan-report.py` prints the findings and the route table.
 - iPhone facts come from `navigator.standalone` (true = Home Screen app, false = a Safari tab, undefined = not iOS),
   never the user agent. A Safari tab cannot get web push at all; old iOS in the installed app = no PushManager.
   `pushManager.subscribe` must follow the tap with nothing awaited but requestPermission (the registration is fetched

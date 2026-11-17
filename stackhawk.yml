@@ -25,9 +25,9 @@ app:
       - field: bidId                            # ?bidId= on market/estimates and {bidId} in swipe/estimate bodies
         values:
           - ${SCAN_BID_ID:none}
-  # Run 3 (2026-11-16) showed these did NOT keep the scanner away: every route below still got the scanner's
-  # per-route batch (logout 171 times). They only spare these routes the deeper fuzzing. What keeps the scan session
-  # alive is the scan guard in front of the app; the list stays as the statement of what is left out on purpose.
+  # Run 3 (2026-11-16) showed these did NOT keep the scanner away: every route below was still requested (logout 171
+  # times); why is not known. What keeps the scan session alive is the scan guard in front of the app
+  # (scripts/hawkscan-guard.mjs); the list stays as the statement of what is left out on purpose.
   excludePaths:                                 # regexes, unanchored so they match a path or a whole URL
     - ".*/api/auth/logout.*"                    # would end the scan user's session
     - ".*/api/auth/(login|signup|oauth)$"       # a success replaces the session the request came with (routes/auth.ts answer())
@@ -49,9 +49,12 @@ app:
       path: /api/me
       type: BODY                                # 200 carries {"account":...}; 401 is {"error":"sign_in_required"}
       success: '.*"account".*'
-    sessionVerification:                        # written out so it is plainly ON: re-check the session with testPath
-      pollFrequency: 15                         # every 15 requests while crawling,
-      activeScanPollFrequency: 5                # every 5 while attacking, and sign in again when it is gone
+    sessionVerification:                        # the CLI's own defaults, written out because the scan relies on them:
+      pollFrequency: 15                         # re-check the session with testPath every 15 requests while crawling,
+      activeScanPollFrequency: 5                # every 5 while attacking, and sign in again when it is gone. In run 3
+                                                # the app's log held only ~93 GET /api/me in 48 minutes: the scanner's
+                                                # sign-ins were refused (429, its own fuzzing had used up the limit),
+                                                # which the guard now prevents. Still few in run 4? Lower both numbers.
 hawk:
   failureThreshold: medium                      # exit 42 on a Medium or High finding; the workflow reports it and stays green
   scan:

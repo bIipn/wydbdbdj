@@ -1,17 +1,21 @@
 # Security scan (HawkScan)
 
-**Status (2026-11-16): the second run finished on the fixed code with 0 High, 0 Medium and 2 Low findings**
-(one check, two paths). A third run was asked for the same day, only to show route by route that the scanner was
-signed in (see "Runs" below): until it is read, "clean" means "no finding", not yet "every signed-in route was
-attacked".
+**Status (2026-11-17): no scan has yet attacked the signed-in routes with a live session.** Runs 2 and 3 found
+nothing at High or Medium, but run 3's route table showed why that says little: the scanner signed itself out within
+five minutes and most of its requests to signed-in routes were answered 401. What those two runs do show: the
+signed-out surface (the shell, the legal pages, the public look-ups, the refusals) has no finding at High or
+Medium, and the server took about 29,000 hostile requests per run with no 5xx and nothing slower than 5 seconds.
+The signed-in routes are covered by the 2026-11-16 audit (scripts run by hand, each finding re-run by a skeptic)
+and by the tests, not by a scan. Run 4 goes through the scan guard below; its numbers decide.
 
 ## Runs
 
 | Run | Commit | What happened |
 |---|---|---|
 | 1 · 2026-11-16 17:54 UTC | f540e84 (before the fixes) | Cut off by the job's 60-minute limit with nothing to read: the progress was silenced and the artifact host is not reachable from Claude's sessions. Probably the cost-check crash below, which froze the server on a fuzzed end date (not confirmed) |
-| 2 · 2026-11-16 21:35 UTC | cb979c2 (the fixes; the build that is live) | Finished by itself in 61 minutes. **High 0 · Medium 0 · Low 2.** The one check: "Information Leak - Email Address" on `/privacy.html` and `/terms.html`. That is the public contact address the owner put there on purpose: **by design, nothing to fix.** The server answered 28,777 requests: no 5xx at all, none slower than 5 seconds, health 200 at the end, 514 answers were 429 (the new limits at work) |
-| 3 · 2026-11-16 | same app code | Asked for because 13,533 of run 2's answers were 401 and the log could not say which routes they were. 14 of the 64 API paths (admin and cron) answer 401 on purpose, since the scan has neither token, but that alone was not shown to explain the number. This run prints the scan user's session over time and a table of route by status (`scripts/hawkscan-report.py`) |
+| 2 · 2026-11-16 21:35 UTC | cb979c2 (the fixes; the build that is live) | Finished by itself in 61 minutes. High 0 · Medium 0 · Low 2: "Information Leak - Email Address" on `/privacy.html` and `/terms.html`, the public contact address the owner put there on purpose (by design). 28,777 answers: no 5xx, none slower than 5 seconds, 514 were 429 (the new limits at work). 13,533 were 401, and the log could not say on which routes |
+| 3 · 2026-11-16 23:02 UTC | f138414 (same app code; a report that prints route by status) | Finished in 48 minutes with the same result, and showed runs 2 and 3 were **hollow behind the sign-in**: the scanner called `POST /api/auth/logout` 171 times although `excludePaths` names it; `GET /api/me` answered 200 only in the first five minutes; a fuzzed sign-up succeeded 4 times, so for a while the scanner held a brand-new account with no profile (437 answers were 409); its fuzzed sign-ins used up the sign-in limit for the runner's address (117 x 429), so it never signed in again. Of 14,499 requests to signed-in routes, 10,057 were answered 401. `POST /api/estimate`: 10 reached the validation, 866 were 401 |
+| 4 · 2026-11-17 | the scan guard (below) | Asked for after two reviewers attacked the guard locally. Read its "What the server saw" step: the session table, the share of signed-in requests that reached a handler, and what the guard stopped |
 
 ## What runs
 
@@ -20,14 +24,38 @@ attacked".
 1. builds the app, loads the captured bids into a throwaway database, and starts `node dist/server.js` in
    accounts mode (`DEMO_MODE=1`, so the Pro routes are scanned too) on port 8787;
 2. `scripts/hawkscan-seed.mjs` signs up two TEST accounts (example.com addresses, a password made up for this run
-   that only goes to the job's environment): a scan user that bids on the other account's local job;
-3. installs StackHawk's `hawk` CLI, finds or creates the StackHawk application `bidswipe`, checks the setup
+   that is masked in the log the moment it is made and only goes to the job's environment): a scan user that bids
+   on the other account's local job;
+3. starts the **scan guard**, `scripts/hawkscan-guard.mjs`, on port 8788. The scanner talks to the guard; the guard
+   passes every request on to the app unchanged, except the few that would end the scan's own session or the
+   objects the seed made (next section). It is scaffolding for this job: nothing in `src/` or `web/` knows it;
+4. installs StackHawk's `hawk` CLI, finds or creates the StackHawk application `bidswipe`, checks the setup
    (`hawk validate config / api / auth`), then runs HawkScan with `stackhawk.yml`: every route in
    `docs/api/openapi.yaml` (`test/openapi.test.ts` keeps that spec equal to the server's routes), signed in as the
    scan user, with the `x-bidswipe: 1` header the CSRF guard asks for, plus a browser crawl of the app shell.
 
-Left out on purpose: sign-out, sign-in and sign-up (they would end the scan's own session), the live stream
-(it never ends), cancelling or backing out of a job, undoing a swipe.
+## What the scan does not test
+
+`app.excludePaths` in `stackhawk.yml` did not keep the scanner off the routes it names (run 3; why is not known), so
+the guard enforces the list. The app never sees these, and the scan says nothing about them:
+
+| Stopped by the guard | It answers | Why |
+|---|---|---|
+| `POST /api/auth/logout` | 200 `{"ok":true}` | it ended the scan session (171 times in run 3) |
+| `POST /api/auth/signup`, `POST /api/auth/oauth` | 403 `scan_guard` | a success hands the scanner another account's session |
+| `POST /api/auth/login` with anything but the scan user's exact e-mail and password | 401 `invalid_credentials` | fuzzed sign-ins used up the app's sign-in limit for the runner's address. The scan user's own sign-in is passed on without its Cookie header, because a successful sign-in closes the session the request came with |
+| `POST /api/jobs/<a seeded job>/cancel` and `/back-out`, `DELETE /api/swipe/<the seeded bid>` | 409 `scan_guard` | they would end the job, or undo the saved bid, that the other routes are attacked on. With any other id these routes pass through, so their id handling is still attacked |
+| `GET /api/stream` | passed on, cut after 2 seconds | Server-Sent Events never end by themselves |
+
+So **sign-in, sign-up, sign-out and the social sign-in route are not scanned.** They were attacked by hand in the
+audit below (bursts, lock-outs, the limits on Postgres) and are covered by `test/auth.test.ts` and
+`test/hardening.test.ts`.
+
+Also outside the scan: every `/api/admin` and `/api/cron` route answers 401 by design (the scan has neither token,
+and an admin scan could remove jobs or start a real board scan). The limits cap how much of some routes is
+attacked: `PUT /api/profile` allows 20 saves per 10 minutes and the cost check 30 per minute, so most fuzzed
+requests to them are answered 429. Messages, contact and agreement need an awarded job, which the seed cannot make
+(bids stay open at least a day), so those handlers are reached only in their "not yet" branches.
 
 ## Asking for a scan
 
@@ -38,8 +66,11 @@ Either change `.github/hawkscan-run` (any edit, e.g. the date) and push to `main
 
 - The run's **Summary** and its log: each finding with severity, check name and path, then what the server saw:
   the answers by status, the scan user's session over time, and a table of route by status
-  (`scripts/hawkscan-report.py`; it prints no cookie, password or request body).
-- The **hawkscan-results** artifact: the full JSON and the server log.
+  (`scripts/hawkscan-report.py`: the server report prints only method, path and status; the findings report prints
+  each path's evidence shortened, with session cookie values and e-mail addresses hidden), and what the guard stopped.
+  **Read the session table before the findings**: a run whose `GET /api/me` turns to 401 has not tested the
+  signed-in routes, whatever its severity counts say.
+- The **hawkscan-results** artifact: the full JSON, the server log and the guard's log.
 - The StackHawk app (link in the summary), application `bidswipe`, environment `Development`.
 
 A run ends green with a notice when it finds something at Medium or above: those get fixed and a scan is asked

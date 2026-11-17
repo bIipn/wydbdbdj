@@ -8,7 +8,9 @@ that log is the one thing every reader of a run can open.
 `server` answers the question a clean scan leaves open: did the scanner stay signed in, and did its requests reach
 the handlers? It prints the answers by status, the scan user's session over time (GET /api/me, which the scanner
 polls), and a table of route by status. Admin and cron routes answer 401 on purpose (the scan has neither token).
-Prints no cookie, no password and no request body: the log lines it reads carry only method, path and status.
+`server` prints no cookie, no password and no request body: the log lines it reads carry only method, path and
+status. `findings` prints the platform's evidence for each path, shortened, with session cookie values and e-mail
+addresses hidden (run 3 printed the contact address the scanner had found on the legal pages).
 """
 import collections
 import json
@@ -18,6 +20,17 @@ import sys
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 PLAIN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,23}$")
 STATIC = re.compile(r"\.(js|css|png|svg|ico|html|json|webmanifest|txt|xml|map)$", re.I)
+COOKIE = re.compile(r"(bs_session=)[^;\s\"'\\]+")
+EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
+# Routes that answer signed out: they say nothing about the scan user's session.
+PUBLIC = ("/api/admin", "/api/cron", "/api/auth", "/api/health", "/api/trades", "/api/geo", "/api/jobs/rules", "/api/push/key")
+
+
+def safe(text, limit: int = 160) -> str:
+    """A value from the platform, fit for a log: no session cookie, no e-mail address, not long."""
+    out = EMAIL.sub("[an e-mail address]", COOKIE.sub(r"\1[hidden]", str(text)))
+    out = " ".join(out.split())
+    return out if len(out) <= limit else out[:limit] + "…"
 
 
 def route_of(url: str) -> str:
@@ -40,36 +53,45 @@ def route_of(url: str) -> str:
 
 def findings(path: str) -> None:
     text = open(path, errors="replace").read()
-    start = min([i for i in (text.find("{"), text.find("[")) if i >= 0] or [-1])
-    if start < 0:
-        print("No JSON from the platform for this scan.")
+    # The CLI may print a line or two before the JSON (a notice, a banner with brackets in it): take the first
+    # position that parses to an object.
+    data = None
+    for match in re.finditer(r"\{", text):
+        try:
+            candidate, _ = json.JSONDecoder().raw_decode(text[match.start():])
+        except Exception:
+            continue
+        if isinstance(candidate, dict):
+            data = candidate
+            break
+    if data is None:
+        print("No JSON object from the platform for this scan." + (f" It said: {safe(text, 300)}" if text.strip() else ""))
         return
+    scan = data.get("scan") if isinstance(data.get("scan"), dict) else {}
+    summary = data.get("summary") if isinstance(data.get("summary"), dict) else {}
     try:
-        data, _ = json.JSONDecoder().raw_decode(text[start:])
-    except Exception as err:  # the platform's answer is not ours to trust
-        print(f"Could not read the platform's answer ({err}).")
-        print(text[:1500])
-        return
-    if not isinstance(data, dict):
-        print("Unexpected answer:", json.dumps(data)[:800])
-        return
-    scan, summary = data.get("scan") or {}, data.get("summary") or {}
-    print(f"scan {scan.get('id')} · {scan.get('status')} · {round((scan.get('duration_seconds') or 0) / 60)} min · "
-          f"policy {scan.get('policy')} · URLs scanned {summary.get('urls_scanned')}")
-    print("by severity:", json.dumps(summary.get("by_severity")), "· by status:", json.dumps(summary.get("by_status")))
-    rows = data.get("findings") or []
+        minutes = round(float(scan.get("duration_seconds") or 0) / 60)
+    except (TypeError, ValueError):
+        minutes = "?"
+    print(f"scan {safe(scan.get('id'))} · {safe(scan.get('status'))} · {minutes} min · "
+          f"policy {safe(scan.get('policy'))} · URLs scanned {safe(summary.get('urls_scanned'))}")
+    print("by severity:", safe(json.dumps(summary.get("by_severity"))), "· by status:", safe(json.dumps(summary.get("by_status"))))
+    rows = data.get("findings") if isinstance(data.get("findings"), list) else []
     print(f"\n{len(rows)} check(s) with findings (severity | check | plugin | CWE | paths)")
     for f in rows:
         if not isinstance(f, dict):
             continue
-        print(f"{f.get('severity')} | {f.get('plugin_name')} | {f.get('plugin_id')} | {f.get('cwe_id')} | {f.get('total_paths')}")
-        for p in (f.get("paths") or [])[:60]:
+        print(" | ".join(safe(f.get(k)) for k in ("severity", "plugin_name", "plugin_id", "cwe_id", "total_paths")))
+        paths = f.get("paths") if isinstance(f.get("paths"), list) else []
+        for p in paths[:60]:
             if isinstance(p, dict):
-                where = " ".join(str(p.get(k)) for k in ("method", "request_method", "path", "uri", "url", "status", "triage_status") if p.get(k))
-                extra = {k: v for k, v in p.items() if k in ("evidence", "param", "attack", "other_info") and v}
-                print("    " + (where or json.dumps(p)[:300]) + (("  " + json.dumps(extra)[:400]) if extra else ""))
+                where = " ".join(safe(p.get(k), 120) for k in ("method", "request_method", "path", "uri", "url", "status", "triage_status") if p.get(k))
+                extra = "; ".join(f"{k}: {safe(p.get(k))}" for k in ("evidence", "param", "attack") if p.get(k))
+                print("    " + (where or safe(json.dumps(p), 300)) + (f"  [{extra}]" if extra else ""))
             else:
-                print("    " + str(p)[:300])
+                print("    " + safe(p, 300))
+        if len(paths) > 60:
+            print(f"    … and {len(paths) - 60} more paths")
 
 
 def server(path: str) -> None:
@@ -125,10 +147,15 @@ def server(path: str) -> None:
     statuses = sorted(codes)
     signed_in = collections.Counter()
     for (method, route), row in table.items():
-        if route.startswith("/api/") and not route.startswith(("/api/admin", "/api/cron", "/api/auth", "/api/health")):
+        if route.startswith("/api/") and not route.startswith(PUBLIC):
             for status, n in row.items():
-                signed_in["401" if status == 401 else "answered by the handler or a rule (not 401)"] += n
-    print("\nroutes behind the sign-in (not admin, cron, auth or health):", dict(signed_in))
+                label = {401: "401 signed out", 429: "429 refused by a limit", 409: "409 refused by a state rule"}.get(status, "reached the handler (any other answer)")
+                signed_in[label] += n
+    total = sum(signed_in.values())
+    print("\nroutes behind the sign-in (not admin, cron, auth, health or the public look-ups):")
+    for label, n in signed_in.most_common():
+        print(f"  {n:>6}  {round(100 * n / total) if total else 0:>3}%  {label}")
+    print("  (a stream the scan guard cut after 2 s has no line in the app's log and is not counted)")
 
     print("\nroute by status (ids folded: {id} a UUID, {n} a number, {x} anything else), most requests first:")
     print("  " + "total".rjust(6) + "  " + "  ".join(str(s).rjust(6) for s in statuses) + "  method route")

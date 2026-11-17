@@ -4,7 +4,8 @@
 app:
   applicationId: ${APP_ID}                      # the StackHawk application "bidswipe"; the workflow finds or creates it
   env: ${APP_ENV:Development}                   # findings compare scan to scan inside one environment
-  host: ${APP_HOST:http://localhost:8787}       # the CI server (node dist/server.js, PORT 8787); no base path
+  host: ${APP_HOST:http://localhost:8787}       # in CI the scan guard on port 8788 (scripts/hawkscan-guard.mjs), which
+                                                # passes everything on to the app (node dist/server.js, port 8787)
   openApiConf:
     filePath: docs/api/openapi.yaml             # hand-derived spec of all 61 API routes, kept true by test/openapi.test.ts
     customVariables:                            # real ids from scripts/hawkscan-seed.mjs, so path ids reach the handlers
@@ -24,6 +25,9 @@ app:
       - field: bidId                            # ?bidId= on market/estimates and {bidId} in swipe/estimate bodies
         values:
           - ${SCAN_BID_ID:none}
+  # Run 3 (2026-11-16) showed these did NOT keep the scanner away: every route below still got the scanner's
+  # per-route batch (logout 171 times). They only spare these routes the deeper fuzzing. What keeps the scan session
+  # alive is the scan guard in front of the app; the list stays as the statement of what is left out on purpose.
   excludePaths:                                 # regexes, unanchored so they match a path or a whole URL
     - ".*/api/auth/logout.*"                    # would end the scan user's session
     - ".*/api/auth/(login|signup|oauth)$"       # a success replaces the session the request came with (routes/auth.ts answer())
@@ -45,6 +49,9 @@ app:
       path: /api/me
       type: BODY                                # 200 carries {"account":...}; 401 is {"error":"sign_in_required"}
       success: '.*"account".*'
+    sessionVerification:                        # written out so it is plainly ON: re-check the session with testPath
+      pollFrequency: 15                         # every 15 requests while crawling,
+      activeScanPollFrequency: 5                # every 5 while attacking, and sign in again when it is gone
 hawk:
   failureThreshold: medium                      # exit 42 on a Medium or High finding; the workflow reports it and stays green
   scan:

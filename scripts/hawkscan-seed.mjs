@@ -8,7 +8,8 @@
 //     with a work profile, a saved bid, its own posted job, and a sealed bid on the other account's job;
 //   - a poster ("get work done") who posts the local job the scan user bids on.
 // The scan user's password is random per run and goes ONLY to the file named by GITHUB_ENV (as SCAN_USERNAME /
-// SCAN_PASSWORD, with the ids the scan's customVariables use). This script prints counts and ids, never a secret.
+// SCAN_PASSWORD, with the ids the scan's customVariables use). This script prints counts and ids, never a secret
+// (on GitHub it hands the password to the runner's log mask, a command the runner swallows).
 //
 // What it cannot reach: the "awarded" stage (messages, contact, agreement). A job's bids stay open for at least
 // one day (CLOSES_IN_DAYS.min in src/jobs/service.ts) and the API has no way to move time, so the messages routes
@@ -25,6 +26,10 @@ if (!OUT) {
 
 const run = randomBytes(4).toString('hex');
 const password = `${randomBytes(18).toString('base64url')}-Aa1`; // 8 to 128 characters (src/auth/input.ts)
+// On GitHub, tell the runner to hide this value in every log line from here on, BEFORE it reaches GITHUB_ENV: every
+// later step prints its environment, and a mask set in a later step is too late for that step's own printout. The
+// runner consumes this line; it does not appear in the log.
+if (process.env.GITHUB_ACTIONS === 'true') console.log(`::add-mask::${password}`);
 
 /** One signed-in browser: keeps its cookie, sends x-bidswipe on every request (the CSRF guard). */
 function client(label) {

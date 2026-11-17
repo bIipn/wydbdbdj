@@ -22,7 +22,9 @@ jobs:
     timeout-minutes: 120 # the first run was cut off at 60 with the scan still going
     env:
       HAWK_API_KEY: ${{ secrets.HAWK_API_KEY }}
-      APP_HOST: http://127.0.0.1:8787 # IPv4 on purpose: the server listens on 127.0.0.1 only
+      APP_DIRECT: http://127.0.0.1:8787 # the app itself. IPv4 on purpose: the server listens on 127.0.0.1 only
+      APP_HOST: http://127.0.0.1:8788 # what the scanner talks to: scripts/hawkscan-guard.mjs, which passes everything
+      #                                 on to the app except the requests that would end the scan's own session
       APP_ENV: Development
       HAWK_APP_NAME: bidswipe
     steps:
@@ -68,23 +70,37 @@ jobs:
           export CRON_SECRET="$(openssl rand -hex 24)"
           # DEMO_MODE=1: every account has every feature, so the Pro routes (cost check, award history) are scanned too.
           AUTH_MODE=accounts DEMO_MODE=1 PORT=8787 HOST=127.0.0.1 SCAN_DAILY_AT= MARKET_REFRESH_AT= \
-            VAPID_SUBJECT=mailto:scan@example.com APP_URL="$APP_HOST" \
+            VAPID_SUBJECT=mailto:scan@example.com APP_URL="$APP_DIRECT" \
             nohup node dist/server.js > "$RUNNER_TEMP/server.log" 2>&1 &
           for i in $(seq 1 60); do
-            if [ "$(curl -s -o /dev/null -w '%{http_code}' "$APP_HOST/")" = "200" ]; then echo "Server up after ${i}s"; exit 0; fi
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' "$APP_DIRECT/")" = "200" ]; then echo "Server up after ${i}s"; exit 0; fi
             sleep 1
           done
           echo "::error::The server did not answer GET / within 60 s"; tail -50 "$RUNNER_TEMP/server.log"; exit 1
 
       - name: Seed the scan user and a local job
         if: steps.gate.outputs.run == 'true'
-        run: SEED_BASE_URL="$APP_HOST" node scripts/hawkscan-seed.mjs
+        run: SEED_BASE_URL="$APP_DIRECT" node scripts/hawkscan-seed.mjs
 
       - name: Keep the scan user's throwaway password out of the log
         if: steps.gate.outputs.run == 'true'
         # GitHub prints every step's env block; the password is random per run and the server dies with the job,
         # but it does not belong in a log. From here on it shows as ***.
         run: echo "::add-mask::$SCAN_PASSWORD"
+
+      - name: Start the scan guard (port 8788)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          # After the masking step on purpose: this step's environment holds the scan password.
+          # Run 3 showed why: the scanner signed itself out within five minutes (171 calls to the logout route that
+          # stackhawk.yml's excludePaths names), so the signed-in routes were attacked without a session. The guard
+          # answers logout, sign-up and every sign-in but the scan user's own by itself; the rest passes through.
+          GUARD_TARGET="$APP_DIRECT" GUARD_PORT=8788 nohup node scripts/hawkscan-guard.mjs > "$RUNNER_TEMP/guard.log" 2>&1 &
+          for i in $(seq 1 30); do
+            if [ "$(curl -s -o /dev/null -w '%{http_code}' "$APP_HOST/api/health")" = "200" ]; then echo "Guard up after ${i}s"; cat "$RUNNER_TEMP/guard.log"; exit 0; fi
+            sleep 1
+          done
+          echo "::error::The scan guard did not answer within 30 s"; cat "$RUNNER_TEMP/guard.log"; exit 1
 
       - name: Install the hawk CLI
         if: steps.gate.outputs.run == 'true'
@@ -208,11 +224,13 @@ jobs:
         if: always() && steps.gate.outputs.run == 'true'
         run: |
           log="$RUNNER_TEMP/server.log"
-          echo "health now: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$APP_HOST/api/health")"
+          echo "health now: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$APP_DIRECT/api/health") (through the guard: $(curl -s -o /dev/null -m 10 -w '%{http_code}' "$APP_HOST/api/health"))"
           echo "lines: $(wc -l < "$log")"
           # Status totals, the scan user's session over time, and route by status: was the scanner signed in, and
           # did its requests reach the handlers? (The artifact holds the same log, but not every reader can open it.)
           python3 scripts/hawkscan-report.py server "$log"
+          echo "--- what the scan guard stopped (the app never saw these)"
+          sort "$RUNNER_TEMP/guard.log" | uniq -c | sort -rn | head -20
           echo "--- last lines of the server log (session cookies hidden)"
           tail -n 25 "$log" | sed -E 's/(bs_session=)[A-Za-z0-9_-]+/\1[hidden]/g' | cut -c1-600
 

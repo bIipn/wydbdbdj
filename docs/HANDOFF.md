@@ -49,7 +49,8 @@ the person's own words. Store: the manifest (description, shortcuts Home · Sear
 launch_handler, four new screenshots), the privacy and terms pages, docs/MICROSOFT-STORE.md and the 8 Store images
 (docs/store/).
 *Accepted, not fixed:* see docs/SECURITY-SCAN.md "Accepted for now" (sign-up says whether an address is
-registered; no state/PKCE for social sign-in yet, which must come before any provider is turned on; a right
+registered; no state/PKCE for social sign-in yet, which must come before any provider is turned on, as must deleting
+the Supabase Auth user with the account; a right
 ACCESS_CODE only reads the counter; 3 tries per new address while an e-mail is under attack); no block or mute
 between poster and winner; nothing alerts the owner when a report arrives (the copy now says only that reports go
 to BidSwipe); the badge is not set by a background push; ios-legal-1, ios-oauth-1, ios-launch-1, ios-tag-1 wait for
@@ -267,8 +268,12 @@ Known gaps (marketplace):
 - Legal: the NV/CA licence lines and the after-the-fact no-show fee rest on search snippets, not pages read in
   full; one paid hour before real money moves (docs/MARKETPLACE.md §8). Terms and privacy still have Ev's
   placeholders (contact email, providers) to fill in before publishing.
-- No account deletion yet; when built it must delete the account's `local:<id>` feed rows and decide what
-  happens to fee rows.
+- Account deletion is in the app since 2026-11-18 (Settings → Delete account, `POST /api/account/delete`,
+  src/routes/account.ts + src/db/accounts.ts deleteAccount): it deletes the account's `local:<id>` feed rows, and the
+  fee rows go with it while payments are off (they must outlive the account before payments are turned on). Before
+  social sign-in is turned on it must also delete the Supabase Auth user (auth.users keeps the email), or the privacy
+  page's "nothing is left in our database" must say so. Whether Supabase's backups keep copies for a while is not
+  checked yet.
 - A newly posted job is scored by looping over every profile in the request; batch it before thousands of
   users. `GET /api/jobs/mine` loads every job one at a time (median ~33 ms in the simulation).
 - On a multi-connection Postgres a bid sent in the exact millisecond of closing could, in theory, be swept to
@@ -327,8 +332,8 @@ federal bids from the free bulk file, store-ready PWA"):**
   accounts mode, `DEMO_MODE` off, `SOURCES=fixtures`, a TEST promo code): sign-up + onboarding by taps at
   390×844 and 1280×800, Pro unlocked from a `?promo=` link, cost check opened; poll mode raised 2 alerts and
   reloaded the deck to 7 bids without a stream.
-- Known gaps: sign-in/promo rate limits are per process (weak on serverless); no in-app account deletion;
-  the privacy page needs a contact email; CA DIR and county prequalification are not scored.
+- Known gaps: sign-in/promo rate limits are per process (weak on serverless); ~~no in-app account deletion~~ (built
+  2026-11-18); the privacy page needs a contact email; CA DIR and county prequalification are not scored.
 - **Live since 2026-11-13: https://bidswipe-tau.vercel.app** (accounts mode, promo codes on).
   - Host: Vercel project `bidswipe` (team "biipn's projects"), Hobby plan, region sfo1, Node 22. It is
     linked to this GitHub repository with production branch `main`. The live version was deployed by
@@ -350,8 +355,10 @@ federal bids from the free bulk file, store-ready PWA"):**
   - Checked on the live site in a phone-size browser: a `?promo=` link gave Pro after a 14-tap,
     zero-typing onboarding; Browse showed state and federal bids; `/package.json`, `/server.js` and
     `/config/…` answer 404.
-  - Not done there: phone push (no VAPID keys set), the daily digest email (no Resend key), social
-    sign-in (no Supabase Auth keys), a BLS key (wages and price indexes depend on the no-key limit).
+  - Not done there at the time: phone push (no VAPID keys set; **since set**: on 2026-11-18 the live
+    `GET /api/push/key` answers a key, but no push has been confirmed arriving on a real phone: docs/PLAN.md X1),
+    the daily digest email (no Resend key), social sign-in (no Supabase Auth keys), a BLS key (wages and price
+    indexes depend on the no-key limit).
   - Vercel's Hobby plan is for non-commercial use: move to Pro ($20/month) or another host before
     charging for BidSwipe Pro.
 

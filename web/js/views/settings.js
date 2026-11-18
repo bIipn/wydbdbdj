@@ -293,7 +293,11 @@ function deleteAccountSection() {
     formError(),
     del.jobs.length
       ? h('ul', { class: 'delete-jobs', 'aria-label': 'Jobs that aren’t finished' }, del.jobs.map((j) => h('li', {},
-        h('button', { type: 'button', class: 'delete-job', onclick: () => openJob(j.id, 'settings') }, j.title || 'Your job'))))
+        h('button', {
+          type: 'button', class: 'delete-job',
+          // Leaving for the job: the typed password and the refusal are not kept for the way back (review rs-4).
+          onclick: () => { Object.assign(del, { value: '', error: null, jobs: [] }); openJob(j.id, 'settings'); },
+        }, j.title || 'Your job'))))
       : null,
     h('div', { class: 'delete-actions' },
       submit,
@@ -336,6 +340,9 @@ async function deleteAccount(form, submit) {
     }
     if (err.code === 'job_in_progress') del.jobs = Array.isArray(err.body?.jobs) ? err.body.jobs : [];
     const onField = err.code === 'wrong_password' || err.code === 'wrong_email';
+    // The keyboard stays where the answer is (the redraw would drop it on the page): the box after a wrong answer,
+    // the first unfinished job after a refusal (review rs-3).
+    if (!del.focus) del.focus = del.jobs.length ? 'job' : onField ? 'retry' : true;
     del.error = { field: onField ? 'proof' : 'form', message: err.message || 'That didn’t go through. Try again.' };
     render();
     return;
@@ -348,14 +355,18 @@ async function deleteAccount(form, submit) {
   showToast('Your account is deleted.');
 }
 
-// The confirm form's box gets the keyboard when it opens, and again when it asks for the email address instead.
+// The confirm form's box gets the keyboard when it opens, again when it asks for the email address instead, and after a
+// refusal: a wrong answer selects what was typed (retype at once), a job in progress focuses the first listed job.
 onAfterRender((view) => {
   if (view !== 'settings' || !del.focus) return;
   const box = document.getElementById('deleteProof');
   if (!box) return;
+  const want = del.focus;
   del.focus = false;
-  box.closest('.delete-account')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  box.focus({ preventScroll: true });
+  const job = want === 'job' ? document.querySelector('.delete-account .delete-job') : null;
+  (job ?? box).closest('.delete-account')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  (job ?? box).focus({ preventScroll: true });
+  if (!job && want === 'retry') box.select();
 });
 
 function renderSettings() {

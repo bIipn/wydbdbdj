@@ -15,7 +15,10 @@ export function dueInfo(iso) {
   const days = ms / 864e5;
   let big;
   if (ms <= 0) big = 'Closed';
-  else if (days < 1) big = ms < 36e5 ? 'Under 1 hour' : `${Math.floor(ms / 36e5)} hours left`;
+  else if (days < 1) {
+    const hours = Math.floor(ms / 36e5);
+    big = hours < 1 ? 'Under 1 hour' : `${hours} hour${hours === 1 ? '' : 's'} left`; // never "1 hours left"
+  }
   else big = `${Math.floor(days)} day${Math.floor(days) === 1 ? '' : 's'} left`;
   return { big, small: `${fmtDay.format(d)} · ${clock(d)}`, urgent: days < 5, days };
 }

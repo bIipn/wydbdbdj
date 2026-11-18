@@ -362,17 +362,26 @@ function people(job) {
  */
 const isDefaultShopName = (name) => /^My( .+)? shop$/.test(name ?? '') || name === 'BidSwipe member';
 
+/** Who a tab row is, in words. A winning bid whose bidder deleted their account (`gone`) has no one behind it; the
+ * poster is told so, everyone else sees the usual "Bidder N" (names are the poster's only). */
+function tabWho(r, poster) {
+  if (r.mine) return 'You';
+  if (poster && r.gone) return 'Deleted account';
+  return poster && r.bidder && !isDefaultShopName(r.bidder.name) ? r.bidder.name : `Bidder ${r.rank}`;
+}
+
 /** The ranked amounts after closing: the viewer's own marked; the poster also sees who. */
 function bidTab(job) {
   if (!job.tab?.length) return null;
   const poster = job.my.role === 'poster';
+  const cards = poster && job.tab.some((r) => r.bidder);
   return section('Bid tab',
     h('ol', { class: 'bid-tab' }, job.tab.map((r) => h('li', { class: `${r.mine ? 'mine' : ''}${r.rank === 1 ? ' first' : ''}` },
       h('span', { class: 'bt-rank' }, String(r.rank)),
-      h('span', { class: 'bt-who' }, r.mine ? 'You' : poster && r.bidder && !isDefaultShopName(r.bidder.name) ? r.bidder.name : `Bidder ${r.rank}`),
+      h('span', { class: 'bt-who' }, tabWho(r, poster)),
       h('strong', { class: 'bt-amt' }, dollars(r.amountCents)),
       poster && r.bidder ? h('button', { class: 'text-btn bt-card', type: 'button', onclick: () => openCard(r.bidder) }, 'Card') : null))),
-    h('p', { class: 'job-note faint' }, poster ? 'Lowest first. Tap Card to see a bidder.' : 'Lowest first. Bidders’ names are shown only to the poster.'),
+    h('p', { class: 'job-note faint' }, cards ? 'Lowest first. Tap Card to see a bidder.' : poster ? 'Lowest first.' : 'Lowest first. Bidders’ names are shown only to the poster.'),
   );
 }
 
@@ -380,7 +389,9 @@ function bidTab(job) {
  * box are the Messages tab's own (views/messages.js), so the two screens can never drift apart. */
 function thread(job) {
   const inThread = job.award && (job.my.role === 'poster' || job.award.isMe) && (job.status !== 'unfilled' || ui.messages.length);
-  if (!inThread) return null;
+  // The winner deleted their account: there is no one to write to, the server answers the thread with 403, and the
+  // status line already says why (job-words.js WINNER_DELETED). No dead Messages section (review del-3).
+  if (!inThread || job.award?.winnerDeleted) return null;
   state.threadOnScreen = job.id ?? ui.id; // live.js: no toast for a message this thread already shows
   const canSend = job.status === 'awarded' || job.status === 'agreed';
   const list = ui.messages.length

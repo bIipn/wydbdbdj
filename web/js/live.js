@@ -305,6 +305,12 @@ export function stopLive() {
   conn.lastId = 0;
   clearTimeout(poll.timer);
   Object.assign(poll, { ms: 0, timer: null, known: false, lastScan: null });
+  // Alerts that arrived just before a sign-out or an account deletion are not toasted on the sign-in screen
+  // ("3 new alerts · See them" replaced "Your account is deleted.": review del-6).
+  clearTimeout(burst.timer);
+  burst.timer = null;
+  burst.alerts.length = 0;
+  burst.items.clear();
   setStatus('off');
 }
 

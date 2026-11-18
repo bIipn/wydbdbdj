@@ -88,7 +88,10 @@
   }
   .sheet-grip { display: none; }
   /* No grip at a desk: the bar is the dialog's Close, top right, the content under it. */
-  .sheet-top { margin: 0 -26px; padding: 16px 26px 2px; }
+  .sheet-top { margin: 0 -26px; padding: 16px 26px 12px; }
+  /* The Filters footer covers the dialog's own 24px bottom padding (the phone's is 18px), so nothing scrolled under it
+     shows in a strip below its buttons (review rs-5). */
+  .fs-foot { bottom: -24px; margin-bottom: -24px; padding-bottom: 24px; }
   .sheet .desc { max-height: 40vh; }
 
   .toast { top: 22px; }

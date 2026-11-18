@@ -397,9 +397,8 @@ write `&` as `%26`. The **iOS** build is different: Apple guideline 3.1.1 bars u
 - **The account type** (risk 2): check it.
 - ~~Two reviewer accounts~~: made 2026-11-18; the award and the messages on 2026-11-19 (step 5 at the top).
 - **No block or mute** between a poster and a winner. Microsoft does not ask for one by name.
-- **Account deletion in the app.** The privacy page says to email the contact address; Apple and Google require an
-  in-app way, so build it before the phone stores. When it is built it must also delete the account's `local:<id>`
-  rows and decide what happens to its fee rows.
+- ~~**Account deletion in the app.**~~ Built 2026-11-18: Settings → Delete account (password, or the email address
+  for an account with no password), at once; the privacy page says what goes. Apple and Google require an in-app way.
 - **Optional manifest extras**: `widgets`, `share_target`, `protocol_handlers`, `edge_side_panel`,
   `window-controls-overlay` (only with title-bar CSS), `iarc_rating_id` after the rating. None is needed for certification.
 

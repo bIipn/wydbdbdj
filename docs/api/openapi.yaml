@@ -276,11 +276,13 @@ paths:
       summary: >-
         Delete the signed-in account and everything tied to it, at once, in one database statement (accounts mode;
         404 in single mode). The body proves it is the owner: {password}, or {email} for an account with no password
-        (social sign-in), checked the way sign-in checks it. 5 wrong answers per account in 15 minutes, counted
-        BEFORE the check, then 429 with the time left (a right answer gives its count back). 409 job_in_progress
-        with {jobs: [{id, title}]} while the account is in a job that is not finished (one it posted that is open
-        with a bid, or one awarded within its contact window or agreed where it is the poster or the winner); its
-        own bids on other people's open jobs go with it. On 200 the session cookie is cleared. POST, not DELETE:
+        (social sign-in), checked the way sign-in checks it. 5 wrong answers per session in 15 minutes, counted
+        BEFORE the check, then 429 with the time left (a right answer gives its count back; another session of the
+        same account is not held by them). 409 job_in_progress with {jobs: [{id, title}]} while the account is in a
+        job that is not finished (one it posted that is open with a bid or agreed, or one awarded within its contact
+        window where it is the poster or the winner); its own bids on other people's open jobs go with it, and so
+        does its place as the winner of an agreed job (the job keeps its record). On 200 the session cookie is
+        cleared. POST, not DELETE:
         some clients drop a DELETE's body. The scan never sends this one (scripts/hawkscan-guard.mjs answers 403).
       parameters:
         - $ref: '#/components/parameters/Csrf'

@@ -80,7 +80,8 @@ $('#sheet').addEventListener('scroll', (e) => e.currentTarget.classList.toggle('
 /** What Tab can reach in the open sheet, in page order (a radio group is one stop: its checked option). */
 function sheetStops() {
   const sheet = $('#sheet');
-  return [...sheet.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+  // A <details> summary is a stop too: the price check's "About these figures" is the bid sheet's last control (review rs-1).
+  return [...sheet.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), details > summary:first-of-type, [tabindex]:not([tabindex="-1"])')]
     .filter((el) => el.getClientRects().length > 0)
     .filter((el) => !(el.type === 'radio' && !el.checked && [...sheet.querySelectorAll('input[type=radio]')].some((r) => r.name === el.name && r.checked)));
 }

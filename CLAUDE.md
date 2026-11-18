@@ -388,8 +388,12 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
 - The stored data predates a rule change until the next scan re-reads the board: re-placing or re-filtering stored
   rows by hand is a stand-in (the measuring scripts say so), never something the app does.
 - The first production scan with new boards must be a first load or run quietly (docs/HANDOFF.md, 2026-11-14).
-- There is no account-deletion route yet. When it is built it must also delete the `local:<id>` rows of the
-  account's jobs (they are not cascaded) and decide what happens to its fee rows (job_fees.payer_id cascades).
+- Account deletion (2026-11-18): `POST /api/account/delete {password}` (src/routes/account.ts, src/db/accounts.ts
+  deleteAccount + sweepOrphanMirrors). Refused (409) while a job is in progress (`jobsInProgressCtes` in
+  src/jobs/repo.ts; an agreed job blocks only its poster). It deletes the `local:<id>` rows of the account's jobs
+  (not cascaded); fee rows cascade while payments are off and must outlive the account before payments go on. Wrong
+  passwords count per session (`account:delete:<id>:<session hash>`). A write by an account deleted mid-request (a
+  23503 into accounts) answers 401. Before social sign-in goes on, deletion must also remove the Supabase Auth user.
 
 - Home and the chrome (2026-11-16): the tab bar is LAST in index.html (the keyboard reaches it last, where a phone
   shows it); desktop.css draws it under the header with CSS `order`. `.app` has `overflow-x: clip`: a swiped card

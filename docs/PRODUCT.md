@@ -45,7 +45,7 @@ and the owner won't trust anything he can't see the reasoning for. Every design 
    6. **Business name** (optional; skipped = "My electrical shop"). Spend limits are in Settings.
 2. **Every morning** the scanner pulls new open bids from public boards and scores each one for you.
 3. **Your phone buzzes** for great fits. Open the app → swipe right to save, left to pass.
-4. Tap **"Bid on …"** → you go to the agency's own site to bid. We never take or submit bids.
+4. Tap **"Bid on …"** → you go to the agency's own site to bid. We never take or submit a public bid.
 5. **Pro:** the bot reads the bid documents, summarizes them, builds your checklist, tells you what
    similar jobs went for, and drafts the paperwork for you to approve.
 

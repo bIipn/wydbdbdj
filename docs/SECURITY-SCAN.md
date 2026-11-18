@@ -1,12 +1,12 @@
 # Security scan (HawkScan)
 
-**Status (2026-11-17): run 4 was the first scan signed in all the way, and found nothing at High or Medium.**
-`GET /api/me` answered 200 for the whole run, and 90% of the requests to signed-in routes reached a handler. It
-found one 500 (`GET /api/estimates` with a NUL in `bidId`), fixed in the same change as this note, with a test. It
-also showed two places the attack did not reach: the job routes were given an id that is not a job, and
-`POST /api/estimate` never reached the cost engine. This change gives the scanner real ids and a complete cost
-request (below); run 5 confirms. What the guard keeps the scanner from (sign-in, sign-up, sign-out, social sign-in)
-is still not scanned: it is covered by the 2026-11-16 audit and the tests.
+**Status (2026-11-18): runs 4 and 5 were signed in all the way and found nothing at High or Medium, and no 5xx.**
+Run 5 confirmed one of the two fixes after run 4: `POST /api/estimate` now reaches the cost engine (237 x 200). The
+other is half done: the job routes that end or change a job got the seeded ids, but `messages`, `confirm`,
+`complete`, `contacted` and `read` still got ids that are not jobs (84 x 404 each). The report now prints which id
+each job-route request carried, so run 6 shows where those ids come from. What the guard keeps the scanner from
+(sign-in, sign-up, sign-out, social sign-in, Delete account) is still not scanned: it is covered by the 2026-11-16
+audit and the tests (test/account-delete.test.ts, test/no-5xx.test.ts).
 
 ## Runs
 
@@ -16,7 +16,8 @@ is still not scanned: it is covered by the 2026-11-16 audit and the tests.
 | 2 · 2026-11-16 21:35 UTC | cb979c2 (the fixes; the build that is live) | Finished by itself in 61 minutes. High 0 · Medium 0 · Low 2: "Information Leak - Email Address" on `/privacy.html` and `/terms.html`, the public contact address the owner put there on purpose (by design). 28,777 answers: no 5xx, none slower than 5 seconds, 514 were 429 (the new limits at work). 13,533 were 401, and the log could not say on which routes |
 | 3 · 2026-11-16 23:02 UTC | f138414 (same app code; a report that prints route by status) | Finished in 48 minutes with the same result, and showed runs 2 and 3 were **hollow behind the sign-in**: the scanner called `POST /api/auth/logout` 171 times although `excludePaths` names it; `GET /api/me` answered 200 only in the first five minutes; a fuzzed sign-up succeeded 4 times, so for a while the scanner held a brand-new account with no profile (437 answers were 409); its fuzzed sign-ins used up the sign-in limit for the runner's address (117 x 429), so it never signed in again. Of 14,499 requests to signed-in routes, 10,057 were answered 401. `POST /api/estimate`: 10 reached the validation, 866 were 401 |
 | 4 · 2026-11-17 | the scan guard (below) | Finished by itself: 89 minutes of scanning (the app's log covers 91, with the seeding before it). High 0 · Medium 0 · Low 2: the contact address on the two legal pages, as in run 2 (by design). Signed in all the way: `GET /api/me` answered 200 in every five-minute slot, 3,537 times; the 15 x 401 are the scanner's own signed-out probes of that route. Of 14,703 requests to signed-in routes, 13,201 (90%) reached a handler, 1,484 (10%) were 429 and 18 were 401. The guard stopped 271 sign-ups, 271 sign-ins that were not the scan user's, 139 oauth calls and 133 logouts, and cut 59 streams. No answer slower than 5 seconds. ONE 500: `GET /api/estimates` with a NUL in `bidId` (Postgres refuses a NUL in text; the route passed the query on unchecked), fixed in the same change, with a test. Two limits: the job routes got an id that is not a job (`POST /api/jobs/{id}/messages` 139 x 404 of 140, the same for confirm, complete, contacted, read, cancel and back-out: most answers were the first look-up's 404), and `POST /api/estimate` never reached the cost engine (10 x 400, 725 x 404, 20 x 429, never 200) |
-| 5 | real ids and a complete cost request | To confirm the two fixes below ("Ids and the cost check"): far fewer of the job routes' answers should be 404 (the report now prints the count; a fuzzed id still answers 404), and `POST /api/estimate` should answer 200 |
+| 5 · 2026-11-18 | 5eb226e (real ids and a complete cost request; the NUL fix) | Finished by itself in 82 minutes (scan 7cf84905…, 158 URLs). High 0 · Medium 0 · Low 2: the contact address on the two legal pages (by design). Signed in all the way: `GET /api/me` answered 200 in every five-minute slot, 2,351 times; its 25 x 401 are the scanner's own signed-out probes. Of 10,335 requests to signed-in routes, 9,141 (88%) reached a handler, 1,167 (11%) were 429 and 27 were 401. No 5xx, no answer slower than 5 seconds, no error line. `POST /api/estimate`: 237 x 200 (run 4: never), 1,110 x 400, 137 x 429. The job routes: 1,886 requests, 918 (49%) answered 404; `messages`, `confirm`, `complete`, `contacted` and `read` got ids that are not jobs (84 x 404 each) |
+| 6 | the report prints which id each job-route request carried | To see where the job routes' non-job ids come from (the seed's ids or the scanner's own). The first run with Delete account in the app: the guard answers `POST /api/account/delete` 403, so the scan user is never deleted |
 
 ## What runs
 

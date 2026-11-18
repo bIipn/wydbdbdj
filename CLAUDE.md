@@ -18,18 +18,23 @@ Indeed list"). Two kinds of work live in one app:
 - **Read next:** `README.md` (setup/deploy/API) and `docs/HANDOFF.md` (research notes, decisions, roadmap);
   `docs/APIS.md` (every outside service, what it costs, what turns each feature on).
 
-## Problems we cannot have (the owner, 2026-11-18: "never forget"; the full plan is `docs/PLAN.md`)
-Contractors leave tools that do these. Every change is checked against them; a change that breaks one does not ship.
-1. **Too expensive or bloated for a small crew** (the Procore / ConstructConnect complaint). Free must be useful on
-   its own; nothing a 3-person crew never needs sits in its way; every new screen, setting or field earns its place.
-2. **Shared leads that burn cash** (the homeowner-lead-app complaint). Never charge per lead, never sell one job to
-   many, never make anyone pay before they know a job is real. Public bids stay free to see and bid.
-3. **Bureaucratic and hard on a phone in the field** (the government-portal complaint). Phone first: one hand, big
-   tap targets, plain words, few taps from opening the app to today's best bid; no PDF hunting to know if a job fits.
-- The goal is return visits and fast decisions, not screen time. No dark patterns: no fake urgency, streak guilt,
-  notification spam or manipulative counts.
-- Learn from competitors (PlanHub, ConstructConnect, ToolBelt) through their PUBLIC pages and users' reviews only;
-  never use their data (their boards are login-walled: see Scraping etiquette).
+## Problems we cannot have (the owner, 2026-11-18: "never forget"; why, checks and sources: docs/PLAN.md)
+No change may make one of these worse. "(Nn, coming)" = that check lands with item Nn of docs/PLAN.md §5.
+1. **Not too expensive or bloated.** Free per PRODUCT.md §4 (owner decision O8 open); never metered by count; never
+   priced by radius, market or seat. Pro features live only in src/plans.ts; ≤ 5 tabs (test/home-model.test.ts).
+2. **No shared leads that burn cash.** Posting and bidding are free; no fee per lead, view or contact; a fee only in
+   src/jobs/rules.ts's cases, shown before the bid, recorded not charged (test/jobs-rules.test.ts). Local-job alerts
+   reach every plan alike (test/realtime.test.ts, N2 coming); never imply we told anyone something outside the app.
+3. **Works on a phone in the field.** Tap targets ≥ 44 px (test/tap-targets.test.ts, N9 coming); a card shows why it
+   fits, the due time, paperwork and where to bid, no PDF needed; new sheet lines never push "Bid on …" down.
+4. **No alert spam.** Only inside trade and reach; never sub work, capped or over-limit; ≤ 10 per scan; never the same
+   bid twice; a switch per kind (test/tiers.test.ts, test/scan-quiet.test.ts, test/realtime.test.ts).
+5. **No stale or fake-looking listings.** Open = openBidSql(); every card says how fresh it is (test/format.test.ts,
+   N4 coming); every count is real and 0 is said as 0.
+6. **No money traps.** No price behind a form; no sales calls or SMS; no phone number required to sign up or find work.
+- Goal: return visits and fast decisions, not screen time. No streaks, fake urgency, win-back pushes or "N viewing".
+- Learn from competitors' public pages and reviews only: never their data, never their names in our copy.
+The Now/Next list and the open owner decisions (O1–O11) are in `docs/PLAN.md`.
 
 ## Stack
 Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "module"`, imports end in `.js`)

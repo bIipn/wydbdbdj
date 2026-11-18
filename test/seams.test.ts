@@ -76,7 +76,7 @@ describe('profile ids and summaries', () => {
 
 describe('next bid', () => {
   const item = (over: Partial<FeedItem>): FeedItem => ({
-    ...testBid(), score: 90, verdict: 'great', reasons: [], distanceMi: 20, swipe: null, firstSeenAt: NOW.toISOString(), overLimit: false, tier: 'fit', ...over,
+    ...testBid(), score: 90, verdict: 'great', reasons: [], distanceMi: 20, swipe: null, firstSeenAt: NOW.toISOString(), lastSeenAt: NOW.toISOString(), overLimit: false, tier: 'fit', ...over,
   });
 
   it('answers { item: null, why } when there is nothing to pick from', () => {

@@ -109,8 +109,13 @@ costs — so you can decide fast whether it's worth bidding and at what price. C
 
 ### 3.4 Alerts to your phone 🟡 (inbox + live in-app stream + email digest; web push wired, not yet delivered end to end)
 - Push for: new great/good matches (instant on Pro, daily summary on Free), deadline reminders for
-  saved bids (3 days / 1 day / morning-of), addendum posted on a saved bid, results posted on a bid
-  you bid on, price-action alerts (Pro).
+  saved bids (3 days before / the day before / the due day, by calendar day on the user's clock; the last two say to
+  check the agency's page for addenda, which BidSwipe does not read), addendum posted on a saved bid, results posted
+  on a bid you bid on, price-action alerts (Pro).
+- **Local jobs buzz on every plan alike** (✅ 2026-11-18): you won, the bids are in, messages and a one-sided
+  "We've agreed", the 2-days-left contact reminder, how the job ended, and a new local job that fits you. Free and
+  Pro get the same push at the same moment (the per-kind switches and quiet hours still apply): a winner who can be
+  recorded as a no-show must hear it, and no plan hears of a new job first.
 - **What "real time" means:** an alert goes out the moment *our scan* finds a new bid, or the moment the
   daily market refresh finds a new price figure or award. The scan runs once a day by default, so a bid
   posted on a board reaches you up to a day later — not the second the agency posts it. (Today: inbox +
@@ -167,7 +172,7 @@ Ev's idea: people post a job, others bid on it, and like government contracting 
 |---|---|---|
 | Feed: swipe, browse, saved | ✅ 1 trade, 1 area | ✅ multiple trades/areas |
 | Fit score + reasons | ✅ | ✅ |
-| Alerts | daily digest | **instant push** + deadline reminders |
+| Alerts | in-app inbox + deadline reminders; push for local jobs; daily digest (planned) | **instant push** for public bids too |
 | Price action | the notice's estimate, prevailing-wage hint, award count | award history, BLS wages and price trends |
 | Cost check (bid price, cash carried, limits) | — (shows what it is, locked) | ✅ |
 | Cost settings (saved labor rate, burden, markups) | — | ✅ |

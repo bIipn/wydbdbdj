@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_JOB_RULES, JobConfigError, loadJobRules, pctToPpm, publicRules } from '../src/jobs/config.js';
@@ -284,5 +285,56 @@ describe('settings (JOB_* environment)', () => {
       expect(() => load(vars)).toThrow(JobConfigError);
       expect(() => load(vars)).toThrow(message);
     }
+  });
+});
+
+// web/js is plain JavaScript with no type declarations; a computed path keeps tsc from asking for them.
+const wordsPath = '../web/js/job-words.js';
+const w = (await import(wordsPath)) as {
+  freeLine: (o?: { hire?: boolean; paymentsOn?: boolean }) => string;
+  NOT_COLLECTED: string;
+  FEES_OFF: string;
+};
+
+describe('the Jobs tab says what it costs (web/js/job-words.js freeLine, docs/PLAN.md R2, N8)', () => {
+
+  it('posting and bidding are free; a fee only on the winner, in the cases shown before the bid; none collected', () => {
+    expect(w.freeLine({ paymentsOn: publicRules(RULES).paymentsOn })).toBe(
+      'Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid. Fees are not being collected yet.');
+    expect(w.freeLine()).toBe(w.freeLine({ paymentsOn: false })); // payments are off unless the server says otherwise
+  });
+
+  it('the "not collected" words are the fee lines\' own (FEES_OFF under the bid box), and go once payments are on', () => {
+    expect(w.FEES_OFF.startsWith(`${w.NOT_COLLECTED} `)).toBe(true);
+    expect(w.freeLine({ paymentsOn: true })).toBe('Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid.');
+  });
+
+  it('someone here only to get work done sees the posting half: free, and no fee for the poster', () => {
+    const line = w.freeLine({ hire: true });
+    expect(line).toBe('Posting a job is free, and the poster pays no fee.');
+    expect(line).not.toMatch(/bid/i);
+  });
+
+  it('the words match rules.ts: only the winner can owe a fee, and only on the winning bid', () => {
+    expect([...FEE_OUTCOMES].sort()).toEqual(['bidder_backed_out', 'bidder_no_show']); // the winner's two, nobody else's
+    // A poster who never answers, no agreement, no bids, a cancel: nobody owes anything.
+    const awarded: JobState = {
+      ...openJob(T0), status: 'awarded', winnerBidId: 1, winnerId: 'TEST-a', awardCents: 100_000, awardedAt: T0,
+      contactDeadline: contactDeadlineFor(T0, RULES.contactDays), bidderMessagedAt: T0 + HOUR_MS,
+    };
+    const winner: BidState = { id: 1, bidderId: 'TEST-a', amountCents: 100_000, createdAt: T0 - DAY_MS, status: 'won' };
+    const done = settle(awarded, [winner], awarded.contactDeadline! + 1, RULES);
+    expect(done.job.outcome).toBe('poster_no_show');
+    expect(done.fees).toEqual([]);
+    expect(settle(openJob(T0), [], T0 + 1, RULES).fees).toEqual([]);
+  });
+
+  it('the line sits at the top of the Jobs tab, under the intro and above the lists', () => {
+    const view = readFileSync(new URL('../web/js/views/jobs.js', import.meta.url), 'utf8');
+    const intro = view.indexOf("h('p', { class: 'jobs-intro' }");
+    const free = view.indexOf("h('p', { class: 'jobs-free' }, freeLine({ hire, paymentsOn: jobs.rules?.paymentsOn === true }))");
+    expect(intro).toBeGreaterThan(0);
+    expect(free).toBeGreaterThan(intro);
+    expect(view.indexOf('    body,', free)).toBeGreaterThan(free);
   });
 });

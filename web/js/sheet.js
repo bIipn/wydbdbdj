@@ -3,7 +3,7 @@
 
 import { setSwipe } from './actions.js';
 import { $, h } from './dom.js';
-import { VERDICT_LABEL } from './format.js';
+import { addendaLine, VERDICT_LABEL } from './format.js';
 import { agencyLine } from './home-model.js';
 import { bidLink, facts, localPill, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { costCheckButton, priceCheck } from './price.js';
@@ -18,6 +18,7 @@ export function openSheet(item) {
     h('button', { class: 'cta ghost', type: 'button', onclick: () => { closeSheet(); setSwipe(item, 'save', 'Saved'); render(); } }, item.swipe === 'save' ? 'Saved ✓' : 'Save'),
     bidLink(item, 'full'),
   );
+  const addenda = addendaLine(item); // public bids only: a local job is bid in the app
   // replaceChildren() would print a null as the text "null": drop the parts this bid does not have.
   body.replaceChildren(...[
     h('div', { class: `card-head verdict-${item.verdict}` },
@@ -31,11 +32,13 @@ export function openSheet(item) {
     subNote(item),
     h('h2', { id: 'sheetTitle' }, item.title),
     h('p', { class: 'agency' }, agencyLine(item)),
-    facts(item),
+    facts(item, { sheet: true }), // "41 mi, straight line": no new line, so "Bid on …" stays where it was (S1)
     item.overLimit ? h('p', { class: 'over-note' }, 'This job is bigger than the spend limits in your settings, so it stays out of your swipe deck.') : null,
     h('div', { class: `verdict-${item.verdict}` }, reasonsList(item)),
     item.description ? h('div', { class: 'desc' }, item.description) : null,
     actions,
+    // Below "Bid on …", never above it: a new line must not push the button down (docs/PLAN.md S1).
+    addenda ? h('p', { class: 'addenda-note' }, addenda) : null,
     // The price check needs the API (the bundled demo has no market data); the cost check button explains itself.
     isLive() ? priceCheck(item, () => { closeSheet(); setView('market'); }) : h('section', { class: 'price-check' }, costCheckButton(item)),
   ].filter(Boolean));

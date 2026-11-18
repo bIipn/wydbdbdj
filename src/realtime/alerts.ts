@@ -9,8 +9,11 @@
  *         src/realtime/index.ts releases it on its first 15-minute tick after quiet hours end —
  *         everything that piled up goes out as ONE notification. A held push that is older than
  *         24 hours, or that the owner has already read in the app, is never sent.
- *   off   the plan has no instant push (free), the owner turned phone alerts off, or the alert is
- *         about a bid that was already on the boards (inbox only).
+ *   off   the owner turned phone alerts off, the alert is about a public bid and the plan has no instant
+ *         push (free), or it is about a bid that was already on the boards (inbox only).
+ *
+ * Local jobs (BidSwipe's own marketplace) buzz the same way on every plan (docs/PLAN.md R2): a winner who can be
+ * recorded as a no-show hears "You won" on Free as on Pro, and no plan hears of a new local job first.
  */
 import type { NewAlert, SavedDeadline } from '../db/alerts.js';
 import { formatUsd } from '../jobs/rules.js';
@@ -69,7 +72,7 @@ function wallClock(at: Date, timeZone: string): WallClock {
   };
 }
 
-/** The zone a profile's quiet hours and "morning of" are read in. */
+/** The zone a profile's quiet hours and deadline reminders' calendar days are read in. */
 export const alertZone = (alerts: AlertSettings | undefined): string => alerts?.timeZone ?? PACIFIC;
 
 const minutesOf = (clock: string): number | null => {
@@ -94,11 +97,30 @@ export function inQuietHours(alerts: AlertSettings | undefined, now: Date): bool
 }
 
 /**
- * Should an alert buzz this profile's phone right now? Registering a device is the opt-in, so
- * `alerts.push` only matters when it is an explicit false.
+ * What an alert is about, for the push: 'bid' = a public bid or the market (Pro and the pilot buzz, Free reads the
+ * inbox), 'local' = a local job (every plan alike).
  */
-export function pushDecision(alerts: AlertSettings | undefined, plan: Plan, now: Date): PushDecision {
-  if (!featuresFor(plan).instantPush || alerts?.push === false) return 'off';
+export type PushTopic = 'bid' | 'local';
+
+/** A local job's card in the feed is the bid `local:<jobId>` (src/jobs/service.ts mirrorBid). */
+const LOCAL_BID = 'local:';
+
+/**
+ * Is this alert about a local job: one of the job_* kinds, or a 'match' or 'deadline' alert on a `local:<jobId>` card?
+ * src/db/alerts.ts claimWaitingPushes asks the same in SQL (localOnly).
+ */
+export const isLocalJobAlert = (kind: string, bidId: string | null | undefined): boolean =>
+  kind.startsWith('job_') || (typeof bidId === 'string' && bidId.startsWith(LOCAL_BID));
+
+const topicOf = (bidId: string): PushTopic => (bidId.startsWith(LOCAL_BID) ? 'local' : 'bid');
+
+/**
+ * Should an alert buzz this profile's phone right now? Registering a device is the opt-in, so
+ * `alerts.push` only matters when it is an explicit false. The plan only decides for public bids
+ * ('bid'); a local job ('local') takes the same answer on every plan. Quiet hours hold both.
+ */
+export function pushDecision(alerts: AlertSettings | undefined, plan: Plan, now: Date, topic: PushTopic = 'bid'): PushDecision {
+  if ((topic === 'bid' && !featuresFor(plan).instantPush) || alerts?.push === false) return 'off';
   return inQuietHours(alerts, now) ? 'hold' : 'send';
 }
 
@@ -156,37 +178,51 @@ export function decideMatch(event: BusEventOf<'match'>, profile: Profile, plan: 
     },
     // "The moment the system sees it" is a bid that is new to the boards. One that was already
     // there (first scoring after onboarding, a changed setting) goes to the inbox without a buzz.
-    push: event.isNewBid ? pushDecision(profile.alerts, plan, now) : 'off',
+    // A new local job (local:<jobId>) buzzes on every plan alike; a public bid by the plan.
+    push: event.isNewBid ? pushDecision(profile.alerts, plan, now, topicOf(bid.id)) : 'off',
   };
 }
 
 // ------------------------------------------------------------- deadline --
 
-/** 3 days before, 1 day before, and the morning of the due day. */
+/** Three calendar days before the due day, the day before, and the due day itself. */
 export type DeadlineStage = '3d' | '1d' | 'day';
 
-/** "Morning of" starts at 07:00 on the profile's wall clock. */
+/** A reminder waits for 07:00 on the profile's wall clock, unless that day's last run of the job comes earlier. */
 export const MORNING_MINUTES = 7 * 60;
-/** How far ahead the reminder job has to look. */
-export const DEADLINE_LOOKAHEAD_HOURS = 72;
+/**
+ * How far ahead the reminder job looks: from 00:00 three calendar days before the due day to the end of the due day
+ * is under 4 days, plus an hour on the night the clocks go back.
+ */
+export const DEADLINE_LOOKAHEAD_HOURS = 100;
 
-const HOUR = 3_600_000;
+const STAGE_BY_DAYS: ReadonlyMap<number, DeadlineStage> = new Map([[3, '3d'], [1, '1d'], [0, 'day']]);
 
 /**
- * The reminder that is due for a deadline right now, if any. The windows do not overlap, so a bid
- * saved late gets the next reminder rather than a stale one:
- *   3d   72 h to 48 h before the deadline
- *   1d   the last 24 h, until the due day begins on the profile's wall clock
- *   day  the due day from 07:00 local until the deadline (none when it is due before 07:00)
+ * The reminder that is due for a deadline right now, if any. Each stage belongs to one calendar day on the profile's
+ * clock: '3d' three days before the due day, '1d' the day before, 'day' the due day until the deadline. It goes out
+ * at the first run of the job on its day from 07:00, or earlier that day when this run is the day's last one:
+ * `nextRunAt` = when the job runs next (null = not known: from 07:00 only).
+ *   - The host runs the job once a day (vercel.json: /api/cron/tick at 14:50 UTC, 04:50 in Hawaii to 10:50 in New
+ *     York in summer). Every run there is its day's last, so each stage goes out on its own day in every zone.
+ *   - A long-running server runs it every 15 minutes, so a stage goes out at 07:00 and never in the night.
+ * A bid saved after a stage's day gets the next stage, never a stale one. A deadline before the day's first run
+ * (before 07:00 on a server, before the host's tick) has no due-day reminder: the day before told the time.
  */
-export function deadlineStage(dueAt: Date, now: Date, timeZone: string): DeadlineStage | null {
-  const left = dueAt.getTime() - now.getTime();
-  if (!(left > 0)) return null;
+export function deadlineStage(dueAt: Date, now: Date, timeZone: string, nextRunAt: Date | null = null): DeadlineStage | null {
+  if (!(dueAt.getTime() > now.getTime())) return null;
   const today = wallClock(now, timeZone);
-  if (wallClock(dueAt, timeZone).day === today.day) return today.minutes >= MORNING_MINUTES ? 'day' : null;
-  if (left <= 24 * HOUR) return '1d';
-  return left > 48 * HOUR && left <= DEADLINE_LOOKAHEAD_HOURS * HOUR ? '3d' : null;
+  const stage = STAGE_BY_DAYS.get(wallClock(dueAt, timeZone).day - today.day);
+  if (!stage) return null;
+  if (today.minutes >= MORNING_MINUTES) return stage;
+  return nextRunAt && wallClock(nextRunAt, timeZone).day !== today.day ? stage : null;
 }
+
+/**
+ * On the day-before and due-day reminders of a public bid, and under "Bid on …" in its detail sheet (web/js/format.js
+ * ADDENDA_LINE, kept equal by test/realtime.test.ts). BidSwipe does not read addenda, and says so.
+ */
+export const ADDENDA_LINE = 'Check the agency’s page for addenda (amendments) before you bid. BidSwipe doesn’t read them.';
 
 /** "Due tomorrow at 2:00 PM", in calendar days on the profile's wall clock. */
 function dueLabel(dueAt: Date, now: Date, timeZone: string): string {
@@ -201,22 +237,28 @@ function dueLabel(dueAt: Date, now: Date, timeZone: string): string {
 
 /**
  * A reminder for a saved bid. One per bid, stage and due day: the dedupe key carries the due date,
- * so a deadline an addendum moves to another day is reminded again.
+ * so a deadline an addendum moves to another day is reminded again. `nextRunAt`: see deadlineStage.
+ * The day-before and due-day reminders of a public bid end with ADDENDA_LINE; a local job has no agency page.
  */
-export function decideDeadline(saved: SavedDeadline, profile: Profile, plan: Plan, now: Date): AlertDecision | null {
+export function decideDeadline(saved: SavedDeadline, profile: Profile, plan: Plan, now: Date, nextRunAt: Date | null = null): AlertDecision | null {
   if (!kindOn(profile, 'deadline')) return null;
   const zone = formatFor(alertZone(profile.alerts)).resolvedOptions().timeZone;
   const due = new Date(saved.dueAt);
-  const stage = deadlineStage(due, now, zone);
+  const stage = deadlineStage(due, now, zone, nextRunAt);
   if (!stage) return null;
+  const topic = topicOf(saved.bidId);
+  const subject = `${clip(saved.title, 110)}${saved.place ? ` — ${saved.place}` : ''}`;
+  const addenda = stage !== '3d' && topic === 'bid';
   return {
     alert: {
       kind: 'deadline', bidId: saved.bidId, dedupeKey: `${saved.bidId}:${stage}:${wallClock(due, zone).date}`,
       title: dueLabel(due, now, zone),
-      body: clip(`${clip(saved.title, 110)}${saved.place ? ` — ${saved.place}` : ''}`, 200),
+      // The addenda line is never the part that is cut: the subject makes room for it.
+      body: addenda ? `${clip(subject, 200 - ADDENDA_LINE.length - 3)} · ${ADDENDA_LINE}` : clip(subject, 200),
       data: { bidId: saved.bidId, stage, dueAt: saved.dueAt, url: saved.url },
     },
-    push: pushDecision(profile.alerts, plan, now),
+    // A saved local job is a local-job alert: every plan alike. A public bid by the plan.
+    push: pushDecision(profile.alerts, plan, now, topic),
   };
 }
 
@@ -405,6 +447,7 @@ export function decideJob(e: BusEventOf<'job'>, profile: Profile, plan: Plan, no
       title: clip(title, 80), body: clip(body, 200),
       data: { jobId: e.jobId, role: e.role, status: e.status, outcome: e.outcome },
     },
-    push: pushDecision(profile.alerts, plan, now),
+    // Every plan alike: the switch per kind (above), phone alerts off and quiet hours still apply.
+    push: pushDecision(profile.alerts, plan, now, 'local'),
   };
 }

@@ -565,9 +565,9 @@ paths:
       tags: [realtime]
       summary: >-
         Send one notification titled "Test alert from BidSwipe" to the caller's own devices only, through the same
-        sender and device list as a real alert (src/realtime/index.ts sendTestPush). Gated like instant phone alerts:
-        402 premium_required without instantPush, 409 push_off (alerts switched off in Settings) or quiet_hours, then at
-        most 3 per account per 10 minutes (429 too_many_attempts). No body. Answers { ok, tried, accepted }: how many
+        sender and device list as a real alert (src/realtime/index.ts sendTestPush). Gated like a local job's phone
+        alert, which every plan gets (no plan gate): 409 push_off (alerts switched off in Settings) or quiet_hours, then
+        at most 3 per account per 10 minutes (429 too_many_attempts). No body. Answers { ok, tried, accepted }: how many
         devices were tried and how many the push services accepted (never an endpoint). Stores no alert. 404
         push_not_configured without VAPID keys.
       parameters:
@@ -575,7 +575,6 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/Json' }
         '401': { $ref: '#/components/responses/SignIn' }
-        '402': { $ref: '#/components/responses/Premium' }
         '403': { $ref: '#/components/responses/Csrf' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }

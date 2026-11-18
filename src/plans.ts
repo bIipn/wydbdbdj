@@ -2,7 +2,10 @@ import type { Account, Plan } from './types.js';
 
 /** What a plan unlocks. Routes check these flags, never the plan name. */
 export interface Features {
-  /** Web push the moment a good bid is seen (free: in-app inbox + daily digest). */
+  /**
+   * Web push the moment a good PUBLIC bid is seen, and for its reminders, awards and prices (free: the in-app inbox).
+   * Local jobs are not behind it: their alerts buzz on every plan alike (src/realtime/alerts.ts pushDecision 'local').
+   */
   instantPush: boolean;
   /** Recent awards and price stats (free: the count only, locked). */
   awardHistory: boolean;

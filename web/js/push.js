@@ -79,14 +79,15 @@ export async function pushKey() {
  * This device's phone-alert state, without asking for anything (the bell's panel, Home's task, Settings' row):
  * { state, key } with state 'ok'-path answers 'on' | 'off' | 'denied' | 'locked', or what stops it:
  * 'unsupported' | 'old_ios' | 'insecure' | 'not_configured' | 'error'. key = the server's VAPID key when known.
- * `instantPush` = the plan's feature (state.js features()).
+ * `allowed` = may this account's devices buzz at all (state.js phoneAlerts: a plan with instant push, or any account,
+ * whose local jobs buzz on every plan).
  */
-export async function devicePush(instantPush) {
+export async function devicePush(allowed) {
   const support = pushSupport();
   if (support !== 'ok') return { state: support, key: null };
   const key = await pushKey();
   if (!key.ok) return { state: key.reason === 'not_configured' ? 'not_configured' : 'error', key: null };
-  if (!instantPush) return { state: 'locked', key: key.key };
+  if (!allowed) return { state: 'locked', key: key.key };
   const sub = await currentSubscription();
   if (sub) {
     resendOnce(sub);
@@ -166,8 +167,8 @@ export async function releaseDevice(ms = SIGN_OUT_PUSH_MS, { server = true } = {
 
 /**
  * POST /api/push/test: one "Test alert from BidSwipe" to this account's devices, through the same sender as a real
- * alert. → { ok: true, tried, accepted } or { ok: false, code, message } (402 Pro, 409 quiet hours or alerts off in
- * Settings, 429 too many tests, network).
+ * alert. → { ok: true, tried, accepted } or { ok: false, code, message } (409 quiet hours or alerts off in Settings,
+ * 429 too many tests, network). Every plan may send one: local jobs buzz on Free as on Pro.
  */
 export async function sendTestPush() {
   try {
@@ -179,7 +180,7 @@ export async function sendTestPush() {
 }
 
 /** Refusals whose answer carries its own sentence (src/routes/realtime.ts POST /api/push/test, api.js network). */
-const SENTENCE_CODES = new Set(['premium_required', 'quiet_hours', 'push_off', 'too_many_attempts', 'network']);
+const SENTENCE_CODES = new Set(['quiet_hours', 'push_off', 'too_many_attempts', 'network']);
 /** Refusals that carry no sentence. */
 const TEST_REFUSED = {
   push_not_configured: 'Phone alerts aren’t set up on this server, so it can’t send a test.',

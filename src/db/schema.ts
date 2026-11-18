@@ -244,6 +244,18 @@ create index if not exists auth_attempts_expires_idx on auth_attempts (expires_a
 -- that keeps failing for a week is deleted (src/db/alerts.ts recordPushResult).
 alter table push_subscriptions add column if not exists last_fail_at timestamptz;
 alter table push_subscriptions add column if not exists failed_status integer;
+
+-- GET /api/admin/usage (docs/PLAN.md N11). The days an account used the app: one row per account per UTC day it
+-- made a signed-in request (the app asks only while it is on screen), nothing else: no time, page, address or
+-- device. Written once a day per account per server instance (src/db/usage.ts recordVisitDay); it goes with the account.
+create table if not exists account_days (
+  account_id  text not null references accounts(id) on delete cascade,
+  day         date not null,
+  primary key (account_id, day)
+);
+-- When a profile FIRST decided on a bid (a later save/pass/bid replaces action and created_at, never this). Null for
+-- swipes stored before 2026-11-18: the usage route counts only swipes that have it.
+alter table swipes add column if not exists first_at timestamptz;
 ${PROMO_SCHEMA_SQL}
 ${WORK_SCHEMA_SQL}
 ${JOBS_SCHEMA_SQL}

@@ -62,6 +62,22 @@ describe('bids (v1 columns)', () => {
     await upsertMatch(db, profile.id, open.id, s);
     expect(await ids({ hideOverLimit: true })).toContain(open.id);
   });
+
+  it('a feed item says when a scan last saw it on its board (lastSeenAt: the card\'s "Seen on the board", N4)', async () => {
+    const profile = testProfile('test-repo-seen');
+    await upsertProfile(db, profile);
+    await upsertMatch(db, profile.id, noDeadline.id, scoreBid(noDeadline, profile, NOW));
+    const seen = new Date(NOW.getTime() - 86_400_000); // the scan the day before
+    await upsertBids(db, [noDeadline], seen);
+    const item = (await getFeed(db, profile.id, { now: NOW, minScore: 0 })).find((b) => b.id === noDeadline.id)!;
+    expect(item.lastSeenAt).toBe(seen.toISOString());
+    expect((await getItem(db, profile.id, noDeadline.id))!.lastSeenAt).toBe(seen.toISOString());
+    await recordSwipe(db, profile.id, noDeadline.id, 'save');
+    expect((await getSaved(db, profile.id)).find((b) => b.id === noDeadline.id)!.lastSeenAt).toBe(seen.toISOString());
+    // The next scan that still finds it moves the day forward.
+    await upsertBids(db, [noDeadline], NOW);
+    expect((await getItem(db, profile.id, noDeadline.id))!.lastSeenAt).toBe(NOW.toISOString());
+  });
 });
 
 describe('profiles owned by accounts', () => {

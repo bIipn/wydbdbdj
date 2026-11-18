@@ -190,7 +190,7 @@ interface BidRow {
   zip: string | null; lat: number | null; lng: number | null; loc_precision: Bid['location']['precision'];
   loc_label: string | null; posted_at: Date | string | null; due_at: Date | string | null; est_min: string | number | null;
   est_max: string | number | null; naics: string | null; set_aside: string | null; url: string; flags: string[] | string;
-  sol_number: string | null; psc?: string | null; first_seen_at: Date | string;
+  sol_number: string | null; psc?: string | null; first_seen_at: Date | string; last_seen_at: Date | string;
 }
 
 interface FeedRow extends BidRow {
@@ -223,7 +223,7 @@ function toFeedItem(r: FeedRow): FeedItem {
   return {
     ...toBid(r),
     score: r.score, verdict: r.verdict, reasons: json(r.reasons), distanceMi: r.distance_mi == null ? null : Number(r.distance_mi),
-    swipe: r.action, firstSeenAt: iso(r.first_seen_at)!, overLimit: r.over_limit, tier: r.tier,
+    swipe: r.action, firstSeenAt: iso(r.first_seen_at)!, lastSeenAt: iso(r.last_seen_at)!, overLimit: r.over_limit, tier: r.tier,
   };
 }
 
@@ -417,13 +417,17 @@ export async function getItem(db: Db, profileId: string, bidId: string): Promise
   return rows[0] ? toFeedItem(rows[0]) : null;
 }
 
-export async function recordSwipe(db: Db, profileId: string, bidId: string, action: SwipeAction): Promise<boolean> {
+/**
+ * Save, pass or "bid" (opened the agency's page). A second decision replaces the action and created_at; first_at
+ * keeps the first one's time (`now`), for GET /api/admin/usage's minutes from a match alert to the first decision.
+ */
+export async function recordSwipe(db: Db, profileId: string, bidId: string, action: SwipeAction, now = new Date()): Promise<boolean> {
   const rows = await db.query(
-    `insert into swipes (profile_id, bid_id, action)
-     select $1, $2, $3 where exists (select 1 from matches where profile_id = $1 and bid_id = $2)
+    `insert into swipes (profile_id, bid_id, action, first_at)
+     select $1, $2, $3, $4::timestamptz where exists (select 1 from matches where profile_id = $1 and bid_id = $2)
      on conflict (profile_id, bid_id) do update set action = excluded.action, created_at = now()
      returning bid_id`,
-    [profileId, bidId, action],
+    [profileId, bidId, action, now.toISOString()],
   );
   return rows.length > 0;
 }

@@ -178,7 +178,7 @@ function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext, testSende
       return reply.code(400).send({ error: 'invalid_subscription', message: 'Send { subscription } as the browser gives it: an https endpoint and its p256dh and auth keys.' });
     }
     await saveSubscription(db, who.owner, checked.subscription, ctx.now());
-    // Stored on every plan; instantPush says whether this plan actually buzzes the phone.
+    // Stored on every plan: local jobs buzz on every plan; instantPush says whether new public bids buzz it too.
     return { ok: true, instantPush: who.instantPush };
   });
 
@@ -194,18 +194,16 @@ function registerPushAndInbox(app: FastifyInstance, ctx: RouteContext, testSende
   /**
    * "Send a test alert" (the bell, when this device is on): one notification titled "Test alert from BidSwipe" to the
    * caller's OWN devices, through the sender and the bookkeeping a real alert uses (src/realtime/index.ts
-   * sendTestPush). Gated exactly like a real phone alert (pushDecision: the plan, the alerts switch, quiet hours),
-   * then at most PUSH_TEST_LIMIT per account. Answers how many devices were tried and accepted, never an endpoint.
+   * sendTestPush). Gated like a real phone alert that every plan gets, a local job's (pushDecision 'local': the
+   * alerts switch, quiet hours; no plan gate, since local jobs buzz on Free as on Pro), then at most PUSH_TEST_LIMIT
+   * per account. Answers how many devices were tried and accepted, never an endpoint.
    */
   app.post('/api/push/test', async (req, reply) => {
     const vapid = usableVapid(ctx.config, ctx.log);
     if (!vapid) return pushNotConfigured(reply);
     const id = await ctx.requireProfile(req, reply);
     if (!id) return reply;
-    const gate = pushDecision(id.profile.alerts, id.plan, ctx.now());
-    if (!featuresFor(id.plan).instantPush) {
-      return reply.code(402).send({ error: 'premium_required', message: 'Instant phone alerts are part of BidSwipe Pro.' });
-    }
+    const gate = pushDecision(id.profile.alerts, id.plan, ctx.now(), 'local');
     if (gate === 'off') {
       return reply.code(409).send({ error: 'push_off', message: 'Phone alerts are switched off in Settings → Alerts. Turn them on there, then send the test.' });
     }

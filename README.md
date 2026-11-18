@@ -152,7 +152,9 @@ a line there, `test/serverless-entry.test.ts` checks it). On Vercel the app has 
 - `DATABASE_URL` is required (Supabase): the embedded database would start empty on every instance.
 - The host's scheduler calls `GET /api/cron/market`, `/api/cron/scan` and `/api/cron/tick` (deadline
   reminders + waiting pushes) with `Authorization: Bearer $CRON_SECRET`. Without `CRON_SECRET` they 404.
-  Hobby plans allow daily crons only, so reminders run once a day there.
+  Hobby plans allow daily crons only, so reminders run once a day there (14:50 UTC). Saved-bid reminders go by the
+  calendar day on the user's alert clock (3 days before, the day before, the due day), so that one run sends each on
+  its own day in every Settings zone (`src/realtime/alerts.ts` deadlineStage).
 - Live alerts poll (`REALTIME_MODE=poll` is automatic when `VERCEL` is set): the app asks the inbox about
   once a minute while open and reloads its feed after each scan.
 - The SAM.gov bulk download is ~222 MB per scan. Measured in a Vercel function on 2026-11-13: download
@@ -205,7 +207,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `POST /api/promo/redeem {code}` | accounts mode, `PROMO_CODES` set: 200 `{plan, features}` · 400 `invalid_code` · 403 `not_available` (no codes, demo mode, iOS build) · 429 after 5 tries in 10 min |
 | `GET /api/alerts`, `POST /api/alerts/read`, `GET /api/stream` | alert inbox (`lastScan` tells a polling app to reload its feed), live events (SSE; 404 `stream_off` in poll mode) |
 | `GET /api/push/key`, `POST`/`DELETE /api/push/subscribe` | phone (web push) alerts; a subscription whose endpoint is not on a known push service (FCM, Mozilla, Apple, Windows) is 400 `invalid_subscription` |
-| `POST /api/push/test` | the bell's **Send a test alert** button: one "Test alert from BidSwipe" to this account's devices through the real sender → `{ok, tried, accepted}` (never an endpoint; nothing goes to the inbox). 402 without Pro, 409 `push_off` / `quiet_hours`, 429 after 3 in 10 minutes, 404 with no VAPID keys |
+| `POST /api/push/test` | the bell's **Send a test alert** button: one "Test alert from BidSwipe" to this account's devices through the real sender → `{ok, tried, accepted}` (never an endpoint; nothing goes to the inbox). Every plan (local jobs buzz on Free as on Pro); 409 `push_off` / `quiet_hours`, 429 after 3 in 10 minutes, 404 with no VAPID keys |
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
 | `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature; a job over 3650 days is 400; 30 checks a minute per profile, then 429 |

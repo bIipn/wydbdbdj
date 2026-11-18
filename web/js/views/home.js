@@ -14,7 +14,7 @@ import { agencyLine, HOME_PAGE, homeModeOf, matchChips, placeLine } from '../hom
 import { onFeedLoaded } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { onAfterRender, registerAlias, registerView, render, tabNumber } from '../shell.js';
-import { deck, state } from '../state.js';
+import { deck, state, userTimeZone } from '../state.js';
 import { deckDone, nextUp, swipeView } from './feed.js';
 
 const MODE_KEY = 'bidswipe:homeMode';
@@ -92,7 +92,7 @@ function matchCard(item, list) {
         ),
       ),
       h('ul', { class: 'mc-chips', 'aria-label': 'About this bid' },
-        matchChips(item).map((c) => h('li', { class: `mc-chip ${c.kind}${c.urgent ? ' urgent' : ''}${c.unknown ? ' unknown' : ''}` }, c.text))),
+        matchChips(item, userTimeZone()).map((c) => h('li', { class: `mc-chip ${c.kind}${c.urgent ? ' urgent' : ''}${c.unknown ? ' unknown' : ''}` }, c.text))),
     ),
     h('div', { class: 'mc-side' },
       h('button', {

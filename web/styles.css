@@ -133,7 +133,7 @@ a { color: inherit; }
   position: absolute; inset: 0; display: flex; flex-direction: column;
   background: linear-gradient(180deg, var(--card-2), var(--card));
   border: 1px solid var(--line-2); border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 18px 18px 16px; overflow: hidden; user-select: none; touch-action: pan-y;
+  padding: 18px 18px 4px; overflow: hidden; user-select: none; touch-action: pan-y; /* 4px: the foot's 44px row ends it */
   transform-origin: 50% 90%; will-change: transform;
 }
 .card > * { flex-shrink: 0; }
@@ -216,7 +216,7 @@ a { color: inherit; }
 .reasons li.info::before { content: '•'; color: var(--faint); }
 
 .cta {
-  margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  margin-top: 12px; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 44px;
   border: 0; border-radius: 14px; padding: 14px 16px; text-decoration: none;
   background: var(--volt); color: var(--volt-ink); font-weight: 760; font-size: 15px; cursor: pointer;
   box-shadow: 0 8px 24px rgba(255, 212, 59, 0.22);
@@ -224,8 +224,10 @@ a { color: inherit; }
 .cta:active { transform: translateY(1px); }
 .cta.ghost { background: transparent; color: var(--text); border: 1px solid var(--line-2); box-shadow: none; }
 .cta-note { margin: 12px 0 0; padding: 12px 14px; border: 1px dashed var(--line-2); border-radius: 14px; text-align: center; color: var(--muted); font-size: 13.5px; }
-.card-foot { margin-top: 10px; display: flex; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--faint); }
-.card-foot button { border: 0; background: none; padding: 0; color: var(--muted); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+/* "Details" is the card's only way to its sheet: a 44px target, the words where they were (the card's own bottom
+   padding is 4px, the row is 44px). */
+.card-foot { margin-top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11.5px; color: var(--faint); }
+.card-foot button { flex: none; min-height: 44px; min-width: 44px; margin-right: -4px; border: 0; background: none; padding: 0 4px; color: var(--muted); font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
 
 .actions { display: flex; justify-content: center; align-items: center; gap: 22px; margin-top: 18px; }
 .round {
@@ -249,13 +251,19 @@ a { color: inherit; }
 .empty .cta { max-width: 240px; margin: 0 auto; }
 
 /* ------------------------------------------------------------- list views */
-.toolbar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; scrollbar-width: none; }
+/* No gap: the chips' clear borders (below) make the 8px between the pills; the margins line the pills up with the text. */
+.toolbar { display: flex; gap: 0; margin: -5px -4px 0; overflow-x: auto; padding-bottom: 7px; scrollbar-width: none; }
 .toolbar::-webkit-scrollbar { display: none; }
+/* A chip: a 34px pill to the eye, 44px to the touch (docs/PLAN.md R3, test/tap-targets.test.ts). Its clear border is
+   part of the button, so it takes the tap, but not of the pill: the pill is the padding box (background-clip) and its
+   hairline an inset shadow. Rows of chips need no gap of their own (8px between pills across, 10px down). */
 .chip {
-  flex: none; border: 1px solid var(--line-2); background: transparent; color: var(--muted);
-  padding: 7px 12px; border-radius: 999px; font-size: 13px; font-weight: 600; cursor: pointer;
+  flex: none; min-height: 44px; min-width: 44px; padding: 0 13px; border: solid transparent; border-width: 5px 4px;
+  border-radius: 999px; background: transparent padding-box; box-shadow: inset 0 0 0 1px var(--line-2);
+  color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer;
 }
-.chip.is-on { background: var(--text); color: var(--bg); border-color: var(--text); }
+.chip.is-on { background-color: var(--text); color: var(--bg); box-shadow: inset 0 0 0 1px var(--text); }
+.chip:focus-visible { outline: 2px solid var(--volt); outline-offset: -3px; }
 .list { display: flex; flex-direction: column; gap: 10px; }
 .row {
   display: grid; grid-template-columns: 44px 1fr; gap: 12px; align-items: start; text-align: left; width: 100%;
@@ -328,6 +336,8 @@ a { color: inherit; }
 .sheet-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
 .sheet-actions .cta { margin-top: 0; }
 .sheet-actions .full { grid-column: 1 / -1; }
+/* Under "Bid on …" (a public bid): we don't read addenda, the agency's page has them. Below the button, never above. */
+.addenda-note { margin: 10px 4px 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); text-align: center; text-wrap: balance; }
 
 /* ------------------------------------------------------------------ toast */
 .toast {
@@ -343,7 +353,8 @@ a { color: inherit; }
   top: auto; bottom: calc(env(safe-area-inset-bottom) + 74px); animation-name: toast-rise;
 }
 @keyframes toast-rise { from { transform: translate(-50%, 12px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
-.toast button { flex: none; white-space: nowrap; border: 0; background: #0f172a; color: #fff; border-radius: 9px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
+.toast button { position: relative; flex: none; min-height: 30px; white-space: nowrap; border: 0; background: #0f172a; color: #fff; border-radius: 9px; padding: 6px 10px; font-weight: 700; cursor: pointer; }
+.toast button::before { content: ''; position: absolute; inset: -7px -6px; } /* Undo: 44px to the touch, inside the toast */
 
 /* ------------------------------------------------------------ access gate */
 .gate { margin: auto 0; display: flex; flex-direction: column; gap: 12px; text-align: center; padding: 30px 8px; }
@@ -370,7 +381,6 @@ a { color: inherit; }
   .card .agency { margin-bottom: 10px; }
   .card .facts { margin-bottom: 10px; }
   .card .card-foot > span { visibility: hidden; }
-  .card .card-foot { margin-top: 6px; }
 }
 /* A pill's text is cut with an ellipsis, never sliced (a flex box ignores text-overflow, a block does not). */
 .pills > .pill:not(:has(svg)) { display: block; }
@@ -399,7 +409,8 @@ a { color: inherit; }
   display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 4px; margin-bottom: 16px;
   border: 1px solid var(--line); background: var(--bg-2); border-radius: 14px;
 }
-.seg-btn { border: 0; background: transparent; padding: 10px 6px; border-radius: 10px; font-size: 14px; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg-btn { position: relative; min-height: 36px; border: 0; background: transparent; padding: 10px 6px; border-radius: 10px; font-size: 14px; font-weight: 650; color: var(--muted); cursor: pointer; }
+.seg-btn::before { content: ''; position: absolute; inset: -4px -2px; } /* 44px to the touch: out to the box's edge */
 .seg-btn.is-on { background: var(--card-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--line-2); }
 
 .auth-form, .step-form { display: flex; flex-direction: column; gap: 14px; }
@@ -430,7 +441,7 @@ a { color: inherit; }
 .form-error-box .field-error { padding: 10px 12px; border-radius: 12px; background: rgba(244, 63, 94, 0.1); border: 1px solid rgba(244, 63, 94, 0.3); }
 
 .input {
-  width: 100%; min-width: 0; padding: 13px 14px; border-radius: 13px; border: 1px solid var(--line-2);
+  width: 100%; min-width: 0; min-height: 44px; padding: 13px 14px; border-radius: 13px; border: 1px solid var(--line-2);
   background: rgba(0, 0, 0, 0.22); color: var(--text); font: inherit; font-size: 16px; /* 16px: no zoom on iOS */
   outline: none; transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -441,7 +452,7 @@ a { color: inherit; }
 .with-eye { position: relative; }
 .with-eye .input { padding-right: 48px; }
 .eye {
-  position: absolute; right: 4px; top: 50%; transform: translateY(-50%); width: 42px; height: 42px;
+  position: absolute; right: 2px; top: 50%; transform: translateY(-50%); width: 44px; height: 44px;
   display: grid; place-items: center; border: 0; background: none; color: var(--muted); cursor: pointer; border-radius: 10px;
 }
 .eye[aria-pressed='true'] { color: var(--volt); }
@@ -454,14 +465,18 @@ a { color: inherit; }
 .subhead h3 { margin: 0; font-size: 15px; }
 .subhead.first { margin-top: 0; padding-top: 0; border-top: 0; }
 
-.trade-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+/* 2px apart: with the chips' clear 3px borders, 8px between the pills, as before; the -3px lines the pills up with the text. */
+.trade-chips { display: flex; flex-wrap: wrap; gap: 2px; margin: -3px; }
+/* A 38px pill to the eye, 44px to the touch: the .chip way (a clear border, the pill in the padding box). */
 .trade-chip {
-  display: inline-flex; align-items: center; gap: 6px; padding: 9px 13px; border-radius: 999px; cursor: pointer;
-  border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); color: var(--text); font-size: 14px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 999px;
+  cursor: pointer; border: 3px solid transparent; background: rgba(255, 255, 255, 0.03) padding-box;
+  box-shadow: inset 0 0 0 1px var(--line-2); color: var(--text); font-size: 14px; font-weight: 600;
 }
 .trade-chip .tick { display: none; }
 .trade-chip .tick svg { display: block; }
-.trade-chip[aria-pressed='true'] { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
+.trade-chip[aria-pressed='true'] { background-color: var(--volt); box-shadow: inset 0 0 0 1px var(--volt); color: var(--volt-ink); }
+.trade-chip:focus-visible { outline: 2px solid var(--volt); outline-offset: -1px; }
 .trade-chip[aria-pressed='true'] .tick { display: inline-flex; }
 
 .zip { max-width: 160px; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
@@ -472,7 +487,9 @@ a { color: inherit; }
 
 .range-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
 .range-value { font-size: 20px; font-weight: 800; letter-spacing: -0.02em; color: var(--volt); font-variant-numeric: tabular-nums; }
-.range { -webkit-appearance: none; appearance: none; width: 100%; height: 30px; background: transparent; margin: 0; cursor: pointer; }
+/* 44px to the touch; the -7px margins keep the 30px it took before, so the head and the scale or help line sit where
+   they did. Positioned, so where it reaches over them a tap still moves the slider. */
+.range { position: relative; -webkit-appearance: none; appearance: none; width: 100%; height: 44px; background: transparent; margin: -7px 0; cursor: pointer; }
 .range::-webkit-slider-runnable-track {
   height: 6px; border-radius: 99px;
   background: linear-gradient(90deg, var(--volt) var(--pct, 50%), rgba(255, 255, 255, 0.1) var(--pct, 50%));
@@ -488,6 +505,8 @@ a { color: inherit; }
 .range-scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: -4px; }
 
 .switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; cursor: pointer; font-size: 14px; font-weight: 650; position: relative; }
+/* The row is the 28px track tall; 8px more above and below take the tap too (44px), in the space around it. */
+.switch::before { content: ''; position: absolute; inset: -8px 0; }
 .switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .switch-track { flex: none; width: 48px; height: 28px; border-radius: 99px; background: rgba(255, 255, 255, 0.12); position: relative; transition: background 0.2s; }
 .switch-track::after {
@@ -507,7 +526,10 @@ a { color: inherit; }
   border: 1px solid var(--line-2); background: rgba(255, 255, 255, 0.03); color: var(--text);
 }
 .icon-btn.ghost { border-color: transparent; background: none; cursor: default; }
-.text-btn { border: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; padding: 8px 2px; }
+.text-btn {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px; min-width: 44px;
+  border: 0; background: none; color: var(--muted); font-size: 13px; font-weight: 600; cursor: pointer; padding: 0 2px;
+}
 .progress { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 5px; }
 .progress span { height: 5px; border-radius: 99px; background: rgba(255, 255, 255, 0.1); transition: background 0.25s; }
 .progress span.on { background: var(--volt); box-shadow: 0 0 10px rgba(255, 212, 59, 0.35); }
@@ -551,7 +573,7 @@ a { color: inherit; }
 .qa-q { margin: 0; font-size: 14.5px; font-weight: 650; line-height: 1.35; }
 .seg3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
 .seg3-btn {
-  min-height: 40px; padding: 8px 6px; border-radius: 11px; border: 1px solid var(--line-2); background: transparent;
+  min-height: 44px; padding: 8px 6px; border-radius: 11px; border: 1px solid var(--line-2); background: transparent;
   color: var(--muted); font: inherit; font-size: 14px; font-weight: 650; cursor: pointer;
 }
 .seg3-btn[aria-checked='true'].is-yes { background: color-mix(in srgb, var(--great) 18%, transparent); border-color: var(--great); color: var(--text); }
@@ -573,7 +595,7 @@ a { color: inherit; }
 /* Plan card: the plan's name, and the quiet promo-code row (web/js/promo.js) */
 .plan-name-row { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--line); }
 .plan-name { margin: 0; font-size: 17px; font-weight: 760; letter-spacing: -0.01em; }
-.promo-toggle { display: block; margin-top: 6px; padding: 10px 0 2px; color: var(--text); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
+.promo-toggle { display: block; margin-top: 2px; padding: 14px 0 12px; color: var(--text); text-decoration: underline; text-decoration-color: var(--line-2); text-underline-offset: 4px; }
 .promo-form { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .promo-line { display: flex; gap: 8px; align-items: stretch; }
 .promo-line .input { flex: 1; letter-spacing: 0.02em; }
@@ -641,7 +663,7 @@ a { color: inherit; }
   min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; display: grid; place-items: center;
   font-size: 11px; font-weight: 800; background: var(--volt); color: var(--volt-ink);
 }
-.active-chips { padding-bottom: 0; }
+.active-chips { padding-bottom: 0; margin-bottom: -5px; } /* the chips' clear bottom border is the gap's first 5px */
 .chip.removable { display: inline-flex; align-items: center; gap: 6px; padding-right: 9px; }
 .chip.removable svg { opacity: 0.65; }
 .result-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 2px; }
@@ -650,8 +672,11 @@ a { color: inherit; }
 .sort-select {
   /* 16px: iOS zooms the page into any field under 16px when it is tapped (audit ios-zoom-1); desktop.css keeps 13px */
   appearance: none; -webkit-appearance: none; font: inherit; font-size: 16px; font-weight: 650; color: var(--text); cursor: pointer;
-  background: rgba(255, 255, 255, 0.03) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a1b2' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 12px;
-  border: 1px solid var(--line-2); border-radius: 999px; padding: 6px 28px 6px 12px; color-scheme: dark;
+  background: rgba(255, 255, 255, 0.03) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2395a1b2' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") no-repeat right 9px center / 12px padding-box;
+  border-radius: 999px; padding: 6px 28px 6px 12px; color-scheme: dark;
+  /* A 30px pill to the eye, 44px to the touch: a clear 7px border takes the tap (the pill is the padding box, its
+     hairline an inset shadow) and the -7px margins keep the place the pill had. */
+  min-height: 44px; border: 7px solid transparent; margin: -7px; box-shadow: inset 0 0 0 1px var(--line-2);
 }
 .value-note {
   margin: 0 0 10px; padding: 9px 11px; border-radius: 12px; font-size: 12.5px; line-height: 1.45; color: var(--muted);
@@ -680,13 +705,16 @@ a { color: inherit; }
 .filter-sheet { display: flex; flex-direction: column; gap: 18px; padding-bottom: 4px; }
 .fs-head { display: flex; align-items: center; justify-content: space-between; }
 .fs-head h2 { margin: 0; font-size: 20px; }
+/* Reset: 44px tall, reaching 12px down into the gap under the head, so the head is as tall as before. */
+.fs-head .text-btn { align-self: flex-start; margin: 0 -2px -12px 0; padding-bottom: 12px; }
 .fs-group { display: flex; flex-direction: column; gap: 10px; }
 .fs-group h3 { margin: 0; font-size: 13px; font-weight: 750; letter-spacing: 0.06em; text-transform: uppercase; color: var(--faint); }
 .fs-group .field-help { margin-top: -4px; }
-.chip-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0; margin: -5px -4px; } /* the chips' clear borders space them (.chip); the pills line up with the text */
 .filter-sheet .chip { white-space: nowrap; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 .chip-state { margin-left: 6px; font-size: 11px; font-weight: 700; opacity: 0.6; font-variant-numeric: tabular-nums; }
-.more-boards { align-self: flex-start; font-size: 13px; }
+/* 44px tall; the box reaches up to the chips' boxes above (and below, when open), so the words stay close to them. */
+.link-btn.more-boards { align-self: flex-start; display: inline-flex; align-items: center; min-height: 44px; margin: -4px 0; font-size: 13px; }
 .fs-foot {
   position: sticky; bottom: calc(-1 * (env(safe-area-inset-bottom) + 18px)); display: grid; grid-template-columns: 1fr 2fr; gap: 10px;
   padding: 14px 0 calc(env(safe-area-inset-bottom) + 18px); margin-bottom: calc(-1 * (env(safe-area-inset-bottom) + 18px));
@@ -698,6 +726,7 @@ a { color: inherit; }
 .price-check { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--line-2); display: flex; flex-direction: column; gap: 12px; }
 .pc-title { display: flex; align-items: center; justify-content: space-between; }
 .pc-title h2 { margin: 0; font-size: 18px; }
+.pc-title .text-btn { position: relative; margin: -11px -2px; } /* Market →: 44px, the title row as tall as before; on top of the intro's first line */
 .pc-intro { margin: -4px 0 2px; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .pc-block { background: rgba(0, 0, 0, 0.18); border: 1px solid var(--line); border-radius: 16px; padding: 13px; display: flex; flex-direction: column; gap: 9px; min-width: 0; }
 .pc-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
@@ -723,12 +752,14 @@ a { color: inherit; }
 .pc-warn { margin: 0; padding: 7px 10px; border-radius: 10px; font-size: 12px; line-height: 1.4; color: #fde68a; background: rgba(234, 179, 8, 0.08); border: 1px solid rgba(234, 179, 8, 0.22); }
 .pc-source { margin: 0; font-size: 11.5px; line-height: 1.45; color: var(--faint); }
 .src-link { color: var(--muted); text-decoration: underline; text-underline-offset: 2px; }
+/* A line of links and nothing else (not a sentence): each 44px to the touch, the line as tall as before. */
+.pc-links .src-link { display: inline-block; padding: 14px 0; margin: -14px 0; }
 .pc-locked { display: flex; gap: 10px; align-items: flex-start; padding: 10px 11px; border-radius: 12px; background: rgba(255, 212, 59, 0.05); border: 1px solid rgba(255, 212, 59, 0.2); }
 .pc-locked svg { flex: none; color: var(--volt); margin-top: 1px; }
 .pc-locked strong { display: block; font-size: 13.5px; }
 .pc-locked p { margin: 3px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
-.pc-more summary { cursor: pointer; font-size: 13px; font-weight: 650; color: var(--muted); padding: 2px 0; }
-.pc-more[open] summary { margin-bottom: 8px; }
+.pc-more summary { cursor: pointer; font-size: 13px; font-weight: 650; color: var(--muted); min-height: 44px; padding: 12px 0; }
+.pc-more[open] summary { margin-bottom: 0; }
 .pc-more > .pc-wage + .pc-wage { margin-top: 8px; }
 .pc-awards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .pc-award { display: flex; justify-content: space-between; gap: 10px; padding-top: 8px; border-top: 1px solid var(--line); }
@@ -775,7 +806,7 @@ a { color: inherit; }
 .market-head h2 { margin: 0; font-size: 21px; letter-spacing: -0.015em; }
 .market-zip { display: flex; gap: 8px; align-items: center; }
 .market-zip .input { max-width: 120px; padding: 9px 12px; }
-.market-zip .chip { padding: 9px 13px; }
+.market-zip .chip { border-width: 0; padding: 0 14px; } /* a full 44px pill beside the 44px box */
 .market-blocks { margin-top: 6px; padding-top: 0; border-top: 0; }
 
 /* ---------------------------------------------------------------- alerts */
@@ -878,8 +909,9 @@ a { color: inherit; }
 .row-cells .affix .input { padding-right: 34px; }
 .row-cells .affix:has(.affix-unit:not(:empty)) .input { padding-right: 46px; }
 .row-cells .affix-unit { right: 8px; font-size: 11.5px; }
-.row-remove { width: 34px; height: 34px; margin-top: 20px; border-radius: 10px; border: 1px solid var(--line-2); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
-.chip.add { align-self: flex-start; color: var(--text); }
+.row-remove { position: relative; width: 34px; height: 34px; margin-top: 20px; border-radius: 10px; border: 1px solid var(--line-2); background: transparent; color: var(--muted); display: grid; place-items: center; cursor: pointer; }
+.row-remove::before { content: ''; position: absolute; inset: -6px; } /* 44px to the touch: 32px inside the border + 6 + 6 */
+.chip.add { align-self: flex-start; margin-left: -4px; color: var(--text); } /* the pill lines up with the rows above */
 
 .cc-form .save-bar .cta { box-shadow: 0 8px 24px rgba(255, 212, 59, 0.28); }
 
@@ -939,7 +971,7 @@ a { color: inherit; }
 .cc-notes li.lvl-stop { color: #fecdd3; }
 .cc-notes li.lvl-stop::before { content: '!'; color: var(--pass); }
 .cc-notes li.lvl-ok::before { content: '✓'; color: var(--great); }
-.cc-sources > summary { list-style: none; cursor: pointer; display: block; position: relative; padding-right: 28px; font-size: 15px; font-weight: 750; }
+.cc-sources > summary { list-style: none; cursor: pointer; display: block; position: relative; min-height: 44px; padding-right: 28px; font-size: 15px; font-weight: 750; }
 .cc-sources > summary::-webkit-details-marker { display: none; }
 .cc-sources > summary::after { content: '+'; position: absolute; right: 2px; top: -2px; font-size: 20px; font-weight: 600; color: var(--faint); }
 .cc-sources[open] > summary::after { content: '−'; }
@@ -980,7 +1012,7 @@ a { color: inherit; }
 .kind:last-child { border-bottom: 0; padding-bottom: 0; }
 .pro-note { color: var(--volt); font-weight: 650; }
 .checks { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
-.check { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; padding: 8px 2px; cursor: pointer; border-top: 1px solid var(--line); }
+.check { position: relative; display: grid; grid-template-columns: 24px 1fr; gap: 10px; align-items: start; align-content: center; min-height: 44px; padding: 8px 2px; cursor: pointer; border-top: 1px solid var(--line); }
 .check:first-child { border-top: 0; }
 .check input { position: absolute; opacity: 0; width: 1px; height: 1px; }
 .check-box { width: 22px; height: 22px; margin-top: 1px; border-radius: 7px; border: 1.5px solid var(--line-2); display: grid; place-items: center; color: transparent; background: rgba(0, 0, 0, 0.2); }
@@ -1017,7 +1049,7 @@ a { color: inherit; }
 .intent[aria-checked='true'] { border-color: var(--volt); background: rgba(255, 212, 59, 0.08); }
 .intent[aria-checked='true'] .choice-dot { background: var(--volt); border-color: var(--volt); color: var(--volt-ink); }
 .intent-list.compact { gap: 8px; }
-.intent-list.compact .intent { min-height: 0; padding: 12px 14px; border-radius: 14px; box-shadow: none; background: rgba(255, 255, 255, 0.03); }
+.intent-list.compact .intent { min-height: 44px; padding: 12px 14px; border-radius: 14px; box-shadow: none; background: rgba(255, 255, 255, 0.03); }
 .intent-list.compact .intent-text strong { font-size: 15.5px; }
 .intent-list.compact .intent-text small { font-size: 12.5px; }
 
@@ -1073,7 +1105,7 @@ a { color: inherit; }
 .pcard-jobs li { display: flex; flex-direction: column; gap: 1px; padding-left: 10px; border-left: 2px solid var(--line-2); }
 .pcard-jobs strong { font-size: 13.5px; }
 .pcard-jobs span { font-size: 12px; color: var(--muted); }
-.pcard-link { display: inline-flex; align-items: center; gap: 6px; color: var(--volt); font-size: 13.5px; font-weight: 650; text-decoration: none; min-width: 0; }
+.pcard-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; color: var(--volt); font-size: 13.5px; font-weight: 650; text-decoration: none; min-width: 0; }
 .pcard-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pcard-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--faint); }
 
@@ -1090,6 +1122,8 @@ button.cta:disabled { cursor: not-allowed; }
 .cta.post-job { margin-top: 0; }
 .cta.post-job svg { flex: none; }
 .jobs-intro { margin: 10px 2px 2px; font-size: 12.5px; line-height: 1.45; color: var(--muted); text-align: center; }
+/* What it costs (docs/PLAN.md R2): one short line under the intro, the same quiet type. */
+.jobs-free { margin: 4px 2px 2px; font-size: 12.5px; line-height: 1.45; color: var(--muted); text-align: center; text-wrap: balance; }
 .jobs-side .section-title { margin-top: 22px; }
 .jobs-group + .jobs-group { margin-top: 14px; }
 .jobs-group-title { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; font-weight: 700; }
@@ -1188,7 +1222,8 @@ button.cta:disabled { cursor: not-allowed; }
 .job-private-head { margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); }
 .job-private p:not(.job-private-head) { margin: 0; display: grid; grid-template-columns: 72px 1fr; gap: 8px; font-size: 14px; overflow-wrap: anywhere; }
 .job-private p span { color: var(--faint); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding-top: 2px; }
-.job-private a { color: var(--volt); font-weight: 650; }
+/* The phone: 44px to the touch; reaching 12px up (over the gap and the address's last line) keeps it level with its label. */
+.job-private a { display: inline-flex; align-items: center; min-height: 44px; margin-top: -12px; color: var(--volt); font-weight: 650; }
 
 /* A person on a job, short; tap for the whole card */
 .pmini { display: grid; grid-template-columns: 42px 1fr auto; gap: 12px; align-items: start; width: 100%; text-align: left; padding: 12px; border-radius: 16px; border: 1px solid var(--line-2); background: var(--bg-2); color: var(--text); font: inherit; }
@@ -1212,7 +1247,7 @@ button.pmini:active { background: var(--card-2); }
 .bt-who { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .bid-tab li.mine .bt-who { color: var(--volt); font-weight: 700; }
 .bt-amt { font-variant-numeric: tabular-nums; }
-.text-btn.bt-card { padding: 4px 2px; color: var(--volt); }
+.text-btn.bt-card { margin: -10px 0; color: var(--volt); } /* 44px: through the row's own 10px padding */
 
 /* Messages between the poster and the winner */
 .msgs { list-style: none; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
@@ -1228,6 +1263,7 @@ button.pmini:active { background: var(--card-2); }
 
 .fee-list { margin: 0 0 8px; padding-left: 18px; font-size: 13.5px; line-height: 1.5; }
 .report-link { color: var(--faint); font-weight: 600; font-size: 12.5px; }
+.link-btn.report-link { display: inline-flex; align-items: center; min-height: 44px; } /* a line of its own: 44px */
 
 /* ------------------------------------------------------------- sub work */
 /* SUB WORK: a prime contract a general contractor bids; this trade quotes the bidders. Its own sky blue, never
@@ -1245,9 +1281,10 @@ button.pmini:active { background: var(--card-2); }
 }
 .sub-note span { flex: 1; padding-top: 2px; }
 .sub-note-x {
-  flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
+  position: relative; flex: none; display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 8px; cursor: pointer;
   background: transparent; color: var(--muted);
 }
+.sub-note-x::before { content: ''; position: absolute; inset: -9px; } /* 44px to the touch, over the note's own padding */
 @media (hover: hover) { .sub-note-x:hover { background: rgba(255, 255, 255, 0.06); color: var(--text); } }
 .sub-intro { border-style: solid; border-color: color-mix(in srgb, var(--sub) 28%, transparent); background: color-mix(in srgb, var(--sub) 6%, transparent); }
 
@@ -1258,10 +1295,11 @@ button.pmini:active { background: var(--card-2); }
 }
 .tier-filter[data-n='2'] { --n: 2; }
 .tier-opt {
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; padding: 8px 6px;
+  position: relative; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-width: 0; min-height: 34px; padding: 8px 6px;
   border: 0; border-radius: 10px; background: transparent; color: var(--muted); cursor: pointer;
   font: inherit; font-size: 13px; font-weight: 650; white-space: nowrap;
 }
+.tier-opt::before { content: ''; position: absolute; inset: -5px -2px; } /* 44px to the touch: out to the filter's edge */
 .tier-opt span { overflow: hidden; text-overflow: ellipsis; }
 .tier-opt b { font-size: 12px; font-weight: 800; color: var(--faint); font-variant-numeric: tabular-nums; }
 .tier-opt.is-on { background: var(--card-2); color: var(--text); box-shadow: 0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 2px 8px rgba(0, 0, 0, 0.25); }

@@ -5,6 +5,7 @@
  * Nothing talks to a push service: the sender is a fake, or a request is built and never sent.
  */
 import { createECDH, randomBytes } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import fc from 'fast-check';
@@ -23,11 +24,11 @@ import type { Db } from '../src/db/db.js';
 import { recordSwipe, saveProfileForAccount, upsertBids, upsertMatch, upsertProfile } from '../src/db/repo.js';
 import { profileIdFor } from '../src/profile/build.js';
 import {
-  deadlineStage, decideAward, decideDeadline, decideMatch, decidePrice, inQuietHours, pushDecision, timeLeft,
-  type DeadlineStage, type PushDecision,
+  ADDENDA_LINE, DEADLINE_LOOKAHEAD_HOURS, deadlineStage, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, inQuietHours,
+  isLocalJobAlert, pushDecision, timeLeft, type AlertDecision, type DeadlineStage, type PushDecision,
 } from '../src/realtime/alerts.js';
 import { createBus, type Bus, type BusEventOf } from '../src/realtime/bus.js';
-import { createRealtime, startRealtime, type Realtime } from '../src/realtime/index.js';
+import { createRealtime, HOST_TICK_EVERY_MS, startRealtime, type Realtime } from '../src/realtime/index.js';
 import {
   buildPushRequest, checkSubscription, createVapidCache, createWebPushSender, isPushServiceHost, MAX_PAYLOAD_BYTES, parseSubscription,
   PUSH_SERVICE_HOSTS, pushMessage, toPushResult, usableVapid, VAPID_REUSE_MS,
@@ -38,6 +39,7 @@ import { register as realtimeRoutes } from '../src/routes/realtime.js';
 import type { ScanReport } from '../src/scan.js';
 import { buildApp } from '../src/server.js';
 import type { Account, Alert, AlertSettings, Award, Bid, Plan, Profile, ScoreResult } from '../src/types.js';
+import { zonedToUtc } from '../src/util/time.js';
 import { accountsConfig, fakeAuth, memoryDb, NOW, resetDb, seedAccount, testBid, testProfile } from './helpers.js';
 
 // ----------------------------------------------------------------- fixtures --
@@ -93,6 +95,21 @@ const award = (over: Partial<Award> = {}): Award => ({
 const testVapid = { ...generateVAPIDKeys(), subject: 'mailto:test@example.com' };
 
 const ZONES = ['America/Los_Angeles', 'America/New_York', 'Asia/Kolkata', 'Australia/Lord_Howe', 'UTC'] as const;
+
+/** web/js is plain JavaScript with no type declarations; a computed path keeps tsc from asking for them. */
+const formatPath = '../web/js/format.js';
+
+/** A local job's card in the feed, as src/jobs/service.ts mirrorBid makes it (synthetic). */
+const localBid = (jobId = 'TEST-job-1'): Bid => ({
+  ...testBid({ title: 'TEST porch light swap (simulated)', location: { city: 'Minden', state: 'NV' } }),
+  id: `local:${jobId}`, source: 'local', sourceId: jobId, sourceName: 'Local job', url: `https://example.com/?job=${jobId}`,
+});
+
+/** A local job event as src/jobs/service.ts publishes it (synthetic). */
+const jobEvent = (over: Partial<BusEventOf<'job'>> = {}): BusEventOf<'job'> => ({
+  type: 'job', kind: 'job_awarded', accountId: 'TEST-acct-none', jobId: 'TEST-job-1', title: 'TEST porch light swap (simulated)',
+  role: 'winner', status: 'awarded', outcome: null, amountCents: 30_011, contactDeadline: '2026-11-19T01:00:00.000Z', ...over,
+});
 
 // ------------------------------------------------------------- pure rules --
 
@@ -150,6 +167,74 @@ describe('match alerts: who is alerted (decision table)', () => {
   ])('push — %s', (_name, plan, alerts, isNewBid, now, push) => {
     // The alert itself is made either way: quiet hours and the plan only decide about the phone.
     expect(decideMatch(event({ isNewBid }), { ...profile, alerts }, plan, now)?.push).toBe(push);
+  });
+});
+
+describe('local-job alerts: the same push on every plan (docs/PLAN.md N2)', () => {
+  const profile = testProfile('test-local');
+  const DAY = 24 * HOUR;
+  /** Each local-job alert as its rule makes it. The saved local job closes a day after `now` (its day-before reminder). */
+  const LOCAL: Array<[string, (p: Profile, plan: Plan, now: Date) => AlertDecision | null]> = [
+    ['job_awarded: you won', (p, plan, now) => decideJob(jobEvent({ role: 'winner' }), p, plan, now)],
+    ['job_awarded: the bids are in (the poster)', (p, plan, now) => decideJob(jobEvent({ role: 'poster' }), p, plan, now)],
+    ['job_message: a message', (p, plan, now) => decideJob(jobEvent({ kind: 'job_message', messageId: 7, preview: 'TEST hello (simulated)' }), p, plan, now)],
+    ['job_message: the other side tapped “We’ve agreed”', (p, plan, now) => decideJob(jobEvent({ kind: 'job_message', tap: 'agreed', role: 'poster' }), p, plan, now)],
+    ['job_deadline: 2 days left to make contact', (p, plan, now) => decideJob(jobEvent({ kind: 'job_deadline' }), p, plan, now)],
+    ['job_closed: a no-show recorded', (p, plan, now) => decideJob(jobEvent({ kind: 'job_closed', status: 'closed', outcome: 'bidder_no_show' }), p, plan, now)],
+    ['match: a new local job that fits', (p, plan, now) => decideMatch(matchEvent(p.id, { bid: localBid() }), p, plan, now)],
+    ['deadline: a saved local job closes tomorrow', (p, plan, now) => decideDeadline({
+      profileId: p.id, bidId: 'local:TEST-job-2', title: 'TEST fence repair (simulated)', dueAt: new Date(now.getTime() + DAY).toISOString(),
+      place: 'Minden, NV', url: 'https://example.com/?job=TEST-job-2',
+    }, p, plan, now, new Date(now.getTime() + DAY))],
+  ];
+  const SETTINGS: Array<[string, AlertSettings | undefined, Date, PushDecision]> = [
+    ['phone alerts on', undefined, at('2026-11-12T20:00:00Z'), 'send'],
+    ['phone alerts off', { push: false }, at('2026-11-12T20:00:00Z'), 'off'],
+    ['inside quiet hours (22:30 Pacific)', { quietHours: { start: '21:00', end: '06:00' } }, at('2026-11-12T06:30:00Z'), 'hold'],
+    ['quiet hours over (06:00 Pacific)', { quietHours: { start: '21:00', end: '06:00' } }, at('2026-11-12T14:00:00Z'), 'send'],
+  ];
+
+  for (const [kind, decide] of LOCAL) {
+    it.each(SETTINGS)(`${kind} — %s: Free, Pro and the pilot get the same push`, (_name, alerts, now, push) => {
+      const decisions = (['free', 'pro', 'pilot'] as const).map((plan) => decide({ ...profile, alerts }, plan, now));
+      expect(decisions.map((d) => d?.push)).toEqual([push, push, push]);
+      // …and the same alert, word for word.
+      expect(decisions[0]?.alert).toEqual(decisions[1]?.alert);
+      expect(isLocalJobAlert(decisions[0]!.alert.kind, decisions[0]!.alert.bidId)).toBe(true);
+    });
+  }
+
+  it('the switch per kind still applies, on every plan', () => {
+    for (const plan of ['free', 'pro'] as const) {
+      expect(decideJob(jobEvent(), { ...profile, alerts: { kinds: { job_awarded: false } } }, plan, NOW)).toBeNull();
+      expect(decideJob(jobEvent({ kind: 'job_message', messageId: 1 }), { ...profile, alerts: { kinds: { job_message: false } } }, plan, NOW)).toBeNull();
+      expect(decideMatch(matchEvent(profile.id, { bid: localBid() }), { ...profile, alerts: { kinds: { match: false } } }, plan, NOW)).toBeNull();
+    }
+  });
+
+  it('a public bid still follows the plan: Free reads the inbox, Pro and the pilot buzz', () => {
+    const publicMatch = (plan: Plan) => decideMatch(matchEvent(profile.id), profile, plan, NOW);
+    expect([publicMatch('free')?.push, publicMatch('pro')?.push, publicMatch('pilot')?.push]).toEqual(['off', 'send', 'send']);
+    expect(isLocalJobAlert(publicMatch('free')!.alert.kind, publicMatch('free')!.alert.bidId)).toBe(false);
+    const saved: SavedDeadline = {
+      profileId: profile.id, bidId: 'samgov:TEST-due-public', title: 'TEST switchgear (synthetic)', dueAt: new Date(NOW.getTime() + DAY).toISOString(),
+      place: 'Carson City, NV', url: 'https://example.com/test-bid',
+    };
+    const next = new Date(NOW.getTime() + DAY);
+    expect([decideDeadline(saved, profile, 'free', NOW, next)?.push, decideDeadline(saved, profile, 'pro', NOW, next)?.push]).toEqual(['off', 'send']);
+    // A local job already on the boards (first scoring after onboarding) buzzes nobody, on any plan.
+    expect(decideMatch(matchEvent(profile.id, { bid: localBid(), isNewBid: false }), profile, 'pro', NOW)?.push).toBe('off');
+  });
+
+  it.each<[Plan, AlertSettings | undefined, string, PushDecision, PushDecision]>([
+    ['free', undefined, '2026-11-12T20:00:00Z', 'off', 'send'],
+    ['pro', undefined, '2026-11-12T20:00:00Z', 'send', 'send'],
+    ['free', { push: false }, '2026-11-12T20:00:00Z', 'off', 'off'],
+    ['free', { quietHours: { start: '21:00', end: '06:00' } }, '2026-11-12T08:00:00Z', 'off', 'hold'],
+  ])('pushDecision(%s, %j) at %s: a public bid → %s, a local job → %s', (plan, alerts, instant, bid, local) => {
+    expect(pushDecision(alerts, plan, at(instant))).toBe(bid);
+    expect(pushDecision(alerts, plan, at(instant), 'bid')).toBe(bid);
+    expect(pushDecision(alerts, plan, at(instant), 'local')).toBe(local);
   });
 });
 
@@ -230,55 +315,81 @@ describe('quiet hours', () => {
   });
 });
 
-describe('deadline reminders: stages', () => {
+describe('deadline reminders: stages by calendar day', () => {
   const due = at('2026-11-19T22:00:00Z'); // Thursday 2:00 PM Pacific, 5:00 PM in New York
   const before = (hours: number, minutes = 0) => new Date(due.getTime() - hours * HOUR - minutes * 60_000);
+  const PT = 'America/Los_Angeles';
 
+  // No next run known (null): a stage goes out from 07:00 on its day.
   it.each<[string, Date, string, DeadlineStage | null]>([
-    ['80 h before', before(80), 'America/Los_Angeles', null],
-    ['a minute too early', before(72, 1), 'America/Los_Angeles', null],
-    ['exactly 72 h before', before(72), 'America/Los_Angeles', '3d'],
-    ['48 h 1 min before', before(48, 1), 'America/Los_Angeles', '3d'],
-    ['exactly 48 h before: the 3-day window is over', before(48), 'America/Los_Angeles', null],
-    ['36 h before: between reminders', before(36), 'America/Los_Angeles', null],
-    ['24 h 1 min before', before(24, 1), 'America/Los_Angeles', null],
-    ['exactly 24 h before', before(24), 'America/Los_Angeles', '1d'],
-    ['Wednesday 23:59 Pacific', at('2026-11-19T07:59:00Z'), 'America/Los_Angeles', '1d'],
-    ['Thursday 00:00 Pacific: the due day, not morning yet', at('2026-11-19T08:00:00Z'), 'America/Los_Angeles', null],
-    ['Thursday 06:59 Pacific', at('2026-11-19T14:59:00Z'), 'America/Los_Angeles', null],
-    ['Thursday 07:00 Pacific: the morning of', at('2026-11-19T15:00:00Z'), 'America/Los_Angeles', 'day'],
-    ['a minute before the deadline', before(0, 1), 'America/Los_Angeles', 'day'],
-    ['at the deadline', due, 'America/Los_Angeles', null],
-    ['after the deadline', before(-1), 'America/Los_Angeles', null],
+    ['Sunday 23:59 Pacific: four days out', at('2026-11-16T07:59:00Z'), PT, null],
+    ['Monday 00:00: three days out, but night', at('2026-11-16T08:00:00Z'), PT, null],
+    ['Monday 06:59', at('2026-11-16T14:59:00Z'), PT, null],
+    ['Monday 07:00: three days before the due day', at('2026-11-16T15:00:00Z'), PT, '3d'],
+    ['Monday 23:59: still that day', at('2026-11-17T07:59:00Z'), PT, '3d'],
+    ['Tuesday noon: two days out, no reminder', at('2026-11-17T20:00:00Z'), PT, null],
+    ['Wednesday 06:59', at('2026-11-18T14:59:00Z'), PT, null],
+    ['Wednesday 07:00: the day before', at('2026-11-18T15:00:00Z'), PT, '1d'],
+    ['Wednesday 23:59', at('2026-11-19T07:59:00Z'), PT, '1d'],
+    ['Thursday 00:00: the due day, not morning yet', at('2026-11-19T08:00:00Z'), PT, null],
+    ['Thursday 06:59', at('2026-11-19T14:59:00Z'), PT, null],
+    ['Thursday 07:00: the due day', at('2026-11-19T15:00:00Z'), PT, 'day'],
+    ['a minute before the deadline', before(0, 1), PT, 'day'],
+    ['at the deadline', due, PT, null],
+    ['after the deadline', before(-1), PT, null],
     // The same instants read on a New York clock (three hours ahead).
     ['04:00 Pacific is 07:00 in New York: morning there', at('2026-11-19T12:00:00Z'), 'America/New_York', 'day'],
-    ['…and still night in Pacific', at('2026-11-19T12:00:00Z'), 'America/Los_Angeles', null],
+    ['…and still night in Pacific', at('2026-11-19T12:00:00Z'), PT, null],
     ['Wednesday 21:00 Pacific is already Thursday 00:00 in New York', at('2026-11-19T05:00:00Z'), 'America/New_York', null],
-    ['…and still the day before in Pacific', at('2026-11-19T05:00:00Z'), 'America/Los_Angeles', '1d'],
+    ['…and still the day before in Pacific', at('2026-11-19T05:00:00Z'), PT, '1d'],
     ['an unknown zone reads as Pacific', at('2026-11-19T15:00:00Z'), 'Mars/Olympus_Mons', 'day'],
   ])('%s', (_name, now, zone, stage) => {
     expect(deadlineStage(due, now, zone)).toBe(stage);
   });
 
-  it('a bid due before 07:00 has no morning-of reminder', () => {
-    const early = at('2026-11-19T13:00:00Z'); // Thursday 5:00 AM Pacific
-    expect(deadlineStage(early, at('2026-11-19T07:00:00Z'), 'America/Los_Angeles')).toBe('1d'); // Wednesday 23:00
-    expect(deadlineStage(early, at('2026-11-19T12:00:00Z'), 'America/Los_Angeles')).toBeNull(); // Thursday 04:00
+  it('before 07:00, only the day\'s last run sends: once a day (the host) it does, every 15 minutes it waits', () => {
+    const daily = (t: Date) => new Date(t.getTime() + HOST_TICK_EVERY_MS);
+    const quarter = (t: Date) => new Date(t.getTime() + 15 * 60_000);
+    const monday0650 = at('2026-11-16T14:50:00Z'); // the host's tick: 06:50 Pacific in winter
+    expect(deadlineStage(due, monday0650, PT, daily(monday0650))).toBe('3d');
+    expect(deadlineStage(due, monday0650, PT, quarter(monday0650))).toBeNull();
+    const thursdayHawaii = at('2026-11-19T14:50:00Z'); // 04:50 in Honolulu; due at 12:00 noon there
+    expect(deadlineStage(due, thursdayHawaii, 'Pacific/Honolulu', daily(thursdayHawaii))).toBe('day');
+    expect(deadlineStage(due, thursdayHawaii, 'Pacific/Honolulu', quarter(thursdayHawaii))).toBeNull();
+    // 23:45: the next run, at 00:00, is another day, so this one sends (it would anyway, after 07:00).
+    const late = at('2026-11-17T07:45:00Z');
+    expect(deadlineStage(due, late, PT, quarter(late))).toBe('3d');
+    // A run on a day with no stage sends nothing, whatever comes next.
+    const tuesday = at('2026-11-17T14:50:00Z');
+    expect(deadlineStage(due, tuesday, PT, daily(tuesday))).toBeNull();
   });
 
-  it('walking the clock toward any deadline, in any zone, the stages come once each and in order', () => {
+  it('a bid due before 07:00 has no due-day reminder on a server that runs every 15 minutes', () => {
+    const early = at('2026-11-19T13:00:00Z'); // Thursday 5:00 AM Pacific
+    expect(deadlineStage(early, at('2026-11-19T07:00:00Z'), PT)).toBe('1d'); // Wednesday 23:00
+    expect(deadlineStage(early, at('2026-11-19T12:00:00Z'), PT, at('2026-11-19T12:15:00Z'))).toBeNull(); // Thursday 04:00
+  });
+
+  it('walking toward any deadline every 15 minutes, in any zone, the stages come once each, in order, at 07:00 or later on their day', () => {
     fc.assert(fc.property(
       fc.integer({ min: Date.UTC(2026, 0, 1) / 60_000, max: Date.UTC(2027, 11, 31) / 60_000 }), fc.constantFrom(...ZONES),
       (dueMinute, zone) => {
         const deadline = new Date(dueMinute * 60_000);
+        const day = (d: Date) => new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+        const hour = (d: Date) => Number(new Intl.DateTimeFormat('en-US', { timeZone: zone, hour: 'numeric', hourCycle: 'h23' }).format(d));
         const seen: string[] = [];
-        // The job's own rhythm: every 15 minutes, from 80 hours out to the deadline.
-        for (let t = deadline.getTime() - 80 * HOUR; t <= deadline.getTime(); t += 15 * 60_000) {
-          const stage = deadlineStage(deadline, new Date(t), zone);
-          if (stage && seen.at(-1) !== stage) seen.push(stage);
+        // A long-running server's rhythm: every 15 minutes, from 100 hours out to the deadline.
+        for (let t = deadline.getTime() - DEADLINE_LOOKAHEAD_HOURS * HOUR; t <= deadline.getTime(); t += 15 * 60_000) {
+          const now = new Date(t);
+          const stage = deadlineStage(deadline, now, zone, new Date(t + 15 * 60_000));
+          if (!stage || seen.at(-1) === stage) continue;
+          seen.push(stage);
+          expect(hour(now)).toBeGreaterThanOrEqual(7); // never in the night
+          const daysBefore = (Date.parse(day(deadline)) - Date.parse(day(now))) / 86_400_000;
+          expect(daysBefore).toBe({ '3d': 3, '1d': 1, day: 0 }[stage]);
         }
-        // '1d' is only missing when the whole last day is the due day itself (a 25-hour day).
-        expect(['3d,1d', '3d,1d,day', '3d,day']).toContain(seen.join(','));
+        // The due-day reminder is only missing for a deadline before the due day's first run from 07:00.
+        expect(['3d,1d,day', '3d,1d']).toContain(seen.join(','));
       },
     ));
   });
@@ -299,15 +410,17 @@ describe('deadline reminders: stages', () => {
       },
       push: 'send',
     });
-    // Still inside the 3-day window, but a calendar day later: the wording follows the calendar.
-    expect(decideDeadline(saved, profile, 'pro', before(49))?.alert.title).toBe('Due in 2 days · Thu 2:00 PM');
+    // Two calendar days out: no reminder (3 days before, the day before and the due day only).
+    expect(decideDeadline(saved, profile, 'pro', before(49))).toBeNull();
     expect(decideDeadline(saved, profile, 'pro', before(23))?.alert).toMatchObject({
       title: 'Due tomorrow at 2:00 PM', dedupeKey: 'samgov:TEST-due:1d:2026-11-19',
     });
     expect(decideDeadline(saved, profile, 'pro', at('2026-11-19T15:00:00Z'))?.alert).toMatchObject({
       title: 'Due today at 2:00 PM', dedupeKey: 'samgov:TEST-due:day:2026-11-19',
     });
-    expect(decideDeadline(saved, profile, 'pro', before(36))).toBeNull();
+    expect(decideDeadline(saved, profile, 'pro', before(36))).toBeNull(); // Wednesday 02:00
+    expect(decideDeadline(saved, profile, 'pro', before(36), new Date(before(36).getTime() + HOST_TICK_EVERY_MS))?.alert.dedupeKey)
+      .toBe('samgov:TEST-due:1d:2026-11-19'); // …unless it is that day's last run
   });
 
   it('reads the profile\'s time zone, respects the deadline switch, and gates the push like any alert', () => {
@@ -320,6 +433,36 @@ describe('deadline reminders: stages', () => {
     // 07:00 Pacific with quiet hours until 08:00: the reminder is made, the buzz waits.
     const sleepsIn = { ...profile, alerts: { quietHours: { start: '22:00', end: '08:00' } } };
     expect(decideDeadline(saved, sleepsIn, 'pro', at('2026-11-19T15:00:00Z'))?.push).toBe('hold');
+  });
+
+  it('the day-before and due-day reminders of a public bid end with the addenda line; 3 days out and local jobs do not', () => {
+    const body = (s: SavedDeadline, now: Date) => decideDeadline(s, profile, 'pro', now)?.alert.body;
+    expect(ADDENDA_LINE).toBe('Check the agency’s page for addenda (amendments) before you bid. BidSwipe doesn’t read them.');
+    expect(body(saved, before(71))).toBe('TEST switchgear replacement (synthetic) — Carson City, NV');
+    expect(body(saved, before(23))).toBe(`TEST switchgear replacement (synthetic) — Carson City, NV · ${ADDENDA_LINE}`);
+    expect(body(saved, at('2026-11-19T15:00:00Z'))).toBe(`TEST switchgear replacement (synthetic) — Carson City, NV · ${ADDENDA_LINE}`);
+    // A long title is cut, never the addenda line, and the body stays one line of at most 200 characters.
+    const long = { ...saved, title: `TEST ${'very long switchgear title '.repeat(12)}(synthetic)` };
+    const cut = body(long, before(23))!;
+    expect(cut.length).toBeLessThanOrEqual(200);
+    expect(cut.endsWith(` · ${ADDENDA_LINE}`)).toBe(true);
+    expect(cut).toContain('…');
+    expect(cut).not.toMatch(/\n/);
+    // The push summary names the bid by the body up to its first " — ": the addenda line never becomes the name.
+    expect(cut.split(' — ')[0]!.startsWith('TEST very long')).toBe(true);
+    // A saved local job is bid in the app: no agency page, no addenda line.
+    const local = { ...saved, bidId: 'local:TEST-job-due', place: 'Minden, NV' };
+    expect(body(local, before(23))).toBe('TEST switchgear replacement (synthetic) — Minden, NV');
+    expect(body(local, at('2026-11-19T15:00:00Z'))).toBe('TEST switchgear replacement (synthetic) — Minden, NV');
+  });
+
+  it('the sheet\'s line (web/js/format.js) is the reminders\' line, on public bids only', async () => {
+    const format = await import(/* @vite-ignore */ formatPath) as { ADDENDA_LINE: string; addendaLine: (item: unknown) => string | null };
+    expect(format.ADDENDA_LINE).toBe(ADDENDA_LINE);
+    expect(format.addendaLine({ id: 'nevadaepro:TEST-1', source: 'nevadaepro' })).toBe(ADDENDA_LINE);
+    expect(format.addendaLine({ id: 'samgov:TEST-2', source: 'samgov', tier: 'sub' })).toBe(ADDENDA_LINE);
+    expect(format.addendaLine({ id: 'local:TEST-job', source: 'local' })).toBeNull();
+    expect(format.addendaLine({ id: 'local:TEST-job' })).toBeNull();
   });
 });
 
@@ -891,7 +1034,7 @@ let clock = NOW;
 const running: Realtime[] = [];
 
 /** The realtime module on its own bus with a fake clock and a fake push service; ticks only when told. */
-function engine(opts: { config?: AppConfig; profile?: Profile; coalesceMs?: number } = {}) {
+function engine(opts: { config?: AppConfig; profile?: Profile; coalesceMs?: number; tickEveryMs?: number } = {}) {
   const errors: unknown[] = [];
   const logs: string[] = [];
   const announced: Alert[] = [];
@@ -901,7 +1044,7 @@ function engine(opts: { config?: AppConfig; profile?: Profile; coalesceMs?: numb
   const ctx = createContext({
     db, config: opts.config ?? accountsConfig(), profile: opts.profile, bus, auth: fakeAuth(null), now: () => clock, log: (m) => void logs.push(m),
   });
-  const rt = createRealtime(ctx, { sender: push.sender, tickMs: 0, coalesceMs: opts.coalesceMs ?? 0 });
+  const rt = createRealtime(ctx, { sender: push.sender, tickMs: 0, coalesceMs: opts.coalesceMs ?? 0, ...(opts.tickEveryMs ? { tickEveryMs: opts.tickEveryMs } : {}) });
   running.push(rt);
   return { bus, ctx, rt, push, errors, logs, announced };
 }
@@ -1279,6 +1422,64 @@ describe('realtime: from a bus event to the inbox and the phone', () => {
       expect(e.errors).toEqual([]);
     }), { numRuns: 20 });
   });
+
+  it('local jobs buzz Free and Pro alike, at the same moment; a new public bid buzzes only Pro (docs/PLAN.md N2)', async () => {
+    const free = await member({ plan: 'free' });
+    const pro = await member({ plan: 'pro' });
+    const e = engine();
+    const both = [free, pro];
+    const endpoints = () => e.push.sent.map((x) => x.endpoint).sort();
+    const devicesOf = (...who: typeof both) => who.map((w) => w.devices[0]!.endpoint).sort();
+
+    // A new local job near them (src/scan.ts scoreNewBid publishes it as a new bid), then each job event in turn.
+    const steps: Array<[string, (w: (typeof both)[number]) => Parameters<typeof e.bus.emit>[0]]> = [
+      ['a new local job', (w) => matchEvent(w.profile.id, { bid: localBid('TEST-job-n2') })],
+      ['you won', (w) => jobEvent({ accountId: w.account.id, jobId: `TEST-job-${w.account.id}` })],
+      ['a message', (w) => jobEvent({ accountId: w.account.id, kind: 'job_message', messageId: 11, preview: 'TEST hi (simulated)' })],
+      ['2 days left', (w) => jobEvent({ accountId: w.account.id, kind: 'job_deadline' })],
+      ['a no-show recorded', (w) => jobEvent({ accountId: w.account.id, kind: 'job_closed', status: 'closed', outcome: 'bidder_no_show' })],
+    ];
+    for (const [what, event] of steps) {
+      e.push.sent.length = 0;
+      for (const w of both) await e.bus.emit(event(w));
+      await e.rt.flush();
+      expect(endpoints(), what).toEqual(devicesOf(free, pro));
+      expect(e.push.sent.map((x) => x.payload.title)[0], what).toBe(e.push.sent.map((x) => x.payload.title)[1]);
+    }
+    // A public bid: in both inboxes, on Pro's phone only.
+    e.push.sent.length = 0;
+    for (const w of both) await e.bus.emit(matchEvent(w.profile.id));
+    await e.rt.flush();
+    await e.rt.tick();
+    expect(endpoints()).toEqual(devicesOf(pro));
+    for (const w of both) expect((await listAlerts(db, w.profile.id)).filter((a) => a.bidId?.startsWith('samgov:'))).toHaveLength(1);
+    expect(e.errors).toEqual([]);
+  });
+
+  it('a Free phone gets only its local-job pushes: a public push left waiting from a Pro month stays in the inbox', async () => {
+    const { account, profile, devices } = await member({ plan: 'free' });
+    const e = engine();
+    // Waiting pushes as the store leaves them (pushed_at empty): one public match from before the move to Free…
+    await insertAlert(db, profile.id, draft('samgov:TEST-was-pro'), { push: true, now: NOW });
+    // …and the local ones: a job alert, a new local job, a saved local job's reminder.
+    await insertAlert(db, profile.id, draft('TEST-job-w:winner', { kind: 'job_awarded', bidId: null, data: { jobId: 'TEST-job-w' } }), { push: true, now: NOW });
+    await insertAlert(db, profile.id, draft('local:TEST-job-x'), { push: true, now: NOW });
+    await insertAlert(db, profile.id, draft('local:TEST-job-y:1d:2026-11-12', { kind: 'deadline', bidId: 'local:TEST-job-y' }), { push: true, now: NOW });
+
+    await e.rt.tick();
+    expect(e.push.sent).toHaveLength(1);
+    expect(e.push.sent[0]).toMatchObject({ endpoint: devices[0]!.endpoint, payload: { title: '3 new alerts', kind: 'summary' } });
+    const waiting = (await listAlerts(db, profile.id)).filter((a) => a.pushedAt === null).map((a) => a.dedupeKey);
+    expect(waiting).toEqual(['samgov:TEST-was-pro']);
+    // The SQL and the rule agree on what a local-job alert is.
+    for (const a of await listAlerts(db, profile.id)) expect(isLocalJobAlert(a.kind, a.bidId)).toBe(a.pushedAt !== null);
+
+    // Back on Pro, the public one goes at the next tick (within its 24 hours).
+    await db.query("update accounts set plan = 'pro' where id = $1", [account.id]);
+    await e.rt.tick();
+    expect(e.push.sent).toHaveLength(2);
+    expect(e.push.sent[1]?.payload).toMatchObject({ title: 'TEST alert samgov:TEST-was-pro', alertIds: [expect.any(Number)] });
+  });
 });
 
 // -------------------------------------------------------------- deadlines --
@@ -1304,7 +1505,7 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     return bid;
   }
 
-  it('fires 3 days out, 1 day out and on the morning of — once each, however often the job runs', async () => {
+  it('fires 3 days before, the day before and on the due day — once each, however often the job runs', async () => {
     const { profile, devices } = await member();
     const bid = await swipe(profile, 'save');
     const e = engine();
@@ -1322,7 +1523,7 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     await run(before(71)); // Monday 3:00 PM
     expect(await stages()).toEqual([[`${bid.id}:3d:2026-11-19`, 'Due in 3 days · Thu 2:00 PM']]);
 
-    await run(before(30)); // between reminders
+    await run(before(48)); // Tuesday 2:00 PM: two days out, between reminders
     expect(await stages()).toHaveLength(1);
 
     await run(before(23)); // Wednesday 3:00 PM
@@ -1340,7 +1541,9 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     const inbox = await listAlerts(db, profile.id);
     expect(inbox.every((a) => a.kind === 'deadline' && a.bidId === bid.id)).toBe(true);
     expect(inbox[0]?.data).toEqual({ bidId: bid.id, stage: 'day', dueAt: due.toISOString(), url: 'https://example.com/test-bid' });
-    expect(inbox[0]?.body).toBe('TEST electrical panel upgrade (synthetic) — Carson City, NV');
+    // The due-day reminder (newest) ends with the addenda line; the 3-day one (oldest) does not.
+    expect(inbox[0]?.body).toBe(`TEST electrical panel upgrade (synthetic) — Carson City, NV · ${ADDENDA_LINE}`);
+    expect(inbox[2]?.body).toBe('TEST electrical panel upgrade (synthetic) — Carson City, NV');
     expect(e.announced).toHaveLength(3);
     // One push per reminder, to the phone, expiring within hours.
     expect(e.push.sent.map((s) => [s.endpoint, s.payload.title, s.message.ttl, s.message.urgency])).toEqual([
@@ -1412,6 +1615,108 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     await e.rt.tick();
 
     expect((await listAlerts(db, profile.id)).map((a) => a.dedupeKey).reverse()).toEqual([`${bid.id}:3d:2026-11-19`, `${bid.id}:3d:2026-11-26`]);
+  });
+
+  /**
+   * The host runs the reminder job ONCE a day (vercel.json: /api/cron/tick at 14:50 UTC). The wall clock that one run
+   * lands on in each of the seven zones Settings offers (web/js/profile-form.js TIME_ZONES), in January and in July.
+   */
+  const SETTINGS_ZONES: Array<[zone: string, january: string, july: string]> = [
+    ['America/Los_Angeles', '06:50', '07:50'],
+    ['America/Denver', '07:50', '08:50'],
+    ['America/Phoenix', '07:50', '07:50'],
+    ['America/Chicago', '08:50', '09:50'],
+    ['America/New_York', '09:50', '10:50'],
+    ['America/Anchorage', '05:50', '06:50'],
+    ['Pacific/Honolulu', '04:50', '04:50'],
+  ];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  /** "2027-01-14 04:50" on a zone's wall clock. */
+  const wall = (t: string | number | Date, zone: string) => {
+    const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', {
+      timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+    }).formatToParts(new Date(t)).map((x) => [x.type, x.value]));
+    return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+  };
+
+  it('the host still runs the job once a day at 14:50 UTC, and Settings still offers exactly these seven zones', () => {
+    const vercel = JSON.parse(readFileSync(new URL('../vercel.json', import.meta.url), 'utf8')) as { crons: Array<{ path: string; schedule: string }> };
+    expect(vercel.crons.filter((c) => c.path.startsWith('/api/cron/tick'))).toEqual([{ path: '/api/cron/tick', schedule: '50 14 * * *' }]);
+    expect(HOST_TICK_EVERY_MS).toBe(24 * HOUR);
+    const form = readFileSync(new URL('../web/js/profile-form.js', import.meta.url), 'utf8');
+    const list = form.slice(form.indexOf('export const TIME_ZONES = ['), form.indexOf('];', form.indexOf('export const TIME_ZONES = [')));
+    expect([...list.matchAll(/id: '([^']+)'/g)].map((m) => m[1])).toEqual(SETTINGS_ZONES.map(([zone]) => zone));
+  });
+
+  // Which zones get a due-day reminder: only where the day's one run comes before the deadline.
+  const DUE_DAY_SENT: Record<string, string[]> = {
+    'January 06:00': ['America/Anchorage', 'Pacific/Honolulu'], // 05:50 and 04:50 there
+    'July 06:00': ['Pacific/Honolulu'], // Alaska's run is at 06:50 in summer
+    'January 23:30': SETTINGS_ZONES.map(([zone]) => zone),
+    'July 23:30': SETTINGS_ZONES.map(([zone]) => zone),
+  };
+
+  it.each<[string, string, number, number, string]>([
+    // month, the due time on each zone's own clock, the month's number, a Thursday in it (2027), how a title says the time
+    ['January', '06:00', 1, 14, '6:00 AM'],
+    ['January', '23:30', 1, 14, '11:30 PM'],
+    ['July', '06:00', 7, 15, '6:00 AM'],
+    ['July', '23:30', 7, 15, '11:30 PM'],
+  ])('%s, due at %s local: one run a day at 14:50 UTC sends each stage on its own day in all 7 Settings zones', async (month, dueClock, mo, day, said) => {
+    const e = engine({ tickEveryMs: HOST_TICK_EVERY_MS }); // as src/server.ts serverless() starts it
+    const [hh, mm] = dueClock.split(':').map(Number) as [number, number];
+    const people = [];
+    for (const [zone, january, july] of SETTINGS_ZONES) {
+      const who = await member({ alerts: { timeZone: zone } }); // Pro: reminders buzz the phone too
+      const dueAt = zonedToUtc(2027, mo, day, hh, mm, 0, zone);
+      expect(wall(dueAt, zone)).toBe(`2027-${pad(mo)}-${day} ${dueClock}`);
+      people.push({ zone, run: month === 'January' ? january : july, who, bid: await swipe(who.profile, 'save', { dueAt: dueAt.toISOString() }) });
+    }
+    // The host's runs, from six days before the due day to the day after it.
+    for (let d = day - 6; d <= day + 1; d++) {
+      clock = new Date(Date.UTC(2027, mo - 1, d, 14, 50));
+      await e.rt.tick();
+      await e.rt.flush();
+    }
+
+    const date = (d: number) => `2027-${pad(mo)}-${pad(d)}`;
+    let total = 0;
+    for (const p of people) {
+      // The table's wall clocks are the real ones.
+      expect(wall(Date.UTC(2027, mo - 1, day, 14, 50), p.zone)).toBe(`${date(day)} ${p.run}`);
+      const inbox = (await listAlerts(db, p.who.profile.id)).reverse();
+      const dueDay = DUE_DAY_SENT[`${month} ${dueClock}`]!.includes(p.zone);
+      expect(inbox.map((a) => [a.data.stage, wall(a.createdAt, p.zone), a.title, a.dedupeKey]), p.zone).toEqual([
+        ['3d', `${date(day - 3)} ${p.run}`, `Due in 3 days · Thu ${said}`, `${p.bid.id}:3d:${date(day)}`],
+        ['1d', `${date(day - 1)} ${p.run}`, `Due tomorrow at ${said}`, `${p.bid.id}:1d:${date(day)}`],
+        ...(dueDay ? [['day', `${date(day)} ${p.run}`, `Due today at ${said}`, `${p.bid.id}:day:${date(day)}`]] : []),
+      ]);
+      // The day-before and due-day reminders carry the addenda line; 3 days out does not.
+      expect(inbox.map((a) => a.body.endsWith(ADDENDA_LINE))).toEqual([false, true, ...(dueDay ? [true] : [])]);
+      total += inbox.length;
+    }
+    // Each reminder buzzed once (Pro), and running the job again changes nothing.
+    expect(e.push.sent).toHaveLength(total);
+    await e.rt.tick();
+    await e.rt.flush();
+    expect(e.push.sent).toHaveLength(total);
+    expect(e.errors).toEqual([]);
+  });
+
+  it('a server that runs the job every 15 minutes sends each stage at 07:00 on its day, never in the night', async () => {
+    const e = engine({ tickEveryMs: 15 * 60_000 }); // as startRealtime runs it in a long-running process
+    const west = await member();
+    const islands = await member({ alerts: { timeZone: 'Pacific/Honolulu' } });
+    await swipe(west.profile, 'save'); // Thursday 2:00 PM Pacific
+    await swipe(islands.profile, 'save'); // Thursday 12:00 PM in Honolulu
+    for (let t = due.getTime() - DEADLINE_LOOKAHEAD_HOURS * HOUR; t <= due.getTime(); t += 15 * 60_000) {
+      clock = new Date(t);
+      await e.rt.tick();
+    }
+    const sent = async (who: { profile: Profile }, zone: string) =>
+      (await listAlerts(db, who.profile.id)).reverse().map((a) => [a.data.stage, wall(a.createdAt, zone)]);
+    expect(await sent(west, 'America/Los_Angeles')).toEqual([['3d', '2026-11-16 07:00'], ['1d', '2026-11-18 07:00'], ['day', '2026-11-19 07:00']]);
+    expect(await sent(islands, 'Pacific/Honolulu')).toEqual([['3d', '2026-11-16 07:00'], ['1d', '2026-11-18 07:00'], ['day', '2026-11-19 07:00']]);
   });
 });
 

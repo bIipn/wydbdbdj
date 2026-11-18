@@ -281,6 +281,11 @@ export interface FeedItem extends Bid {
   distanceMi: number | null;
   swipe: SwipeAction | null;
   firstSeenAt: string;
+  /**
+   * When a scan last found the bid on its board (bids.last_seen_at, ISO UTC). A card with no due date says how fresh
+   * it is from this ("No due date · Seen on the board Tue, Nov 17": web/js/format.js dueInfo, docs/PLAN.md R5).
+   */
+  lastSeenAt: string;
   /** Never alerted, never in the deck or "next bid"; Browse shows it with an "Over your limit" tag. */
   overLimit: boolean;
   /** Stored matches.tier; a row scored before tiers existed reads as 'fit' at score >= 35, else 'other'. */

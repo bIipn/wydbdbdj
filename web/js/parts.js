@@ -2,8 +2,9 @@
 
 import { markOpened } from './actions.js';
 import { h, icon, ICONS, safeUrl, store } from './dom.js';
-import { dueInfo, estLabel, num, orderedReasons, shortSource, tierOf } from './format.js';
+import { estLabel, num, orderedReasons, shortSource, straightMiles, tierOf } from './format.js';
 import { jobIdOf, jobsOn, openJob } from './jobs-data.js';
+import { dueOf } from './state.js';
 
 
 export function scoreRing(score) {
@@ -19,19 +20,25 @@ export function scoreRing(score) {
   return wrap;
 }
 
-export function facts(item) {
-  const due = dueInfo(item.dueAt);
+/**
+ * The four tiles: where, bids due, value, type. `sheet: true` (the detail sheet) says how the miles were measured:
+ * "41 mi, straight line" (docs/PLAN.md R3). It fits the tile's one line, as the card's "41 mi away" does.
+ */
+export function facts(item, { sheet = false } = {}) {
+  // A bid with no due date says the day it was last seen on its board ("No due date" / "Seen Tue, Nov 17").
+  const due = dueOf(item);
   // The server's place label, as it is. Miles only when the server measured them to the job itself: an area
   // ("Caltrans District 10: …"), a statewide list or a contracting office has no distance, and the label says why.
   const where = item.location?.label ?? 'Location not listed';
   // No miles: said in words, never "? mi".
-  const dist = item.distanceMi != null ? `${num(item.distanceMi)}\u00a0mi away` : 'No distance: site not named';
+  const dist = item.distanceMi == null ? 'No distance: site not named'
+    : sheet ? straightMiles(item.distanceMi) : `${num(item.distanceMi)}\u00a0mi away`;
   // A label that does not fit half a 390 px card (about 18 characters at 14 px) gets the tile's full width: two
   // lines at most on the card, all of it in the detail sheet.
   const wide = where.length > 18;
   return h('div', { class: `facts${wide ? ' has-wide' : ''}` },
     h('div', { class: `fact where${wide ? ' wide' : ''}${item.distanceMi != null ? '' : ' no-dist'}`, title: where }, h('span', {}, 'Where'), h('strong', {}, where), h('small', {}, dist)),
-    h('div', { class: `fact${due.urgent ? ' urgent' : ''}` }, h('span', {}, 'Bids due'), h('strong', {}, due.big), h('small', {}, due.small)),
+    h('div', { class: `fact${due.urgent ? ' urgent' : ''}`, title: due.days === Infinity ? due.line : null }, h('span', {}, 'Bids due'), h('strong', {}, due.big), h('small', {}, due.small)),
     h('div', { class: `fact${item.overLimit ? ' over' : ''}` }, h('span', {}, 'Est. value'), h('strong', {}, estLabel(item.estValue) ?? 'Not listed'),
       h('small', {}, item.overLimit ? 'over your limit' : jobIdOf(item) ? 'the poster’s ceiling' : 'from the bid notice')),
     h('div', { class: 'fact type', title: [item.category, item.sourceName].filter(Boolean).join(' · ') }, h('span', {}, 'Type'), h('strong', {}, item.category ?? 'Bid'), h('small', { class: 'board' }, item.sourceName)),

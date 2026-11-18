@@ -9,7 +9,7 @@ import { devicePush, sendTestPush, standalone, testResultLine, turnOffPush, turn
 import { homeView, onSignedOut } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { registerView, render, setView } from '../shell.js';
-import { features, intent, mergeItems, state } from '../state.js';
+import { features, intent, mergeItems, phoneAlerts, state } from '../state.js';
 
 const ui = { back: 'home', loading: false, error: null, push: 'checking', pushNote: '', testing: false, testLine: '' };
 onSignedOut(() => { Object.assign(ui, { push: 'checking', testing: false, testLine: '' }); });
@@ -67,7 +67,7 @@ async function markRead(ids) {
 // --------------------------------------------------------- push panel ---
 
 async function checkPush() {
-  const { state: s, key } = await devicePush(!!features()?.instantPush);
+  const { state: s, key } = await devicePush(phoneAlerts());
   ui.pushKey = key;
   return s;
 }
@@ -124,15 +124,14 @@ const COPY = {
     live: 'Live — new matches appear here the moment a scan finds them.',
     off: 'Get a notification the moment a bid that fits you is posted. Your phone asks for permission first.',
     on: 'This device gets a notification the moment a new bid fits you. Quiet hours in Settings hold them until morning.',
-    locked: 'Instant phone alerts are a Pro feature. On Free you get this inbox and the daily email.',
     not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. New matches still show here and pop up while the app is open.',
   },
+  // The same on every plan: local jobs buzz the phone on Free as on Pro (src/realtime/alerts.ts pushDecision).
   jobs: {
     empty: 'When bidding closes on a job you posted, the lowest bid and the contact deadline show up here. So do messages from the winner and how the job ended.',
     live: 'Live — news on your jobs appears here as soon as BidSwipe records it.',
     off: 'Get a notification when bidding closes on your job or the winner sends a message. Your phone asks for permission first.',
     on: 'This device gets a notification when bidding closes on your job or a message comes in. Quiet hours in Settings hold them until morning.',
-    locked: 'Instant phone alerts are a Pro feature. On Free, news on your jobs shows up in this inbox.',
     not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. News on your jobs still shows here and pops up while the app is open.',
   },
   both: {
@@ -140,12 +139,22 @@ const COPY = {
     live: 'Live — new matches appear the moment a scan finds them, news on your jobs as soon as BidSwipe records it.',
     off: 'Get a notification when a scan finds a bid that fits you, or when there’s news on a job you posted or bid on. Your phone asks for permission first.',
     on: 'This device gets a notification for new bids that fit you and for news on your jobs. Quiet hours in Settings hold them until morning.',
-    locked: 'Instant phone alerts are a Pro feature. On Free you get this inbox and the daily email.',
     not_configured: 'Phone alerts aren’t set up on this server yet, so it can’t send them. New matches and news on your jobs still show here and pop up while the app is open.',
   },
 };
 
+/**
+ * 'both' on a plan without instant push (Free): the phone buzzes for local jobs, as on Pro; new public bids that fit
+ * stay in the inbox. The switch says what it covers.
+ */
+const FREE_BOTH = {
+  off: 'Get a notification for news on your local jobs, and for new ones that fit you. Your phone asks for permission first. New public bids that fit show in this inbox; phone alerts for those are part of BidSwipe Pro.',
+  on: 'This device gets a notification for news on your local jobs, and for new ones that fit you. New public bids that fit show in this inbox. Quiet hours in Settings hold them until morning.',
+};
+
 const PUSH_TEXT = {
+  // Only where nothing can buzz at all (state.js phoneAlerts): in accounts mode local jobs buzz on every plan.
+  locked: 'Phone alerts for new bids are part of BidSwipe Pro. New bids that fit show in this inbox.',
   checking: 'Checking this device…',
   busy: 'One moment…',
   unsupported: 'This browser can’t show phone alerts. They work in Chrome, Edge, Firefox and Safari; on an iPhone or iPad, add BidSwipe to your Home Screen first and open it from there.',
@@ -187,7 +196,8 @@ function iosSteps() {
 
 function pushText(s) {
   if (s === 'denied' && standalone() === true) return IOS_DENIED;
-  return COPY[audience()][s] ?? PUSH_TEXT[s] ?? '';
+  const free = audience() === 'both' && features()?.instantPush !== true;
+  return (free ? FREE_BOTH[s] : undefined) ?? COPY[audience()][s] ?? PUSH_TEXT[s] ?? '';
 }
 
 function pushPanel() {

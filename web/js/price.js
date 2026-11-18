@@ -218,7 +218,7 @@ export function prevailingView(p) {
     ),
     p.lines?.length ? h('ul', { class: 'pc-lines' }, p.lines.map((l) => h('li', {}, l))) : null,
     p.edition ? h('p', { class: 'pc-fine' }, `Table: ${p.edition}`) : null,
-    p.links?.length ? h('p', { class: 'pc-source' }, p.links.map((l, i) => [i ? ' · ' : '', sourceLink(l.label, l.url)])) : null,
+    p.links?.length ? h('p', { class: 'pc-source pc-links' }, p.links.map((l, i) => [i ? ' · ' : '', sourceLink(l.label, l.url)])) : null,
   );
 }
 

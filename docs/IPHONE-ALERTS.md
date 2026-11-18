@@ -16,7 +16,9 @@ website into an app in Safari on iPhone") and the fixes that followed it.
 - **A separate sign-in.** The Home Screen app does not share Safari's sign-in (WebKit bug 181849): sign in again there.
 - **Permission from a tap.** "Turn on phone alerts" asks iOS for permission and subscribes in the same tap; the
   service worker is registered when the page loads (web/js/sw-register.js), never in the tap.
-- **A Pro plan** (instant phone alerts are part of BidSwipe Pro). On Free the box shows "Pro" with a padlock.
+- **Any plan for local jobs; Pro for new public bids.** Local-job alerts (you won, messages, the contact reminder, how
+  the job ended, a new local job that fits) buzz on every plan; a new public bid that fits buzzes on Pro and the
+  pilot, and waits in the inbox on Free. So a Free account can turn phone alerts on and send the test.
 - **Notifications allowed in iOS.** Once allowed or blocked, the switch is in the iPhone's Settings app →
   Notifications → BidSwipe (not a browser setting); the app says so when they are blocked. A Focus can hold alerts.
 - The app reads `navigator.standalone` (true = the Home Screen app, false = an iPhone/iPad browser tab, undefined =

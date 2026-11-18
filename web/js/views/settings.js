@@ -19,7 +19,7 @@ import { promoRow } from '../promo.js';
 import { devicePush, releaseDevice, standalone } from '../push.js';
 import { applyMe, loadFeed, onSignedOut, signedOut, signOut } from '../session.js';
 import { goBack, onAfterRender, registerView, render, setView } from '../shell.js';
-import { features, intent, PRIME_TRADE, state } from '../state.js';
+import { features, intent, phoneAlerts, PRIME_TRADE, state } from '../state.js';
 import { openAlerts } from './alerts.js';
 import { fieldsObject, workBodyFrom, workDraftFrom, workProfileSection } from '../work-profile.js';
 
@@ -35,7 +35,8 @@ const closeDelete = () => Object.assign(del, DELETE_CLOSED, { jobs: [] });
 onSignedOut(closeDelete);
 
 const PLAN_TEXT = {
-  free: 'Daily digest and in-app alerts. Pro adds instant phone alerts, award history, the cost check and your own cost settings.',
+  // Local jobs buzz on every plan (src/realtime/alerts.ts); only new public bids' phone alerts are Pro.
+  free: 'In-app alerts, and phone alerts for your local jobs. Pro adds phone alerts for new public bids, award history, the cost check and your own cost settings.',
   // Phone alerts are per device (the bell turns them on), so the plan line never says they are on here.
   pro: 'Instant phone alerts, award history, the cost check and cost settings are part of your plan. Phone alerts are turned on for each device from the bell.',
   pilot: 'Every feature is on for the pilot.',
@@ -62,10 +63,11 @@ const PUSH_WORD = {
 
 /**
  * "Phone alerts on this device": what the bell's panel would say, in one word, and a button there (the switch, the
- * steps and the test live in one place). Only for a plan with instant push, and only once the state is known.
+ * steps and the test live in one place). Wherever phone alerts can buzz at all (state.js phoneAlerts: every account,
+ * for its local jobs), and only once the state is known.
  */
 function pushRow() {
-  if (!features()?.instantPush) return null;
+  if (!phoneAlerts()) return null;
   if (ui.push === null) {
     ui.push = 'checking';
     devicePush(true).then(({ state: s }) => { ui.push = s; if (state.view === 'settings') render(); }).catch(() => { ui.push = 'error'; });

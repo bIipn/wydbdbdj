@@ -118,7 +118,8 @@ const ALERT_KINDS = ['match', 'deadline', 'award', 'price'] as const;
  * marketplace's alert rules read them from profile.alerts.kinds.
  */
 export const JOB_ALERT_KINDS = ['job_awarded', 'job_message', 'job_deadline', 'job_closed'] as const;
-const ALL_ALERT_KINDS = [...ALERT_KINDS, ...JOB_ALERT_KINDS] as const;
+/** Every alert kind with a switch in Settings (alerts.kinds); GET /api/admin/usage counts the ones switched off. */
+export const ALL_ALERT_KINDS = [...ALERT_KINDS, ...JOB_ALERT_KINDS] as const;
 const CLOCK = /^(?:[01]\d|2[0-3]):[0-5]\d$/;
 
 const isDict = (v: unknown): v is Dict => typeof v === 'object' && v !== null && !Array.isArray(v);

@@ -2,10 +2,11 @@
 
 import { commit } from './actions.js';
 import { $, h } from './dom.js';
-import { dueInfo, estLabel, num, VERDICT_LABEL } from './format.js';
+import { estLabel, num, VERDICT_LABEL } from './format.js';
 import { agencyLine } from './home-model.js';
 import { bidLink, facts, localPill, overLimitTag, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { openSheet } from './sheet.js';
+import { dueOf } from './state.js';
 
 export function card(item, layer) {
   return h('article', { class: `card verdict-${item.verdict} ${layer}`, 'aria-label': item.title },
@@ -35,7 +36,7 @@ export function card(item, layer) {
 
 /** One line in Browse / Saved. Tags: Saved / Opened / Passed, and "Over your limit". */
 export function row(item) {
-  const due = dueInfo(item.dueAt);
+  const due = dueOf(item); // no due date: "No due date · Seen on the board Tue, Nov 17"
   // Miles only when the server measured them to the job; otherwise the place label alone says where.
   const meta = [agencyLine(item), item.location?.label, item.distanceMi != null ? `${num(item.distanceMi)}\u00a0mi` : null].filter(Boolean).join(' · ');
   const value = estLabel(item.estValue);
@@ -51,7 +52,7 @@ export function row(item) {
     h('div', {},
       h('h4', {}, item.title),
       h('p', { class: 'meta' }, meta),
-      h('p', {}, h('span', { class: `due${due.urgent ? ' urgent' : ''}` }, due.big), ` · ${due.small}`),
+      h('p', {}, h('span', { class: `due${due.urgent ? ' urgent' : ''}` }, due.big), ` · ${due.detail}`),
       h('p', { class: `value${value ? '' : ' unknown'}` }, value ? `Est. ${value}` : 'Value not listed'),
       tags,
     ),

@@ -154,13 +154,20 @@ export async function profilesWithWaitingPush(db: Db, since: Date): Promise<stri
 }
 
 /**
+ * A local job's alert (src/realtime/alerts.ts isLocalJobAlert, the same test in SQL): a job_* kind, or a 'match' or
+ * 'deadline' alert on its `local:<jobId>` card.
+ */
+const LOCAL_JOB_ALERT = `(left(kind, 4) = 'job_' or left(bid_id, 6) = 'local:')`;
+
+/**
  * Take a profile's waiting pushes: marks them pushed and returns them, oldest first. One statement,
  * so two callers can never both get the same alert — that is what keeps a push from going out twice.
- * An alert the owner already read in the app is left alone.
+ * An alert the owner already read in the app is left alone. `localOnly`: only local jobs' alerts (a plan
+ * without instant push buzzes for those alone); the others stay as they are.
  */
-export async function claimWaitingPushes(db: Db, profileId: string, since: Date, now: Date): Promise<Alert[]> {
+export async function claimWaitingPushes(db: Db, profileId: string, since: Date, now: Date, opts: { localOnly?: boolean } = {}): Promise<Alert[]> {
   const rows = await db.query<AlertRow>(
-    `update alerts set pushed_at = $3 where profile_id = $1 and ${WAITING} and created_at > $2 returning *`,
+    `update alerts set pushed_at = $3 where profile_id = $1 and ${WAITING} and created_at > $2${opts.localOnly ? ` and ${LOCAL_JOB_ALERT}` : ''} returning *`,
     [profileId, since.toISOString(), now.toISOString()],
   );
   return rows.map(toAlert).sort((a, b) => a.id - b.id);

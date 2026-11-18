@@ -14,7 +14,7 @@ import { projectDir } from './paths.js';
 import type { MarketHttp } from './market/refresh.js';
 import { sendDigest } from './notify/send.js';
 import { createBus, type Bus } from './realtime/bus.js';
-import { createRealtime, startRealtime } from './realtime/index.js';
+import { createRealtime, HOST_TICK_EVERY_MS, startRealtime } from './realtime/index.js';
 import { logUrl } from './util/log-url.js';
 import { registerPlainStatic } from './static.js';
 import { register as adminRoutes } from './routes/admin.js';
@@ -348,7 +348,8 @@ async function serverless() {
   const { app, ctx } = await boot({ plainStatic: true });
   // Stores alerts for what a scan publishes; push hangs off the same bus. tickMs 0: no timers here (a frozen
   // instance never fires them). The cron routes call ctx.realtime.tick() / flush() instead (routes/cron.ts).
-  ctx.realtime = createRealtime(ctx, { tickMs: 0 });
+  // tickEveryMs: the tick runs once a day there, so each run sends that day's deadline reminders (alerts.ts).
+  ctx.realtime = createRealtime(ctx, { tickMs: 0, tickEveryMs: HOST_TICK_EVERY_MS });
   await app.ready(); // every route is registered before the host sends the first request
   // NOT awaited, on purpose. Vercel takes over the server's listen() and feeds it requests itself;
   // the "now listening" answer never comes back there, so awaiting it hung every request until the

@@ -68,7 +68,19 @@ export function answerWindowText(rules) {
 }
 
 /** Payments are off (rules.paymentsOn is false): the screens say so every time a fee is mentioned. */
-export const FEES_OFF = 'Fees are not being collected yet. A no-show is recorded on your profile.';
+export const NOT_COLLECTED = 'Fees are not being collected yet.';
+export const FEES_OFF = `${NOT_COLLECTED} A no-show is recorded on your profile.`;
+
+/**
+ * The Jobs tab's line on cost (docs/PLAN.md R2): posting and bidding are free, and a fee can only fall on the winner,
+ * in src/jobs/rules.ts's cases (a no-show or a back-out, or the service fee once both agree), which feeLines shows
+ * under the bid box before a bid is placed. While payments are off, it says none is collected. Someone here only to
+ * get work done ('hire') gets the posting half: a poster pays no fee in any case (rules.ts charges only the winner).
+ */
+export function freeLine({ hire = false, paymentsOn = false } = {}) {
+  if (hire) return 'Posting a job is free, and the poster pays no fee.';
+  return `Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid.${paymentsOn ? '' : ` ${NOT_COLLECTED}`}`;
+}
 
 // ---------------------------------------------------------------- licence --
 

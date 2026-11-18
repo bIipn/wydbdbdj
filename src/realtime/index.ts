@@ -7,8 +7,8 @@
  *
  *   'job' (src/jobs) → decideJob → the same store / stream / push path, to the profile of the account it is about.
  *
- *   Every 15 minutes: deadline reminders for saved bids, the job marketplace's settlement and contact reminders,
- *   then every push that is still waiting.
+ *   Every 15 minutes (on the serverless host: once a day, /api/cron/tick): deadline reminders for saved bids, the job
+ *   marketplace's settlement and contact reminders, then every push that is still waiting.
  *
  * Storing and streaming happen inside the bus listener (the scan awaits it). Pushes never do: they
  * are scheduled, coalesced per profile (several alerts in a burst = one notification) and sent in
@@ -28,7 +28,7 @@ import { getJob, profileIdOf } from '../jobs/repo.js';
 import { remindContact, settleDue, type JobsDeps } from '../jobs/service.js';
 import { PPI_SERIES } from '../market/bls.js';
 import { watchedSeries } from '../market/watch.js';
-import { effectivePlan } from '../plans.js';
+import { effectivePlan, featuresFor } from '../plans.js';
 import {
   DEADLINE_LOOKAHEAD_HOURS, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, pushDecision, type AlertDecision,
 } from './alerts.js';
@@ -48,8 +48,17 @@ export interface RealtimeOptions {
   sender?: PushSender | null;
   /** Milliseconds between ticks (default 15 minutes). 0 = never tick by itself: call tick(). */
   tickMs?: number;
+  /**
+   * How often tick() runs when something else calls it (tickMs 0): the serverless host's daily cron passes
+   * HOST_TICK_EVERY_MS. The deadline reminders need it to know whether a run is the last one of someone's day
+   * (alerts.ts deadlineStage). Default: tickMs; with tickMs 0 and nothing given, not known (reminders from 07:00 only).
+   */
+  tickEveryMs?: number;
   coalesceMs?: number;
 }
+
+/** The serverless host calls /api/cron/tick once a day (vercel.json "50 14 * * *": 14:50 UTC). */
+export const HOST_TICK_EVERY_MS = 24 * 3_600_000;
 
 export interface Realtime {
   /** Unsubscribe from the bus and cancel every timer. Safe to call at any time, any number of times. */
@@ -76,6 +85,7 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
   const sender = opts.sender !== undefined ? opts.sender : vapid ? createWebPushSender(vapid) : null;
   const coalesceMs = opts.coalesceMs ?? PUSH_COALESCE_MS;
   const tickMs = opts.tickMs ?? TICK_MS;
+  const tickEveryMs = opts.tickEveryMs ?? tickMs;
   let stopped = false;
 
   const planOf = (target: AlertTarget) => effectivePlan(config, target.account);
@@ -93,12 +103,17 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
   async function deliver(profileId: string): Promise<void> {
     if (stopped || !sender) return;
     const target = await getAlertTarget(db, profileId);
+    if (!target) return;
     const now = ctx.now();
+    // A plan without instant push buzzes for local jobs only (alerts.ts pushDecision): what waits there is local
+    // anyway, and a public bid's push left waiting from a Pro month is not sent after a move to Free.
+    const plan = planOf(target);
+    const localOnly = !featuresFor(plan).instantPush;
     // 'hold' (quiet hours): leave the alerts waiting, the next tick looks again.
-    if (!target || pushDecision(target.profile.alerts, planOf(target), now) !== 'send') return;
+    if (pushDecision(target.profile.alerts, plan, now, localOnly ? 'local' : 'bid') !== 'send') return;
     const devices = await subscriptionsForProfile(db, profileId);
     if (devices.length === 0) return;
-    const alerts = await claimWaitingPushes(db, profileId, new Date(now.getTime() - PUSH_MAX_AGE_MS), now);
+    const alerts = await claimWaitingPushes(db, profileId, new Date(now.getTime() - PUSH_MAX_AGE_MS), now, { localOnly });
     if (alerts.length === 0) return;
 
     const push = pushMessage(alerts, config.appUrl);
@@ -224,15 +239,19 @@ export function createRealtime(ctx: RouteContext, opts: RealtimeOptions = {}): R
     await remindContact(jobsDeps, now);
   }
 
-  /** One alert per saved bid per stage; the unique key makes every later tick a no-op. */
+  /**
+   * One alert per saved bid per stage; the unique key makes every later tick a no-op. The stage is the calendar day
+   * on each profile's clock; the next run tells the rule whether this one is the last of someone's day.
+   */
   async function remindDeadlines(): Promise<void> {
     const now = ctx.now();
+    const nextRunAt = tickEveryMs > 0 ? new Date(now.getTime() + tickEveryMs) : null;
     const targets = new Map<string, AlertTarget | null>();
     for (const saved of await savedBidsDueWithin(db, now, DEADLINE_LOOKAHEAD_HOURS)) {
       if (stopped) return;
       if (!targets.has(saved.profileId)) targets.set(saved.profileId, await getAlertTarget(db, saved.profileId));
       const target = targets.get(saved.profileId);
-      const decision = target && decideDeadline(saved, target.profile, planOf(target), now);
+      const decision = target && decideDeadline(saved, target.profile, planOf(target), now, nextRunAt);
       if (decision) await inOrder(() => store(saved.profileId, decision));
     }
   }

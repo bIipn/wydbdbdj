@@ -584,7 +584,8 @@ Never: PlanHub, BuildingConnected, ConstructConnect, Dodge (login-walled / ToS).
 - **One process in prod** (server runs the daily scan) because PGlite is single-process.
 - **Vanilla JS PWA** first: fastest path to people swiping on phones; native shell (Capacitor/Expo) later.
 - **Free first, paid later:** free = swipe + daily digest; paid = instant push alerts, AI bid summaries,
-  bid drafting, more regions. Bill on the web (Stripe), not in-app.
+  bid drafting, more regions. Bill on the web (Stripe), not in-app. (2026-11-18: instant push is for public bids;
+  local-job alerts buzz on every plan alike, docs/PLAN.md N2.)
 
 ## 4. Scoring on real data (2026-11-11, 31 open bids — v0, superseded by §1's 2026-11-13 re-score)
 great 2 · good 1 · maybe 5 · skip 23. Top: 82 SPWD cell doors/intercoms/controls (Carson City, 15 mi) ·

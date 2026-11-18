@@ -11,7 +11,7 @@ const m = (await import(modulePath)) as {
   homeSubtitle: (p: { name?: string; base?: string } | null) => string;
   monogram: (name: string | null | undefined) => string;
   placeLine: (item: object) => { miles: string | null; label: string; note: string | null; text: string };
-  matchChips: (item: object) => Array<{ text: string; kind: string; urgent?: boolean; unknown?: boolean }>;
+  matchChips: (item: object, timeZone?: string) => Array<{ text: string; kind: string; urgent?: boolean; unknown?: boolean }>;
   agencyLine: (item: object | null | undefined) => string;
   homeModeOf: (stored: string | null) => 'scroll' | 'swipe';
 };
@@ -89,10 +89,20 @@ describe('a match card (placeLine, matchChips)', () => {
   it('chips: time left, value, board, verdict', () => {
     expect(m.matchChips(bid()).map((c) => c.text)).toEqual(['9 days left', '$20K–$40K', 'Example Board', 'Good fit']);
   });
-  it('a missing value says so; a missing due date says so', () => {
-    const chips = m.matchChips(bid({ estValue: null, dueAt: null }));
-    expect(chips[0]).toMatchObject({ text: 'Due date not listed', urgent: false });
+  it('a missing value says so; a missing due date says how fresh the bid is, in the user\'s zone (N4)', () => {
+    const chips = m.matchChips(bid({ estValue: null, dueAt: null, lastSeenAt: '2026-11-17T21:46:00.000Z' }), 'America/Los_Angeles');
+    // One line in a chip (the long "Seen on the board …" is cut off at 390 px; the rows and the sheet's tile title have it).
+    expect(chips[0]).toMatchObject({ text: 'No due date · Seen Tue, Nov 17', urgent: false });
     expect(chips[1]).toMatchObject({ text: 'Value not listed', unknown: true });
+    // 06:30 UTC on the 18th is still the 17th in Nevada, already the 18th in New York.
+    const late = bid({ dueAt: null, lastSeenAt: '2026-11-18T06:30:00.000Z' });
+    expect(m.matchChips(late, 'America/Los_Angeles')[0]?.text).toBe('No due date · Seen Tue, Nov 17');
+    expect(m.matchChips(late, 'America/New_York')[0]?.text).toBe('No due date · Seen Wed, Nov 18');
+    // An answer without the date (an older server) never gets a made-up day.
+    expect(m.matchChips(bid({ dueAt: null }))[0]?.text).toBe('No due date · Check the bid');
+  });
+  it('a card with a due date keeps it (the seen day is only for bids with none)', () => {
+    expect(m.matchChips(bid({ lastSeenAt: '2026-11-17T21:46:00.000Z' }), 'America/Los_Angeles')[0]?.text).toBe('9 days left');
   });
   it('under five days is urgent', () => {
     expect(m.matchChips(bid({ dueAt: new Date(Date.now() + 2.5 * DAY).toISOString() }))[0]).toMatchObject({ text: '2 days left', urgent: true });

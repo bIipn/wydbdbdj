@@ -28,7 +28,9 @@ const items: FeedItem[] = drafts
   .filter((b) => !b.dueAt || Date.parse(b.dueAt) > now.getTime())
   .map((b) => {
     const s = scoreBid(b, profile, now);
-    return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, swipe: null, firstSeenAt: now.toISOString(), overLimit: s.overLimit, tier: s.tier };
+    return { ...b, score: s.score, verdict: s.verdict, reasons: s.reasons, distanceMi: s.distanceMi, swipe: null, firstSeenAt: now.toISOString(),
+      // The pages were read on the capture day: that is when each bid was last seen on its board.
+      lastSeenAt: FIXTURES_CAPTURED_AT.toISOString(), overLimit: s.overLimit, tier: s.tier };
   })
   .sort((a, b) => b.score - a.score || (Date.parse(a.dueAt ?? '9999') - Date.parse(b.dueAt ?? '9999')));
 

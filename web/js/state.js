@@ -2,7 +2,7 @@
 // Mutate fields in place (state.items = …); never reassign `state` itself.
 
 import { defaultFilters } from './filters.js';
-import { byFit, dueInfo, isOpen, tierOf } from './format.js';
+import { byFit, dueInfo, isOpen, PT, tierOf } from './format.js';
 
 export const DECK_MIN_SCORE = 35;
 
@@ -64,10 +64,29 @@ export function features() {
 }
 
 /**
+ * May this account turn phone alerts on at all? A plan with instant push buzzes for new public bids. Local jobs buzz
+ * on every plan (src/realtime/alerts.ts pushDecision), and in accounts mode everyone can post or bid on one.
+ */
+export const phoneAlerts = () => features()?.instantPush === true || (isLive() && state.auth === 'accounts');
+
+/**
  * "What brings you here": 'work' (bids and local jobs), 'hire' (post jobs) or 'both'. From GET /api/me; the pilot,
  * the demo and any account that never answered are 'work', so everything that existed behaves as before.
  */
 export const intent = () => state.me?.intent ?? 'work';
+
+/**
+ * The user's clock: the time zone saved in Settings (accounts mode, alerts.timeZone: "Quiet hours and deadline
+ * reminders use this clock"), else this device's, else Pacific.
+ */
+export function userTimeZone() {
+  const saved = state.me?.profile?.alerts?.timeZone;
+  if (saved) return saved;
+  try { return Intl.DateTimeFormat().resolvedOptions().timeZone || PT; } catch { return PT; }
+}
+
+/** A bid's due date in words (format.js dueInfo); one with none says the day it was last seen on its board. */
+export const dueOf = (item) => dueInfo(item.dueAt, { at: item.lastSeenAt, timeZone: userTimeZone() });
 
 /** Live features (Next up, alerts, market) need the API; the bundled demo has none. */
 export const isLive = () => state.mode === 'live' && !!state.me;

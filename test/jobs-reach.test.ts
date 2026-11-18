@@ -89,13 +89,15 @@ describe('pushes and settling on the serverless host', () => {
   let poster: Account;
   let a: Account;
   let b: Account;
+  let c: Account;
 
   beforeAll(async () => {
     db = await memoryDb();
     poster = await seedAccount(db, { name: 'TEST Poster R (simulated)' });
     a = await seedAccount(db, { name: 'TEST Bidder RA (simulated)', plan: 'pro' });
     b = await seedAccount(db, { name: 'TEST Bidder RB (simulated)', plan: 'pro' });
-    for (const x of [poster, a, b]) {
+    c = await seedAccount(db, { name: 'TEST Bidder RC (simulated)', plan: 'free' });
+    for (const x of [poster, a, b, c]) {
       await saveProfileForAccount(db, x.id, electrician(profileIdFor(x.id)));
       await saveSubscription(db, x.id, { endpoint: `https://push.example.com/TEST-${x.id}`, keys: { p256dh: 'TEST', auth: 'TEST' } } as never, new Date(clock));
     }
@@ -131,6 +133,8 @@ describe('pushes and settling on the serverless host', () => {
     id = res.json.job.id;
     // Without the flush these were still on the 1.5 s coalescing timer when the reply went out.
     expect(pushes.filter((e) => e.endsWith(a.id) || e.endsWith(b.id)).length).toBe(2);
+    // A new local job buzzes Free as it buzzes Pro, in the same answer (docs/PLAN.md N2): no plan hears of it first.
+    expect(pushes.filter((e) => e.endsWith(c.id))).toHaveLength(1);
     expect(pushes.some((e) => e.endsWith(poster.id))).toBe(false);
   });
 
@@ -145,5 +149,8 @@ describe('pushes and settling on the serverless host', () => {
     expect(await kinds(a)).toContain('job_awarded');
     expect(poll.json.items.map((x: { kind: string }) => x.kind)).toContain('job_awarded');
     expect(pushes.length).toBeGreaterThan(before); // sent before the poll answered
+    // The poster is on Free: "Bids are in" buzzed their phone too, in the same poll.
+    expect(await kinds(poster)).toContain('job_awarded');
+    expect(pushes.slice(before).filter((e) => e.endsWith(poster.id))).toHaveLength(1);
   });
 });

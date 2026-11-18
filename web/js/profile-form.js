@@ -5,7 +5,7 @@
 
 import { api } from './api.js';
 import { h, icon, ICONS } from './dom.js';
-import { dollarsText, fitWords, parseDollars } from './format.js';
+import { dollarsText, fitWords, parseDollars, RADIUS_HELP } from './format.js';
 import { field, moneyInput, textInput, toggle } from './form.js';
 
 export const RADIUS = { min: 10, max: 300, step: 5 };
@@ -247,7 +247,7 @@ export function whereSection(d, { radius: withRadius = true } = {}) {
       h('div', { class: 'range-head' }, h('label', { class: 'field-label', for: 'radius' }, 'How far you’ll travel'), readout),
       range,
       h('div', { class: 'range-scale', 'aria-hidden': 'true' }, h('span', {}, `${RADIUS.min} mi`), h('span', {}, `${RADIUS.max} mi`)),
-      h('p', { class: 'field-help' }, 'Bids farther than this are left out.'),
+      h('p', { class: 'field-help' }, RADIUS_HELP), // straight-line miles, as the detail sheet says ("41 mi, straight line")
       h('p', { class: 'field-error', role: 'alert' }),
     ),
   );

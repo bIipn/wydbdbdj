@@ -162,13 +162,18 @@ describe('POST /api/push/test', () => {
     expect(mock.seen.map((s) => s.path)).toEqual([new URL(alice.devices[2]!.endpoint).pathname]);
   });
 
-  it('is gated exactly like instant phone alerts: Pro, the alerts switch, quiet hours', async () => {
+  it('is gated like a local job\'s phone alert, which every plan gets: the alerts switch and quiet hours, no plan gate', async () => {
     const free = await member('free', { plan: 'free' });
     const off = await member('off', { alerts: { push: false } });
     const quiet = await member('quiet', { alerts: { quietHours: { start: '00:00', end: '23:59' }, timeZone: 'America/Los_Angeles' } });
+    const freeQuiet = await member('free-quiet', { plan: 'free', alerts: { quietHours: { start: '00:00', end: '23:59' }, timeZone: 'America/Los_Angeles' } });
 
+    // Free: local jobs buzz on every plan (docs/PLAN.md N2), so a Free phone can be tested like a Pro one.
     const a = await test(free);
-    expect([a.statusCode, a.json()]).toEqual([402, { error: 'premium_required', message: 'Instant phone alerts are part of BidSwipe Pro.' }]);
+    expect([a.statusCode, a.json()]).toEqual([200, { ok: true, tried: 1, accepted: 1 }]);
+    expect(mock.seen.map((s) => s.path)).toEqual([new URL(free.devices[0]!.endpoint).pathname]);
+    mock.seen.length = 0;
+    expect((await test(freeQuiet)).json().error).toBe('quiet_hours');
     const b = await test(off);
     expect([b.statusCode, b.json().error]).toEqual([409, 'push_off']);
     const c = await test(quiet);
@@ -207,7 +212,7 @@ describe('POST /api/push/test', () => {
     expect((await test(bob)).statusCode).toBe(200);
   });
 
-  it('a refused test (Pro gate, quiet hours) does not use up the allowance', async () => {
+  it('a refused test (quiet hours) does not use up the allowance', async () => {
     const quiet = await member('quiet-limit', { alerts: { quietHours: { start: '00:00', end: '23:59' }, timeZone: 'America/Los_Angeles' } });
     for (let i = 0; i < 5; i++) expect((await test(quiet)).statusCode).toBe(409);
     const rows = await db.query<{ n: number }>('select count(*)::int as n from auth_attempts where key like $1', ['push:test:%']);

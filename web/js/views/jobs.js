@@ -3,6 +3,7 @@
 // a tap opens the job page (views/job.js).
 
 import { h, icon, ICONS } from '../dom.js';
+import { freeLine } from '../job-words.js';
 import { jobs, jobsOn, loadMine, loadRules, openJob, staged } from '../jobs-data.js';
 import { openPostJob } from './job-post.js';
 import { setHireLanding } from '../session.js';
@@ -84,6 +85,8 @@ function renderJobs() {
     post,
     h('p', { class: 'jobs-intro' }, 'Sealed bids, lowest wins.',
       jobs.rules ? ` The winner has ${jobs.rules.contactDays} days to make contact and work it out with the poster.` : null),
+    // What it costs, before anything else (docs/PLAN.md R2): free to post and bid; a fee only ever on the winner.
+    h('p', { class: 'jobs-free' }, freeLine({ hire, paymentsOn: jobs.rules?.paymentsOn === true })),
     body,
   );
 }

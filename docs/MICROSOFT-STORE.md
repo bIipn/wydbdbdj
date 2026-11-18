@@ -312,7 +312,8 @@ BidSwipe needs a free account. Two test accounts are ready, with setup finished 
 The Poster posted a local job, "<job title>"; the Bidder bid on it and won when bidding closed. Sign in as either
 account and open Jobs, then that job, to see the award, the contact window and the message thread between them.
 Messages are also under the Messages tab. Messages, the street address and the phone are visible only to the poster
-and the winner, and only after the award.
+and the winner, and only after the award. Please do not cancel that job or tap "We've agreed": it is what shows the
+award, the contact window and the thread. Both accounts show times in Pacific time (their time zone setting).
 
 Public bids come from public agency bid boards (cities, counties, states, and federal SAM.gov notices), read once a
 day. A "Bid on ..." button opens the agency's own website, where the contractor bids directly; BidSwipe never takes a

@@ -142,7 +142,13 @@ export async function buildApp(deps: ServerDeps, opts: ServerOptions = {}): Prom
 
   // Errors: Fastify's own 4xx (malformed JSON 400, too large 413, wrong content type 415, …) keep their status and
   // code; anything else is logged and answered with one word. A database error's text never reaches the caller.
-  app.setErrorHandler((err: { statusCode?: number; code?: string; message?: string }, req, reply) => {
+  app.setErrorHandler((err: { statusCode?: number; code?: string; message?: string; detail?: string }, req, reply) => {
+    // A write for an account that was deleted while the request ran (a sign-in, a bid, a profile save on a second
+    // device): the account's row is gone, so the database refuses the reference (23503 on a key into accounts). That
+    // is a signed-out caller, not a fault (review del-5).
+    if (err.code === '23503' && typeof err.detail === 'string' && err.detail.endsWith('is not present in table "accounts".')) {
+      return reply.code(401).send({ error: 'sign_in_required' });
+    }
     const status = typeof err.statusCode === 'number' && err.statusCode >= 400 ? err.statusCode : 500;
     // Fastify's own 4xx keep the shape they always had (review rs-5): { statusCode, code, error: reason phrase, message }.
     if (status < 500) {

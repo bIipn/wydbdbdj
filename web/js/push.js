@@ -144,8 +144,10 @@ export const SIGN_OUT_PUSH_MS = 3_000;
  * Sign out: this device stops getting the account's alerts (the server forgets it while the session is still
  * valid, then the browser drops the subscription, so the next person to sign in here starts from "Off"). Never
  * throws and never takes longer than `ms`: a bad network must not hold Sign out (audit push-signout-1).
+ * `server: false` (after "Delete account"): the account and its devices are already gone on the server, so only the
+ * browser drops its subscription; asking the server would only get "sign in again".
  */
-export async function releaseDevice(ms = SIGN_OUT_PUSH_MS) {
+export async function releaseDevice(ms = SIGN_OUT_PUSH_MS, { server = true } = {}) {
   if (pushSupport() !== 'ok') return;
   try {
     await within(ms, (async () => {
@@ -155,7 +157,7 @@ export async function releaseDevice(ms = SIGN_OUT_PUSH_MS) {
       // subscription (review rs-1: a hung DELETE left the device subscribed and the next person here got the alerts).
       // A device the server still lists is removed at its next push (the push service answers 410).
       await Promise.allSettled([
-        within(Math.max(1, ms - 1_000), api.pushUnsubscribe(sub.endpoint), 'Signing this device out of phone alerts'),
+        server ? within(Math.max(1, ms - 1_000), api.pushUnsubscribe(sub.endpoint), 'Signing this device out of phone alerts') : null,
         sub.unsubscribe(),
       ]);
     })(), 'Signing this device out of phone alerts');

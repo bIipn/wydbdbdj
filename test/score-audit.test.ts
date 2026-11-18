@@ -411,7 +411,7 @@ describe('an art commission is never sub work (real rows read from production, 2
         const s = scoreBid(b, p, READ);
         expect(s.tier, `${p.id} ${b.id}`).toBe('other');
         expect(s.score).toBe(0);
-        expect(s.rejected).toBe('No electrical or construction scope found');
+        expect(s.rejected).toBe('Art commission (“public art”) — for artists, not contractors');
         expect(s.reasons.some((r) => r.text.startsWith('Sub work:'))).toBe(false);
       }
     }
@@ -444,5 +444,58 @@ describe('an art commission is never sub work (real rows read from production, 2
     // It names a traffic signal, an electrical word, so the board's list kept it: placed in Flagstaff, it scored 87 "great"
     // (an alert) for a TEST electrician (simulated) at ZIP 86001 on 2026-11-18. NEVER_CONTRACTOR already had "call for artists".
     expect(isTradeWork({ ...FLAGSTAFF, board: 'opengov' })).toEqual({ keep: false, why: 'not contractor work: call to artists' });
+  });
+
+  // The review of 2026-11-18 reworded the two real calls the way such calls are written; each was kept at the source and
+  // scored 82 "great" (an alert) for an electrician, or was Sub work (47) on a building word. Variants, not real rows.
+  const REWORDED_SIGNAL = [
+    'Request for Informal Proposals - Call to Artist - Artwork for a Traffic Signal Cabinet',
+    'Request for Informal Proposals - Call for Art - Artwork for a Traffic Signal Cabinet',
+    'RFQ - Public Art for Traffic Signal Boxes', 'Artist Call - Traffic Signal Cabinets', 'Utility Box Art Wraps - Traffic Signals',
+    'Percent-for-Art - Lighting Sculpture, Fire Station 5', '1% for Art - Street Lighting Sculpture',
+  ];
+  const REWORDED_BUILDING = [
+    'Call for Art - Fire Station 12 Renovation', 'Request for Qualifications: Artist for Restroom Renovation at Terminal B',
+    'Percent-for-Art: Library Renovation', 'Art in Public Places - Community Center Renovation',
+    'RFQ Sculpture Commission - New Library', 'Art Commission - Restroom Building Remodel',
+  ];
+  const plumber = buildProfile('test-plumb-89502', {
+    businessName: 'TEST Reno Plumbing (simulated)', trades: ['plumbing'], zip: '89502', radiusMi: 90, valueRange: { min: 10_000, max: 50_000 },
+  });
+
+  it('variants: every rewording of a call to artists is left out at the source, wherever it hangs the art', () => {
+    for (const title of [...REWORDED_SIGNAL, ...REWORDED_BUILDING, 'Call for Artists - Traffic Signal Box Wraps']) {
+      expect(isTradeWork({ title, board: 'opengov' }).keep, title).toBe(false);
+      expect(isTradeWork({ title, board: 'opengov' }).why, title).toMatch(/^not contractor work: /);
+    }
+  });
+
+  it('variants on NGEM (a Nevada board keeps every row): no fit, no sub work, no alert, for any trade', () => {
+    for (const title of [...REWORDED_SIGNAL, ...REWORDED_BUILDING, 'Call for Artists - Traffic Signal Box Wraps']) {
+      const b = { ...RESTROOM_ART, title };
+      for (const p of [pilot, riverPines, plumber]) {
+        const s = scoreBid(b, p, READ);
+        expect([s.score, s.tier], `${p.id}: ${title}`).toEqual([0, 'other']);
+        expect(s.rejected, title).toMatch(/^Art commission \(“.+”\) — for artists, not contractors$/);
+        expect(decideMatch({ type: 'match', profileId: p.id, bid: b, score: s, isNewBid: true }, p, 'pro', READ), title).toBeNull();
+      }
+      for (const id of Object.keys(SUB_WORK)) expect(subWorkFor(b, [id], none), `${id}: ${title}`).toBeNull();
+    }
+    // The real control: the same airport's restroom remodel is still Sub work for an electrician and a fit for a plumber.
+    const remodel = { ...RESTROOM_ART, title: 'Reno-Tahoe International Airport New Gen A&B Concourses - Restroom Remodel' };
+    expect(scoreBid(remodel, pilot, READ).tier).toBe('sub');
+    expect(scoreBid(remodel, plumber, READ).tier).toBe('fit');
+  });
+
+  it('one art word alone is a name, not a call: building jobs keep their Sub work, "art" inside a word is never read', () => {
+    for (const title of [
+      'Mural Hall Renovation (City Hall annex)', 'Public Art Center Restroom Remodel', 'Artwork Storage Building Renovation',
+      'Artist Lofts Renovation', 'Arts Commission Office Remodel', 'Art Museum Renovation', 'BART Station Restroom Renovation',
+      'Restroom Partition Replacement and Remodel', 'Article 12 Building Renovation - Fire Station 3',
+      'Start-up and Commissioning: Library Renovation', 'Martin Luther King Jr. Community Center Remodel',
+    ]) {
+      const s = scoreBid({ ...RESTROOM_ART, title }, pilot, READ);
+      expect([s.tier, s.rejected], title).toEqual(['sub', null]);
+    }
   });
 });

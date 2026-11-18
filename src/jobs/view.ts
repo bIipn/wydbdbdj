@@ -54,12 +54,15 @@ export interface JobView {
     contactDeadline: string;
     isMe: boolean;
     winner: PersonCard | PersonLite | null;
+    /** The winner deleted their account (jobs.winner_id is null, the award is still on record): "deleted their account". */
+    winnerDeleted: boolean;
     bidderContactedAt: string | null;
     posterContactedAt: string | null;
     bidderConfirmedAt: string | null;
     posterConfirmedAt: string | null;
   };
-  tab: null | Array<{ rank: number; amountCents: number; mine: boolean; bidder: PersonCard | PersonLite | null }>;
+  /** Ranked lowest first. `gone`: the winning bid of someone who deleted their account (no bidder, never a card). */
+  tab: null | Array<{ rank: number; amountCents: number; mine: boolean; bidder: PersonCard | PersonLite | null; gone: boolean }>;
   private: null | { address: string | null; phone: string | null };
   fees: Array<{ kind: FeeKind; amountCents: number; posterShareCents: number; status: 'recorded' | 'waived'; owedByMe: boolean }>;
   repostedFrom: string | null;
@@ -106,6 +109,11 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
   const seesTab = opened && (isPoster || (mine !== null && IN_AT_CLOSING.has(mine.status)));
   const isWinner = viewerId !== null && job.winnerId === viewerId && job.awardCents !== null;
   const afterAward = job.status === 'awarded' || job.status === 'agreed' || job.status === 'completed';
+  // The winner deleted their account (POST /api/account/delete): winner_id went to null and their bid row went with
+  // them, but the award is the job's record. The tab keeps the winning amount at the top, with no one named.
+  const winnerDeleted = job.awardCents !== null && job.winnerId === null;
+  const winningBidGone = winnerDeleted && !inTab.some((x) => x.id === job.winnerBidId);
+  const tabRows = winningBidGone ? [null, ...inTab] : inTab;
 
   let whyNot: string | null = null;
   if (viewerId === null) whyNot = 'Sign in to bid.';
@@ -127,7 +135,7 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
     outcome: job.outcome,
     budgetMaxCents: job.budgetMaxCents,
     // A count, never an amount: while open the active bids, after closing the bids that were in.
-    bidCount: opened ? inTab.length : b.bids.filter((x) => x.status === 'active').length,
+    bidCount: opened ? tabRows.length : b.bids.filter((x) => x.status === 'active').length,
     poster: b.poster,
     my: {
       role,
@@ -142,6 +150,7 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
         contactDeadline: iso(job.contactDeadline)!,
         isMe: isWinner,
         winner: card(job.winnerId),
+        winnerDeleted,
         // The winner "made contact" (rules.madeContact): the earliest of their first message, their "We've agreed",
         // the poster's "They contacted me" and the poster's "We've agreed".
         bidderContactedAt: iso(contactMadeAt(job)),
@@ -152,7 +161,9 @@ export function viewJob(b: JobBundle, viewerId: string | null, now: number, rule
       }
       : null,
     tab: seesTab
-      ? inTab.map((x, i) => ({ rank: i + 1, amountCents: x.amountCents, mine: x.bidderId === viewerId, bidder: card(x.bidderId) }))
+      ? tabRows.map((x, i) => (x === null
+        ? { rank: i + 1, amountCents: job.awardCents!, mine: false, bidder: null, gone: true }
+        : { rank: i + 1, amountCents: x.amountCents, mine: x.bidderId === viewerId, bidder: card(x.bidderId), gone: false }))
       : null,
     private: isPoster || (isWinner && afterAward) ? { address: job.address, phone: job.phone } : null,
     fees: isPoster || isWinner

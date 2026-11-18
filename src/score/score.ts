@@ -1,6 +1,7 @@
 import { milesBetween } from '../geo/locate.js';
 import { areaCounties, nearestSeatMiles } from '../geo/california.js';
 import { statewideBoard, statewideElsewhereReason, statewideSiteReason } from '../sources/statewide.js';
+import { artCall } from './art.js';
 import { compileKeywords, type Matcher } from './keywords.js';
 import { isEquipmentPsc, tradesForPsc } from '../sources/psc.js';
 import { pscLabel, subWorkFor } from './subwork.js';
@@ -398,9 +399,14 @@ export function scoreFit(bid: Bid, profile: Profile, now: Date = new Date()): Sc
     reject(program === FLAGS.programContract ? `Program contract${big ? ` (${big.slice(2)})` : ''} — not a single job` : `Program contract (“${program}”${big}) — not a single job`);
   }
 
+  // A call to artists is answered by artists, whatever trade its title names (src/score/art.ts): NGEM keeps every row, so
+  // "Call for Artists - Traffic Signal Box Wraps" reached the pilot at 82 "great". A job posted on BidSwipe is not read.
+  const art = bid.source === 'local' ? null : artCall(title);
+  if (art) reject(`Art commission (“${art}”) — for artists, not contractors`);
+
   const excluded = m.exclude.test(title) ?? m.exclude.test(bid.category);
   if (excluded && !strongTitle && !naicsStrong && !pscTrade) reject(`Not your trade (“${excluded}”)`);
-  else if (trade === 0) reject(m.words.none);
+  else if (trade === 0 && !art) reject(m.words.none);
 
   const other = otherInTitle;
   let penalty = 0;

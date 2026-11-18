@@ -12,7 +12,7 @@
  */
 import { randomUUID } from 'node:crypto';
 import type { Db } from '../db/db.js';
-import { upsertBids } from '../db/repo.js';
+import { upsertMirrorBid } from '../db/repo.js';
 import { getWorkProfile } from '../db/work.js';
 import { lookupZip } from '../geo/zip.js';
 import { LOCAL_JOB_FLAG } from '../sources/flags.js';
@@ -230,13 +230,17 @@ export function mirrorBid(job: JobRecord, appUrl: string): Bid {
   };
 }
 
-/** Put a new open job in the feed and score it for everyone it could fit, except its poster. */
-async function publish(deps: JobsDeps, job: JobRecord, now: number): Promise<void> {
+/**
+ * Put a new open job in the feed and score it for everyone it could fit, except its poster. False, and nothing scored,
+ * when the job is no longer there: its poster's account was deleted in the same instant (review del-2).
+ */
+async function publish(deps: JobsDeps, job: JobRecord, now: number): Promise<boolean> {
   const bid = mirrorBid(job, deps.appUrl);
-  await upsertBids(deps.db, [bid], new Date(now));
+  if (!(await upsertMirrorBid(deps.db, bid, job.id, new Date(now)))) return false;
   const except = await repo.profileIdOf(deps.db, job.posterId);
   const n = await scoreNewBid(deps.db, bid, new Date(now), deps.bus, { exceptProfileId: except });
   deps.log?.(`jobs: ${job.id} posted, scored for ${n} profile(s)`);
+  return true;
 }
 
 // ------------------------------------------------------------------ post --
@@ -253,7 +257,8 @@ export async function postJob(deps: JobsDeps, accountId: string, body: unknown, 
   });
   // Only a repost can collide (one live repost per job): two taps at once, the second one lands here.
   if (!job) return closed(ALREADY_REPOSTED);
-  await publish(deps, job, now);
+  // The job went with its poster's account, deleted in the same instant: nothing is published, and it is not there.
+  if (!(await publish(deps, job, now))) return notFound();
   return ok(await loadView(deps, job, accountId, now));
 }
 

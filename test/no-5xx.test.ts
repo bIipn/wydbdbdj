@@ -568,6 +568,9 @@ describe('no request in docs/api/openapi.yaml answers a 5xx (hostile values, sig
     const never = [...reachedByOp].filter(([, n]) => n === 0).map(([op]) => op);
     // (oauth's hostile bodies are answered 400 by its handler before the "not configured" check.)
     expect(never, 'operations whose every answer was 401, 404 or 429').toEqual(['GET /api/stream']);
+    // POST /api/account/delete was attacked as A, as B and signed out, and no value was a right password: both seeded
+    // accounts are still here, with their sessions' worth of data (a deleted A would have hollowed out every later route).
+    for (const email of ['scan-user@example.com', 'test-no5xx-b@example.com']) expect(await findCredentials(db, email), email).not.toBeNull();
   }, 120_000);
 });
 
@@ -577,6 +580,10 @@ const EXPECTED_REFUSED: string[] = [
   'POST /api/auth/signup → 409 {"error":"signup_failed","message":"Could not create that account. If you already have one, sign in instead."}',
   // Supabase sign-in is not configured here (and the test never talks to an outside service).
   'POST /api/auth/oauth → 404 {"error":"oauth_not_configured","message":"That sign-in method is not set up here."}',
+  // On purpose: the example's password is NOT the seeded accounts' (TEST-password-123). The right one would delete
+  // the scan user in the middle of the run and leave every later route without its account and objects. The route's
+  // success, its limits and every refusal are tested on throwaway accounts in test/account-delete.test.ts.
+  'POST /api/account/delete → 401 {"error":"wrong_password","message":"That password isn’t right."}',
   // Poll mode (see the top of the file): the stream route answers this before reading anything.
   'GET /api/stream → 404 {"error":"stream_off","pollMs":60000}',
 ];

@@ -44,6 +44,16 @@ export async function openSession(db: Db, accountId: string, now: Date): Promise
   return token;
 }
 
+/**
+ * A short name for the session the request carries (not its stored hash: a hash of that), for a counter that must be
+ * per session rather than per account: "Delete account" counts wrong passwords per session, so a stolen cookie's
+ * guesses use up only its own allowance and never lock the owner out (review del-4). Null without a session cookie.
+ */
+export function sessionKey(req: FastifyRequest): string | null {
+  const token = readSessionToken(req);
+  return token ? createHash('sha256').update(`counter|${hashToken(token)}`).digest('hex').slice(0, 32) : null;
+}
+
 /** End the session the request carries, if any. */
 export async function closeSession(db: Db, req: FastifyRequest): Promise<void> {
   const token = readSessionToken(req);

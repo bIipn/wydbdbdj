@@ -98,6 +98,10 @@ export const api = {
   person: (id) => req(`api/people/${encodeURIComponent(id)}`),
   // promo code → Pro (web and Microsoft Store builds; 403 not_available on iOS, 400 invalid_code, 429 too many tries)
   redeemPromo: (code) => req('api/promo/redeem', { method: 'POST', body: { code } }),
+  // Delete account: { password } (or { email } for an account with no password) → { ok: true }, the cookie cleared.
+  // 400 password_required / email_required, 401 wrong_password / wrong_email, 409 job_in_progress { jobs: [{ id, title }] },
+  // 429 too_many_attempts. Every refusal carries its own sentence (src/routes/account.ts).
+  deleteAccount: (proof) => req('api/account/delete', { method: 'POST', body: proof }),
 
   // feed tools
   browse: (query) => req(`api/feed?${query}`),

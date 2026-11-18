@@ -14,6 +14,8 @@
 // What it stops, and what it answers instead (with the app's own security headers, copied from GET /api/health):
 //   POST /api/auth/logout          200 {"ok":true}            the app never hears it, the session lives on
 //   POST /api/auth/signup, oauth   403 {"error":"scan_guard"} no new account, no other session cookie
+//   POST /api/account/delete       403 {"error":"scan_guard"} the scan user (and every object the seed made) can never
+//                                  be deleted, whatever the scanner puts in the body
 //   POST /api/auth/login           passed on ONLY with the scan user's exact e-mail and password, and without the
 //                                  Cookie header (a successful sign-in closes the session the request came with);
 //                                  anything else is 401 {"error":"invalid_credentials"} here, so fuzzing cannot use
@@ -23,8 +25,9 @@
 //                                  own job stays open and the other job routes are attacked on a live job. The same
 //                                  routes with any other id pass through (their id handling is still attacked)
 //   GET  /api/stream               passed on, cut after 2 seconds (Server-Sent Events never end by themselves)
-// So the scan does NOT test sign-in, sign-up, sign-out or the social sign-in route. Those were attacked by hand in
-// the 2026-11-16 audit and are covered by test/auth.test.ts and test/hardening.test.ts (docs/SECURITY-SCAN.md).
+// So the scan does NOT test sign-in, sign-up, sign-out, the social sign-in route or "Delete account". The first four
+// were attacked by hand in the 2026-11-16 audit and are covered by test/auth.test.ts and test/hardening.test.ts;
+// "Delete account" by test/account-delete.test.ts and test/no-5xx.test.ts (docs/SECURITY-SCAN.md).
 //
 // It prints one line per stopped request (the rule only: never a body, a cookie or a password).
 import http from 'node:http';
@@ -134,6 +137,12 @@ const server = http.createServer(async (req, res) => {
   if (req.method === 'POST' && (path === '/api/auth/signup' || path === '/api/auth/oauth')) {
     req.resume();
     return answer(res, 403, { error: 'scan_guard', message: 'Left out of the scan: it would replace the scan session.' }, path.slice('/api/auth/'.length));
+  }
+  if (req.method === 'POST' && path === '/api/account/delete') {
+    // Never passed on: with the scan user's password in a fuzzed body it would delete the scan user, its session and
+    // the seeded jobs, and every later request would be answered 401.
+    req.resume();
+    return answer(res, 403, { error: 'scan_guard', message: 'Left out of the scan: it would delete the scan user.' }, 'account/delete');
   }
   if (req.method === 'POST' && path === '/api/auth/login') {
     const body = await readBody(req);

@@ -73,6 +73,7 @@ the guard enforces the list. The app never sees these, and the scan says nothing
 |---|---|---|
 | `POST /api/auth/logout` | 200 `{"ok":true}` | it ended the scan session (171 times in run 3) |
 | `POST /api/auth/signup`, `POST /api/auth/oauth` | 403 `scan_guard` | a success hands the scanner another account's session |
+| `POST /api/account/delete` | 403 `scan_guard` | a body with the scan user's password would delete the scan user, its session and the seeded jobs, and every later request would be answered 401. Covered by `test/account-delete.test.ts` (refusals, the count-first limit, the 409s, no row left behind; on Postgres too) and `test/no-5xx.test.ts` (hostile bodies, never a 5xx) |
 | `POST /api/auth/login` with anything but the scan user's exact e-mail and password | 401 `invalid_credentials` | fuzzed sign-ins used up the app's sign-in limit for the runner's address. The scan user's own sign-in is passed on without its Cookie header, because a successful sign-in closes the session the request came with |
 | `POST /api/jobs/<a seeded job>/cancel` and `/back-out`, `DELETE /api/swipe/<the seeded bid>` | 409 `scan_guard` | they would end the job, or undo the saved bid, that the other routes are attacked on. With any other id these routes pass through, so their id handling is still attacked |
 | `GET /api/stream` | passed on, cut after 2 seconds | Server-Sent Events never end by themselves |

@@ -270,6 +270,38 @@ paths:
         '401': { $ref: '#/components/responses/SignIn' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '429': { $ref: '#/components/responses/TooMany' }
+  /api/account/delete:
+    post:
+      tags: [auth]
+      summary: >-
+        Delete the signed-in account and everything tied to it, at once, in one database statement (accounts mode;
+        404 in single mode). The body proves it is the owner: {password}, or {email} for an account with no password
+        (social sign-in), checked the way sign-in checks it. 5 wrong answers per account in 15 minutes, counted
+        BEFORE the check, then 429 with the time left (a right answer gives its count back). 409 job_in_progress
+        with {jobs: [{id, title}]} while the account is in a job that is not finished (one it posted that is open
+        with a bid, or one awarded within its contact window or agreed where it is the poster or the winner); its
+        own bids on other people's open jobs go with it. On 200 the session cookie is cleared. POST, not DELETE:
+        some clients drop a DELETE's body. The scan never sends this one (scripts/hawkscan-guard.mjs answers 403).
+      parameters:
+        - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                password: { type: string, maxLength: 128 }
+                email: { type: string, format: email, maxLength: 254 }
+            example: { password: TEST-not-the-password }
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { description: 'sign_in_required, or wrong_password / wrong_email', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '403': { $ref: '#/components/responses/Csrf' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { description: 'job_in_progress: {error, message, jobs: [{id, title}]}', content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/TooMany' }
   /api/feed:
     get:
       tags: [feed]

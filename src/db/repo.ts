@@ -82,6 +82,30 @@ export async function upsertBids(db: Db, bids: Bid[], seenAt = new Date()): Prom
 }
 
 /**
+ * Put a local job's copy in the feed ('local:<jobId>', src/jobs/service.ts mirrorBid) only while that job exists, in
+ * ONE statement: false when it does not (its poster's account was deleted between the post and this write, and the job
+ * went with it). The job row is locked (FOR KEY SHARE) while the copy is written, so a deletion that already holds it is
+ * waited for and then seen; a deletion that comes after waits for this write, and its own sweep removes the copy
+ * (src/db/accounts.ts sweepOrphanMirrors). Without this, a post racing its poster's deletion left a feed card, scores
+ * and a "Good fit" alert for a job that no longer existed (review del-2).
+ */
+export async function upsertMirrorBid(db: Db, bid: Bid, jobId: string, seenAt = new Date()): Promise<boolean> {
+  const flagsCol = BID_COLS.indexOf('flags');
+  const updates = BID_COLS.filter((c) => c !== 'id').map((c) => `${c} = excluded.${c}`).join(', ');
+  const cells = BID_COLS.map((_, i) => `$${i + 1}${i === flagsCol ? '::jsonb' : ''}`).join(', ');
+  const job = `$${BID_COLS.length + 1}`;
+  const rows = await db.query<{ id: string }>(
+    `insert into bids (${BID_COLS.join(', ')})
+     select ${cells}
+     where exists (select 1 from jobs j where j.id = ${job} and j.removed_at is null for key share)
+     on conflict (id) do update set ${updates}
+     returning id`,
+    [...bidParams(bid, seenAt), jobId],
+  );
+  return rows.length > 0;
+}
+
+/**
  * Store a config-file profile (single mode / the scan). A profile an account owns is left alone:
  * the account's own saves (saveProfileForAccount) are the only thing that may change it.
  */

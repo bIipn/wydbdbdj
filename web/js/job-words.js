@@ -137,6 +137,11 @@ export function endedWords(job) {
 
 const bidsWord = (n) => `${n} bid${n === 1 ? '' : 's'}`;
 
+/** To the poster, when the job's winner deleted their account (the API's award.winnerDeleted). */
+export const WINNER_DELETED = 'The winner deleted their account.';
+/** `next` with the deletion said first, when it happened. */
+const afterGone = (gone, next) => (gone ? (next ? `${WINNER_DELETED} ${next}` : WINNER_DELETED) : next);
+
 /**
  * Where a job stands for this viewer: which group it goes in on the Jobs tab, the state in words, and what to
  * do next. group: 'needs' (waiting on this person), 'open' (running, nothing to do now), 'done' (over).
@@ -146,24 +151,28 @@ export function stage(job, { now = Date.now(), reposted = false } = {}) {
   const a = job.award;
   const lowest = a ? dollars(a.amountCents) : null;
   if (job.my.role === 'poster') {
+    // The winner deleted their account (POST /api/account/delete): the award stays on the job, nobody is behind it.
+    const gone = !!a?.winnerDeleted;
     switch (job.status) {
       case 'open':
         return { group: 'open', status: `Open · ${bidsWord(job.bidCount)} · closes ${whenShort(job.closesAt, now)}`, next: 'Amounts stay sealed until bidding closes.' };
       case 'awarded': {
+        // Only when the deletion raced the award: nobody can contact the poster now, so the next step is to cancel.
+        if (gone) return { group: 'needs', status: `Lowest bid ${lowest}`, next: afterGone(true, 'Cancel the job to post it again.') };
         const by = a ? dayOnly(a.contactDeadline) : '';
         if (a?.posterConfirmedAt) return { group: 'open', status: `Lowest bid ${lowest} · you agreed`, next: `Waiting for them to confirm, by ${by}.` };
         if (a?.bidderContactedAt) return { group: 'needs', status: `Lowest bid ${lowest} · they contacted you`, next: 'Reply, then tap “We’ve agreed” once you’ve worked it out.' };
         return { group: 'needs', status: `Lowest bid ${lowest} · waiting for them to contact you`, next: `They have until ${by}. Tap “They contacted me” if they call, or “We’ve agreed” if you settled it.` };
       }
       case 'agreed':
-        return { group: 'needs', status: `Agreed at ${lowest}`, next: 'Tap “Job done” when the work is finished.' };
+        return { group: 'needs', status: `Agreed at ${lowest}`, next: afterGone(gone, 'Tap “Job done” when the work is finished.') };
       case 'completed':
-        return { group: 'done', status: `Done · ${lowest}`, next: null };
+        return { group: 'done', status: `Done · ${lowest}`, next: afterGone(gone, null) };
       default: { // unfilled, cancelled
         // A job of theirs that just ended asks for one thing: post it again. After 3 days it just sits in Finished.
         const endedAt = Date.parse(a?.contactDeadline ?? job.closesAt);
         const fresh = !reposted && now - endedAt < 3 * 864e5;
-        return { group: fresh ? 'needs' : 'done', status: endedWords(job), next: reposted ? 'Posted again.' : 'You can post it again with one tap.' };
+        return { group: fresh ? 'needs' : 'done', status: endedWords(job), next: afterGone(gone, reposted ? 'Posted again.' : 'You can post it again with one tap.') };
       }
     }
   }

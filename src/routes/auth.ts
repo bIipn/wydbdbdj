@@ -10,6 +10,7 @@ import { isPlan, setPlan } from '../db/accounts.js';
 import { redeemPromo } from '../db/promo.js';
 import { env } from '../env.js';
 import { effectivePlan, featuresFor } from '../plans.js';
+import { register as accountRoutes } from './account.js';
 import { requireAdmin } from './shared.js';
 
 const MIN = 60 * 1000;
@@ -72,9 +73,11 @@ const fromIosStore = (req: FastifyRequest): boolean => String(req.headers['x-bid
 const fields = (body: unknown): Record<string, unknown> =>
   body !== null && typeof body === 'object' && !Array.isArray(body) ? (body as Record<string, unknown>) : {};
 
-/** Sign up / sign in / sign out (accounts mode only), and the operator's plan switch. */
+/** Sign up / sign in / sign out (accounts mode only), the operator's plan switch, and "Delete account" (./account.ts). */
 export async function register(app: FastifyInstance, ctx: RouteContext): Promise<void> {
   const { config, db } = ctx;
+  // POST /api/account/delete lives in its own file and is registered with the sign-in routes (404 in single mode).
+  await accountRoutes(app, ctx);
 
   // Grant free / pro / pilot by hand. There is no billing: this is how a plan changes.
   app.post('/api/admin/plan', async (req, reply) => {

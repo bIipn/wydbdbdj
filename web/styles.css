@@ -1706,3 +1706,25 @@ body::before {
 /* While a conversation's Report form is open, the pinned composer steps aside: two Send buttons on screen, and the
    form's bottom under the composer, read as one form (review rs-3). Closing the form brings the composer back. */
 .mx-convo:has(.mx-report .report-form) .mx-foot { display: none; }
+
+/* ---- delete account ---- */
+/* Settings, under Sign out: a plain danger button, and the confirm form it opens in place (views/settings.js). */
+.text-btn.delete-open { display: block; margin: 2px auto 0; min-height: 44px; padding: 10px 18px; font-size: 14px; }
+.panel.delete-account {
+  margin-top: 12px; border-color: rgba(244, 63, 94, 0.42);
+  background: linear-gradient(180deg, rgba(244, 63, 94, 0.09), rgba(244, 63, 94, 0.03) 60%), var(--card);
+}
+.delete-title { margin: 0 0 6px; font-size: 17px; letter-spacing: -0.01em; }
+.delete-text { margin: 0 0 14px; font-size: 13.5px; line-height: 1.5; color: var(--muted); }
+.delete-form { display: flex; flex-direction: column; gap: 12px; }
+.delete-jobs { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.delete-job {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; min-height: 44px;
+  padding: 10px 12px; border-radius: 12px; border: 1px solid var(--line-2); background: rgba(0, 0, 0, 0.2);
+  color: var(--text); font-size: 14px; font-weight: 650; text-align: left; cursor: pointer; overflow-wrap: anywhere; unicode-bidi: isolate;
+}
+.delete-job::after { content: '›'; flex: none; color: var(--muted); font-size: 18px; line-height: 1; }
+.delete-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 2px; }
+.delete-actions .cta { margin-top: 0; }
+.delete-actions .cta:disabled { opacity: 0.6; cursor: default; }
+@media (min-width: 480px) { .delete-actions { display: grid; grid-template-columns: 1fr 1fr; } }

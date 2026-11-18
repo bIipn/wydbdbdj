@@ -1,3 +1,4 @@
+import { artCall } from '../score/art.js';
 import { compileKeywords } from '../score/score.js';
 import { allTradeWords } from '../trades/catalog.js';
 
@@ -11,7 +12,9 @@ import { allTradeWords } from '../trades/catalog.js';
  *   1. design, advice or IT in the TITLE (DESIGN_IT: A&E, construction management, cyber, software …)        → drop
  *      ("A&E Electrical Retainer", "Cyber Assets … Bulk Electric System" carry trade words)
  *   2. the board's own category or commodity code says construction / building work                       → keep
- *   3. a service, sale or lease that is never a contractor's, in the TITLE (NEVER_CONTRACTOR)               → drop
+ *   3. a call to artists in the TITLE (src/score/art.ts: "Call for Art", "Percent-for-Art", "Public Art … Artwork"),
+ *      whatever building or trade it names ("… Call to Artists - Artwork for a Traffic Signal Cabinet")       → drop
+ *      a service, sale or lease that is never a contractor's, in the TITLE (NEVER_CONTRACTOR)               → drop
  *      ("Street Sweeping Services", "Sandhill Road … Timber Sale" carry trade words, "street", "road")
  *   4. a PURCHASE: the title names goods (parts, supplies, materials, equipment, a vehicle, a rental …) and no
  *      work on them (WORK: install, replace, repair, build, maintain …)                                      → drop
@@ -209,10 +212,8 @@ const NEVER_CONTRACTOR = compileKeywords([
   'pest control', 'rodent', 'helicopter', 'security services', 'security guard*', 'guard services', 'towing', 'tow and storage',
   'impound', 'fireworks', 'provider network', 'evaluator network', 'funding opportunit*', 'notice of funding',
   'funding availability', 'gap funding', 'funding application*', 'broadband funding', 'development rights', 'capacity building',
-  'mural', 'call for artists', 'percent for art', 'scrap metal', 'salvage',
-  // art commissions: "Request for Informal Proposals - Call to Artists - Artwork for a Traffic Signal Cabinet" (OpenGov,
-  // City of Flagstaff, read from production 2026-11-18) names a traffic signal, but artists answer it
-  'call to artists',
+  // a mural alone (a call to artists is decided before this list, without the building-work way back: src/score/art.ts)
+  'mural', 'scrap metal', 'salvage',
   // sales and leases, not work: "Sandhill Road 26/27 Timber Sale" names a road but is a timber sale (MFMP 2026-11-14)
   'timber sale', 'grazing lease', 'cattle grazing', 'farm lease', 'surplus', 'auction', 'sale of', 'real estate',
   'brokerage', 'concession*',
@@ -363,6 +364,12 @@ export function isTradeWork(input: TradeWorkInput): TradeWorkAnswer {
   if (nigpTrade) return { keep: true, why: `NIGP class ${nigpTrade} (construction)` };
   const unspscTrade = unspsc.find((c) => UNSPSC_TRADE_SEGMENTS.has(c));
   if (unspscTrade) return { keep: true, why: `UNSPSC segment ${unspscTrade} (building and facility construction)` };
+
+  // 3. A call to artists, whatever it names ("Call for Art - Fire Station 12 Renovation"): artists answer it. Read from
+  // production 2026-11-18: OpenGov (Flagstaff) "… - Call to Artists - Artwork for a Traffic Signal Cabinet" was kept on
+  // "traffic signal" and scored 87 "great" for an electrician.
+  const art = artCall(title);
+  if (art) return { keep: false, why: `not contractor work: ${art}` };
 
   // 3–4. Never a contractor's: a service, a sale, a purchase, a rental.
   const never = NEVER_CONTRACTOR.test(title);

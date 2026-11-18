@@ -762,6 +762,47 @@ export async function profileIdOf(db: Db, accountId: string): Promise<string | n
   return rows[0]?.id ?? null;
 }
 
+/**
+ * The jobs that keep an account from being deleted (POST /api/account/delete), as two CTEs of that ONE statement
+ * (src/db/accounts.ts deleteAccount): the rule lives here, with the rest of the marketplace's SQL.
+ *
+ *   touched   every job the account is part of (it posted it, it won it, or it has an active bid on it), locked
+ *             FOR UPDATE: a closing or a tap that is writing one of them is waited for, and the row is then read as
+ *             it is now (a closing that awards the account's bid in that instant is seen as awarded, not as open);
+ *   blocking  the ones still in progress:
+ *             - a job it posted that is open and has at least one active bid (people are waiting for its closing);
+ *             - a job awarded, its contact window not over, where it is the poster or the winner;
+ *             - a job it posted that is agreed (not marked done yet): the poster can always tap "Job done";
+ *             - someone else's open job past its closing time with its active bid: being awarded right now
+ *               (the route settles everything due first, so this is only a closing racing the deletion).
+ * Its own active bid on someone else's open job is NOT a reason: the bid goes with the account, like a withdrawal.
+ * Nor is a job it WON that is agreed: only the poster can end an agreed job (there is no deadline, and the winner can
+ * neither back out, cancel nor mark it done), so the winner would be held for good (review del-1). The job keeps its
+ * record with no one named (winner_id null: src/jobs/view.ts winnerDeleted), like a completed one.
+ * A job an operator removed is gone for everyone and blocks nothing. `account` and `now` are parameter names ($1…).
+ *
+ * Not covered: a bid placed on one of the account's open jobs in the same instant as the deletion (FOR UPDATE waits for
+ * that bid's row lock on the job, but the bid itself is newer than the statement): it goes with the job.
+ */
+export const jobsInProgressCtes = (account: string, now: string): string => `
+  touched as (
+    select j.id, j.title, j.poster_id, j.winner_id, j.status, j.closes_at, j.contact_deadline, j.removed_at
+    from jobs j
+    where j.poster_id = ${account} or j.winner_id = ${account}
+       or exists (select 1 from job_bids b where b.job_id = j.id and b.bidder_id = ${account} and b.status = 'active')
+    for update
+  ),
+  blocking as (
+    select t.id, t.title, t.closes_at from touched t
+    where t.removed_at is null and (
+      (t.status = 'open' and t.poster_id = ${account}
+        and exists (select 1 from job_bids b where b.job_id = t.id and b.status = 'active'))
+      or (t.status = 'open' and t.poster_id <> ${account} and t.closes_at <= ${now}::timestamptz)
+      or (t.status = 'awarded' and t.contact_deadline > ${now}::timestamptz and (t.poster_id = ${account} or t.winner_id = ${account}))
+      or (t.status = 'agreed' and t.poster_id = ${account})
+    )
+  )`;
+
 // ------------------------------------------------------------- the feed --
 
 /** The mirrored feed ids ('local:<jobId>') of the jobs a profile's own account posted: never scored for it. */

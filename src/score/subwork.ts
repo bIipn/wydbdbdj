@@ -3,6 +3,7 @@ import {
 } from '../trades/catalog.js';
 import { pscTitle } from '../sources/psc.js';
 import type { Bid } from '../types.js';
+import { artCall } from './art.js';
 import { compileKeywords, type Matcher } from './keywords.js';
 
 /**
@@ -186,17 +187,6 @@ function nounsOf(ids: readonly string[]): string {
  */
 const DIRECT_TRADE_CALL = /\btrade\s+packages?\b|\bfiled\s+sub-?bids?\b/i;
 
-/**
- * An art commission: artists send artwork to a selection panel, and the building named is where it will hang, not a
- * job with trades inside it. Read from production on 2026-11-18: NGEM "Permanent Public Art at Reno-Tahoe International
- * Airport New Gen A&B Concourses - 2-D Digital Restroom Artwork" was sub work on "restroom"; OpenGov "Request for
- * Informal Proposals - Call to Artists - Artwork for a Traffic Signal Cabinet" (Flagstaff). The Notice to Contractors
- * that installs a piece ("SMF Pedestrian Walkway - Riparian Public Art Installation Project", Sacramento) is
- * construction, but no building job either: it keeps its own score. "Call for artists", "percent for art" and "mural"
- * are the art words of relevance.ts' NEVER_CONTRACTOR list.
- */
-const ART_COMMISSION = compileKeywords(['public art', 'artwork*', 'call to artist*', 'call for artist*', 'percent for art', 'mural*']);
-
 export function subWorkFor(
   bid: Pick<Bid, 'source' | 'title' | 'category' | 'description' | 'naics' | 'psc' | 'location'>, tradeIds: readonly string[], hits: TradeHits,
 ): SubWork | null {
@@ -208,7 +198,9 @@ export function subWorkFor(
   // A call for trade packages or filed sub-bids is bid by the trade contractors themselves, to the owner: not a GC's
   // job to quote ("TRC1909 RFQ for Fifteen (15) Trade Packages for Renovation/Stabilization of Lynn Courthouse", COMMBUYS).
   if (DIRECT_TRADE_CALL.test(bid.title)) return null;
-  if (ART_COMMISSION.test(bid.title)) return null;
+  // A call to artists (src/score/art.ts): the building named is where the art goes, not a job with trades inside it
+  // (NGEM "Permanent Public Art at Reno-Tahoe International Airport … - 2-D Digital Restroom Artwork", 2026-11-18).
+  if (artCall(bid.title)) return null;
   const title = bid.title;
   const naics = bid.naics ?? null;
   const psc = bid.psc ? bid.psc.toUpperCase() : null;

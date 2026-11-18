@@ -9,14 +9,15 @@
 import { api } from '../api.js';
 import { h, icon, ICONS, showToast } from '../dom.js';
 import { PLAN_LABEL } from '../format.js';
-import { clearErrors, formError, showErrors, toggle } from '../form.js';
+import { clearErrors, field, formError, showErrors, textInput, toggle } from '../form.js';
+import { openJob } from '../jobs-data.js';
 import {
   alertsSection, answersFrom, costsSection, draftFromSummary, INTENTS, jobsSection, loadSetAsides, loadTrades, nameSection,
   paperworkSection, setAsidesSection, tradesSection, whereSection,
 } from '../profile-form.js';
 import { promoRow } from '../promo.js';
-import { devicePush, standalone } from '../push.js';
-import { applyMe, loadFeed, onSignedOut, signOut } from '../session.js';
+import { devicePush, releaseDevice, standalone } from '../push.js';
+import { applyMe, loadFeed, onSignedOut, signedOut, signOut } from '../session.js';
 import { goBack, onAfterRender, registerView, render, setView } from '../shell.js';
 import { features, intent, PRIME_TRADE, state } from '../state.js';
 import { openAlerts } from './alerts.js';
@@ -25,6 +26,13 @@ import { fieldsObject, workBodyFrom, workDraftFrom, workProfileSection } from '.
 // work: the work-profile draft and the saved card (GET /api/work-profile), loaded when Settings opens.
 const ui = { draft: null, initial: null, trades: null, setAsides: null, busy: false, confirm: false, work: null, workInitial: null, card: null, workLoading: false, push: null };
 onSignedOut(() => { Object.assign(ui, { draft: null, initial: null, confirm: false, work: null, workInitial: null, card: null, push: null }); });
+
+// "Delete account": closed (a plain danger button under Sign out) or open (the confirm form in place). `proof` is what
+// the server asks for: the password, or the email address for an account that signs in with a provider and has none.
+const DELETE_CLOSED = { open: false, busy: false, proof: 'password', value: '', error: null, jobs: [], focus: false };
+const del = { ...DELETE_CLOSED };
+const closeDelete = () => Object.assign(del, DELETE_CLOSED, { jobs: [] });
+onSignedOut(closeDelete);
 
 const PLAN_TEXT = {
   free: 'Daily digest and in-app alerts. Pro adds instant phone alerts, award history, the cost check and your own cost settings.',
@@ -155,6 +163,7 @@ function leave() {
   ui.work = null;
   ui.workInitial = null;
   ui.card = null;
+  closeDelete();
   goBack(); // the tab the profile button was pressed on (Home when that is not known)
 }
 
@@ -253,6 +262,102 @@ function confirmBar(onSave) {
   );
 }
 
+/** What goes, said once before the password (src/db/accounts.ts deleteAccount; web/privacy.html says the same). */
+const DELETE_TEXT = 'This deletes your account at once: your company profile and preferences, saved and passed bids, alerts and '
+  + 'phone-alert devices, your work profile, your bids and messages, and the jobs you posted with their bids and messages, '
+  + 'which also disappear for the person who won them. Recorded fees go too. It can’t be undone.';
+
+/**
+ * The confirm form, in place under Sign out. Nothing is deleted until "Delete my account" with the password; a job
+ * still in progress (409) is listed under the form, each one a way to open it. On success the account is gone on the
+ * server (its devices too), so this browser only drops its own push subscription, and the sign-in screen follows.
+ */
+function deleteAccountSection() {
+  if (!del.open) {
+    return h('button', {
+      type: 'button', class: 'text-btn danger delete-open',
+      onclick: () => { del.open = true; del.focus = true; render(); },
+    }, 'Delete account');
+  }
+  const byEmail = del.proof === 'email';
+  const input = textInput({
+    id: 'deleteProof', value: del.value, ...(byEmail
+      ? { type: 'email', autocomplete: 'email', inputmode: 'email', autocapitalize: 'off', spellcheck: 'false', placeholder: 'you@company.com' }
+      : { type: 'password', autocomplete: 'current-password', placeholder: 'Your password' }),
+  });
+  input.addEventListener('input', () => { del.value = input.value; });
+  const submit = h('button', { class: 'cta danger', type: 'submit', disabled: del.busy }, del.busy ? 'Deleting…' : 'Delete my account');
+  const form = h('form', { class: 'delete-form', novalidate: true },
+    field({ key: 'proof', label: byEmail ? 'Your email address' : 'Your password', control: input,
+      help: byEmail ? 'You sign in with Google, Apple or Microsoft, so type your email address to confirm.' : 'Type it to confirm.' }),
+    formError(),
+    del.jobs.length
+      ? h('ul', { class: 'delete-jobs', 'aria-label': 'Jobs that aren’t finished' }, del.jobs.map((j) => h('li', {},
+        h('button', { type: 'button', class: 'delete-job', onclick: () => openJob(j.id, 'settings') }, j.title || 'Your job'))))
+      : null,
+    h('div', { class: 'delete-actions' },
+      submit,
+      h('button', { class: 'cta ghost', type: 'button', disabled: del.busy, onclick: () => { closeDelete(); render(); } }, 'Keep my account')),
+  );
+  if (del.error) showErrors(form, { [del.error.field]: del.error.message });
+  form.addEventListener('submit', (e) => { e.preventDefault(); deleteAccount(form, submit); });
+  return h('section', { class: 'panel delete-account', 'aria-labelledby': 'deleteTitle' },
+    h('h2', { class: 'delete-title', id: 'deleteTitle' }, 'Delete your account'),
+    h('p', { class: 'delete-text' }, DELETE_TEXT),
+    form);
+}
+
+async function deleteAccount(form, submit) {
+  if (del.busy) return;
+  clearErrors(form);
+  del.error = null;
+  const byEmail = del.proof === 'email';
+  if (!(byEmail ? del.value.trim() : del.value)) {
+    del.error = { field: 'proof', message: byEmail ? 'Type your email address.' : 'Type your password.' };
+    showErrors(form, { proof: del.error.message });
+    return;
+  }
+  del.busy = true;
+  submit.disabled = true;
+  submit.textContent = 'Deleting…';
+  const keep = form.querySelector('.delete-actions .cta.ghost');
+  if (keep) keep.disabled = true;
+  try {
+    await api.deleteAccount(byEmail ? { email: del.value } : { password: del.value });
+  } catch (err) {
+    del.busy = false;
+    // The session ended meanwhile: api.js has already gone to the sign-in screen.
+    if (err.code === 'sign_in_required') return;
+    if (err.code === 'email_required' || err.code === 'password_required') {
+      // The account proves itself the other way (no password: its email). Ask for that one instead.
+      del.proof = err.code === 'email_required' ? 'email' : 'password';
+      del.value = '';
+      del.focus = true;
+    }
+    if (err.code === 'job_in_progress') del.jobs = Array.isArray(err.body?.jobs) ? err.body.jobs : [];
+    const onField = err.code === 'wrong_password' || err.code === 'wrong_email';
+    del.error = { field: onField ? 'proof' : 'form', message: err.message || 'That didn’t go through. Try again.' };
+    render();
+    return;
+  }
+  // Deleted. The server dropped this account's devices with it; the browser lets go of its subscription too.
+  await releaseDevice(undefined, { server: false });
+  signedOut();
+  ui.draft = null;
+  setView('signin');
+  showToast('Your account is deleted.');
+}
+
+// The confirm form's box gets the keyboard when it opens, and again when it asks for the email address instead.
+onAfterRender((view) => {
+  if (view !== 'settings' || !del.focus) return;
+  const box = document.getElementById('deleteProof');
+  if (!box) return;
+  del.focus = false;
+  box.closest('.delete-account')?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  box.focus({ preventScroll: true });
+});
+
 function renderSettings() {
   if (!state.me?.profile) return h('div', { class: 'screen' }, h('div', { class: 'empty' }, h('p', {}, 'Loading…')));
   if (!ui.draft) startEditing();
@@ -296,6 +401,8 @@ function renderSettings() {
     planCard(),
     form,
     h('button', { type: 'button', class: 'cta ghost signout', onclick: () => { ui.draft = null; signOut(); } }, 'Sign out'),
+    // Apple and Google ask for account deletion inside the app: here, under Sign out (src/routes/account.ts).
+    deleteAccountSection(),
     // The Microsoft Store asks for the privacy policy inside the app too (web/privacy.html, same origin).
     h('p', { class: 'fine' }, h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
       ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),

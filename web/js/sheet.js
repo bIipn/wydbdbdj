@@ -1,8 +1,10 @@
-// The detail sheet that slides up over any view.
+// The detail sheet that slides up over any view. Its top bar (index.html: the grip and the Close button) is the same
+// for every use: bid details (openSheet), and whatever showInSheet puts in it (Filters, a person's card).
 
 import { setSwipe } from './actions.js';
 import { $, h } from './dom.js';
 import { VERDICT_LABEL } from './format.js';
+import { agencyLine } from './home-model.js';
 import { bidLink, facts, localPill, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { costCheckButton, priceCheck } from './price.js';
 import { render, setView } from './shell.js';
@@ -28,7 +30,7 @@ export function openSheet(item) {
     ),
     subNote(item),
     h('h2', { id: 'sheetTitle' }, item.title),
-    h('p', { class: 'agency' }, item.agency ?? ''),
+    h('p', { class: 'agency' }, agencyLine(item)),
     facts(item),
     item.overLimit ? h('p', { class: 'over-note' }, 'This job is bigger than the spend limits in your settings, so it stays out of your swipe deck.') : null,
     h('div', { class: `verdict-${item.verdict}` }, reasonsList(item)),
@@ -47,11 +49,33 @@ export function showInSheet(children, labelledBy) {
   showSheet();
 }
 
+/** What had keyboard focus when the sheet opened (a card's title, the Filters button): see dismissSheet. */
+let opener = null;
+
 function showSheet() {
   const sheet = $('#sheet');
+  // Opening never moves focus. Remember where it is (not on a redraw of an open sheet: Filters redraws on each tap).
+  if (sheet.hidden) {
+    const was = document.activeElement;
+    opener = was && was !== document.body && !sheet.contains(was) ? was : null;
+  }
   sheet.hidden = false;
   sheet.scrollTop = 0;
   $('#sheetBackdrop').hidden = false;
+}
+
+/**
+ * Close the sheet from the sheet itself: its Close button, the dim strip above it, Escape (main.js wires all three
+ * here). If focus was inside the sheet (the Close button, or a Tab into it), it goes back to what opened the sheet
+ * while that is still on the page, so it is never left on a hidden element. Focus outside the sheet stays put.
+ */
+export function dismissSheet() {
+  const sheet = $('#sheet');
+  if (sheet.hidden) return;
+  const inside = sheet.contains(document.activeElement);
+  close();
+  if (inside && opener?.isConnected) opener.focus({ preventScroll: true });
+  opener = null;
 }
 
 export const closeSheet = close;

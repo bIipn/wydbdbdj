@@ -63,6 +63,16 @@ export function monogram(name) {
 export const isLocalJob = (item) => item?.source === 'local' || String(item?.id ?? '').startsWith('local:');
 
 /**
+ * The line under a bid's title that says who put it out: the agency of a public bid; for a local job, that it was
+ * posted here (a person posted it in the app; the feed row is shared, so never their name). One copy for Home's
+ * cards, the swipe card, the Search and Saved rows and the detail sheet.
+ */
+export function agencyLine(item) {
+  if (isLocalJob(item)) return 'Posted on BidSwipe';
+  return String(item?.agency ?? '').trim() || 'Agency not listed';
+}
+
+/**
  * Where the job is, in one line. Miles only when the server measured them to the job itself; otherwise the
  * server's own label and, in words, why there are no miles (never "? mi").
  *   { miles: '41 mi' | null, label: 'Sacramento, CA', note: null | 'No distance: site not named', text }

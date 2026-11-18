@@ -104,8 +104,12 @@ function renderSignIn() {
           providers.map((p) => h('button', { type: 'button', class: 'cta ghost provider', onclick: () => startOAuth(p.id) }, p.label)))
         : null,
     ),
+    // True for both kinds of work: a public bid is placed on the agency's site, a local job's sealed bid in the app.
+    // One line each, so neither breaks in the middle on a phone.
     h('p', { class: 'fine' },
-      creating ? 'Free to start. We never take bids — you bid on the agency’s own site.' : 'We never take bids — you bid on the agency’s own site.',
+      creating ? ['Free to start.', h('br')] : null,
+      'Public bids: you bid on the agency’s own site.', h('br'),
+      'Local jobs: sealed bids, here in the app.',
       state.authConfig?.demo ? h('span', { class: 'demo-flag' }, 'Demo mode: all features on') : null,
       h('br'), h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
       ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),

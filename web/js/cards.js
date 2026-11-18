@@ -3,6 +3,7 @@
 import { commit } from './actions.js';
 import { $, h } from './dom.js';
 import { dueInfo, estLabel, num, VERDICT_LABEL } from './format.js';
+import { agencyLine } from './home-model.js';
 import { bidLink, facts, localPill, overLimitTag, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { openSheet } from './sheet.js';
 
@@ -21,7 +22,7 @@ export function card(item, layer) {
     ),
     subNote(item),
     h('h2', {}, item.title),
-    h('p', { class: 'agency' }, item.agency ?? ''),
+    h('p', { class: 'agency' }, agencyLine(item)),
     facts(item),
     reasonsList(item, 4),
     bidLink(item),
@@ -36,7 +37,7 @@ export function card(item, layer) {
 export function row(item) {
   const due = dueInfo(item.dueAt);
   // Miles only when the server measured them to the job; otherwise the place label alone says where.
-  const meta = [item.agency, item.location?.label, item.distanceMi != null ? `${num(item.distanceMi)}\u00a0mi` : null].filter(Boolean).join(' · ');
+  const meta = [agencyLine(item), item.location?.label, item.distanceMi != null ? `${num(item.distanceMi)}\u00a0mi` : null].filter(Boolean).join(' · ');
   const value = estLabel(item.estValue);
   const swipeTag = item.swipe === 'save' || item.swipe === 'bid' ? h('span', { class: 'tag saved' }, item.swipe === 'bid' ? 'Opened' : 'Saved')
     : item.swipe === 'pass' ? h('span', { class: 'tag passed' }, 'Passed') : null;

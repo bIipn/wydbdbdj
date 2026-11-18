@@ -81,12 +81,14 @@
     max-height: min(86vh, 900px);
     border-bottom: 1px solid var(--line-2);
     border-radius: 22px;
-    padding: 18px 26px 24px;
+    padding: 0 26px 24px; /* the top: .sheet-top below */
     transform: translate(-50%, -50%);
     animation: desk-pop 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
     box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
   }
   .sheet-grip { display: none; }
+  /* No grip at a desk: the bar is the dialog's Close, top right, the content under it. */
+  .sheet-top { margin: 0 -26px; padding: 16px 26px 2px; }
   .sheet .desc { max-height: 40vh; }
 
   .toast { top: 22px; }

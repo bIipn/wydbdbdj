@@ -210,6 +210,9 @@ const NEVER_CONTRACTOR = compileKeywords([
   'impound', 'fireworks', 'provider network', 'evaluator network', 'funding opportunit*', 'notice of funding',
   'funding availability', 'gap funding', 'funding application*', 'broadband funding', 'development rights', 'capacity building',
   'mural', 'call for artists', 'percent for art', 'scrap metal', 'salvage',
+  // art commissions: "Request for Informal Proposals - Call to Artists - Artwork for a Traffic Signal Cabinet" (OpenGov,
+  // City of Flagstaff, read from production 2026-11-18) names a traffic signal, but artists answer it
+  'call to artists',
   // sales and leases, not work: "Sandhill Road 26/27 Timber Sale" names a road but is a timber sale (MFMP 2026-11-14)
   'timber sale', 'grazing lease', 'cattle grazing', 'farm lease', 'surplus', 'auction', 'sale of', 'real estate',
   'brokerage', 'concession*',

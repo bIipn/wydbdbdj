@@ -14,9 +14,13 @@ import { loadProfile } from '../src/profiles.js';
 import { finalizeBid } from '../src/scan.js';
 import { decideMatch } from '../src/realtime/alerts.js';
 import { CAPPED_FLOOR, programTerm, scoreBid, titleAmount } from '../src/score/score.js';
-import { mergeTrades } from '../src/trades/catalog.js';
+import { subWorkFor, type TradeHits } from '../src/score/subwork.js';
+import { NGEM_URL } from '../src/sources/ngem.js';
+import { parseOpenGovProjects, type OpenGovProjectsAnswer } from '../src/sources/opengov.js';
+import { isTradeWork } from '../src/sources/relevance.js';
+import { mergeTrades, SUB_WORK } from '../src/trades/catalog.js';
 import type { Bid, BidDraft, BidLocation, Profile } from '../src/types.js';
-import { CAPTURED, realBids } from './helpers.js';
+import { CAPTURED, fx, realBids } from './helpers.js';
 
 const pilot = loadProfile('lm-electric');
 const SCAN = new Date('2026-11-13T04:02:14.145Z'); // when the live scan ran
@@ -369,5 +373,76 @@ describe('an equipment PSC alone is never a fit: radar and targeting-pod repair 
     const s = scoreBid(fedCard('FA8540-26-R-0001', 'Sniper Comprehensive Advanced Targeting Pod (CATP2) Support and Sustainment Option Years 6 & 7', '334511', 'Orlando', 'FL', '2026-11-20T21:00:00.000Z'), electrician('32801'), at);
     expect(s.score).toBeLessThan(CAPPED_FLOOR);
     expect(s.tier).toBe('other');
+  });
+});
+
+describe('an art commission is never sub work (real rows read from production, 2026-11-18)', () => {
+  // The rows as production stored them on 2026-11-18: id, agency, category, title, description and flags verbatim (the
+  // restroom call's flags were not given: none). Their due dates were not read, so `due` is a stand-in two weeks after the
+  // clock. The bad matches were stored for electricians in Gardnerville, NV (here: the pilot's own profile) and River Pines,
+  // CA (here: a TEST electrician, simulated).
+  const READ = new Date('2026-11-18T12:00:00Z');
+  const due = '2026-12-02T23:00:00.000Z'; // stand-in, not the board's
+  const ngem = (sourceId: string, title: string, description: string, flags: string[]): Bid => finalizeBid({
+    source: 'ngem', sourceId, sourceName: 'NGEM (local agencies)', title, agency: 'Reno-Tahoe Airport Authority', description,
+    category: 'Informational Only', location: { state: 'NV' }, postedAt: null, dueAt: due, estValue: null, naics: null, setAside: null,
+    url: NGEM_URL, flags,
+  });
+  const RESTROOM_ART = ngem('reno-tahoe-airport-authority:rfp-26-27-11',
+    'Permanent Public Art at Reno-Tahoe International Airport New Gen A&B Concourses - 2-D Digital Restroom Artwork',
+    'Informational Only · RFP #26/27-11', []);
+  const CEILING_ART = ngem('reno-tahoe-airport-authority:rfq-26-27-12',
+    'Permanent Public Art at Reno-Tahoe International Airport New Gen A&B Concourses - Ceiling-Based Artwork',
+    'Informational Only · RFQ #26/27-12 Addendum 1', ['Addendum 1 posted']);
+  const FLAGSTAFF = { title: 'Request for Informal Proposals - Call to Artists - Artwork for a Traffic Signal Cabinet', category: '*Request For Informal Proposals*' };
+  // "opengov:saccounty:282418" is the same project in the raw OpenGov answer captured 2026-11-14 (full description there).
+  const SAC_GOV = { code: 'saccounty', name: 'County of Sacramento', city: 'Sacramento', state: 'CA', timezone: 'America/Los_Angeles' };
+  const smfDraft = parseOpenGovProjects(JSON.parse(fx('opengov-projects-saccounty.json')) as OpenGovProjectsAnswer, SAC_GOV).bids
+    .find((b) => b.sourceId === 'saccounty:282418');
+  const riverPines = buildProfile('test-elec-95675', {
+    businessName: 'TEST River Pines Electric (simulated)', trades: ['electrical'], zip: '95675', radiusMi: 90, valueRange: { min: 10_000, max: 50_000 },
+  });
+  const none: TradeHits = { fitInTitle: false, otherInTitle: null, supplyOnly: false, program: false };
+
+  it('"2-D Digital Restroom Artwork" (stored as sub work, 43 to 47, on "restroom") scores as its "Ceiling-Based Artwork" sibling: no scope', () => {
+    expect([RESTROOM_ART.id, CEILING_ART.id]).toEqual(['ngem:reno-tahoe-airport-authority:rfp-26-27-11', 'ngem:reno-tahoe-airport-authority:rfq-26-27-12']);
+    for (const p of [pilot, riverPines]) {
+      for (const b of [RESTROOM_ART, CEILING_ART]) {
+        const s = scoreBid(b, p, READ);
+        expect(s.tier, `${p.id} ${b.id}`).toBe('other');
+        expect(s.score).toBe(0);
+        expect(s.rejected).toBe('No electrical or construction scope found');
+        expect(s.reasons.some((r) => r.text.startsWith('Sub work:'))).toBe(false);
+      }
+    }
+  });
+
+  it('no trade gets an art commission as sub work, and the rule is the art, not the airport (variant: a restroom remodel there)', () => {
+    const smf = finalizeBid(smfDraft!);
+    // The Flagstaff call is checked on the Reno row's place (variant): a card with no place is never sub work anyway.
+    for (const id of Object.keys(SUB_WORK)) {
+      for (const b of [RESTROOM_ART, CEILING_ART, { ...RESTROOM_ART, ...FLAGSTAFF }, smf]) expect(subWorkFor(b, [id], none), `${id}: ${b.title}`).toBeNull();
+    }
+    const remodel = { ...RESTROOM_ART, title: 'Reno-Tahoe International Airport New Gen A&B Concourses - Restroom Remodel' };
+    expect(subWorkFor(remodel, ['electrical'], none)?.why).toBe('Sub work: a general contractor bids this building job (“remodel”); electrical is usually subcontracted');
+  });
+
+  it('the Notice to Contractors that installs public art at SMF is construction: kept at the source, scored as before', () => {
+    expect(smfDraft).toBeDefined(); // the OpenGov parser kept it (isTradeWork on the board's own call)
+    const smf = finalizeBid(smfDraft!);
+    expect(smf).toMatchObject({ id: 'opengov:saccounty:282418', agency: 'County of Sacramento', category: 'Notice to Contractors - CUPCCAA', title: 'SMF Pedestrian Walkway - Riparian Public Art Installation Project' });
+    expect(smf.description).toMatch(/^Airports · Notice to Contractors - CUPCCAA\nThe Project includes, without limitation, furnishing all necessary labor, materials/);
+    expect(isTradeWork({ title: smf.title, category: smf.category, description: 'Airports', board: 'opengov' })).toEqual({ keep: true, why: 'board category: Notice to Contractors - CUPCCAA' });
+    const s = scoreBid(smf, riverPines, READ); // 41 mi: in reach, 1 day to bid
+    expect(s.tier).toBe('other');
+    expect(s.score).toBe(22); // the same before the art rule (it never was sub work)
+    expect(s.reasons).toContainEqual({ kind: 'info', text: 'General construction — check the specs for electrical' });
+    expect(s.reasons.some((r) => r.text.startsWith('Sub work:'))).toBe(false);
+  });
+
+  it('the Flagstaff call to artists is left out at the source: OpenGov is not a Nevada board (NGEM keeps every row)', () => {
+    // It names a traffic signal, an electrical word, so the board's list kept it: placed in Flagstaff, it scored 87 "great"
+    // (an alert) for a TEST electrician (simulated) at ZIP 86001 on 2026-11-18. NEVER_CONTRACTOR already had "call for artists".
+    expect(isTradeWork({ ...FLAGSTAFF, board: 'opengov' })).toEqual({ keep: false, why: 'not contractor work: call to artists' });
   });
 });

@@ -11,7 +11,7 @@ import { $, $$, store } from './dom.js';
 import { enterApp, onEnteredApp, signedOut, startDemo } from './session.js';
 import { setView, showMessage } from './shell.js';
 import { fling } from './actions.js';
-import { closeSheet, openSheet, sheetOpen } from './sheet.js';
+import { closeSheet, dismissSheet, openSheet, sheetOpen } from './sheet.js';
 import { deck, intent, state } from './state.js';
 import './live.js';
 // Reads ?promo=CODE at load (before boot) and applies it once the app is entered: src/auth/promo.ts.
@@ -71,9 +71,41 @@ function openLinked() {
 }
 // After every way in (boot, sign-in, the end of onboarding): a link opened while signed out still lands.
 onEnteredApp(openLinked);
-$('#sheetBackdrop').addEventListener('click', closeSheet);
+// The sheet closes three ways, all through one function: its Close button, the dim strip above it, Escape.
+$('#sheetClose').addEventListener('click', dismissSheet);
+$('#sheetBackdrop').addEventListener('click', dismissSheet);
+// Content scrolled under the sheet's top bar: a faint edge under the bar (styles.css .sheet.is-scrolled).
+$('#sheet').addEventListener('scroll', (e) => e.currentTarget.classList.toggle('is-scrolled', e.currentTarget.scrollTop > 0), { passive: true });
+
+/** What Tab can reach in the open sheet, in page order (a radio group is one stop: its checked option). */
+function sheetStops() {
+  const sheet = $('#sheet');
+  return [...sheet.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]):not([type=hidden]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => el.getClientRects().length > 0)
+    .filter((el) => !(el.type === 'radio' && !el.checked && [...sheet.querySelectorAll('input[type=radio]')].some((r) => r.name === el.name && r.checked)));
+}
+
+/**
+ * The sheet is a modal dialog (aria-modal): opening it leaves focus where it was, the next Tab goes into it (its Close
+ * button first; Shift+Tab: its last control), and Tab goes round inside it instead of wandering behind it.
+ */
+function keepTabInSheet(e) {
+  const stops = sheetStops();
+  if (!stops.length) return;
+  const first = stops[0];
+  const last = stops[stops.length - 1];
+  const at = document.activeElement;
+  const target = !$('#sheet').contains(at) ? (e.shiftKey ? last : first)
+    : !e.shiftKey && at === last ? first
+      : e.shiftKey && at === first ? last : null;
+  if (!target) return;
+  e.preventDefault();
+  target.focus();
+}
+
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') return closeSheet();
+  if (e.key === 'Escape') return dismissSheet();
+  if (e.key === 'Tab' && sheetOpen()) return keepTabInSheet(e);
   // The arrow keys swipe the top card: Home in Swipe mode only (in Scroll mode they scroll the page, as anywhere).
   if (state.view !== 'home' || homeMode() !== 'swipe' || sheetOpen() || e.target.closest?.('input, textarea, select')) return;
   const current = deck()[0];

@@ -12,6 +12,7 @@ const m = (await import(modulePath)) as {
   monogram: (name: string | null | undefined) => string;
   placeLine: (item: object) => { miles: string | null; label: string; note: string | null; text: string };
   matchChips: (item: object) => Array<{ text: string; kind: string; urgent?: boolean; unknown?: boolean }>;
+  agencyLine: (item: object | null | undefined) => string;
   homeModeOf: (stored: string | null) => 'scroll' | 'swipe';
 };
 
@@ -99,6 +100,36 @@ describe('a match card (placeLine, matchChips)', () => {
   it('sub work and local jobs say so in place of the board', () => {
     expect(m.matchChips(bid({ tier: 'sub' }))[2]).toEqual({ text: 'Sub work', kind: 'sub' });
     expect(m.matchChips(bid({ id: 'local:TEST-9', source: 'local' }))[2]).toEqual({ text: 'Local job', kind: 'local' });
+  });
+});
+
+describe('the agency line (agencyLine: Home, the swipe card, Search and Saved rows, the detail sheet)', () => {
+  it('a public bid: its agency, as the board wrote it', () => {
+    expect(m.agencyLine(bid())).toBe('Example County');
+  });
+  it('a public bid with no agency says so', () => {
+    expect(m.agencyLine(bid({ agency: null }))).toBe('Agency not listed');
+    expect(m.agencyLine(bid({ agency: '' }))).toBe('Agency not listed');
+    expect(m.agencyLine(bid({ agency: '   ' }))).toBe('Agency not listed');
+    expect(m.agencyLine(bid({ agency: undefined }))).toBe('Agency not listed');
+  });
+  it('a local job (mirrored as local:<jobId>, agency null) was posted here, not by an agency', () => {
+    // The shape src/jobs/service.ts mirrorBid() puts in the feed.
+    const local = bid({ id: 'local:TEST-9', source: 'local', sourceName: 'Local job', agency: null, flags: ['Local job'] });
+    expect(m.agencyLine(local)).toBe('Posted on BidSwipe');
+    // Known by its id alone, or by its source alone.
+    expect(m.agencyLine(bid({ id: 'local:TEST-9', agency: null }))).toBe('Posted on BidSwipe');
+    expect(m.agencyLine(bid({ source: 'local', agency: null }))).toBe('Posted on BidSwipe');
+  });
+  it('a local job never prints a name from the row (the feed row is shared): no person, no business', () => {
+    expect(m.agencyLine(bid({ id: 'local:TEST-9', source: 'local', agency: 'TEST Homeowner (simulated)' }))).toBe('Posted on BidSwipe');
+  });
+  it('a bid id that only contains "local" is still a public bid', () => {
+    expect(m.agencyLine(bid({ id: 'samgov:TEST-local:1', agency: null }))).toBe('Agency not listed');
+  });
+  it('nothing at all: the public-bid wording, never a crash', () => {
+    expect(m.agencyLine(null)).toBe('Agency not listed');
+    expect(m.agencyLine(undefined)).toBe('Agency not listed');
   });
 });
 

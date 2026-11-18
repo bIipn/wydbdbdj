@@ -20,8 +20,8 @@ import { compileKeywords, type Matcher } from './keywords.js';
  *
  * Never sub work: a profile with the general-building trade (it is the prime), a job posted on BidSwipe
  * itself, a title that names the company's own or a related trade (that is a fit, scored as today), a title
- * that names another trade's work, a likely purchase, or civil words in a building title. When in doubt the
- * answer is null: a wrong SUB WORK label is worse than a missing one.
+ * that names another trade's work, a likely purchase, an art commission, or civil words in a building title.
+ * When in doubt the answer is null: a wrong SUB WORK label is worse than a missing one.
  */
 
 /** What the scorer already knows about the bid's trade, from its own matchers. */
@@ -186,6 +186,17 @@ function nounsOf(ids: readonly string[]): string {
  */
 const DIRECT_TRADE_CALL = /\btrade\s+packages?\b|\bfiled\s+sub-?bids?\b/i;
 
+/**
+ * An art commission: artists send artwork to a selection panel, and the building named is where it will hang, not a
+ * job with trades inside it. Read from production on 2026-11-18: NGEM "Permanent Public Art at Reno-Tahoe International
+ * Airport New Gen A&B Concourses - 2-D Digital Restroom Artwork" was sub work on "restroom"; OpenGov "Request for
+ * Informal Proposals - Call to Artists - Artwork for a Traffic Signal Cabinet" (Flagstaff). The Notice to Contractors
+ * that installs a piece ("SMF Pedestrian Walkway - Riparian Public Art Installation Project", Sacramento) is
+ * construction, but no building job either: it keeps its own score. "Call for artists", "percent for art" and "mural"
+ * are the art words of relevance.ts' NEVER_CONTRACTOR list.
+ */
+const ART_COMMISSION = compileKeywords(['public art', 'artwork*', 'call to artist*', 'call for artist*', 'percent for art', 'mural*']);
+
 export function subWorkFor(
   bid: Pick<Bid, 'source' | 'title' | 'category' | 'description' | 'naics' | 'psc' | 'location'>, tradeIds: readonly string[], hits: TradeHits,
 ): SubWork | null {
@@ -197,6 +208,7 @@ export function subWorkFor(
   // A call for trade packages or filed sub-bids is bid by the trade contractors themselves, to the owner: not a GC's
   // job to quote ("TRC1909 RFQ for Fifteen (15) Trade Packages for Renovation/Stabilization of Lynn Courthouse", COMMBUYS).
   if (DIRECT_TRADE_CALL.test(bid.title)) return null;
+  if (ART_COMMISSION.test(bid.title)) return null;
   const title = bid.title;
   const naics = bid.naics ?? null;
   const psc = bid.psc ? bid.psc.toUpperCase() : null;

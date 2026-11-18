@@ -10,7 +10,7 @@ import { commit } from '../actions.js';
 import { $, h, icon, ICONS, store } from '../dom.js';
 import { num } from '../format.js';
 import { prefsCard, tasksCard } from '../home-extras.js';
-import { HOME_PAGE, homeModeOf, matchChips, placeLine } from '../home-model.js';
+import { agencyLine, HOME_PAGE, homeModeOf, matchChips, placeLine } from '../home-model.js';
 import { onFeedLoaded } from '../session.js';
 import { openSheet } from '../sheet.js';
 import { onAfterRender, registerAlias, registerView, render, tabNumber } from '../shell.js';
@@ -82,7 +82,7 @@ function matchCard(item, list) {
       h('div', { class: 'mc-who' },
         miniRing(item.score),
         h('div', { class: 'mc-who-text' },
-          h('p', { class: 'mc-agency' }, item.agency || 'Agency not listed'),
+          h('p', { class: 'mc-agency' }, agencyLine(item)),
           h('p', { class: `mc-place${place.miles ? '' : ' no-dist'}` }, icon(ICONS.pin),
             place.miles ? h('span', { class: 'mc-miles' }, place.miles) : null,
             place.miles ? ' · ' : null,

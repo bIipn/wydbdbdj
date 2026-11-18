@@ -86,7 +86,12 @@ Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks,
 390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
 had hit its daily limit). Final screenshots were kept outside the repo.
 
-**LIVE: production (bidswipe-tau.vercel.app) runs commit cb979c2 since 2026-11-16 21:35 UTC** (the security
+**LIVE: production (bidswipe-tau.vercel.app) runs commit 964378f since 2026-11-18 21:58 UTC**: the five fixes
+(Delete account in Settings, calls to artists never trade or Sub work, the detail sheet's Close button, "Posted on
+BidSwipe" on local-job cards, the sign-in copy) on top of 5eb226e (the estimate NUL fix, 2026-11-18 19:13 UTC). No
+schema change. Checked after the deploy: health 200, the CSP on every answer, the new sign-in lines, the Close
+button and the local-job label served, `POST /api/account/delete` 401 signed out, no runtime error. The stored art
+matches change at the next daily scan's re-score. Before that, production ran commit cb979c2 since 2026-11-16 21:35 UTC (the security
 fixes, the iPhone alert fixes, reporting, the new manifest and legal pages; cb979c2 = d5fb63b plus Chrome's
 pre-release push host `jmt17.google.com` on the allowlist, two Store screenshots re-taken and a scan time limit).
 Checked after the deploy: every answer carries the CSP and the other security headers and `/api` answers say

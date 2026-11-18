@@ -1,1 +1,1 @@
-Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-17, fifth run (the 500 fixed; real job, person and bid ids per route; a cost request that reaches the engine).
+Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-18, sixth run (Delete account in the app, answered 403 by the scan guard; the report prints which id each job-route request carried).

@@ -14,6 +14,7 @@ status. `findings` prints the platform's evidence for each path, shortened, with
 addresses hidden (run 3 printed the contact address the scanner had found on the legal pages).
 """
 import collections
+import os
 import json
 import re
 import sys
@@ -21,6 +22,8 @@ import sys
 UUID = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.I)
 PLAIN = re.compile(r"^[A-Za-z][A-Za-z0-9_.-]{0,23}$")
 STATIC = re.compile(r"\.(js|css|png|svg|ico|html|json|webmanifest|txt|xml|map)$", re.I)
+# The seed's two jobs (scripts/hawkscan-seed.mjs writes them to GITHUB_ENV), to tell them from ids that are not jobs.
+SEEDED_JOBS = {v for v in (os.environ.get("SCAN_JOB_ID", ""), os.environ.get("SCAN_OWN_JOB_ID", "")) if v}
 COOKIE = re.compile(r"(bs_session=)[^;\s\"'\\]+")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 # Routes that answer signed out: they say nothing about the scan user's session.
@@ -100,6 +103,7 @@ def server(path: str) -> None:
     table = collections.defaultdict(collections.Counter)   # (method, route) -> status -> n
     session = collections.defaultdict(collections.Counter)  # 5-minute slot -> status of GET /api/me -> n
     open_requests = {}
+    job_ids = collections.defaultdict(collections.Counter)  # (method, what after the id) -> seeded/other counts
     slow, errors = [], []
     first = last = None
     for line in open(path, errors="replace"):
@@ -122,6 +126,15 @@ def server(path: str) -> None:
             codes[status] += 1
             method, url = open_requests.pop(rid, ("?", ""))
             table[(method, route_of(url))][status] += 1
+            # Which id each job-route request carried: the seed's own jobs, or something else (run 5: cancel and
+            # back-out got the seeded ids, messages/confirm/complete/read got ids that were not jobs).
+            parts = url.split("?", 1)[0].split("/")
+            if len(parts) >= 4 and parts[1:3] == ["api", "jobs"] and UUID.match(parts[3]):
+                kind = "seeded job" if parts[3] in SEEDED_JOBS else "other id"
+                tail = "/".join(parts[4:6]) or "(the job itself)"
+                job_ids[(method, tail)][kind] += 1
+                if status == 404:
+                    job_ids[(method, tail)][kind + " 404"] += 1
             if method == "GET" and url.split("?", 1)[0] == "/api/me" and first and t:
                 session[int((t - first) // 300000)][status] += 1
             ms = d.get("responseTime") or 0
@@ -171,6 +184,11 @@ def server(path: str) -> None:
           + (f"{total_jobs} requests, {jobs['404']} answered 404 ({round(100 * jobs['404'] / total_jobs)}%), "
              f"{jobs['other']} anything else" if total_jobs else "no request in the log"))
     print("  (mostly 404 = the scanner's job ids do not exist, and the handlers stopped at the first look-up)")
+    if job_ids:
+        print("  by the id the request carried" + ("" if SEEDED_JOBS else " (SCAN_JOB_ID / SCAN_OWN_JOB_ID not set: every id counts as other)") + ":")
+        print("  " + "seeded".rjust(7) + " (404)" + "   other".rjust(8) + " (404)  method route")
+        for (method, tail), c in sorted(job_ids.items(), key=lambda kv: -sum(v for k, v in kv[1].items() if not k.endswith("404"))):
+            print(f"  {c['seeded job']:>7} ({c['seeded job 404']:>3}) {c['other id']:>7} ({c['other id 404']:>3})  {method} /api/jobs/{{id}}/{tail}")
 
     print("\nroute by status (ids folded: {id} a UUID, {n} a number, {x} anything else), most requests first:")
     print("  " + "total".rjust(6) + "  " + "  ".join(str(s).rjust(6) for s in statuses) + "  method route")

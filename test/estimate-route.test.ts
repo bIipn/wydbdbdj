@@ -200,6 +200,11 @@ describe('accounts mode', () => {
     expect(forBid[0]).toMatchObject({ bidId: bid.id, result: { status: 'complete' }, inputs: { job: { ownerType: 'nv_local' } } });
     const bad = await app.inject('/api/estimates?limit=0');
     expect(bad.statusCode).toBe(400);
+    // HawkScan run 4: "?bidId=%00" reached Postgres (invalid byte sequence 0x00) and answered 500.
+    for (const raw of ['%00', 'a%00b', 'a%07b', '%1F', '%7F']) {
+      const res = await app.inject(`/api/estimates?bidId=${raw}`);
+      expect([raw, res.statusCode, res.json()]).toEqual([raw, 400, { error: 'invalid_input', message: 'Some fields need fixing', fields: [{ path: 'bidId', message: 'must be a bid id' }] }]);
+    }
     who = other; // another customer never sees them
     expect((await app.inject('/api/estimates')).json().items).toEqual([]);
   });

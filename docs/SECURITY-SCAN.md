@@ -1,12 +1,12 @@
 # Security scan (HawkScan)
 
-**Status (2026-11-17): no scan has yet attacked the signed-in routes with a live session.** Runs 2 and 3 found
-nothing at High or Medium, but run 3's route table showed why that says little: the scanner signed itself out within
-five minutes and most of its requests to signed-in routes were answered 401. What those two runs do show: the
-signed-out surface (the shell, the legal pages, the public look-ups, the refusals) has no finding at High or
-Medium, and the server took about 29,000 hostile requests per run with no 5xx and nothing slower than 5 seconds.
-The signed-in routes are covered by the 2026-11-16 audit (scripts run by hand, each finding re-run by a skeptic)
-and by the tests, not by a scan. Run 4 goes through the scan guard below; its numbers decide.
+**Status (2026-11-17): run 4 was the first scan signed in all the way, and found nothing at High or Medium.**
+`GET /api/me` answered 200 for the whole run, and 90% of the requests to signed-in routes reached a handler. It
+found one 500 (`GET /api/estimates` with a NUL in `bidId`), fixed in the same change as this note, with a test. It
+also showed two places the attack did not reach: the job routes were given an id that is not a job, and
+`POST /api/estimate` never reached the cost engine. This change gives the scanner real ids and a complete cost
+request (below); run 5 confirms. What the guard keeps the scanner from (sign-in, sign-up, sign-out, social sign-in)
+is still not scanned: it is covered by the 2026-11-16 audit and the tests.
 
 ## Runs
 
@@ -15,7 +15,8 @@ and by the tests, not by a scan. Run 4 goes through the scan guard below; its nu
 | 1 · 2026-11-16 17:54 UTC | f540e84 (before the fixes) | Cut off by the job's 60-minute limit with nothing to read: the progress was silenced and the artifact host is not reachable from Claude's sessions. Probably the cost-check crash below, which froze the server on a fuzzed end date (not confirmed) |
 | 2 · 2026-11-16 21:35 UTC | cb979c2 (the fixes; the build that is live) | Finished by itself in 61 minutes. High 0 · Medium 0 · Low 2: "Information Leak - Email Address" on `/privacy.html` and `/terms.html`, the public contact address the owner put there on purpose (by design). 28,777 answers: no 5xx, none slower than 5 seconds, 514 were 429 (the new limits at work). 13,533 were 401, and the log could not say on which routes |
 | 3 · 2026-11-16 23:02 UTC | f138414 (same app code; a report that prints route by status) | Finished in 48 minutes with the same result, and showed runs 2 and 3 were **hollow behind the sign-in**: the scanner called `POST /api/auth/logout` 171 times although `excludePaths` names it; `GET /api/me` answered 200 only in the first five minutes; a fuzzed sign-up succeeded 4 times, so for a while the scanner held a brand-new account with no profile (437 answers were 409); its fuzzed sign-ins used up the sign-in limit for the runner's address (117 x 429), so it never signed in again. Of 14,499 requests to signed-in routes, 10,057 were answered 401. `POST /api/estimate`: 10 reached the validation, 866 were 401 |
-| 4 · 2026-11-17 | the scan guard (below) | Asked for after two reviewers attacked the guard locally. Read its "What the server saw" step: the session table, the share of signed-in requests that reached a handler, and what the guard stopped |
+| 4 · 2026-11-17 | the scan guard (below) | Finished by itself: 89 minutes of scanning (the app's log covers 91, with the seeding before it). High 0 · Medium 0 · Low 2: the contact address on the two legal pages, as in run 2 (by design). Signed in all the way: `GET /api/me` answered 200 in every five-minute slot, 3,537 times; the 15 x 401 are the scanner's own signed-out probes of that route. Of 14,703 requests to signed-in routes, 13,201 (90%) reached a handler, 1,484 (10%) were 429 and 18 were 401. The guard stopped 271 sign-ups, 271 sign-ins that were not the scan user's, 139 oauth calls and 133 logouts, and cut 59 streams. No answer slower than 5 seconds. ONE 500: `GET /api/estimates` with a NUL in `bidId` (Postgres refuses a NUL in text; the route passed the query on unchecked), fixed in the same change, with a test. Two limits: the job routes got an id that is not a job (`POST /api/jobs/{id}/messages` 139 x 404 of 140, the same for confirm, complete, contacted, read, cancel and back-out: most answers were the first look-up's 404), and `POST /api/estimate` never reached the cost engine (10 x 400, 725 x 404, 20 x 429, never 200) |
+| 5 | real ids and a complete cost request | To confirm the two fixes below ("Ids and the cost check"): far fewer of the job routes' answers should be 404 (the report now prints the count; a fuzzed id still answers 404), and `POST /api/estimate` should answer 200 |
 
 ## What runs
 
@@ -26,13 +27,42 @@ and by the tests, not by a scan. Run 4 goes through the scan guard below; its nu
 2. `scripts/hawkscan-seed.mjs` signs up two TEST accounts (example.com addresses, a password made up for this run
    that is masked in the log the moment it is made and only goes to the job's environment): a scan user that bids
    on the other account's local job;
-3. starts the **scan guard**, `scripts/hawkscan-guard.mjs`, on port 8788. The scanner talks to the guard; the guard
+3. `scripts/hawkscan-spec.py` writes the scan's copy of the spec (next section) and checks it;
+4. starts the **scan guard**, `scripts/hawkscan-guard.mjs`, on port 8788. The scanner talks to the guard; the guard
    passes every request on to the app unchanged, except the few that would end the scan's own session or the
-   objects the seed made (next section). It is scaffolding for this job: nothing in `src/` or `web/` knows it;
-4. installs StackHawk's `hawk` CLI, finds or creates the StackHawk application `bidswipe`, checks the setup
-   (`hawk validate config / api / auth`), then runs HawkScan with `stackhawk.yml`: every route in
-   `docs/api/openapi.yaml` (`test/openapi.test.ts` keeps that spec equal to the server's routes), signed in as the
+   objects the seed made ("What the scan does not test"). It is scaffolding for this job: nothing in `src/` or
+   `web/` knows it;
+5. installs StackHawk's `hawk` CLI, finds or creates the StackHawk application `bidswipe`, checks the setup
+   (`hawk validate config / api / auth`), then runs HawkScan with `stackhawk.yml`: every route in that copy of
+   `docs/api/openapi.yaml` (`test/openapi.test.ts` keeps the spec equal to the server's routes), signed in as the
    scan user, with the `x-bidswipe: 1` header the CSRF guard asks for, plus a browser crawl of the app shell.
+
+## Ids and the cost check (after run 4)
+
+Every path id in `docs/api/openapi.yaml` is called `{id}`, and the spec must stay that way (`test/openapi.test.ts`
+compares it with the server's `:id` routes). `stackhawk.yml`'s customVariables are keyed by that name; runs 2 to 4
+scoped three `id` entries by `path`, the scoping did not take effect, and one value (the other account's id) went
+into every `{id}`. So the job routes were attacked with an id that is not a job: the first look-up answered 404 and
+the handler behind it was never reached.
+
+`scripts/hawkscan-spec.py` (run after the seed) writes the scan's own copy to `$RUNNER_TEMP/openapi-scan.yaml`, and
+`stackhawk.yml` reads it through `SCAN_SPEC` (without it, the repository's spec). In the copy:
+- each kind of path id has its own name: the job routes `{jobId}`, the people routes `{personId}`, `/api/bids` and
+  `/api/swipe` `{bidRef}`; the customVariables use those names, with no `path` scoping;
+- the placeholder ids in the examples are the seed's (its two jobs, the other account, the saved bid);
+- `POST /api/estimate` asks for a complete cost request (made-up inputs, TEST labels) on the saved bid, as the body's
+  schema and as its example. Checked by hand against a local server: the run 4 shape (the quick form with a made-up
+  `bidId`) answers 404 `bid_not_found`; the spec's quick form answers 200 but "incomplete", 13 fields needed and no
+  price; the copy's request answers 200 "complete" with a total.
+
+The script checks its own output (every `{name}` in a path has a path parameter of that name, no `{id}` left, no path
+lost or doubled, as many operations as the spec) and stops the job with a sentence when a check fails.
+
+Not reachable with real ids either: the people routes answer 404 until a job between the two accounts has closed,
+and messages, contact and agreement need an awarded job (the seed cannot wait a day). The numeric ids (`feeId`,
+`messageId`, `reportId`) are only in `/api/admin` routes, which answer 401 before any look-up; the seed has no fee,
+message or report id to give (a report answers `{"ok":true}` without one). A real job id also reaches
+`DELETE /api/jobs/{jobId}/bid`, which withdraws the scan user's bid; `POST` on the same path places it again.
 
 ## What the scan does not test
 
@@ -67,7 +97,8 @@ Either change `.github/hawkscan-run` (any edit, e.g. the date) and push to `main
 - The run's **Summary** and its log: each finding with severity, check name and path, then what the server saw:
   the answers by status, the scan user's session over time, and a table of route by status
   (`scripts/hawkscan-report.py`: the server report prints only method, path and status; the findings report prints
-  each path's evidence shortened, with session cookie values and e-mail addresses hidden), and what the guard stopped.
+  each path's evidence shortened, with session cookie values and e-mail addresses hidden), how many requests to the
+  job routes were answered 404 (mostly 404 = the scanner's job ids do not exist), and what the guard stopped.
   **Read the session table before the findings**: a run whose `GET /api/me` turns to 401 has not tested the
   signed-in routes, whatever its severity counts say.
 - The **hawkscan-results** artifact: the full JSON, the server log and the guard's log.

@@ -27,7 +27,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,510 tests in 104 files as of 2026-11-16, ~140s; simulate.test.ts ~25s,
+npm test                   # vitest (~2,512 tests in 105 files as of 2026-11-17, ~140s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 10 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts, test/promo-pg.test.ts)
 npm run build              # tsc → dist/
@@ -179,7 +179,9 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
                    · market-watch (replays of the real BLS/USAspending captures + labelled synthetic "after")
                    · simulate.test.ts · jobs-api / jobs-rules / jobs-score / jobs-reach / jobs-pg /
                    simulate-jobs / work-profile · reports-api · security-headers / hardening (headers, NUL, error
-                   shape, ACCESS_CODE) · push-test-route / push-signout · promo-pg (Postgres) · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
+                   shape, ACCESS_CODE) · no-5xx (EVERY operation in docs/api/openapi.yaml, hostile values in each
+                   path id, query and body field, on real seeded objects incl. an awarded job: never a 5xx, and a
+                   floor on answers that reached a handler; a new documented route is covered the day it is written) · push-test-route / push-signout · promo-pg (Postgres) · helpers.ts. No harness for web JS: check screens in Playwright at 390×844
 ```
 
 ## Rules
@@ -398,7 +400,12 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   looked clean and were hollow: `excludePaths` did not keep the scanner off the logout route. The scan job puts
   `scripts/hawkscan-guard.mjs` between the scanner (:8788) and the app (:8787); it answers logout, sign-up, oauth,
   every sign-in but the scan user's own and the calls that would end the seeded job by itself. It is scaffolding
-  for that job, never part of the app. `scripts/hawkscan-report.py` prints the findings and the route table.
+  for that job, never part of the app. `scripts/hawkscan-report.py` prints the findings and the route table;
+  `scripts/hawkscan-spec.py` writes the scan's copy of the spec ({jobId}, {personId}, {bidRef} and the seed's ids:
+  customVariables' `path` scoping did not work, one id went into every `{id}`).
+- A query string is each route's own business (the global NUL hook covers path ids and JSON bodies only; the feed's
+  search drops control characters on purpose): a query value that reaches SQL as text must refuse control characters
+  itself (`GET /api/estimates?bidId=%00` was a 500 until 2026-11-17; test/no-5xx.test.ts guards the class).
 - iPhone facts come from `navigator.standalone` (true = Home Screen app, false = a Safari tab, undefined = not iOS),
   never the user agent. A Safari tab cannot get web push at all; old iOS in the installed app = no PushManager.
   `pushManager.subscribe` must follow the tap with nothing awaited but requestPermission (the registration is fetched

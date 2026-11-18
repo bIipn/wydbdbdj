@@ -7,22 +7,25 @@ app:
   host: ${APP_HOST:http://localhost:8787}       # in CI the scan guard on port 8788 (scripts/hawkscan-guard.mjs), which
                                                 # passes everything on to the app (node dist/server.js, port 8787)
   openApiConf:
-    filePath: docs/api/openapi.yaml             # hand-derived spec of all 61 API routes, kept true by test/openapi.test.ts
-    customVariables:                            # real ids from scripts/hawkscan-seed.mjs, so path ids reach the handlers
-      - field: id                               # job routes: the poster's job (the scan user bid on it) and its own job
-        path: ".*/api/(admin/)?jobs/[^/]+.*"
-        values:
+    # The scan's copy of docs/api/openapi.yaml (the spec test/openapi.test.ts keeps equal to the server), written by
+    # scripts/hawkscan-spec.py after the seed: each kind of path id has its own name there ({jobId}, {personId},
+    # {bidRef}) and the examples carry the seed's ids. Without SCAN_SPEC (a local `hawk validate config`) the
+    # repository's spec, whose path ids are all "{id}": then the three variables below match nothing.
+    filePath: ${SCAN_SPEC:docs/api/openapi.yaml}
+    customVariables:                            # real ids from scripts/hawkscan-seed.mjs, so path ids reach the handlers.
+      # Keyed by name only. Runs 2 to 4 scoped three "id" entries by `path`; the scoping did not take effect and one
+      # value (the person's) went into every {id}, so the job routes were attacked with an id that is not a job.
+      - field: jobId                            # /api/jobs/{jobId}/..., /api/admin/jobs/{jobId}/remove: the poster's
+        values:                                 # job (the scan user bid on it) and the scan user's own job
           - ${SCAN_JOB_ID:00000000-0000-4000-8000-000000000001}
           - ${SCAN_OWN_JOB_ID:00000000-0000-4000-8000-000000000001}
-      - field: id                               # one stored bid, saved by the scan user
-        path: ".*/api/(bids|swipe)/.*"
-        values:
-          - ${SCAN_BID_ID:none}
-      - field: id                               # the other TEST account (404 until a job between them is awarded)
-        path: ".*/api/people/.*"
-        values:
+      - field: personId                         # /api/people/{personId}...: the other TEST account (404 until a job
+        values:                                 # between them has closed: the seed cannot get there)
           - ${SCAN_PERSON_ID:00000000-0000-4000-8000-000000000002}
-      - field: bidId                            # ?bidId= on market/estimates and {bidId} in swipe/estimate bodies
+      - field: bidRef                           # /api/bids/{bidRef}, /api/swipe/{bidRef}: one stored bid, saved by
+        values:                                 # the scan user
+          - ${SCAN_BID_ID:none}
+      - field: bidId                            # ?bidId= on market/estimates and bidId in the swipe/estimate bodies
         values:
           - ${SCAN_BID_ID:none}
   # Run 3 (2026-11-16) showed these did NOT keep the scanner away: every route below was still requested (logout 171

@@ -7,7 +7,8 @@ that log is the one thing every reader of a run can open.
 
 `server` answers the question a clean scan leaves open: did the scanner stay signed in, and did its requests reach
 the handlers? It prints the answers by status, the scan user's session over time (GET /api/me, which the scanner
-polls), and a table of route by status. Admin and cron routes answer 401 on purpose (the scan has neither token).
+polls), how many requests to the job routes (/api/jobs/{id}/...) were answered 404 (run 4: the scanner's job ids were
+not jobs), and a table of route by status. Admin and cron routes answer 401 on purpose (the scan has neither token).
 `server` prints no cookie, no password and no request body: the log lines it reads carry only method, path and
 status. `findings` prints the platform's evidence for each path, shortened, with session cookie values and e-mail
 addresses hidden (run 3 printed the contact address the scanner had found on the legal pages).
@@ -156,6 +157,20 @@ def server(path: str) -> None:
     for label, n in signed_in.most_common():
         print(f"  {n:>6}  {round(100 * n / total) if total else 0:>3}%  {label}")
     print("  (a stream the scan guard cut after 2 s has no line in the app's log and is not counted)")
+
+    # Run 4: the job routes got an id that is not a job, so most of their answers were the first look-up's 404.
+    # (/api/jobs/rules, /mine, /conversations… are plain words, not ids, and are left out.)
+    jobs = collections.Counter()
+    for (method, route), row in table.items():
+        parts = route.split("/")
+        if len(parts) >= 4 and parts[1:3] == ["api", "jobs"] and parts[3] in ("{id}", "{n}", "{x}"):
+            for status, n in row.items():
+                jobs["404" if status == 404 else "other"] += n
+    total_jobs = sum(jobs.values())
+    print("\nthe job routes (/api/jobs/{id} and below): "
+          + (f"{total_jobs} requests, {jobs['404']} answered 404 ({round(100 * jobs['404'] / total_jobs)}%), "
+             f"{jobs['other']} anything else" if total_jobs else "no request in the log"))
+    print("  (mostly 404 = the scanner's job ids do not exist, and the handlers stopped at the first look-up)")
 
     print("\nroute by status (ids folded: {id} a UUID, {n} a number, {x} anything else), most requests first:")
     print("  " + "total".rjust(6) + "  " + "  ".join(str(s).rjust(6) for s in statuses) + "  method route")

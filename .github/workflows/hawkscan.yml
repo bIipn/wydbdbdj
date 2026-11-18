@@ -88,6 +88,15 @@ jobs:
         # but it does not belong in a log. From here on it shows as ***.
         run: echo "::add-mask::$SCAN_PASSWORD"
 
+      - name: Write the scan's copy of the spec
+        if: steps.gate.outputs.run == 'true'
+        # docs/api/openapi.yaml names every path id "{id}"; the copy names each kind apart ({jobId}, {personId},
+        # {bidRef}), puts the seed's ids in the examples and gives POST /api/estimate a complete cost request, then
+        # checks itself (exit 1 with a sentence). stackhawk.yml reads it through SCAN_SPEC.
+        run: |
+          python3 scripts/hawkscan-spec.py docs/api/openapi.yaml "$RUNNER_TEMP/openapi-scan.yaml"
+          echo "SCAN_SPEC=$RUNNER_TEMP/openapi-scan.yaml" >> "$GITHUB_ENV"
+
       - name: Start the scan guard (port 8788)
         if: steps.gate.outputs.run == 'true'
         run: |
@@ -244,6 +253,7 @@ jobs:
             hawkscan-output.txt
             ${{ runner.temp }}/server.log
             ${{ runner.temp }}/guard.log
+            ${{ runner.temp }}/openapi-scan.yaml
           if-no-files-found: warn
 
       - name: Verdict

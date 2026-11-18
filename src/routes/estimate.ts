@@ -15,6 +15,9 @@ function premiumGate(plan: Plan, reply: FastifyReply): boolean {
   return false;
 }
 
+/** A NUL or any other control character: never part of a bid id. */
+const CONTROL = /[\u0000-\u001f\u007f]/;
+
 const bad = (reply: FastifyReply, path: string, message: string) =>
   reply.code(400).send({ error: 'invalid_input', message: 'Some fields need fixing', fields: [{ path, message }] });
 
@@ -87,7 +90,9 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     if (!id) return reply;
     if (!premiumGate(id.plan, reply)) return reply;
     const { bidId, limit } = req.query;
-    if (bidId !== undefined && (typeof bidId !== 'string' || !bidId || bidId.length > 200)) return bad(reply, 'bidId', 'must be a bid id');
+    // A query string is each route's own business (the global hook checks only path ids and bodies): Postgres text
+    // cannot hold a NUL, so "?bidId=%00" answered 500 (HawkScan run 4), and no bid id holds a control character.
+    if (bidId !== undefined && (typeof bidId !== 'string' || !bidId || bidId.length > 200 || CONTROL.test(bidId))) return bad(reply, 'bidId', 'must be a bid id');
     const n = limit === undefined ? undefined : Number(limit);
     if (n !== undefined && (!Number.isInteger(n) || n < 1 || n > 200)) return bad(reply, 'limit', 'must be a whole number from 1 to 200');
     const items = await listEstimates(db, id.profile.id, { ...(bidId ? { bidId } : {}), ...(n ? { limit: n } : {}) });

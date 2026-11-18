@@ -18,6 +18,19 @@ Indeed list"). Two kinds of work live in one app:
 - **Read next:** `README.md` (setup/deploy/API) and `docs/HANDOFF.md` (research notes, decisions, roadmap);
   `docs/APIS.md` (every outside service, what it costs, what turns each feature on).
 
+## Problems we cannot have (the owner, 2026-11-18: "never forget"; the full plan is `docs/PLAN.md`)
+Contractors leave tools that do these. Every change is checked against them; a change that breaks one does not ship.
+1. **Too expensive or bloated for a small crew** (the Procore / ConstructConnect complaint). Free must be useful on
+   its own; nothing a 3-person crew never needs sits in its way; every new screen, setting or field earns its place.
+2. **Shared leads that burn cash** (the homeowner-lead-app complaint). Never charge per lead, never sell one job to
+   many, never make anyone pay before they know a job is real. Public bids stay free to see and bid.
+3. **Bureaucratic and hard on a phone in the field** (the government-portal complaint). Phone first: one hand, big
+   tap targets, plain words, few taps from opening the app to today's best bid; no PDF hunting to know if a job fits.
+- The goal is return visits and fast decisions, not screen time. No dark patterns: no fake urgency, streak guilt,
+  notification spam or manipulative counts.
+- Learn from competitors (PlanHub, ConstructConnect, ToolBelt) through their PUBLIC pages and users' reviews only;
+  never use their data (their boards are login-walled: see Scraping etiquette).
+
 ## Stack
 Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "module"`, imports end in `.js`)
 · Fastify 5 · cheerio · Postgres via PGlite (embedded, dev + pilot) or `pg` (Supabase, prod) · Vitest 5

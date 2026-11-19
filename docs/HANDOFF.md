@@ -86,6 +86,10 @@ Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks,
 390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
 had hit its daily limit). Final screenshots were kept outside the repo.
 
+**Microsoft Store reviewer accounts (2026-11-19):** ready. The reviewer job is awarded and has a two-message thread
+(docs/MICROSOFT-STORE.md step 5). Its contact window ends 2026-11-26 19:20 UTC, so submit by about Nov 21. The
+credentials are only in the private file given to the owner.
+
 **LIVE: production (bidswipe-tau.vercel.app) runs commit 5bf63cd since 2026-11-19 01:16 UTC**: docs/PLAN.md's Now
 items N2–N11 (local-job pushes on every plan, reminders by calendar day, freshness and straight-line wording, the addenda
 line, the Jobs tab's free line, 44 px tap targets, "Add to calendar" `GET /api/bids/:id/calendar`, counts-only

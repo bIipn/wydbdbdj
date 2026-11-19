@@ -18,10 +18,12 @@ service) is marked **not checked**. Only you can do the account and submission s
 4. **Decide how you read reports** (policy 11.12): nothing alerts you when one arrives; see section 4.
 5. ~~Make the two reviewer accounts~~ **Made 2026-11-18** on the live site by Claude, as section 4 describes: a Poster
    ("Get work done") and a Bidder ("Find work", Electrical, Pro turned on with the admin route), ZIP 89410, and the job
-   "Store review job: replace a light fixture" with one sealed bid. Bids close 2026-11-19 19:20 UTC; then Claude makes
-   the award happen and sends one message each way, and leaves the job in its contact window, which ends 2026-11-26
-   19:20 UTC: **submit by about Nov 21**. The e-mails, passwords and the filled-in notes are in a private file given
-   to the owner; they are never in this repository.
+   "Store review job: replace a light fixture" with one sealed bid. **Done 2026-11-19:** the bids closed at 19:20 UTC,
+   the bidder won ($320) and now sees the poster's test address and phone, and the thread holds one message each way
+   (checked through the API and in Chromium at 390×844 as both accounts, then both signed out). Nobody tapped "We've
+   agreed", "They contacted me" or "done", so the job stays in its contact window until 2026-11-26 19:20 UTC
+   (11:20 AM Pacific): **paste the notes and submit by about Nov 21**. The e-mails, passwords and the filled-in notes
+   are in a private file given to the owner; they are never in this repository.
 6. In Partner Center open BidSwipe → **Start your submission** and fill in: Pricing and availability, Properties,
    Age ratings, Packages, Store listing (text and the 8 screenshots below), Notes for certification.
 7. **Submit for certification.**
@@ -42,7 +44,7 @@ service) is marked **not checked**. Only you can do the account and submission s
 | Manifest | Updated: description covers public bids and local jobs, shortcuts Home · Search · Saved · Jobs · Alerts, `launch_handler`, four new screenshots |
 | Store screenshots | `docs/store/screenshots/01…08` (1920×1080) with captions in `docs/store/captions.md` |
 | Package | **Rebuilt 2026-11-16** from the live manifest (`node scripts/store-package.mjs`); its identity, versions and start address were read back out of the bundles |
-| Two reviewer accounts with an awarded job | **Made 2026-11-18**; the award and the thread follow on 2026-11-19 (step 5 above) |
+| Two reviewer accounts with an awarded job | **Done**: made 2026-11-18, awarded with a two-message thread 2026-11-19; the contact window ends 2026-11-26 (step 5 above) |
 
 ## 1. The account and the name
 
@@ -395,7 +397,7 @@ write `&` as `%26`. The **iOS** build is different: Apple guideline 3.1.1 bars u
 - ~~Deploy~~ and ~~the package~~: done 2026-11-16 (the list at the top).
 - **A domain you own** (risk 1).
 - **The account type** (risk 2): check it.
-- ~~Two reviewer accounts~~: made 2026-11-18; the award and the messages on 2026-11-19 (step 5 at the top).
+- ~~Two reviewer accounts~~: made 2026-11-18; awarded with one message each way on 2026-11-19 (step 5 at the top).
 - **No block or mute** between a poster and a winner. Microsoft does not ask for one by name.
 - ~~**Account deletion in the app.**~~ Built 2026-11-18: Settings → Delete account (password, or the email address
   for an account with no password), at once; the privacy page says what goes. Apple and Google require an in-app way.

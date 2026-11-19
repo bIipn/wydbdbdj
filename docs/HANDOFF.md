@@ -86,7 +86,13 @@ Postgres-only tests on a local Postgres 16, `npm run simulate:jobs` (all checks,
 390×844 and 1280×800 on a copy of the real 2026-11-14 scan with the real BLS captures replayed (the live BLS key
 had hit its daily limit). Final screenshots were kept outside the repo.
 
-**LIVE: production (bidswipe-tau.vercel.app) runs commit 964378f since 2026-11-18 21:58 UTC**: the five fixes
+**LIVE: production (bidswipe-tau.vercel.app) runs commit 5bf63cd since 2026-11-19 01:16 UTC**: docs/PLAN.md's Now
+items N2–N11 (local-job pushes on every plan, reminders by calendar day, freshness and straight-line wording, the addenda
+line, the Jobs tab's free line, 44 px tap targets, "Add to calendar" `GET /api/bids/:id/calendar`, counts-only
+`GET /api/admin/usage`). Schema (additive, applied at start-up and checked on Supabase): table `account_days`, column
+`swipes.first_at`. Checked after the deploy: health 200, the CSP, both new routes 401 signed out, the new copy served,
+no runtime error. Not yet: "Add to calendar" on Ev's iPhone (N10), a due-day reminder for deadlines before the
+14:50 UTC run (N3, needs O9). Before that, production ran commit 964378f since 2026-11-18 21:58 UTC: the five fixes
 (Delete account in Settings, calls to artists never trade or Sub work, the detail sheet's Close button, "Posted on
 BidSwipe" on local-job cards, the sign-in copy) on top of 5eb226e (the estimate NUL fix, 2026-11-18 19:13 UTC). No
 schema change. Checked after the deploy: health 200, the CSP on every answer, the new sign-in lines, the Close

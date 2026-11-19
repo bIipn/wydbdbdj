@@ -46,7 +46,7 @@ Node ≥ 20.10 (CI uses 22) · TypeScript 7 (native `tsc`) · ESM (`"type": "mod
 ```bash
 npm install
 npm run typecheck          # tsc --noEmit
-npm test                   # vitest (~2,512 tests in 105 files as of 2026-11-17, ~140s; simulate.test.ts ~25s,
+npm test                   # vitest (~2,681 tests in 108 files as of 2026-11-19, ~120s; simulate.test.ts ~25s,
                            # simulate-jobs.test.ts ~35s; 10 are skipped unless TEST_DATABASE_URL names a throwaway
                            # Postgres: test/pg-startup.test.ts, test/jobs-pg.test.ts, test/promo-pg.test.ts)
 npm run build              # tsc → dist/

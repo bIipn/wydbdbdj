@@ -1,1 +1,1 @@
-Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-18, sixth run (Delete account in the app, answered 403 by the scan guard; the report prints which id each job-route request carried).
+Changing this file asks for a HawkScan security scan (.github/workflows/hawkscan.yml). Last asked: 2026-11-19, seventh run (5bf63cd, the live build: the new GET /api/bids/{id}/calendar and GET /api/admin/usage, and POST /api/push/test open to Free).

@@ -89,7 +89,9 @@ export interface UsageWindow {
   matchAlerts: { sent: number; decided: number; medianMinutesToFirstDecision: number | null; saved: number; savesPerAlert: number | null };
   /**
    * Bids whose agency page was opened from "Bid on …" in the window: one per bid (the latest decision on it, made in
-   * the window, is that tap), so a second tap on the same bid adds nothing. Not a count of taps.
+   * the window, is that tap). The app records a tap only on a bid with no decision yet (web/js/parts.js bidLink, the
+   * deck's open button), so a tap on a bid already saved or passed, and a second tap, add nothing: a lower bound on
+   * the bids opened, never a count of taps.
    */
   bidsOpened: number;
   /**

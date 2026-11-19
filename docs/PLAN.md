@@ -78,7 +78,7 @@ apps burn cash on shared leads, and government portals are bureaucratic and hard
   missed amendment can make a bid nonresponsive, and the bidder carries that risk [X13][X18]. In 2018 only 67% of 400
   state government sites passed a mobile-friendliness test [X14]; 92% of construction professionals surveyed use a
   smartphone every day at work [X15]. **Gap:** no study of contractors using bid portals on a phone; ask L&M first.
-- **Check:** `test/tap-targets.test.ts` plus an on-screen measure (N9, coming). Each release at 390×844: sign-up →
+- **Check:** `test/tap-targets.test.ts` plus an on-screen measure (`scripts/measure-taps.mjs`). Each release at 390×844: sign-up →
   first card → "Bid on …", timed and counted in taps (measure first, then set a target). The score reason tests.
 
 ### R4. No alert spam (research)
@@ -99,7 +99,7 @@ apps burn cash on shared leads, and government portals are bureaucratic and hard
   board we cannot read is reported FAILED, never a quiet 0.
 - **Why:** ToolBelt reviewers kept seeing postings about four months old and called them fake [TB6], and say there is
   not enough work on it [TB7]. ConstructConnect reviewers report late, lagging and duplicated data [CC10].
-- **Check:** `test/scan-quiet.test.ts`, `test/repo-v1.test.ts` (the open rule), `test/format.test.ts` (N4, coming).
+- **Check:** `test/scan-quiet.test.ts`, `test/repo-v1.test.ts` (the open rule), `test/format.test.ts` (N4).
   The onboarding's "in your reach" counts come from the server.
 
 ### R6. No money traps (research)
@@ -197,14 +197,11 @@ bid counts shown to bidders (O3); "We miss you" pushes, sales calls and SMS; inf
 alert to the first save or pass; saves per alert; "Bid on …" taps; alert opt-outs. Targets only after two real weeks.
 
 ## 5. The changes
-**Wait for the work in progress.** Commit 5113718 (five fixes) plus the working tree (delete-account and more) is
-unverified. `git status` (2026-11-18) shows it touching `docs/SECURITY-SCAN.md`, `docs/api/openapi.yaml`,
-`scripts/hawkscan-guard.mjs`, `src/db/accounts.ts`, `src/jobs/repo.ts`, `src/jobs/view.ts`, `src/routes/auth.ts`,
-`src/routes/account.ts` (new), `test/account-delete.test.ts` (new), `test/no-5xx.test.ts`, `web/js/api.js`,
-`web/js/job-words.js`, `web/js/push.js`, `web/js/views/settings.js`, `web/privacy.html`, `web/styles.css`. N8–N11
-touch those files or add a route that `openapi.yaml` and `no-5xx` must cover, so they start after that commit lands. N4
-needs no openapi change (checked: `/api/feed` answers are documented as plain JSON). N2, N3 and N5 share
-`src/realtime/alerts.ts` and `test/realtime.test.ts`: do them one after another.
+**Status (2026-11-19):** N1–N11 are built and checked (typecheck, 2,681 tests, build, both simulations with unchanged
+hashes, the Postgres tests). Done: N1, N2, N4–N9, N11. Partial: N3 (a deadline earlier in the day than the host's one
+run, 14:50 UTC, gets no due-day reminder, e.g. 10:00 AM Eastern in summer: the fix is O9) and N10 (not yet checked on
+Ev's iPhone; steps in docs/IPHONE-ALERTS.md). S1 held: "Bid on …" sits at 717.5 px at 390×844 before and after. For
+Ev: tiles and the Home chip say "No due date · Still listed Wed, Nov 18" (the full "Seen on the board" wraps there).
 
 **S1 (shared acceptance for N5, N6, N10, X7):** at 390×844, on a typical public card, "Bid on …" in the detail sheet
 does not move down (`getBoundingClientRect().top` and screenshots, before and after). New lines go below it.

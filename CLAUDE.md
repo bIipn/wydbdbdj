@@ -19,18 +19,19 @@ Indeed list"). Two kinds of work live in one app:
   `docs/APIS.md` (every outside service, what it costs, what turns each feature on).
 
 ## Problems we cannot have (the owner, 2026-11-18: "never forget"; why, checks and sources: docs/PLAN.md)
-No change may make one of these worse. "(Nn, coming)" = that check lands with item Nn of docs/PLAN.md §5.
+No change may make one of these worse. Each names the test that guards it (built with docs/PLAN.md §5 N1–N11).
 1. **Not too expensive or bloated.** Free per PRODUCT.md §4 (owner decision O8 open); never metered by count; never
    priced by radius, market or seat. Pro features live only in src/plans.ts; ≤ 5 tabs (test/home-model.test.ts).
 2. **No shared leads that burn cash.** Posting and bidding are free; no fee per lead, view or contact; a fee only in
    src/jobs/rules.ts's cases, shown before the bid, recorded not charged (test/jobs-rules.test.ts). Local-job alerts
-   reach every plan alike (test/realtime.test.ts, N2 coming); never imply we told anyone something outside the app.
-3. **Works on a phone in the field.** Tap targets ≥ 44 px (test/tap-targets.test.ts, N9 coming); a card shows why it
-   fits, the due time, paperwork and where to bid, no PDF needed; new sheet lines never push "Bid on …" down.
+   reach every plan alike (test/realtime.test.ts); never imply we told anyone something outside the app.
+3. **Works on a phone in the field.** Tap targets ≥ 44 px (test/tap-targets.test.ts, scripts/measure-taps.mjs); a card
+   shows why it fits, the due time, paperwork and where to bid, no PDF needed; new sheet lines never push "Bid on …" down.
 4. **No alert spam.** Only inside trade and reach; never sub work, capped or over-limit; ≤ 10 per scan; never the same
    bid twice; a switch per kind (test/tiers.test.ts, test/scan-quiet.test.ts, test/realtime.test.ts).
-5. **No stale or fake-looking listings.** Open = openBidSql(); every card says how fresh it is (test/format.test.ts,
-   N4 coming); every count is real and 0 is said as 0.
+5. **No stale or fake-looking listings.** Open = openBidSql(); every card says how fresh it is (test/format.test.ts);
+   every count is real and 0 is said as 0. Store and manifest text never says "#1", "real-time" or user counts
+   (test/claims.test.ts).
 6. **No money traps.** No price behind a form; no sales calls or SMS; no phone number required to sign up or find work.
 - Goal: return visits and fast decisions, not screen time. No streaks, fake urgency, win-back pushes or "N viewing".
 - Learn from competitors' public pages and reviews only: never their data, never their names in our copy.
@@ -136,6 +137,10 @@ src/auth/promo.ts + src/db/promo.ts  PROMO_CODES parsing (sha256, constant-time 
 src/geo/nearest.ts "Use my location": a point → nearest ZIP (never stored; src/util/log-url.ts keeps it out of logs)
 src/routes/cron.ts serverless scheduler routes: scan, market, tick (realtime has no timers there; tick also sweeps
                    expired auth_attempts rows)
+src/feed/calendar.ts  the .ics text for GET /api/bids/:id/calendar ("Add to calendar", N10): RFC 5545, one VEVENT
+                   ending at the due time, a VALARM the day before; no due time, closed or a local job = 404 with a reason
+src/db/usage.ts    GET /api/admin/usage (N11): counts only (return visits from account_days, decision speed from
+                   swipes.first_at, opt-outs, local jobs); bidsOpened is a lower bound (first decision only)
 src/feed/ src/realtime/  "next bid" pick · alert inbox + SSE stream + web push; push.ts: PUSH_SERVICE_HOSTS (the
                    subscribe allowlist), the VAPID header cache per push origin, permanent refusals (400/403/413),
                    testPushMessage; index.ts sendTestPush (POST /api/push/test, the bell's "Send a test alert")
@@ -340,6 +345,14 @@ test/              sources.test.ts (parsers) · fetch.test.ts (each fetch(): log
   SSE frame waited for the end of the scan, because PGlite runs on the server thread.
 - Daily schedules step a calendar day (src/scheduler.ts), never a fixed 24/26 h: a 23:30 run used to fire
   every other day. A time in the spring-forward gap runs an hour later (02:30 → 03:30 PDT).
+- Pushes by plan (N2, 2026-11-19): local-job alerts (job_* kinds, and a `local:<id>` match or saved-job reminder) push
+  on EVERY plan; public-bid pushes need `instantPush` (`pushDecision(..., topic)`; `claimWaitingPushes({ localOnly })` runs the
+  same rule in SQL). The push switch and quiet hours apply to both. POST /api/push/test is gated like a local-job alert.
+- Saved-bid reminders go by calendar day on the user's alert clock (N3, `deadlineStage`): '3d', '1d', 'day', each at the
+  first run from 07:00 local or the day's last run (`tickEveryMs`; the host's one 14:50 UTC run is always the last).
+  A deadline earlier in the day than that run gets no due-day reminder (10:00 AM Eastern in summer): fixing it is O9.
+  `DEADLINE_LOOKAHEAD_HOURS` is 100. Table `account_days` (one row per account per local day, N11) and
+  `swipes.first_at` are new: privacy.html names both and account deletion removes them.
 - Award alerts are keyed per case (`<awardId>:bid:<bidId>` vs `<awardId>:nearby`): one award can be told
   once as "similar job nearby" and again as "Award posted" when its solicitation number arrives. "Nearby"
   needs the state AND the NAICS code to have been loaded before (award_coverage), so a first load is silent.

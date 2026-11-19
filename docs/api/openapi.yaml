@@ -1091,7 +1091,8 @@ paths:
         a first save, pass or "Bid on …"; mornings = before 12:00). The other counts run from 00:00 UTC on the window's
         first day to now: matchAlerts { sent, decided, medianMinutesToFirstDecision, saved, savesPerAlert } (match
         alerts made, the first decision after them, and the bids saved after them), bidsOpened (bids whose agency page
-        was opened from "Bid on …", one per bid), alerts { sent, read } (every kind), localJobs { posted, withBids,
+        was opened from "Bid on …", one per bid; a tap is recorded only on a bid with no save or pass yet, so this is a
+        lower bound, not a count of taps), alerts { sent, read } (every kind), localJobs { posted, withBids,
         awarded, agreed, done } (null in single mode). alertOptOuts { profiles, phoneAlertsOff, anyKindOff, byKind }
         counts the profiles with phone alerts or an alert kind switched off now. A median or ratio with nothing under it
         is null; every count is real and 0 is 0. src/db/usage.ts says what each number is.

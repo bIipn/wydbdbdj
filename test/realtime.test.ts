@@ -24,7 +24,7 @@ import type { Db } from '../src/db/db.js';
 import { recordSwipe, saveProfileForAccount, upsertBids, upsertMatch, upsertProfile } from '../src/db/repo.js';
 import { profileIdFor } from '../src/profile/build.js';
 import {
-  ADDENDA_LINE, DEADLINE_LOOKAHEAD_HOURS, deadlineStage, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, inQuietHours,
+  ADDENDA_LINE, DEADLINE_LOOKAHEAD_HOURS, deadlineStage, SUB_ADDENDA_LINE, decideAward, decideDeadline, decideJob, decideMatch, decidePrice, inQuietHours,
   isLocalJobAlert, pushDecision, timeLeft, type AlertDecision, type DeadlineStage, type PushDecision,
 } from '../src/realtime/alerts.js';
 import { createBus, type Bus, type BusEventOf } from '../src/realtime/bus.js';
@@ -450,6 +450,13 @@ describe('deadline reminders: stages by calendar day', () => {
     expect(cut).not.toMatch(/\n/);
     // The push summary names the bid by the body up to its first " — ": the addenda line never becomes the name.
     expect(cut.split(' — ')[0]!.startsWith('TEST very long')).toBe(true);
+    // Sub work quotes the bidders: its own line, with the same room kept for it.
+    expect(SUB_ADDENDA_LINE).toBe('Check the agency’s page for addenda (amendments) before you quote. BidSwipe doesn’t read them.');
+    expect(body({ ...saved, tier: 'sub' }, before(23))).toBe(`TEST switchgear replacement (synthetic) — Carson City, NV · ${SUB_ADDENDA_LINE}`);
+    expect(body({ ...saved, tier: 'sub' }, before(71))).toBe('TEST switchgear replacement (synthetic) — Carson City, NV');
+    const subCut = body({ ...long, tier: 'sub' }, before(23))!;
+    expect(subCut.length).toBeLessThanOrEqual(200);
+    expect(subCut.endsWith(` · ${SUB_ADDENDA_LINE}`)).toBe(true);
     // A saved local job is bid in the app: no agency page, no addenda line.
     const local = { ...saved, bidId: 'local:TEST-job-due', place: 'Minden, NV' };
     expect(body(local, before(23))).toBe('TEST switchgear replacement (synthetic) — Minden, NV');
@@ -457,10 +464,13 @@ describe('deadline reminders: stages by calendar day', () => {
   });
 
   it('the sheet\'s line (web/js/format.js) is the reminders\' line, on public bids only', async () => {
-    const format = await import(/* @vite-ignore */ formatPath) as { ADDENDA_LINE: string; addendaLine: (item: unknown) => string | null };
+    const format = await import(/* @vite-ignore */ formatPath) as { ADDENDA_LINE: string; SUB_ADDENDA_LINE: string; addendaLine: (item: unknown) => string | null };
     expect(format.ADDENDA_LINE).toBe(ADDENDA_LINE);
+    expect(format.SUB_ADDENDA_LINE).toBe(SUB_ADDENDA_LINE);
     expect(format.addendaLine({ id: 'nevadaepro:TEST-1', source: 'nevadaepro' })).toBe(ADDENDA_LINE);
-    expect(format.addendaLine({ id: 'samgov:TEST-2', source: 'samgov', tier: 'sub' })).toBe(ADDENDA_LINE);
+    expect(format.addendaLine({ id: 'nevadaepro:TEST-1', source: 'nevadaepro', tier: 'fit' })).toBe(ADDENDA_LINE);
+    // Sub work: a sub quotes the bidders, it does not bid with the agency (the .ics says the same).
+    expect(format.addendaLine({ id: 'samgov:TEST-2', source: 'samgov', tier: 'sub' })).toBe(SUB_ADDENDA_LINE);
     expect(format.addendaLine({ id: 'local:TEST-job', source: 'local' })).toBeNull();
     expect(format.addendaLine({ id: 'local:TEST-job' })).toBeNull();
   });
@@ -606,6 +616,10 @@ describe('push: subscriptions, payloads and the web-push request', () => {
     expect(l1).toMatch(/^Due in 2 days · Wed 2:00 PM — TEST AUGMENTATION OF ELECTRICAL SERVICE.*…$/);
     expect([...l1!].length).toBe(80);
     expect(l2).toBe('Due in 2 days · Wed 2:00 PM — TEST Fire alarm panel (synthetic)');
+    // A bid with no place has no " — ": the addenda line that ends a reminder's body never becomes part of its name.
+    const noPlace = (id: number, title: string, line: string) => alertRow({ id, kind: 'deadline', dedupeKey: `deadline:np${id}`, title: 'Due tomorrow at 2:00 PM', body: `${title} · ${line}` });
+    const np = JSON.parse(pushMessage([noPlace(1, 'TEST switchgear (synthetic)', ADDENDA_LINE), noPlace(2, 'TEST lighting retrofit (synthetic)', SUB_ADDENDA_LINE)], 'https://app.example.com').payload) as PushPayload;
+    expect(np.body).toBe('Due tomorrow at 2:00 PM — TEST switchgear (synthetic)\nDue tomorrow at 2:00 PM — TEST lighting retrofit (synthetic)');
     // A kind whose title already names the job keeps its title alone.
     const jobs = JSON.parse(pushMessage([alertRow({ id: 1, kind: 'job_closed', title: 'Agreed: TEST barn (simulated)', body: 'You both confirmed.' }), alertRow({ id: 2, kind: 'job_closed', title: 'No bids: TEST shed (simulated)', body: 'x' })], 'https://app.example.com').payload) as PushPayload;
     expect(jobs.body).toBe('Agreed: TEST barn (simulated)\nNo bids: TEST shed (simulated)');
@@ -1554,6 +1568,21 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     expect(e.errors).toEqual([]);
   });
 
+  it('a saved sub-work bid\'s day-before reminder says to check the addenda before you quote (the stored tier)', async () => {
+    const { profile } = await member();
+    const bid = testBid({ dueAt: due.toISOString(), sourceId: 'TEST-sub-due' });
+    await upsertBids(db, [bid], NOW);
+    await upsertMatch(db, profile.id, bid.id, fit({ tier: 'sub', score: 44, verdict: 'maybe' }));
+    expect(await recordSwipe(db, profile.id, bid.id, 'save')).toBe(true);
+    expect((await savedBidsDueWithin(db, before(23), 72)).find((s) => s.bidId === bid.id)?.tier).toBe('sub');
+    const e = engine();
+    clock = before(23);
+    await e.rt.tick();
+    await e.rt.flush();
+    const [reminder] = await listAlerts(db, profile.id);
+    expect(reminder?.body).toBe(`TEST electrical panel upgrade (synthetic) — Carson City, NV · ${SUB_ADDENDA_LINE}`);
+  });
+
   it('reminds about bids marked "bid" too, never about passed or over-limit ones, and respects the switch', async () => {
     const saver = await member();
     const off = await member({ alerts: { kinds: { deadline: false } } });
@@ -1654,6 +1683,10 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     'July 06:00': ['Pacific/Honolulu'], // Alaska's run is at 06:50 in summer
     'January 23:30': SETTINGS_ZONES.map(([zone]) => zone),
     'July 23:30': SETTINGS_ZONES.map(([zone]) => zone),
+    // README's example: a 10:00 AM deadline. In January every run comes first (New York's at 09:50, 10 minutes before);
+    // in July New York's run is at 10:50, after it: no due-day reminder there (the day before told the time).
+    'January 10:00': SETTINGS_ZONES.map(([zone]) => zone),
+    'July 10:00': SETTINGS_ZONES.map(([zone]) => zone).filter((zone) => zone !== 'America/New_York'),
   };
 
   it.each<[string, string, number, number, string]>([
@@ -1662,6 +1695,8 @@ describe('deadline reminders: one alert per saved bid per stage, on a fake clock
     ['January', '23:30', 1, 14, '11:30 PM'],
     ['July', '06:00', 7, 15, '6:00 AM'],
     ['July', '23:30', 7, 15, '11:30 PM'],
+    ['January', '10:00', 1, 14, '10:00 AM'],
+    ['July', '10:00', 7, 15, '10:00 AM'],
   ])('%s, due at %s local: one run a day at 14:50 UTC sends each stage on its own day in all 7 Settings zones', async (month, dueClock, mo, day, said) => {
     const e = engine({ tickEveryMs: HOST_TICK_EVERY_MS }); // as src/server.ts serverless() starts it
     const [hh, mm] = dueClock.split(':').map(Number) as [number, number];

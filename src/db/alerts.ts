@@ -1,6 +1,7 @@
 /** SQL for the alerts inbox and push_subscriptions (tables in schema.ts). Owner: the realtime builder. */
-import type { Account, Alert, AlertKind, Plan, Profile } from '../types.js';
+import type { Account, Alert, AlertKind, Plan, Profile, Tier } from '../types.js';
 import type { Db } from './db.js';
+import { TIER_SQL } from './repo.js';
 
 // -------------------------------------------------------------- alerts --
 
@@ -344,12 +345,14 @@ export interface SavedDeadline {
   dueAt: string;
   place: string | null;
   url: string;
+  /** The profile's tier for the bid (matches.tier); absent = a fit. Sub work quotes the bidders instead of bidding. */
+  tier?: Tier;
 }
 
 /** Saved bids due after `now` and within `hours`. Over-limit bids are never alerted, so they are left out. */
 export async function savedBidsDueWithin(db: Db, now: Date, hours: number): Promise<SavedDeadline[]> {
-  const rows = await db.query<{ profile_id: string; id: string; title: string; due_at: Date | string; loc_label: string | null; url: string }>(
-    `select s.profile_id, b.id, b.title, b.due_at, b.loc_label, b.url
+  const rows = await db.query<{ profile_id: string; id: string; title: string; due_at: Date | string; loc_label: string | null; url: string; tier: Tier }>(
+    `select s.profile_id, b.id, b.title, b.due_at, b.loc_label, b.url, ${TIER_SQL} as tier
      from swipes s
      join bids b on b.id = s.bid_id
      join matches m on m.profile_id = s.profile_id and m.bid_id = s.bid_id
@@ -357,7 +360,7 @@ export async function savedBidsDueWithin(db: Db, now: Date, hours: number): Prom
      order by s.profile_id, b.due_at, b.id`,
     [now.toISOString(), new Date(now.getTime() + hours * 3_600_000).toISOString()],
   );
-  return rows.map((r) => ({ profileId: r.profile_id, bidId: r.id, title: r.title, dueAt: iso(r.due_at)!, place: r.loc_label, url: r.url }));
+  return rows.map((r) => ({ profileId: r.profile_id, bidId: r.id, title: r.title, dueAt: iso(r.due_at)!, place: r.loc_label, url: r.url, tier: r.tier }));
 }
 
 // ------------------------------------------------------------- series --

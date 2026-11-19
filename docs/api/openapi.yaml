@@ -348,6 +348,30 @@ paths:
         '401': { $ref: '#/components/responses/SignIn' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /api/bids/{id}/calendar:
+    get:
+      tags: [feed]
+      summary: >-
+        "Add to calendar" (docs/PLAN.md N10): the bid's due time as an iCalendar file (src/feed/calendar.ts, RFC 5545),
+        for a bid this profile can see (the rule of GET /api/bids/{id}). A plain GET link: the session cookie is all it
+        needs, and nothing changes. The id may be percent-encoded (questcdn%3A1903611%3A10385980). One VEVENT that ends
+        at the due time (DTSTART, no DTEND), a stable UID from the bid id, DTSTAMP, SUMMARY "Bids due: <title>", the
+        agency's link as URL and in DESCRIPTION with "Bid on the agency's site; check it for addenda.", and a display
+        alarm the day before; no METHOD (a plain event to add). Content-Disposition attachment with a file name of
+        a-z, 0-9 and hyphens. 404 not_found (no such bid for this profile), 404 no_due_time (the bid has no due time),
+        404 closed (its due time has passed) and 404 local_job (a local job is bid on in the app), each with a message;
+        the app shows no link for those. 400 invalid_input for a control character in the id. 409
+        onboarding_required for an account with no profile yet.
+      parameters:
+        - $ref: '#/components/parameters/BidIdPath'
+      responses:
+        '200':
+          description: the .ics file (CRLF line endings, lines folded at 75 octets)
+          content: { text/calendar: { schema: { type: string } } }
+        '400': { $ref: '#/components/responses/Bad' }
+        '401': { $ref: '#/components/responses/SignIn' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /api/swipe:
     post:
       tags: [feed]
@@ -1051,6 +1075,26 @@ paths:
     get:
       tags: [admin]
       summary: The market watcher's status (x-admin-token).
+      security:
+        - adminToken: []
+      responses:
+        '200': { $ref: '#/components/responses/Json' }
+        '401': { $ref: '#/components/responses/SignIn' }
+  /api/admin/usage:
+    get:
+      tags: [admin]
+      summary: >-
+        How BidSwipe is used (x-admin-token; docs/PLAN.md N11): counts only, never an id, e-mail, name or text. Answers
+        { asOf, mode, last7, last28, alertOptOuts }. Day counts use each person's own calendar (the alert time zone,
+        else Pacific), in weeks of 7 days ending on their today, as { people, fourPlusAnyWeek, fourPlusEveryWeek }:
+        returnVisits (days with a signed-in request; null in single mode) and decisionDays { days, mornings } (days with
+        a first save, pass or "Bid on …"; mornings = before 12:00). The other counts run from 00:00 UTC on the window's
+        first day to now: matchAlerts { sent, decided, medianMinutesToFirstDecision, saved, savesPerAlert } (match
+        alerts made, the first decision after them, and the bids saved after them), bidsOpened (bids whose agency page
+        was opened from "Bid on …", one per bid), alerts { sent, read } (every kind), localJobs { posted, withBids,
+        awarded, agreed, done } (null in single mode). alertOptOuts { profiles, phoneAlertsOff, anyKindOff, byKind }
+        counts the profiles with phone alerts or an alert kind switched off now. A median or ratio with nothing under it
+        is null; every count is real and 0 is 0. src/db/usage.ts says what each number is.
       security:
         - adminToken: []
       responses:

@@ -418,14 +418,15 @@ export async function getItem(db: Db, profileId: string, bidId: string): Promise
 }
 
 /**
- * Save, pass or "bid" (opened the agency's page). A second decision replaces the action and created_at; first_at
- * keeps the first one's time (`now`), for GET /api/admin/usage's minutes from a match alert to the first decision.
+ * Save, pass or "bid" (opened the agency's page). A second decision replaces the action and created_at (the latest
+ * decision's time); first_at keeps the first one's. Both are `now`, the app's clock, for GET /api/admin/usage (minutes
+ * from a match alert to the first decision; bids opened from "Bid on …").
  */
 export async function recordSwipe(db: Db, profileId: string, bidId: string, action: SwipeAction, now = new Date()): Promise<boolean> {
   const rows = await db.query(
-    `insert into swipes (profile_id, bid_id, action, first_at)
-     select $1, $2, $3, $4::timestamptz where exists (select 1 from matches where profile_id = $1 and bid_id = $2)
-     on conflict (profile_id, bid_id) do update set action = excluded.action, created_at = now()
+    `insert into swipes (profile_id, bid_id, action, created_at, first_at)
+     select $1, $2, $3, $4::timestamptz, $4::timestamptz where exists (select 1 from matches where profile_id = $1 and bid_id = $2)
+     on conflict (profile_id, bid_id) do update set action = excluded.action, created_at = excluded.created_at
      returning bid_id`,
     [profileId, bidId, action, now.toISOString()],
   );

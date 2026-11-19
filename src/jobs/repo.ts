@@ -11,6 +11,7 @@
  * Times go in as ISO strings and come out as ms since epoch (null when unset). Money is integer cents.
  */
 import type { Db } from '../db/db.js';
+import type { LocalJobCounts } from '../db/usage.js';
 import type { BidState, BidStatus, FeeKind, FeeLine, JobOutcome, JobState, JobStatus } from './rules.js';
 
 // ------------------------------------------------------------------ rows --
@@ -889,4 +890,24 @@ const dealtWithSql = (a: string, b: string): string =>
 export async function dealtWith(db: Db, a: string, b: string): Promise<boolean> {
   const rows = await db.query(`select ${dealtWithSql('$1', '$2')} as yes`, [a, b]);
   return rows[0]?.yes === true;
+}
+
+/**
+ * GET /api/admin/usage (docs/PLAN.md N11): the local jobs posted in [from, to], and how many of THOSE have since got a
+ * bid (any bid placed, a withdrawn one too), been awarded, agreed (both tapped "We've agreed") and marked done. Jobs an
+ * operator removed are not counted (as in statsFor). Counts only.
+ */
+export async function usageCounts(db: Db, from: string, to: string): Promise<LocalJobCounts> {
+  const rows = await db.query<Record<keyof LocalJobCounts, Big>>(
+    `select count(*) as "posted",
+            count(*) filter (where exists (select 1 from job_bids b where b.job_id = j.id)) as "withBids",
+            count(*) filter (where j.awarded_at is not null) as "awarded",
+            count(*) filter (where j.agreed_at is not null) as "agreed",
+            count(*) filter (where j.completed_at is not null) as "done"
+     from jobs j
+     where j.posted_at >= $1::timestamptz and j.posted_at <= $2::timestamptz and j.removed_at is null`,
+    [from, to],
+  );
+  const r = rows[0]!;
+  return { posted: Number(r.posted), withBids: Number(r.withBids), awarded: Number(r.awarded), agreed: Number(r.agreed), done: Number(r.done) };
 }

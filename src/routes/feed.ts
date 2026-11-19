@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { RouteContext } from '../context.js';
 import { getFeed, getFeedCounts, getFeedTotal, getItem, getSaved, lastScan, recordSwipe, undoSwipe, type FeedQuery, type FeedSort } from '../db/repo.js';
-import { bidCalendar, calendarFileName, NO_CALENDAR, noCalendar } from '../feed/calendar.js';
+import { bidCalendar, CALENDAR_NOT_FOUND, calendarFileName, NO_CALENDAR, noCalendar } from '../feed/calendar.js';
 import { pickNext } from '../feed/next.js';
 import { ALL_SOURCES } from '../sources/index.js';
 import { TIERS, type Profile, type SourceId, type SwipeAction, type Tier, type Verdict } from '../types.js';
@@ -169,8 +169,8 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
   /**
    * "Add to calendar" (docs/PLAN.md N10): the bid's due time as an .ics file, for a bid this profile can see (the
    * same rule as GET /api/bids/:id). A plain GET link: the session cookie is all it needs, nothing changes. The id
-   * may come percent-encoded (questcdn%3A1903611%3A10385980). No due time, or a local job (bid on in the app): 404
-   * with a sentence; the app shows no button for those.
+   * may come percent-encoded (questcdn%3A1903611%3A10385980). No due time, a due time already past, or a local job
+   * (bid on in the app): 404 with a sentence; the app shows no button for those.
    */
   app.get<{ Params: { id: string } }>('/api/bids/:id/calendar', async (req, reply) => {
     const bidId = req.params.id;
@@ -180,13 +180,14 @@ export async function register(app: FastifyInstance, ctx: RouteContext): Promise
     const id = await ctx.requireProfile(req, reply);
     if (!id) return reply;
     const item = bidId.length <= MAX_BID_ID ? await getItem(db, id.profile.id, bidId) : null;
-    if (!item) return reply.code(404).send({ error: 'not_found' });
-    const why = noCalendar(item);
+    if (!item) return reply.code(404).send({ error: 'not_found', message: CALENDAR_NOT_FOUND });
+    const at = now();
+    const why = noCalendar(item, at);
     if (why) return reply.code(404).send({ error: why, message: NO_CALENDAR[why] });
     return reply
       .header('content-type', 'text/calendar; charset=utf-8')
       .header('content-disposition', `attachment; filename="${calendarFileName(item.title)}"`)
-      .send(bidCalendar(item, now()));
+      .send(bidCalendar(item, at));
   });
 
   app.post<{ Body: { bidId?: string; action?: string } }>('/api/swipe', async (req, reply) => {

@@ -9,7 +9,9 @@ import type { FeedItem } from '../types.js';
  * ends where it starts, so it ends at the due time. A DTEND equal to DTSTART is not allowed (§3.8.2.2: it must be
  * later), and a block that starts before the due time would make the phone's reminder name the wrong time.
  * TRANSP:TRANSPARENT: a deadline is not a meeting, so it never marks the day busy. No LOCATION: the bid is placed on
- * the agency's site, and a place would make some phones offer travel times.
+ * the agency's site, and a place would make some phones offer travel times. No METHOD: this is a plain event to add,
+ * not an iTIP scheduling message (RFC 5545 §3.7.2 would then want the same method in the Content-Type, and RFC 5546
+ * §3.2.1 an ORGANIZER).
  *
  * Text values are escaped (backslash, semicolon, comma, newline), other control characters become spaces, every line
  * is folded at 75 octets without splitting a character, and lines end in CRLF.
@@ -20,16 +22,21 @@ export const CALENDAR_LINE = "Bid on the agency's site; check it for addenda.";
 export const CALENDAR_SUB_LINE = "Sub work: quote the bidders before this; check the agency's site for addenda.";
 
 /** Why a bid has no calendar file. The route answers 404 with this message (the app shows no button then). */
-export type NoCalendar = 'no_due_time' | 'local_job';
+export type NoCalendar = 'no_due_time' | 'local_job' | 'closed';
 export const NO_CALENDAR: Record<NoCalendar, string> = {
   no_due_time: 'This bid has no due time, so there is nothing to put in a calendar.',
   local_job: 'A local job is bid on here in the app, so it has no calendar file.',
+  closed: 'The due time we have for this bid has passed, so there is nothing to put in a calendar.',
 };
+/** The route's 404 for a bid this profile does not see (or an unknown id). */
+export const CALENDAR_NOT_FOUND = 'That bid is not one of your matches, or it is gone.';
 
-/** Why `bid` gets no file, or null when it gets one. */
-export function noCalendar(bid: Pick<FeedItem, 'id' | 'source' | 'dueAt'>): NoCalendar | null {
+/** Why `bid` gets no file at `now`, or null when it gets one. A due time at or before now is closed. */
+export function noCalendar(bid: Pick<FeedItem, 'id' | 'source' | 'dueAt'>, now: Date): NoCalendar | null {
   if (bid.source === 'local' || bid.id.startsWith('local:')) return 'local_job';
-  if (!bid.dueAt || !Number.isFinite(Date.parse(bid.dueAt))) return 'no_due_time';
+  const due = bid.dueAt ? Date.parse(bid.dueAt) : Number.NaN;
+  if (!Number.isFinite(due)) return 'no_due_time';
+  if (due <= now.getTime()) return 'closed';
   return null;
 }
 
@@ -92,7 +99,6 @@ export function bidCalendar(bid: Pick<FeedItem, 'id' | 'title' | 'dueAt' | 'url'
     'VERSION:2.0',
     'PRODID:-//BidSwipe//Bid due time//EN',
     'CALSCALE:GREGORIAN',
-    'METHOD:PUBLISH',
     'BEGIN:VEVENT',
     `UID:${calendarUid(bid.id)}`,
     `DTSTAMP:${icsTime(now)}`,
@@ -117,7 +123,7 @@ export function bidCalendar(bid: Pick<FeedItem, 'id' | 'title' | 'dueAt' | 'url'
  * lose their accents, everything else that is not a-z or 0-9 becomes one hyphen, at most 60 characters of title.
  */
 export function calendarFileName(title: string): string {
-  const slug = title.normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase()
+  const slug = title.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
     .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/g, '');
   return `bids-due-${slug || 'bid'}.ics`;
 }

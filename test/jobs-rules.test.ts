@@ -300,13 +300,13 @@ describe('the Jobs tab says what it costs (web/js/job-words.js freeLine, docs/PL
 
   it('posting and bidding are free; a fee only on the winner, in the cases shown before the bid; none collected', () => {
     expect(w.freeLine({ paymentsOn: publicRules(RULES).paymentsOn })).toBe(
-      'Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid. Fees are not being collected yet.');
+      'Free to post and bid. Only a winner can owe a fee, shown before you bid. Fees are not being collected yet.');
     expect(w.freeLine()).toBe(w.freeLine({ paymentsOn: false })); // payments are off unless the server says otherwise
   });
 
   it('the "not collected" words are the fee lines\' own (FEES_OFF under the bid box), and go once payments are on', () => {
     expect(w.FEES_OFF.startsWith(`${w.NOT_COLLECTED} `)).toBe(true);
-    expect(w.freeLine({ paymentsOn: true })).toBe('Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid.');
+    expect(w.freeLine({ paymentsOn: true })).toBe('Free to post and bid. Only a winner can owe a fee, shown before you bid.');
   });
 
   it('someone here only to get work done sees the posting half: free, and no fee for the poster', () => {

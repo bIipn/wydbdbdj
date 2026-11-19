@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AuthService } from './auth/index.js';
 import type { Db } from './db/db.js';
 import { getProfileByAccount } from './db/repo.js';
+import { createVisitLog } from './db/usage.js';
 import { env as processEnv } from './env.js';
 import type { MarketHttp, refreshMarket } from './market/refresh.js';
 import { createMarketWatcher, type MarketWatcher } from './market/watcher.js';
@@ -140,20 +141,32 @@ export interface ContextParts {
   env?: (name: string) => string | undefined;
 }
 
+/**
+ * Whether a signed-in request counts as a day the person used the app (GET /api/admin/usage's return visits). Every
+ * request does but the live stream: in stream mode an open tab can reconnect while it is hidden. (The poll mode's
+ * GET /api/alerts asks only while the app is on screen: web/js/live.js.)
+ */
+export const countsAsVisit = (req: FastifyRequest): boolean => req.routeOptions?.url !== '/api/stream';
+
 export function createContext(parts: ContextParts): RouteContext {
   const { db, config, bus, auth, scan } = parts;
   const single = config.authMode === 'single' ? parts.profile : null;
   if (config.authMode === 'single' && !single) throw new Error('AUTH_MODE=single needs a profile (config/<PROFILE_ID>.json)');
 
+  const now = parts.now ?? (() => new Date());
+  const log = parts.log ?? (() => {});
+  // One row per account per day it used the app, on its own clock (table account_days); asked at most once a day here.
+  const visit = createVisitLog(db, log);
+
   const identify = async (req: FastifyRequest): Promise<Identity> => {
     if (single) return { account: null, profile: single, plan: effectivePlan(config, null) };
     const account = await auth.authenticate(req);
     const profile = account ? await getProfileByAccount(db, account.id) : null;
+    // The day on the account's own clock (its alert time zone; none = Pacific), never a UTC day.
+    if (account && countsAsVisit(req)) await visit(account.id, now(), profile?.alerts?.timeZone);
     return { account, profile, plan: effectivePlan(config, account) };
   };
 
-  const now = parts.now ?? (() => new Date());
-  const log = parts.log ?? (() => {});
   const market = createMarketWatcher({
     db, bus, now, log, env: parts.env ?? processEnv, schedule: config.marketRefreshAt ?? null, profile: single,
     http: parts.marketHttp, refresh: parts.marketRefresh,

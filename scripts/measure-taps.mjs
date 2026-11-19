@@ -89,12 +89,24 @@ function measureInPage({ min, screen, scope }) {
     const words = (el.getAttribute('aria-label') || el.textContent || el.getAttribute('placeholder') || el.value || '').replace(/\s+/g, ' ').trim().slice(0, 36);
     return `${el.tagName.toLowerCase()}${cls}${words ? ` "${words}"` : ''}`;
   };
-  /** In a sentence: an inline element whose block has other words around it (WCAG 2.5.5's inline exception). */
+  /**
+   * In a sentence (WCAG 2.5.5's inline exception): an inline element with a real word on its own line, outside any
+   * link or button. A line of links ("Privacy policy · Terms") is not a sentence: " · " and other links do not count.
+   */
   const inlineInText = (el) => {
     if (getComputedStyle(el).display !== 'inline') return false;
     let block = el.parentElement;
     while (block && getComputedStyle(block).display === 'inline') block = block.parentElement;
-    return !!block && block.textContent.replace(/\s+/g, ' ').trim().length > el.textContent.replace(/\s+/g, ' ').trim().length + 3;
+    if (!block) return false;
+    const r = el.getBoundingClientRect();
+    const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (n.parentElement?.closest('a, button') || !/\p{L}{2}/u.test(n.textContent)) continue;
+      const range = document.createRange();
+      range.selectNodeContents(n);
+      for (const q of range.getClientRects()) if (q.bottom > r.top + 1 && q.top < r.bottom - 1) return true;
+    }
+    return false;
   };
 
   // An open sheet is modal: what is behind its backdrop is not on this screen.

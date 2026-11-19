@@ -41,7 +41,8 @@ iPhone (see the last section).
 4. Close Safari. Open BidSwipe **from that new icon**. It should open full screen, with no Safari address bar. Sign in
    again (the Home Screen app does not share Safari's sign-in).
 5. Tap the **bell**. The "Phone alerts" box should say **OFF** and show a yellow **Turn on phone alerts** button.
-   - If it shows **Pro** with a padlock instead, your account is not on Pro: tell us.
+   - If it shows **Pro** with a padlock instead, the live site does not have the 2026-11-18 change yet (since then
+     every plan can turn phone alerts on, for its local jobs): tell us.
    - If it still shows the four steps, you are in Safari, not the Home Screen app: go back to step 4.
    - If it says you need iOS 16.4 or later, update the iPhone first (step 1).
 6. Tap **Turn on phone alerts**. The iPhone asks whether BidSwipe may send you notifications: tap **Allow**. Within a
@@ -90,3 +91,9 @@ for a real iPhone before changing any of these):
 - ios-tag-1: notification stacking (above);
 - the swipe card's long-press behaviour, the sheet's overscroll and svh sizes in a Safari tab, and the 16 px Search
   sort field not zooming the page.
+- "Add to calendar" (docs/PLAN.md N10): in the installed app and in a Safari tab, open a public bid's detail sheet, tap
+  **Add to calendar** under "Bid on …" (or the calendar icon on a Saved row). Expected: iOS shows the event ("Bids due:
+  …", at the due time, with a reminder the day before) and offers to add it; after **Add**, the app is still on the
+  sheet. Checked so far only in Chromium (the file downloads and the page stays put) and by the route's tests
+  (test/calendar.test.ts). Not known: whether the installed app (its own cookie store) opens the link in place or in
+  an in-app Safari sheet that has no session (that would answer 401).

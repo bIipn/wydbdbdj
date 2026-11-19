@@ -5,7 +5,7 @@ import { setSwipe } from './actions.js';
 import { $, h } from './dom.js';
 import { addendaLine, VERDICT_LABEL } from './format.js';
 import { agencyLine } from './home-model.js';
-import { bidLink, facts, localPill, reasonsList, scoreRing, subNote, subPill } from './parts.js';
+import { bidLink, calendarLink, facts, localPill, reasonsList, scoreRing, subNote, subPill } from './parts.js';
 import { costCheckButton, priceCheck } from './price.js';
 import { render, setView } from './shell.js';
 import { isLive } from './state.js';
@@ -39,6 +39,7 @@ export function openSheet(item) {
     actions,
     // Below "Bid on …", never above it: a new line must not push the button down (docs/PLAN.md S1).
     addenda ? h('p', { class: 'addenda-note' }, addenda) : null,
+    calendarLink(item), // the due time as an .ics file (docs/PLAN.md N10); also below "Bid on …"
     // The price check needs the API (the bundled demo has no market data); the cost check button explains itself.
     isLive() ? priceCheck(item, () => { closeSheet(); setView('market'); }) : h('section', { class: 'price-check' }, costCheckButton(item)),
   ].filter(Boolean));

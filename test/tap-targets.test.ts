@@ -137,7 +137,8 @@ const CONTROLS: Control[] = [
   { sel: '.text-btn', what: 'Reset, Read all, Market →, Edit, Card …', w: true },
   { sel: '.link-btn.report-link', what: '"Report this job" on a line of its own' },
   { sel: '.link-btn.more-boards', what: '"More boards" in Filters' },
-  { sel: '.card-foot button', what: 'the swipe card\'s "Details"', w: true },
+  // "Details" keeps its old look and place; its ::before reaches up to "Bid on …" and down to the card's edge.
+  { sel: '.card-foot button', what: 'the swipe card\'s "Details" (as tall as the foot\'s line)', w: true, base: () => px(declsFor('.card-foot', '').get('line-height')) },
   { sel: '.sub-note-x', what: 'close the sub-work note (26px to the eye)', w: true },
   { sel: '.toast button', what: 'Undo' },
   { sel: '.eye', what: 'show / hide the password', w: true },
@@ -147,6 +148,9 @@ const CONTROLS: Control[] = [
   { sel: '.job-private a', what: 'the poster\'s phone, for the winner' },
   { sel: '.pc-more summary', what: '"Newest 5 awards" and the other price-check openers' },
   { sel: '.cc-sources > summary', what: '"Where these numbers come from"' },
+  { sel: '.cal-link', what: '"Add to calendar" under "Bid on …" in the detail sheet', w: true },
+  { sel: '.row-cal', what: '"Add to calendar" on a Saved row (the icon alone)', w: true },
+  { sel: '.fine-link.foot-link', what: '"Privacy policy · Terms" under Settings and sign-in (a line of links)', w: true },
   // Already 44 or more: kept that way.
   { sel: '.tab', what: 'the tab bar' },
   { sel: '.bell', what: 'the bell', w: true },
@@ -240,8 +244,18 @@ describe('tap targets: 44 x 44 CSS px (docs/PLAN.md R3)', () => {
     }
   });
 
+  it('"Details" grows into the gap above it and the card\'s bottom padding, never over "Bid on …" (every @media)', () => {
+    const [top, , bottom] = sides(declsFor('.card-foot button::before', '').get('inset'))!;
+    for (const m of ['', ...MEDIA]) {
+      const gap = px(declsFor('.card-foot', m).get('margin-top'));
+      const pad = sides(declsFor('.card', m).get('padding'))?.[2];
+      expect(gap, `.card-foot margin-top${m ? ` @media ${m}` : ''}`).toBeGreaterThanOrEqual(-top);
+      expect(pad, `.card padding-bottom${m ? ` @media ${m}` : ''}`).toBeGreaterThanOrEqual(-bottom);
+    }
+  });
+
   it('the hit areas that grow past a control are real overlays: content and position: absolute', () => {
-    for (const sel of ['.tape-toggle', '.switch', '.tier-opt', '.seg-btn', '.row-remove', '.sub-note-x', '.toast button']) {
+    for (const sel of ['.tape-toggle', '.switch', '.tier-opt', '.seg-btn', '.row-remove', '.sub-note-x', '.toast button', '.card-foot button']) {
       const d = declsFor(sel, '');
       const b = declsFor(`${sel}::before`, '');
       expect(d.get('position'), `${sel} is the overlay's containing block`).toMatch(/relative|absolute/);

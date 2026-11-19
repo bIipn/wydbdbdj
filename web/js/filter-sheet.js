@@ -66,13 +66,15 @@ function sourceChoices() {
       draw();
     });
   };
+  // The toggle is always the group's last line: open, the other boards come in above it. Its 44px box reaches below
+  // its words (styles.css .more-boards), where only the next heading is, never a row of chips.
   return [
     h('div', { class: 'chip-row' }, first.map((b) => boardChip(b, false))),
+    rest.length && moreBoards ? h('div', { class: 'chip-row' }, rest.map((b) => boardChip(b, true))) : null,
     rest.length ? h('button', {
       class: 'link-btn more-boards', type: 'button', 'aria-expanded': String(moreBoards),
       onclick: () => { moreBoards = !moreBoards; draw(); },
     }, moreBoards ? 'Fewer boards' : `More boards (${rest.length}, other states)`) : null,
-    rest.length && moreBoards ? h('div', { class: 'chip-row' }, rest.map((b) => boardChip(b, true))) : null,
   ];
 }
 

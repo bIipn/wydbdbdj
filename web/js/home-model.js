@@ -88,8 +88,8 @@ export function placeLine(item) {
 /**
  * The grey chips under a match card, in reading order: time left, the job value, where it comes from, the verdict.
  * kind: 'due' (urgent: under 5 days) · 'value' (unknown: no value listed) · 'board' | 'sub' | 'local' · 'verdict'.
- * A bid with no due date says how fresh it is instead: "No due date · Seen Tue, Nov 17" (lastSeenAt, in `timeZone`,
- * the user's: state.js userTimeZone). A chip is one line: "… Seen on the board …" would be cut off at 390 px.
+ * A bid with no due date says how fresh it is instead: "No due date · Still listed Tue, Nov 17" (lastSeenAt, in
+ * `timeZone`, the user's: state.js userTimeZone). A chip is one line: "… Seen on the board …" would be cut off at 390 px.
  */
 export function matchChips(item, timeZone) {
   const due = dueInfo(item.dueAt, { at: item.lastSeenAt, timeZone });

@@ -79,7 +79,7 @@ export const FEES_OFF = `${NOT_COLLECTED} A no-show is recorded on your profile.
  */
 export function freeLine({ hire = false, paymentsOn = false } = {}) {
   if (hire) return 'Posting a job is free, and the poster pays no fee.';
-  return `Posting and bidding are free. A fee can only apply to the winner, in the cases shown before you bid.${paymentsOn ? '' : ` ${NOT_COLLECTED}`}`;
+  return `Free to post and bid. Only a winner can owe a fee, shown before you bid.${paymentsOn ? '' : ` ${NOT_COLLECTED}`}`;
 }
 
 // ---------------------------------------------------------------- licence --

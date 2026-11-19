@@ -24,20 +24,21 @@ function dayIn(d, timeZone) {
  * How fresh a bid with no due date is (docs/PLAN.md R5): the day a scan last found it on its board (GET /api/feed
  * `lastSeenAt`), in the user's time zone. null when there is no usable date.
  *   long  'Seen on the board Tue, Nov 17'  where a line has room (Search and Saved rows; a tile's title)
- *   short 'Seen Tue, Nov 17'               a half-width fact tile (card and sheet) and Home's one-line chip: the
- *                                          long one needs two lines in a tile at 390 px (173 px of text in 148),
- *                                          and a second line there would push "Bid on …" down
+ *   short 'Still listed Tue, Nov 17'       a half-width fact tile (card and sheet) and Home's one-line chip: the
+ *                                          long one needs two lines in a tile at 390 px (178 px of text in 148),
+ *                                          and a second line there would push "Bid on …" down. It still says the
+ *                                          board listed it that day (a bare "Seen" read as "you looked at it").
  */
 export function seenOnBoard(iso, timeZone) {
   const t = Date.parse(iso ?? '');
   if (!Number.isFinite(t)) return null;
   const day = dayIn(new Date(t), timeZone);
-  return { long: `Seen on the board ${day}`, short: `Seen ${day}` };
+  return { long: `Seen on the board ${day}`, short: `Still listed ${day}` };
 }
 
 /**
  * The due date in words. `seen` ({ at: lastSeenAt, timeZone }) is how a bid with no due date says how fresh it is.
- *   big 'No due date' · small 'Seen Tue, Nov 17' (a tile) · detail 'Seen on the board Tue, Nov 17' (a row)
+ *   big 'No due date' · small 'Still listed Tue, Nov 17' (a tile) · detail 'Seen on the board Tue, Nov 17' (a row)
  *   line = big · detail: 'No due date · Seen on the board Tue, Nov 17'
  * With a due date, small and detail are both 'Tue, Nov 24 · 10 AM'.
  */
@@ -117,9 +118,17 @@ export const byFit = (a, b) => b.score - a.score || (Date.parse(a.dueAt ?? '9999
  * keeps the two equal).
  */
 export const ADDENDA_LINE = 'Check the agency’s page for addenda (amendments) before you bid. BidSwipe doesn’t read them.';
+/** The same for sub work: a sub quotes the bidders, it does not bid with the agency (src/realtime/alerts.ts). */
+export const SUB_ADDENDA_LINE = 'Check the agency’s page for addenda (amendments) before you quote. BidSwipe doesn’t read them.';
 
-/** ADDENDA_LINE for a public bid; null for a local job (`local:<jobId>`: bid in the app, no agency page). */
-export const addendaLine = (item) => (item?.source === 'local' || String(item?.id ?? '').startsWith('local:') ? null : ADDENDA_LINE);
+/**
+ * ADDENDA_LINE for a public bid (SUB_ADDENDA_LINE for sub work); null for a local job (`local:<jobId>`: bid in the
+ * app, no agency page).
+ */
+export const addendaLine = (item) => {
+  if (item?.source === 'local' || String(item?.id ?? '').startsWith('local:')) return null;
+  return item?.tier === 'sub' ? SUB_ADDENDA_LINE : ADDENDA_LINE;
+};
 
 /**
  * The tier of a bid (GET /api/feed sends it). An older answer without one reads the way the server reads a row

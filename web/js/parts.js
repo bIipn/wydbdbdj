@@ -4,7 +4,7 @@ import { markOpened } from './actions.js';
 import { h, icon, ICONS, safeUrl, store } from './dom.js';
 import { estLabel, num, orderedReasons, shortSource, straightMiles, tierOf } from './format.js';
 import { jobIdOf, jobsOn, openJob } from './jobs-data.js';
-import { dueOf } from './state.js';
+import { dueOf, isLive, state } from './state.js';
 
 
 export function scoreRing(score) {
@@ -25,7 +25,7 @@ export function scoreRing(score) {
  * "41 mi, straight line" (docs/PLAN.md R3). It fits the tile's one line, as the card's "41 mi away" does.
  */
 export function facts(item, { sheet = false } = {}) {
-  // A bid with no due date says the day it was last seen on its board ("No due date" / "Seen Tue, Nov 17").
+  // A bid with no due date says the day it was last seen on its board ("No due date" / "Still listed Tue, Nov 17").
   const due = dueOf(item);
   // The server's place label, as it is. Miles only when the server measured them to the job itself: an area
   // ("Caltrans District 10: …"), a statewide list or a contracting office has no distance, and the label says why.
@@ -103,4 +103,20 @@ export function bidLink(item, extraClass = '') {
       if (!item.swipe) markOpened(item);
     },
   }, `${tierOf(item) === 'sub' ? 'See it on' : 'Bid on'} ${shortSource(item.sourceName)}`, icon(ICONS.open.replace('<svg ', '<svg width="16" height="16" stroke="currentColor" ')));
+}
+
+/**
+ * "Add to calendar" (docs/PLAN.md N10): the bid's due time as an .ics file (GET /api/bids/:id/calendar), as a plain
+ * link: the session cookie is all the server needs, and Safari and the iPhone Home Screen app open an .ics link in
+ * their own "Add to Calendar" screen. Only where the server has a file: a public bid whose due time is still ahead (a
+ * local job is bid on here; a bid with no due time answers 404). Not behind a pilot's access code (the server reads
+ * the code from a header, which a link cannot send), nor in the bundled demo (no server).
+ * `compact`: the icon alone, for a Saved row; otherwise the words under "Bid on …" in the detail sheet.
+ */
+export function calendarLink(item, { compact = false } = {}) {
+  const due = Date.parse(item?.dueAt ?? '');
+  if (!isLive() || state.accessCode || jobIdOf(item) || !Number.isFinite(due) || due <= Date.now()) return null;
+  const href = safeUrl(new URL(`api/bids/${encodeURIComponent(item.id)}/calendar`, document.baseURI).href);
+  if (compact) return h('a', { class: 'row-cal', href, 'aria-label': `Add to calendar: ${item.title}`, title: 'Add to calendar' }, icon(ICONS.calendar));
+  return h('a', { class: 'cal-link', href }, icon(ICONS.calendar), 'Add to calendar');
 }

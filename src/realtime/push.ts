@@ -9,6 +9,7 @@ import { generateRequestDetails, getVapidHeaders, sendNotification, type Request
 import type { AppConfig } from '../context.js';
 import type { StoredSubscription } from '../db/alerts.js';
 import type { Alert, AlertKind } from '../types.js';
+import { ADDENDA_LINE, SUB_ADDENDA_LINE } from './alerts.js';
 
 export type Vapid = NonNullable<AppConfig['vapid']>;
 
@@ -188,14 +189,21 @@ const clipLine = (text: string, max = SUMMARY_LINE): string => {
   return chars.length <= max ? text : `${chars.slice(0, max - 1).join('').trimEnd()}…`;
 };
 
+/** A reminder's body ends with " · <addenda line>" (src/realtime/alerts.ts decideDeadline): never part of its name. */
+const ADDENDA_TAILS = [ADDENDA_LINE, SUB_ADDENDA_LINE].map((line) => ` · ${line}`);
+const withoutAddenda = (body: string): string => {
+  const tail = ADDENDA_TAILS.find((t) => body.endsWith(t));
+  return tail ? body.slice(0, -tail.length) : body;
+};
+
 /**
  * One line of a summary. A label title alone would read the same for two deadlines on one day ("Due in 2 days ·
  * Wed 2:00 PM" twice, audit notif-summary-1), so those kinds add what the alert is about: the body up to its first
- * " — " (the bid's title), clipped.
+ * " — " (the bid's title; a bid with no place has none), without the addenda line, clipped.
  */
 function summaryLine(alert: Alert): string {
   if (!LABEL_TITLE.has(alert.kind)) return clipLine(alert.title);
-  const subject = alert.body.split(' — ')[0]?.trim();
+  const subject = withoutAddenda(alert.body).split(' — ')[0]?.trim();
   return clipLine(subject ? `${alert.title} — ${subject}` : alert.title);
 }
 

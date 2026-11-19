@@ -330,7 +330,8 @@ export interface TestPushOutcome {
  * "Send a test alert": one notification to the caller's own devices, through what deliver() uses for a real alert —
  * subscriptionsForProfile (so a device refused for good is skipped the same way), the same PushSender, and
  * recordPushResult (a 404/410 removes the device, a 400/403/413 marks it refused). The caller (the route) has already
- * checked the gate deliver() checks (pushDecision: the plan's instantPush, alerts not switched off, no quiet hours).
+ * checked a local job's gate (pushDecision 'local': alerts not switched off, no quiet hours; no plan gate, since every
+ * plan gets local-job pushes).
  * Stores no alert: a test is not news and never enters the inbox.
  */
 export async function sendTestPush(ctx: RouteContext, profileId: string, owner: string, sender: PushSender): Promise<TestPushOutcome> {

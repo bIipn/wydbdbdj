@@ -9,6 +9,7 @@ import { openFilters } from '../filter-sheet.js';
 import { activeChips, defaultFilters, hasPriceFilter, isFiltered, PAGE_SIZE, SORTS, TIERS } from '../filters.js';
 import { fmtDay, fmtTime, num, VERDICT_LABEL } from '../format.js';
 import { jobIdOf, openJob } from '../jobs-data.js';
+import { calendarLink } from '../parts.js';
 import { openSheet } from '../sheet.js';
 import { onAfterRender, registerView, render, setView } from '../shell.js';
 import { browseList, deck, feedCounts, forgetBrowse, hasSubTier, savedList, state, subWorkShown } from '../state.js';
@@ -384,7 +385,16 @@ function renderSaved() {
       h('p', {}, 'Tap the bookmark on a match on Home (or swipe it right) to keep it here. Saved bids are sorted by deadline.'),
     );
   }
-  return h('div', { class: 'list' }, list.map(row));
+  return h('div', { class: 'list' }, list.map(savedRow));
+}
+
+/**
+ * A Saved row, with "Add to calendar" (docs/PLAN.md N10) as an icon in its bottom-right corner, beside the tags, when
+ * the bid has a due time ahead. The row is a button and a link cannot sit inside one, so the two share a wrapper.
+ */
+function savedRow(item) {
+  const cal = calendarLink(item, { compact: true });
+  return cal ? h('div', { class: 'saved-row' }, row(item), cal) : row(item);
 }
 
 registerView('browse', { chrome: 'tabs', render: renderBrowse });

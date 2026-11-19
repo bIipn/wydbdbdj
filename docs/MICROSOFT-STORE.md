@@ -173,7 +173,7 @@ Upload the **`.msixbundle`** and the **`.classic.appxbundle`** from section 3.
 
 Counts below are Python `len()` on the exact text, run 2026-11-16.
 
-**Description** (3,681 of 10,000 characters; plain text, no URLs):
+**Description** (3,848 of 10,000 characters; plain text, no URLs):
 
 ```
 BidSwipe finds open public bids that fit your trade and tells you why, and it is a place to post local jobs and bid on them.
@@ -199,13 +199,13 @@ Fees
 The terms for local jobs set a no-show fee and a service fee. Fees are not being collected: BidSwipe only records them, and the exact figures are shown before you bid. Nothing is sold in the app.
 
 Alerts
-An in-app inbox with new matches, reminders before the bids you saved are due, and news on the local jobs you posted or bid on.
+An in-app inbox with new matches, reminders before the bids you saved are due, and news on the local jobs you posted or bid on. On every plan you can turn on notifications on a device for news on your local jobs and new local jobs that fit you.
 
 Market
 A small price pill at the top of the screen shows one government figure at a time: a construction material's monthly price index with its one-month change, or the area wage for your trade. Tap it to open Market, with the monthly price indexes from the U.S. Bureau of Labor Statistics and wage figures for the trades. They are government indexes, not prices for your job.
 
 BidSwipe Pro
-Some features are part of BidSwipe Pro: phone and desktop notifications, a cost check for a bid, your own cost settings, award history from federal records, and alerts when an award is posted on a bid you saved or a price index moves. Award results are public records published after the bids are opened, never a competitor's price before. Pro is not sold in the app today.
+Some features are part of BidSwipe Pro: phone and desktop notifications for new public bids and the public bids you saved, a cost check for a bid, your own cost settings, award history from federal records, and alerts when an award is posted on a bid you saved or a price index moves. Award results are public records published after the bids are opened, never a competitor's price before. Pro is not sold in the app today.
 
 Sealed means sealed: on a public bid nobody, BidSwipe included, sees a competitor's price before the agency opens the bids, and on a local job nobody sees another bid's amount before bidding closes. A score is a first pass. Always read the bid documents before you price a job.
 
@@ -219,7 +219,7 @@ Public bids that fit your trade, each with the reasons it fits, on a list or one
 ```
 
 **Product features** (18 of 20; each at most 200 characters; no bullets, the Store adds them;
-lengths in order: 76 · 87 · 86 · 57 · 70 · 101 · 77 · 88 · 92 · 75 · 103 · 99 · 63 · 69 · 75 · 115 · 83 · 85):
+lengths in order: 76 · 87 · 86 · 57 · 70 · 101 · 77 · 88 · 92 · 75 · 103 · 99 · 63 · 69 · 75 · 131 · 83 · 85):
 
 ```
 Open public bids scored for your trade, your area and the job sizes you want
@@ -237,7 +237,7 @@ Work profiles: headline, experience, skills and a licence as you typed it (not c
 Your email, phone and address never appear on your work profile
 Report a job, a conversation or a profile to BidSwipe from its screen
 Nothing is sold in the app; local job fees are only recorded, not collected
-BidSwipe Pro (not sold in the app today) adds notifications, a cost check, award history and award and price alerts
+BidSwipe Pro (not sold in the app today) adds notifications for public bids, a cost check, award history and award and price alerts
 Setup in about a minute: pick your trade, enter your ZIP, choose how far you travel
 The same account works in the Windows app and in any browser, on a phone or a desktop
 ```
@@ -329,7 +329,7 @@ profile card, "Report this profile" is under the card. Reports go to BidSwipe <t
 read every day>; an operator can take down a job, remove a message or hide a profile. Posting, bidding, messaging and reporting are rate-limited per
 account. The terms and community rules and the privacy policy are linked from the sign-in screen and from Settings.
 
-Pro features (cost check, award history, award and price alerts, notifications) are not sold. <Optional: To see them,
+Pro features (cost check, award history, award and price alerts, notifications for public bids) are not sold. Notifications for local jobs are on every plan. <Optional: To see them,
 enter the code <reviewer-only code> in Settings > Plan > "Have a promo code?". It unlocks Pro for this account only.>
 
 "Use my location" during setup asks the browser for permission, is used once to find the nearest ZIP, and is not

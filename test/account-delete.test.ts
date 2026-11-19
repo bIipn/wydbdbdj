@@ -445,7 +445,7 @@ function suite(label: string, open: () => Promise<Db>, close: (db: Db) => Promis
       // Before: D is in every table that holds people's rows (so "none after" means something), and the bystanders'.
       const dBefore = await footprint(D, dProfile);
       const tablesWithD = Object.entries(dBefore).filter(([, n]) => n > 0).map(([k]) => k);
-      for (const k of ['accounts.id', 'profiles.id', 'identities.account_id', 'sessions.account_id', 'push_subscriptions.account_id',
+      for (const k of ['accounts.id', 'profiles.id', 'identities.account_id', 'sessions.account_id', 'push_subscriptions.account_id', 'account_days.account_id',
         'work_profiles.account_id', 'promo_redemptions.account_id', 'profile_hides.account_id', 'matches.profile_id', 'swipes.profile_id',
         'alerts.profile_id', 'estimates.profile_id', 'jobs.poster_id', 'jobs.winner_id', 'job_bids.bidder_id', 'job_messages.sender_id',
         'job_fees.payer_id', 'job_reports.reporter_id', 'content_reports.reporter_id', 'content_reports.subject_id', 'auth_attempts.key']) {

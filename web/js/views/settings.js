@@ -38,7 +38,7 @@ const PLAN_TEXT = {
   // Local jobs buzz on every plan (src/realtime/alerts.ts); only new public bids' phone alerts are Pro.
   free: 'In-app alerts, and phone alerts for your local jobs. Pro adds phone alerts for new public bids, award history, the cost check and your own cost settings.',
   // Phone alerts are per device (the bell turns them on), so the plan line never says they are on here.
-  pro: 'Instant phone alerts, award history, the cost check and cost settings are part of your plan. Phone alerts are turned on for each device from the bell.',
+  pro: 'Phone alerts for new public bids as soon as the daily scan finds them, award history, the cost check and cost settings are part of your plan. Phone alerts are turned on for each device from the bell.',
   pilot: 'Every feature is on for the pilot.',
 };
 
@@ -417,8 +417,8 @@ function renderSettings() {
     // Apple and Google ask for account deletion inside the app: here, under Sign out (src/routes/account.ts).
     deleteAccountSection(),
     // The Microsoft Store asks for the privacy policy inside the app too (web/privacy.html, same origin).
-    h('p', { class: 'fine' }, h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
-      ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),
+    h('p', { class: 'fine' }, h('a', { class: 'fine-link foot-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
+      ' · ', h('a', { class: 'fine-link foot-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),
   );
 }
 

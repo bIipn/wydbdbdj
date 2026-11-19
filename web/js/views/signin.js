@@ -111,8 +111,9 @@ function renderSignIn() {
       'Public bids: you bid on the agency’s own site.', h('br'),
       'Local jobs: sealed bids, here in the app.',
       state.authConfig?.demo ? h('span', { class: 'demo-flag' }, 'Demo mode: all features on') : null,
-      h('br'), h('a', { class: 'fine-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
-      ' · ', h('a', { class: 'fine-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),
+      // A line of links, not a sentence: each a 44px target (styles.css .foot-link).
+      h('br'), h('a', { class: 'fine-link foot-link', href: 'privacy.html', target: '_blank', rel: 'noopener' }, 'Privacy policy'),
+      ' · ', h('a', { class: 'fine-link foot-link', href: 'terms.html', target: '_blank', rel: 'noopener' }, 'Terms')),
   );
 }
 

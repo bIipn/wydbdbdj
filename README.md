@@ -153,8 +153,12 @@ a line there, `test/serverless-entry.test.ts` checks it). On Vercel the app has 
 - The host's scheduler calls `GET /api/cron/market`, `/api/cron/scan` and `/api/cron/tick` (deadline
   reminders + waiting pushes) with `Authorization: Bearer $CRON_SECRET`. Without `CRON_SECRET` they 404.
   Hobby plans allow daily crons only, so reminders run once a day there (14:50 UTC). Saved-bid reminders go by the
-  calendar day on the user's alert clock (3 days before, the day before, the due day), so that one run sends each on
-  its own day in every Settings zone (`src/realtime/alerts.ts` deadlineStage).
+  calendar day on the user's alert clock (3 days before, the day before, the due day; `src/realtime/alerts.ts`
+  deadlineStage), so that one run sends the 3-day and day-before reminders on their own day in every Settings zone.
+  The due-day reminder goes only when the deadline is later than that day's run: 06:50 PST / 07:50 PDT, 09:50 EST /
+  10:50 EDT, 08:50 CST / 09:50 CDT, 07:50 MST / 08:50 MDT (Arizona 07:50), 05:50 AKST / 06:50 AKDT, 04:50 in Hawaii.
+  A 10:00 AM Eastern deadline gets no due-day reminder in summer (the day before said "Due tomorrow at 10:00 AM")
+  and one 10 minutes before it in winter. An hourly tick (docs/PLAN.md O9) fixes that.
 - Live alerts poll (`REALTIME_MODE=poll` is automatic when `VERCEL` is set): the app asks the inbox about
   once a minute while open and reloads its feed after each scan.
 - The SAM.gov bulk download is ~222 MB per scan. Measured in a Vercel function on 2026-11-13: download
@@ -198,6 +202,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 |---|---|
 | `GET /api/feed` | scored bids; `?all=1&minScore=0` for Browse, plus search/filters `q`, value, distance, due, verdict, source, sort, `tier=fit\|sub\|other\|all`, and paging: `limit` (1–300, default 100) and `offset` (0-based, default 0). Answers `{ items, counts, total, lastScan }`: every item carries `tier`; `counts: {fit, sub, other}` (open, unswiped, same non-tier filters); `total` = rows that match every filter of the request (tier included) before limit/offset. The order is stable across pages (ties broken by bid id). The deck (no `all`) holds sub work below the fits unless the profile's `showSubWork` is false or `tier=fit` |
 | `GET /api/bids/:id`, `GET /api/next` | one bid · the "next up" pick with its reasons |
+| `GET /api/bids/:id/calendar` | "Add to calendar": the bid's due time as an `.ics` file (`text/calendar`, attachment), a plain link with the session cookie; 404 `no_due_time` / `closed` (due time passed) / `local_job` / `not_found` with a message |
 | `POST /api/swipe {bidId, action}` | `save` · `pass` · `bid` |
 | `DELETE /api/swipe/:bidId` | undo |
 | `GET /api/saved` | saved, soonest deadline first |
@@ -211,7 +216,7 @@ For the multi-user App Store version, point `DATABASE_URL` at Supabase; same sch
 | `GET /api/market/{awards,area,prevailing}` | price check: federal awards, BLS wage + indexes, NV prevailing wage hint |
 | `GET /api/market/watch` | Pro: what the price/award watch looks at, last and next check (`{ locked: true, … }` otherwise) |
 | `POST /api/estimate`, `GET /api/estimates?bidId=` | Pro cost check: `EstimateRequest` → price, build-up, cash carried, limits, sources, or `needed`; saved per profile. 402 `premium_required` without the feature; a job over 3650 days is 400; 30 checks a minute per profile, then 429 |
-| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch` | operator routes (`x-admin-token`). `POST /api/admin/scan?quiet=1` (or body `{"quiet": true}`) stores and scores but announces nothing: no 'match' alert, no push, and those bids never enter a digest |
+| `POST /api/admin/scan`, `/api/admin/market/refresh`, `/api/admin/plan`, `GET /api/admin/market/watch`, `GET /api/admin/usage` | operator routes (`x-admin-token`). `GET /api/admin/usage`: counts only, for the last 7 and 28 days: return visits and the days (and mornings) with a decision, each on the person's own calendar; minutes from a match alert to the first decision, saves per alert, bids opened from "Bid on …", alerts read, alert opt-outs (phone alerts and each kind), local jobs. `POST /api/admin/scan?quiet=1` (or body `{"quiet": true}`) stores and scores but announces nothing: no 'match' alert, no push, and those bids never enter a digest |
 | `GET /api/cron/{scan,market,tick}` | serverless scheduler (`Authorization: Bearer $CRON_SECRET`; 404 without it); `scan?group=…&quiet=1` is a quiet scan; `tick` also settles local jobs and sends the "2 days left to make contact" reminders |
 | `GET /api/jobs/rules` | local jobs (accounts mode; 404 in single mode): fee rates, contact days, limits, `paymentsOn: false`. No sign-in needed |
 | `POST /api/jobs {title, description, trades, zip, address?, phone?, budgetMaxCents?, closesInDays}` | post a job → 201 `{job}`; scored at once for nearby workers ('match' alerts) |

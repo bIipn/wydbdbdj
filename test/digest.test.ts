@@ -4,7 +4,7 @@
  * scored at the capture time; the SAM.gov notice is the real J061 notice of the 2026-11-13 scan (its fields copied).
  */
 import { describe, expect, it } from 'vitest';
-import { buildDigest, digestHeadline, digestReasons } from '../src/notify/digest.js';
+import { buildDigest, digestHeadline, digestReasons, dueLabel } from '../src/notify/digest.js';
 import { loadProfile } from '../src/profiles.js';
 import { finalizeBid } from '../src/scan.js';
 import { scoreBid } from '../src/score/score.js';
@@ -68,6 +68,19 @@ describe('alert email', () => {
     const { html, text } = buildDigest(pilot, [CELL_DOORS, GENERATOR], 'https://example.com/app', CAPTURED);
     expect(html).not.toContain('within 90 mi');
     expect(text).toContain('2 new matches (1 with no known distance)');
+  });
+
+  it('a bid with no due date says how fresh it is, as the app does: the day it was last seen on the board (Pacific)', () => {
+    // 2026-11-18 06:30 UTC is still Tuesday the 17th in Pacific time.
+    expect(dueLabel(null, CAPTURED, '2026-11-18T06:30:00.000Z')).toBe('No due date · Seen on the board Tue, Nov 17');
+    expect(dueLabel(null, CAPTURED, null)).toBe('No due date · Check the bid'); // never a made-up day
+    expect(dueLabel(null, CAPTURED, 'not a date')).toBe('No due date · Check the bid');
+    const open = { ...GENERATOR, dueAt: null, lastSeenAt: '2026-11-18T16:00:00.000Z' };
+    const { html, text } = buildDigest(pilot, [open], 'https://example.com/app', CAPTURED);
+    expect(html).toContain('No due date · Seen on the board Wed, Nov 18');
+    expect(text).toContain('No due date · Seen on the board Wed, Nov 18');
+    // A due date is never replaced.
+    expect(dueLabel('2026-11-24T18:00:00.000Z', new Date('2026-11-18T20:00:00.000Z'), '2026-11-18T16:00:00.000Z')).toBe('Due in 5 days · Nov 24, 10:00 AM PT');
   });
 
   it('escapes what the boards wrote', () => {

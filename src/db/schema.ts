@@ -245,9 +245,10 @@ create index if not exists auth_attempts_expires_idx on auth_attempts (expires_a
 alter table push_subscriptions add column if not exists last_fail_at timestamptz;
 alter table push_subscriptions add column if not exists failed_status integer;
 
--- GET /api/admin/usage (docs/PLAN.md N11). The days an account used the app: one row per account per UTC day it
--- made a signed-in request (the app asks only while it is on screen), nothing else: no time, page, address or
--- device. Written once a day per account per server instance (src/db/usage.ts recordVisitDay); it goes with the account.
+-- GET /api/admin/usage (docs/PLAN.md N11). The days an account used the app: one row per account per day it made a
+-- signed-in request (its own calendar day: the alert clock, else Pacific; not the live stream; the polling app asks
+-- only while it is on screen), nothing else: no time, page, address or device. Each server instance asks at most once a day per account (src/db/usage.ts
+-- createVisitLog), and a second insert the same day writes nothing. It goes with the account (web/privacy.html).
 create table if not exists account_days (
   account_id  text not null references accounts(id) on delete cascade,
   day         date not null,

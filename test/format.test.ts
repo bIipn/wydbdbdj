@@ -23,7 +23,7 @@ describe('a bid with no due date says how fresh it is (N4)', () => {
     expect(due.detail).toBe('Seen on the board Tue, Nov 17'); // a list row: "No due date · Seen on the board Tue, Nov 17"
     expect(due.line).toBe('No due date · Seen on the board Tue, Nov 17');
     // A half-width fact tile (the card, the sheet): the short form, one line at 390 px.
-    expect(due.small).toBe('Seen Tue, Nov 17');
+    expect(due.small).toBe('Still listed Tue, Nov 17');
     expect(due).toMatchObject({ urgent: false, days: Infinity }); // sorts last, never "urgent"
   });
 
@@ -31,7 +31,7 @@ describe('a bid with no due date says how fresh it is (N4)', () => {
     const at = '2026-11-18T06:30:00.000Z';
     expect(f.dueInfo(null, { at, timeZone: NV }).line).toBe('No due date · Seen on the board Tue, Nov 17');
     expect(f.dueInfo(null, { at, timeZone: 'America/New_York' }).line).toBe('No due date · Seen on the board Wed, Nov 18');
-    expect(f.dueInfo(null, { at, timeZone: 'Pacific/Honolulu' }).small).toBe('Seen Tue, Nov 17');
+    expect(f.dueInfo(null, { at, timeZone: 'Pacific/Honolulu' }).small).toBe('Still listed Tue, Nov 17');
   });
 
   it('a zone the browser does not know, or none, reads as Pacific (every other date in the app is Pacific)', () => {
@@ -56,6 +56,7 @@ describe('a bid with no due date says how fresh it is (N4)', () => {
     expect(due.detail).toBe(due.small);
     expect(due.line).toBe(`9 days left · ${due.small}`);
     expect(due.line).not.toContain('Seen');
+    expect(due.small).not.toContain('Still listed');
     expect(f.dueInfo(new Date(Date.now() - 1000).toISOString(), { at: SEEN, timeZone: NV }).big).toBe('Closed');
   });
 });

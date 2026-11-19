@@ -1,12 +1,23 @@
 import type { FeedItem, Profile, Reason } from '../types.js';
 import { formatRange } from '../util/money.js';
-import { pacificParts } from '../util/time.js';
+import { PACIFIC, pacificParts } from '../util/time.js';
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-export function dueLabel(iso: string | null, now = new Date()): string {
-  if (!iso) return 'No deadline listed';
+const WEEKDAY = new Intl.DateTimeFormat('en-US', { timeZone: PACIFIC, weekday: 'short' });
+
+/**
+ * "Due tomorrow · Nov 24, 10:00 AM PT"; a bid with no due date says how fresh it is (docs/PLAN.md R5, as the app's
+ * rows do: web/js/format.js dueInfo): "No due date · Seen on the board Tue, Nov 17", the day in Pacific time.
+ */
+export function dueLabel(iso: string | null, now = new Date(), lastSeenAt?: string | null): string {
+  if (!iso) {
+    const seen = lastSeenAt ? new Date(lastSeenAt) : null;
+    if (!seen || !Number.isFinite(seen.getTime())) return 'No due date · Check the bid';
+    const p = pacificParts(seen);
+    return `No due date · Seen on the board ${WEEKDAY.format(seen)}, ${MONTHS[p.mo - 1]} ${p.d}`;
+  }
   const d = new Date(iso);
   const p = pacificParts(d);
   const days = Math.floor((d.getTime() - now.getTime()) / 86_400_000);
@@ -64,7 +75,7 @@ export function buildDigest(profile: Profile, items: FeedItem[], appUrl: string,
           ${b.score} · ${esc(b.verdict)} fit · ${esc(b.sourceName)}</div>
         <div style="font:600 16px system-ui,sans-serif;color:#111827;margin:4px 0">${esc(b.title)}</div>
         <div style="font:13px system-ui,sans-serif;color:#4b5563">${meta}</div>
-        <div style="font:13px system-ui,sans-serif;color:#111827;margin:6px 0">${esc(dueLabel(b.dueAt, now))}</div>
+        <div style="font:13px system-ui,sans-serif;color:#111827;margin:6px 0">${esc(dueLabel(b.dueAt, now, b.lastSeenAt))}</div>
         ${lines.length ? `<div style="font:13px system-ui,sans-serif;line-height:1.45">${lines.map((r) => `<span style="color:${MARK[r.kind].color}">${MARK[r.kind].sign} ${esc(r.text)}</span>`).join('<br>')}</div>` : ''}
         <div style="margin-top:10px"><a href="${esc(b.url)}" style="font:600 13px system-ui,sans-serif;color:#1d4ed8">Open bid on ${esc(b.sourceName)} →</a></div>
       </td></tr>`;
@@ -91,7 +102,7 @@ export function buildDigest(profile: Profile, items: FeedItem[], appUrl: string,
       [
         `[${b.score} ${b.verdict}] ${b.title}`,
         `  ${[b.agency, b.location.label, b.distanceMi != null ? `${b.distanceMi} mi` : null].filter(Boolean).join(' · ')}`,
-        `  ${dueLabel(b.dueAt, now)}`,
+        `  ${dueLabel(b.dueAt, now, b.lastSeenAt)}`,
         ...digestReasons(b.reasons).map((r) => `  ${MARK[r.kind].sign} ${r.text}`),
         `  ${b.url}`,
       ].join('\n'),
